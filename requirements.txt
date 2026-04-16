@@ -1,0 +1,8 @@
+kiteconnect
+pandas
+numpy
+requests
+psycopg2-binary
+python-dotenv
+openai
+google-generativeai
