@@ -138,6 +138,29 @@ PAGE_TEMPLATE = """
       gap: 14px;
       align-items: end;
     }
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .quick-link.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(31,111,95,0.24);
+    }
     label {
       display: block;
       font-size: 13px;
@@ -299,6 +322,16 @@ PAGE_TEMPLATE = """
       {% if error %}
       <div class="error">{{ error }}</div>
       {% endif %}
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-ohlc?symbols={{ request_symbols|urlencode }}&date={{ today_date }}&start={{ start_time }}&end={{ end_time }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-ohlc?symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}">
+          Yesterday
+        </a>
+      </div>
     </section>
 
     <section class="card" style="margin-top: 18px;">
@@ -306,15 +339,15 @@ PAGE_TEMPLATE = """
       <div class="legend">
         <div class="legend-item">
           <strong>Above OR High</strong>
-          Price moved above the opening range high after the selected time window. This is a bullish breakout signal.
+          Green means bullish breakout. Price moved above the opening range high after the selected time window.
         </div>
         <div class="legend-item">
           <strong>Below OR Low</strong>
-          Price moved below the opening range low after the selected time window. This is a bearish breakdown signal.
+          Red means bearish breakdown. Price moved below the opening range low after the selected time window.
         </div>
         <div class="legend-item">
           <strong>Inside Range</strong>
-          Price is still trading between the opening range high and low, so no breakout is confirmed yet.
+          Yellow means price is still inside the opening range, so no breakout is confirmed yet.
         </div>
       </div>
     </section>
@@ -426,6 +459,10 @@ def is_market_open():
 
 def get_today_ist():
     return datetime.datetime.now(APP_TZ).date()
+
+
+def get_yesterday_ist():
+    return get_today_ist() - datetime.timedelta(days=1)
 
 
 def parse_symbol_list(raw_symbols):
@@ -741,6 +778,8 @@ def equity_ohlc():
         symbols=symbols,
         request_symbols=raw_symbols,
         selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
         start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
         end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
     )
