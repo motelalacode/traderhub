@@ -828,49 +828,5 @@ def equity_ohlc_api():
         }
     )
 
-
-@app.route("/debug-kite")
-def debug_kite():
-    creds = get_active_kite_credentials()
-
-    if not creds["api_key"]:
-        return jsonify({"ok": False, "error": "KITE_API_KEY is missing in .env"}), 500
-    if not creds["api_secret"]:
-        return jsonify({"ok": False, "error": "KITE_API_SECRET is missing in .env"}), 500
-    if not creds["access_token"]:
-        return jsonify({"ok": False, "error": "KITE_ACCESS_TOKEN is missing in .env"}), 500
-
-    try:
-        debug_client = build_kite_client(with_access_token=True)
-        profile = debug_client.profile()
-        margins = debug_client.margins()
-
-        return jsonify(
-            {
-                "ok": True,
-                "message": "Zerodha credentials are valid.",
-                "token_source": "memory" if CURRENT_ACCESS_TOKEN else "env",
-                "profile": {
-                    "user_id": profile.get("user_id"),
-                    "user_name": profile.get("user_name"),
-                    "email": profile.get("email"),
-                    "broker": profile.get("broker"),
-                },
-                "margin_segments": list(margins.keys()) if isinstance(margins, dict) else [],
-            }
-        )
-    except Exception as exc:
-        return jsonify(
-            {
-                "ok": False,
-                "error": str(exc),
-                "token_source": "memory" if CURRENT_ACCESS_TOKEN else "env",
-                "api_key_suffix": creds["api_key"][-4:] if creds["api_key"] else None,
-                "access_token_suffix": creds["access_token"][-6:] if creds["access_token"] else None,
-                "hint": "Login again from /login and confirm .env received a fresh KITE_ACCESS_TOKEN.",
-            }
-        ), 500
-
-
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8001, debug=True)
