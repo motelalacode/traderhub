@@ -8,3 +8,5 @@ openai
 google-generativeai
 flask
 python-jose
+gunicorn
+
