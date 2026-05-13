@@ -1,0 +1,205 @@
+TRADERHUB / CRUDEOILBOT - HOW TO USE
+
+Project location:
+C:\PBS\traderhub\crudeoilBOT
+
+What this project does:
+- Starts a small web app for Zerodha login.
+- Saves the Zerodha access token into the local .env file.
+- Connects to live market data through KiteTicker.
+- Tracks USDINR and CRUDE prices.
+- Generates sync/divergence alerts.
+- Sends alerts to Telegram.
+- Saves price data and signals into PostgreSQL.
+
+IMPORTANT CURRENT NOTE
+- The code structure is now cleaned up and syntax-checked.
+- The local virtual environment in this folder is currently broken on this machine because its Python points to a missing base install.
+- You may need to recreate the venv before running the app locally.
+
+FILES YOU SHOULD KNOW
+- app\main.py
+  Zerodha login web app.
+- app\data_engine.py
+  Live ticker listener.
+- app\signal_engine.py
+  Signal generation logic.
+- app\db.py
+  PostgreSQL inserts.
+- app\alert_engine.py
+  Telegram alerts.
+- app\ai_engine.py
+  OpenAI/Gemini insight generation.
+- .env
+  All secrets and environment settings.
+
+.ENV VALUES REQUIRED
+Make sure the .env file contains these keys:
+
+KITE_API_KEY=
+KITE_API_SECRET=
+KITE_ACCESS_TOKEN=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+DB_HOST=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+DB_PORT=
+TELEGRAM_TOKEN=
+TELEGRAM_CHAT_ID=
+
+WHAT EACH PART DOES
+1. Web login app
+- Route: /
+- Route: /login
+- Route: /callback
+- Route: /ltp
+
+2. Live bot
+- Reads live ticks from Zerodha WebSocket.
+- Pushes prices into memory lists.
+- Computes EMA9, EMA21, and a cumulative average used as VWAP fallback.
+- Sends Telegram alerts when conditions match.
+
+HOW TO RUN ON WINDOWS
+If Python is installed and available:
+
+1. Open PowerShell in:
+   C:\PBS\traderhub\crudeoilBOT
+
+2. Create a fresh virtual environment if needed:
+   py -3.11 -m venv venv
+
+3. Activate it:
+   .\venv\Scripts\Activate.ps1
+
+4. Install dependencies:
+   pip install -r requirements.txt
+
+5. Start the login web app:
+   python -m app.main
+
+6. Open in browser:
+   http://127.0.0.1:8001/
+
+7. Click "Login with Zerodha".
+
+8. Finish Zerodha login.
+- After success, the callback route updates KITE_ACCESS_TOKEN inside .env.
+
+9. In a second terminal, start the live bot:
+   python -m app.data_engine
+
+HOW TO RUN ON LINUX SERVER
+From the project folder:
+
+1. Create or activate venv.
+2. Install dependencies:
+   pip install -r requirements.txt
+3. Start web app:
+   python -m app.main
+4. Start data engine in another session:
+   python -m app.data_engine
+
+WEB APP ROUTES
+- /           -> Home page with Zerodha login link
+- /login      -> Redirects to Zerodha login
+- /callback   -> Receives request_token and saves access token
+- /ltp        -> Returns sample LTP response if market is open
+
+WHAT YOU MUST CONFIGURE BEFORE LIVE USE
+1. Real instrument tokens
+- app\data_engine.py currently uses placeholder values:
+  USDINR = 123456
+  CRUDE = 654321
+- Replace them with real Zerodha instrument tokens before live trading use.
+- You can search instruments from this project with:
+  python -m app.find_instruments
+- You can also search specific terms:
+  python -m app.find_instruments USDINR CRUDEOIL
+- Copy the correct instrument_token values into app\data_engine.py.
+
+2. Database tables
+- This project expects PostgreSQL tables named:
+  price_data
+  signals
+
+3. Telegram bot
+- TELEGRAM_TOKEN and TELEGRAM_CHAT_ID must be valid.
+
+4. AI key
+- OPENAI_API_KEY or GEMINI_API_KEY should be set.
+- If OpenAI is unavailable, the code falls back to Gemini.
+
+EXPECTED FLOW
+1. Start app.main
+2. Login through Zerodha
+3. Token is saved to .env
+4. Start app.data_engine
+5. WebSocket starts receiving ticks
+6. Prices are inserted into DB
+7. Signal engine evaluates market behavior
+8. Alerts are sent to Telegram
+9. Signals are stored in DB
+
+CURRENT LIMITATIONS
+- The app does not place trades. It generates alerts and stores signal data.
+- The /ltp route currently checks NSE:INFY only as a sample endpoint.
+- The bot uses placeholder instrument tokens unless you update them.
+- The run.sh file only starts the Flask app, not the live data engine.
+
+TROUBLESHOOTING
+Problem: python command not found
+- Use:
+  py -3.11
+  or install Python and add it to PATH.
+
+Problem: venv activation blocked in PowerShell
+- Run:
+  Set-ExecutionPolicy -Scope Process Bypass
+
+Problem: Zerodha login works but bot still fails
+- Check that KITE_ACCESS_TOKEN was actually updated in .env.
+- If you see WebSocket 403 Forbidden, generate a fresh token by logging in again from:
+  http://127.0.0.1:8001/
+- The access token must match the same KITE_API_KEY.
+
+Problem: No DB inserts
+- Verify DB_HOST, DB_NAME, DB_USER, DB_PASSWORD, DB_PORT.
+- Confirm PostgreSQL is running.
+- Confirm the tables exist.
+
+Problem: No Telegram alert
+- Check TELEGRAM_TOKEN and TELEGRAM_CHAT_ID.
+
+Problem: No live signal
+- Confirm real instrument tokens are configured.
+- Confirm enough ticks have arrived.
+- The signal engine waits for at least 20 data points.
+
+NEW STARTUP CHECK
+- app.data_engine now prints startup warnings if:
+  KITE_API_KEY is missing
+  KITE_ACCESS_TOKEN is missing
+  instrument tokens are still placeholders
+
+MINIMUM COMMANDS TO REMEMBER
+Start web login app:
+python -m app.main
+
+Start live data engine:
+python -m app.data_engine
+
+Find instrument tokens:
+python -m app.find_instruments
+
+Open browser:
+http://127.0.0.1:8001/
+
+RECOMMENDED NEXT IMPROVEMENTS
+- Add a single launcher that starts both services.
+- Add proper logging.
+- Add startup validation for missing .env keys.
+- Replace placeholder instrument tokens with real ones.
+- Add SQL schema files for required tables.

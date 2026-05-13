@@ -1,0 +1,182 @@
+DEPLOY bot.traderhub.in ON SERVER 143.244.130.217
+
+Goal
+- Run the updated Flask app on the server.
+- Use the same host for /login, /callback, /debug-kite, and /equity-ohlc.
+- Publish the new OHLC page online at:
+  https://bot.traderhub.in/
+
+Assumed server paths
+- App root: /var/www/traderhub
+- Python package folder: /var/www/traderhub/app
+- Virtualenv: /var/www/traderhub/venv
+
+WHY LOCAL TESTING FAILED
+- Zerodha login callback was landing on:
+  https://bot.traderhub.in/callback
+- But you were opening debug/ohlc locally on:
+  http://127.0.0.1:8001
+- That split the login session and the API session across two different environments.
+- So the final fix is to run and test everything on the live server host.
+
+STEP 1: COPY UPDATED CODE TO SERVER
+Make sure these files on the server match the current local versions:
+
+- app/main.py
+- app/config.py
+- app/data_engine.py
+- app/find_instruments.py
+- app/ai_engine.py
+- app/db.py
+- app/indicators.py
+- app/alert_engine.py
+- requirements.txt
+
+If using git on the server:
+1. cd /var/www/traderhub
+2. git pull
+
+If copying manually:
+1. Upload the changed files to /var/www/traderhub
+
+STEP 2: SSH INTO SERVER
+Example:
+ssh root@143.244.130.217
+
+STEP 3: GO TO PROJECT
+cd /var/www/traderhub
+
+STEP 4: ACTIVATE VENV
+source venv/bin/activate
+
+STEP 5: INSTALL OR UPDATE PACKAGES
+pip install -r requirements.txt
+
+If uvicorn is used on this server:
+pip install uvicorn
+
+STEP 6: CHECK .ENV
+Open /var/www/traderhub/.env and confirm:
+
+KITE_API_KEY=
+KITE_API_SECRET=
+KITE_ACCESS_TOKEN=
+OPENAI_API_KEY=
+GEMINI_API_KEY=
+DB_HOST=
+DB_NAME=
+DB_USER=
+DB_PASSWORD=
+DB_PORT=
+TELEGRAM_TOKEN=
+TELEGRAM_CHAT_ID=
+
+STEP 7: START THE APP MANUALLY FIRST
+From /var/www/traderhub:
+
+python -m app.main
+
+OR if you prefer uvicorn:
+uvicorn app.main:app --host 0.0.0.0 --port 8001
+
+STEP 8: TEST LIVE ROUTES
+Open these in browser:
+
+1. https://bot.traderhub.in/login
+2. Finish Zerodha login
+3. Confirm callback page says login successful
+4. https://bot.traderhub.in/debug-kite
+5. https://bot.traderhub.in/
+
+Expected result:
+- /debug-kite should return:
+  "ok": true
+- / should open the equity OHLC page
+
+STEP 9: OPEN THE NEW OHLC PAGE
+Default page:
+https://bot.traderhub.in/
+
+Direct equity page:
+https://bot.traderhub.in/equity-ohlc
+
+Example query:
+https://bot.traderhub.in/equity-ohlc?symbols=IOC,PNB&date=2026-05-14&start=09:15&end=09:30
+
+API version:
+https://bot.traderhub.in/api/equity-ohlc?symbols=IOC,PNB&date=2026-05-14&start=09:15&end=09:30
+
+STEP 10: RUN IN BACKGROUND
+If you are not yet using systemd or supervisor, test with screen first:
+
+screen -S traderhub
+cd /var/www/traderhub
+source venv/bin/activate
+python -m app.main
+
+Detach:
+Ctrl+A then D
+
+Reattach:
+screen -r traderhub
+
+STEP 11: NGINX / REVERSE PROXY
+bot.traderhub.in should reverse proxy to port 8001.
+
+Typical idea:
+- public domain: bot.traderhub.in
+- upstream app: 127.0.0.1:8001
+
+If Nginx already exists, confirm its site config points bot.traderhub.in to:
+http://127.0.0.1:8001
+
+STEP 12: BEST PRODUCTION SETUP
+Preferred later:
+- gunicorn or uvicorn behind nginx
+- systemd service for auto restart
+
+Basic systemd example idea:
+- service name: traderhub-bot.service
+- working directory: /var/www/traderhub
+- command: /var/www/traderhub/venv/bin/python -m app.main
+
+CURRENT LIVE PAGE BEHAVIOR
+- / redirects to /equity-ohlc
+- /login redirects to Zerodha
+- /callback saves fresh KITE_ACCESS_TOKEN
+- /debug-kite tests whether current live credentials work
+- /equity-ohlc shows OHLC and minute candles for requested NSE stocks
+
+IMPORTANT NOTES
+- The OHLC page uses Zerodha historical minute candles.
+- The stock symbols must exist on NSE, for example IOC and PNB.
+- Date and time are interpreted in Asia/Kolkata.
+- If Zerodha token expires, login again from:
+  https://bot.traderhub.in/login
+
+FAST TROUBLESHOOTING
+Problem: /debug-kite says incorrect api_key or access_token
+- Login again from https://bot.traderhub.in/login
+- Make sure callback returns to the same domain
+- Confirm /var/www/traderhub/.env gets a fresh KITE_ACCESS_TOKEN
+
+Problem: page opens but no data
+- Check that the selected date had market trading
+- Check symbol exists on NSE
+- Try one stock first:
+  IOC
+
+Problem: domain opens old app
+- Restart the app process
+- Confirm code was actually updated on the server
+- Confirm nginx is pointing to port 8001
+
+IF YOU WANT ME TO HELP WITH SERVER COMMANDS
+Send me:
+1. SSH username for 143.244.130.217
+2. Whether code is at /var/www/traderhub
+3. Whether nginx is already configured for bot.traderhub.in
+4. Output of:
+   pwd
+   ls -la /var/www/traderhub
+   cat /etc/nginx/sites-enabled/* | grep -n "bot.traderhub.in"
