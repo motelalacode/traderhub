@@ -110,6 +110,25 @@ PAGE_TEMPLATE = """
       margin: 0 0 12px;
       font-size: 26px;
     }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .legend-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    .legend-item strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
     .muted {
       color: var(--muted);
     }
@@ -280,6 +299,24 @@ PAGE_TEMPLATE = """
       {% if error %}
       <div class="error">{{ error }}</div>
       {% endif %}
+    </section>
+
+    <section class="card" style="margin-top: 18px;">
+      <h2>How To Read It</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>Above OR High</strong>
+          Price moved above the opening range high after the selected time window. This is a bullish breakout signal.
+        </div>
+        <div class="legend-item">
+          <strong>Below OR Low</strong>
+          Price moved below the opening range low after the selected time window. This is a bearish breakdown signal.
+        </div>
+        <div class="legend-item">
+          <strong>Inside Range</strong>
+          Price is still trading between the opening range high and low, so no breakout is confirmed yet.
+        </div>
+      </div>
     </section>
 
     {% if results %}
