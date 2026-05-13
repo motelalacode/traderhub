@@ -615,6 +615,16 @@ def get_equity_ohlc(symbols, selected_date, start_time, end_time):
                         "close": "-",
                         "candle_count": 0,
                     },
+                    "breakout": {
+                        "label": "No Data",
+                        "badge_class": "status-neutral",
+                        "last_price": "-",
+                        "last_time": None,
+                        "or_high": "-",
+                        "or_low": "-",
+                        "range_size": "-",
+                        "breakout_gap": "-",
+                    },
                     "candles": [],
                 }
             )
