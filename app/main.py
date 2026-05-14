@@ -12,6 +12,13 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DEFAULT_SYMBOLS = ["IOC", "PNB"]
 SCANNER_DEFAULT_SYMBOLS = ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"]
+WATCHLISTS = {
+    "psu_bank": ["PNB", "SBIN", "BANKBARODA", "CANBK", "UNIONBANK"],
+    "oil_gas": ["IOC", "BPCL", "HPCL", "ONGC", "RELIANCE"],
+    "nifty_leaders": ["RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS"],
+    "auto": ["TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "HEROMOTOCO"],
+    "my_intraday": ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"],
+}
 DEFAULT_START = "09:15"
 DEFAULT_END = "09:30"
 CURRENT_ACCESS_TOKEN = None
@@ -862,6 +869,501 @@ SCANNER_TEMPLATE = """
 </html>
 """
 
+WATCHLIST_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Watchlists</title>
+  <style>
+    :root {
+      --bg: #f2ede2;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --accent-soft: #dbece7;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at right top, rgba(31,111,95,0.1), transparent 28%),
+        linear-gradient(180deg, #fbf7ef 0%, #eee5d8 100%);
+    }
+    .page {
+      max-width: 1360px;
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 {
+      margin: 0;
+      font-size: 40px;
+      line-height: 1;
+    }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 900px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 24px;
+    }
+    .toolbar-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      align-items: end;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .watch-link, .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    button {
+      color: #fff;
+      background: var(--accent);
+    }
+    .watch-links, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .watch-link, .quick-link {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .watch-link.active, .quick-link.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(31,111,95,0.24);
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .summary-box {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    .summary-box strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .summary-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .scanner-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1180px;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr {
+      cursor: pointer;
+    }
+    tbody tr:hover {
+      background: rgba(31,111,95,0.06);
+    }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover {
+      color: var(--ink);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up {
+      background: var(--up-soft);
+      color: var(--up);
+    }
+    .badge-down {
+      background: var(--down-soft);
+      color: var(--down);
+    }
+    .badge-neutral {
+      background: var(--neutral-soft);
+      color: var(--neutral);
+    }
+    .badge-info {
+      background: var(--info-soft);
+      color: var(--info);
+    }
+    .symbol-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .symbol-link:hover {
+      text-decoration: underline;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .ai-text {
+      max-width: 320px;
+      line-height: 1.45;
+    }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+    .legend-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    .legend-item strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Equity Watchlists</h1>
+      <p class="sub">
+        A daily-driver page with saved watchlists, ORB scanner signals, and timed auto-refresh. Use the watchlist buttons
+        for one-click baskets, or type your own symbols and let the table refresh itself during market hours.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Range: {{ start_time }} to {{ end_time }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Saved Watchlists</h2>
+      <div class="watch-links">
+        {% for watch in watchlists %}
+        <a class="watch-link {{ 'active' if watch.key == active_watchlist else '' }}"
+           href="/equity-watchlists?watchlist={{ watch.key }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          {{ watch.label }}
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Watchlist Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN,RELIANCE">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit">Open Watchlist</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-watchlists?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-watchlists?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Watchlist Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <strong>Bullish Breakouts</strong>
+          <div class="summary-value">{{ summary.above_count }}</div>
+          <div class="muted">Above OR high</div>
+        </div>
+        <div class="summary-box">
+          <strong>Bearish Breakdowns</strong>
+          <div class="summary-value">{{ summary.below_count }}</div>
+          <div class="muted">Below OR low</div>
+        </div>
+        <div class="summary-box">
+          <strong>Inside Range</strong>
+          <div class="summary-value">{{ summary.inside_count }}</div>
+          <div class="muted">Still inside opening range</div>
+        </div>
+        <div class="summary-box">
+          <strong>Volume Confirmed</strong>
+          <div class="summary-value">{{ summary.high_volume_count }}</div>
+          <div class="muted">High-volume names</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How To Use The Page</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>Watchlist Buttons</strong>
+          Use one-click baskets like PSU banks, oil & gas, or your own intraday set to avoid typing symbols every session.
+        </div>
+        <div class="legend-item">
+          <strong>Auto Refresh</strong>
+          Pick 15s, 30s, or 60s to keep the page updating during market hours. Use Off when you want a static review snapshot.
+        </div>
+        <div class="legend-item">
+          <strong>Click Through</strong>
+          Click any row or symbol to jump into the detailed OHLC page for that stock with the same date and range.
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Watchlist Table</h2>
+      <div class="scanner-wrap">
+        <table id="watchlist-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-key="symbol">Symbol</th>
+              <th class="sortable" data-key="orb_sort">ORB Status</th>
+              <th class="sortable" data-key="last_price">Latest Price</th>
+              <th class="sortable" data-key="breakout_gap">Breakout Gap</th>
+              <th class="sortable" data-key="vwap_sort">VWAP Status</th>
+              <th class="sortable" data-key="volume_ratio">Volume Status</th>
+              <th class="sortable" data-key="or_high">OR High</th>
+              <th class="sortable" data-key="or_low">OR Low</th>
+              <th class="sortable" data-key="range_size">Range Size</th>
+              <th>AI Suggestion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in scanner_rows %}
+            <tr onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}'">
+              <td data-sort="{{ row.symbol }}">
+                <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+              </td>
+              <td data-sort="{{ row.orb_sort }}">
+                <span class="badge {{ row.orb_badge }}">{{ row.orb_status }}</span>
+              </td>
+              <td data-sort="{{ row.last_price_numeric }}">{{ row.last_price }}</td>
+              <td data-sort="{{ row.breakout_gap_numeric }}">
+                <span class="badge {{ row.breakout_gap_badge }}">{{ row.breakout_gap }}</span>
+              </td>
+              <td data-sort="{{ row.vwap_sort }}">
+                <span class="badge {{ row.vwap_badge }}">{{ row.vwap_status }}</span>
+              </td>
+              <td data-sort="{{ row.volume_ratio_numeric }}">
+                <span class="badge {{ row.volume_badge }}">{{ row.volume_status }}</span>
+              </td>
+              <td data-sort="{{ row.or_high_numeric }}">{{ row.or_high }}</td>
+              <td data-sort="{{ row.or_low_numeric }}">{{ row.or_low }}</td>
+              <td data-sort="{{ row.range_size_numeric }}">{{ row.range_size }}</td>
+              <td class="ai-text">{{ row.ai_suggestion }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+  <script>
+    (function () {
+      const table = document.getElementById("watchlist-table");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      const headers = table.querySelectorAll("th.sortable");
+      let currentKey = null;
+      let ascending = false;
+
+      function getCellValue(row, index) {
+        const cell = row.children[index];
+        return cell ? cell.dataset.sort || cell.textContent.trim() : "";
+      }
+
+      headers.forEach((header, index) => {
+        header.addEventListener("click", () => {
+          const key = header.dataset.key;
+          ascending = currentKey === key ? !ascending : false;
+          currentKey = key;
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          rows.sort((a, b) => {
+            const aValue = getCellValue(a, index);
+            const bValue = getCellValue(b, index);
+            const aNumber = Number(aValue);
+            const bNumber = Number(bValue);
+            let result = 0;
+
+            if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+              result = aNumber - bNumber;
+            } else {
+              result = aValue.localeCompare(bValue);
+            }
+
+            return ascending ? result : -result;
+          });
+          rows.forEach((row) => tbody.appendChild(row));
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+"""
+
 
 def is_market_open():
     now = datetime.datetime.now(APP_TZ).time()
@@ -1041,6 +1543,55 @@ def build_empty_scanner_row(symbol, reason):
         "range_size": "-",
         "range_size_numeric": -1,
         "ai_suggestion": f"{symbol}: {reason}.",
+    }
+
+
+def get_watchlist_options():
+    return [
+        {"key": key, "label": key.replace("_", " ").title()}
+        for key in WATCHLISTS
+    ]
+
+
+def get_refresh_options():
+    return [
+        {"value": 0, "label": "Off"},
+        {"value": 15, "label": "15 seconds"},
+        {"value": 30, "label": "30 seconds"},
+        {"value": 60, "label": "60 seconds"},
+    ]
+
+
+def parse_refresh_seconds(value):
+    try:
+        refresh_seconds = int(value or 0)
+    except (TypeError, ValueError):
+        return 0
+
+    allowed_values = {0, 15, 30, 60}
+    return refresh_seconds if refresh_seconds in allowed_values else 0
+
+
+def get_symbols_for_watchlist(active_watchlist, raw_symbols):
+    custom_symbols = parse_symbol_list(raw_symbols)
+    if custom_symbols:
+        return custom_symbols
+    if active_watchlist in WATCHLISTS:
+        return WATCHLISTS[active_watchlist]
+    return SCANNER_DEFAULT_SYMBOLS
+
+
+def build_watchlist_summary(scanner_rows):
+    above_count = sum(1 for row in scanner_rows if row["orb_status"] == "Above OR High")
+    below_count = sum(1 for row in scanner_rows if row["orb_status"] == "Below OR Low")
+    inside_count = sum(1 for row in scanner_rows if row["orb_status"] == "Inside Range")
+    high_volume_count = sum(1 for row in scanner_rows if row["volume_status"].startswith("High Volume"))
+
+    return {
+        "above_count": above_count,
+        "below_count": below_count,
+        "inside_count": inside_count,
+        "high_volume_count": high_volume_count,
     }
 
 
@@ -1434,6 +1985,67 @@ def equity_scanner():
         yesterday_date=get_yesterday_ist().isoformat(),
         start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
         end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+    )
+
+
+@app.route("/equity-watchlists")
+def equity_watchlists():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+
+    error = None
+    scanner_rows = []
+
+    try:
+        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+        selected_date = parse_date(raw_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if end_time <= start_time:
+            raise ValueError("End time must be after start time.")
+
+        scanner_rows, missing = get_intraday_scanner_rows(symbols, selected_date, start_time, end_time)
+        if missing:
+            missing_text = ", ".join(missing)
+            error = f"Could not find NSE equity symbols: {missing_text}"
+    except Exception as exc:
+        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols) or SCANNER_DEFAULT_SYMBOLS
+        selected_date = raw_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+
+    return render_template_string(
+        WATCHLIST_TEMPLATE,
+        scanner_rows=scanner_rows,
+        summary=build_watchlist_summary(scanner_rows),
+        error=error,
+        symbols=symbols,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
     )
 
 
