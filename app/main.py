@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 from functools import lru_cache
 from pathlib import Path
@@ -12,6 +13,9 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 from app.symbol_resolver import load_symbol_master, resolve_symbol_list
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
+DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
+ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 DEFAULT_SYMBOLS = ["IOC", "PNB"]
 SCANNER_DEFAULT_SYMBOLS = ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"]
 WATCHLISTS = {
@@ -4914,12 +4918,13 @@ ARBITRAGE_TEMPLATE = """
       box-shadow: 0 18px 44px rgba(24,32,39,0.07);
     }
     .card h2 { margin: 0 0 12px; font-size: 24px; }
-    .toolbar-grid, .summary-grid, .legend {
+    .toolbar-grid, .summary-grid, .legend, .mobile-card-grid {
       display: grid;
       gap: 14px;
     }
     .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .mobile-card-grid { grid-template-columns: 1fr; }
     label {
       display: block;
       font-size: 13px;
@@ -5075,32 +5080,22 @@ ARBITRAGE_TEMPLATE = """
       <h1>Cash Arbitrage Monitor</h1>
       <p class="sub">
         A tradable NSE-vs-BSE cash-equity arbitrage page that compares the best ask on the cheaper exchange against the best bid
-        on the richer exchange, then estimates net opportunity after brokerage and transaction taxes. Phase 1 uses the common NSE/BSE EQ universe and scans your selected symbols.
+        on the richer exchange, then estimates net opportunity after brokerage and transaction taxes. It scans the full common NSE/BSE
+        EQ cash universe automatically for today's market and keeps a short post-analysis archive for the last 3 days.
       </p>
       <div class="meta">
-        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Universe: {{ common_symbol_count }} common NSE/BSE EQ shares</div>
         <div class="pill">Capital: {{ capital_display }}</div>
         <div class="pill">Min Spread: {{ min_spread_display }}</div>
         <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
         <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+        <div class="pill">Archive Window: Last {{ archive_days }} days</div>
       </div>
     </section>
 
     <section class="card">
       <h2>Controls</h2>
       <form method="get" class="toolbar-grid">
-        <div>
-          <label for="watchlist">Watchlist</label>
-          <select id="watchlist" name="watchlist">
-            {% for watch in watchlists %}
-            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label for="symbols">Custom Symbols</label>
-          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
-        </div>
         <div>
           <label for="capital">Capital (INR)</label>
           <input id="capital" name="capital" value="{{ capital_display }}" placeholder="50000">
@@ -5128,6 +5123,12 @@ ARBITRAGE_TEMPLATE = """
           <button type="submit">Scan Arbitrage</button>
         </div>
       </form>
+      <div class="legend" style="margin-top: 14px;">
+        <div class="legend-item">
+          <strong>Automatic Universe</strong>
+          No watchlist is required here. The scanner now checks every share that appears in both NSE and BSE cash markets with EQ series handling.
+        </div>
+      </div>
       {% if error %}
       <div class="error">{{ error }}</div>
       {% endif %}
@@ -5140,6 +5141,7 @@ ARBITRAGE_TEMPLATE = """
         <div class="summary-box"><strong>Best Net Opportunity</strong><div class="summary-value">{{ summary.best_net_profit }}</div><div>Highest estimated net profit</div></div>
         <div class="summary-box"><strong>Total Net Potential</strong><div class="summary-value">{{ summary.total_net_profit }}</div><div>Across shown rows</div></div>
         <div class="summary-box"><strong>Liquidity Flags</strong><div class="summary-value">{{ summary.depth_limited_count }}</div><div>Rows limited by best-depth quantity</div></div>
+        <div class="summary-box"><strong>Scan Mode</strong><div class="summary-value">{{ scan_mode_label }}</div><div>Tradable best ask / best bid comparison</div></div>
       </div>
     </section>
 
@@ -5163,6 +5165,11 @@ ARBITRAGE_TEMPLATE = """
 
     <section class="card desktop-only">
       <h2>Arbitrage Table</h2>
+      {% if not arbitrage_rows %}
+      <div class="legend-item">
+        No net-positive tradable arbitrage met the current filter right now. The page will keep checking the full NSE/BSE EQ common universe while the market is open.
+      </div>
+      {% else %}
       <div class="table-wrap">
         <table>
           <thead>
@@ -5207,10 +5214,16 @@ ARBITRAGE_TEMPLATE = """
           </tbody>
         </table>
       </div>
+      {% endif %}
     </section>
 
     <section class="card mobile-only">
       <h2>Arbitrage Cards</h2>
+      {% if not arbitrage_rows %}
+      <div class="legend-item">
+        No live tradable arbitrage met the current filter right now. The scanner is still checking the common NSE/BSE EQ universe automatically.
+      </div>
+      {% else %}
       <div class="mobile-card-grid">
         {% for row in arbitrage_rows %}
         <div class="mobile-card">
@@ -5255,6 +5268,63 @@ ARBITRAGE_TEMPLATE = """
         </div>
         {% endfor %}
       </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Post Analysis: Last {{ archive_days }} Days</h2>
+      {% if post_analysis_groups %}
+        {% for group in post_analysis_groups %}
+        <div class="summary-box" style="margin-bottom: 14px;">
+          <strong>{{ group.day_label }}</strong>
+          <div style="margin-top: 8px; color: var(--muted);">{{ group.summary_note }}</div>
+          <div class="mobile-card-grid" style="margin-top: 14px;">
+            {% for story in group.stories %}
+            <div class="mobile-card">
+              <div class="mobile-head">
+                <div>
+                  <div class="mobile-title">{{ story.symbol }}</div>
+                  <div class="mobile-sub">{{ story.route }}</div>
+                </div>
+                <span class="badge {{ story.story_badge }}">{{ story.max_net_profit }}</span>
+              </div>
+              <div class="mobile-metrics">
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">Best Gross Spread</div>
+                  <div class="mobile-metric-value">{{ story.max_gross_spread }}</div>
+                </div>
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">Best Net Profit</div>
+                  <div class="mobile-metric-value">{{ story.max_net_profit }}</div>
+                </div>
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">First Seen</div>
+                  <div class="mobile-metric-value">{{ story.first_seen }}</div>
+                </div>
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">Last Seen</div>
+                  <div class="mobile-metric-value">{{ story.last_seen }}</div>
+                </div>
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">Detections</div>
+                  <div class="mobile-metric-value">{{ story.detection_count }}</div>
+                </div>
+                <div class="mobile-metric">
+                  <div class="mobile-metric-label">Liquidity</div>
+                  <div class="mobile-metric-value">{{ story.liquidity_warning }}</div>
+                </div>
+              </div>
+              <div class="mobile-note">{{ story.story_note }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="legend-item">
+        No arbitrage opportunities have been archived yet. As soon as a live spread survives costs, this section will keep the story for the next {{ archive_days }} days.
+      </div>
+      {% endif %}
     </section>
   </div>
   {% if refresh_seconds > 0 %}
@@ -7010,6 +7080,16 @@ def get_depth_timestamp(quote):
     return str(timestamp or "-")
 
 
+def fetch_quote_map(client, quote_symbols, chunk_size=250):
+    quote_data = {}
+    for index in range(0, len(quote_symbols), chunk_size):
+        batch = quote_symbols[index:index + chunk_size]
+        if not batch:
+            continue
+        quote_data.update(client.quote(batch))
+    return quote_data
+
+
 def build_arbitrage_summary(arbitrage_rows):
     opportunity_count = len(arbitrage_rows)
     total_net_profit_numeric = sum(row["net_profit_numeric"] for row in arbitrage_rows)
@@ -7023,13 +7103,138 @@ def build_arbitrage_summary(arbitrage_rows):
     }
 
 
+def load_arbitrage_history():
+    if not ARBITRAGE_HISTORY_PATH.exists():
+        return {"days": {}}
+
+    try:
+        payload = json.loads(ARBITRAGE_HISTORY_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"days": {}}
+
+    if not isinstance(payload, dict):
+        return {"days": {}}
+    if not isinstance(payload.get("days"), dict):
+        payload["days"] = {}
+    return payload
+
+
+def prune_arbitrage_history_payload(payload, reference_date):
+    cutoff_date = reference_date - datetime.timedelta(days=ARBITRAGE_HISTORY_RETENTION_DAYS - 1)
+    pruned_days = {}
+
+    for day_key, day_rows in (payload.get("days") or {}).items():
+        try:
+            row_date = datetime.date.fromisoformat(day_key)
+        except ValueError:
+            continue
+
+        if row_date < cutoff_date or row_date > reference_date:
+            continue
+        if isinstance(day_rows, dict):
+            pruned_days[day_key] = day_rows
+
+    payload["days"] = pruned_days
+    return payload
+
+
+def save_arbitrage_history(payload):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ARBITRAGE_HISTORY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def update_arbitrage_history(arbitrage_rows, reference_date):
+    payload = prune_arbitrage_history_payload(load_arbitrage_history(), reference_date)
+    day_key = reference_date.isoformat()
+    day_rows = payload["days"].setdefault(day_key, {})
+
+    for row in arbitrage_rows:
+        record_key = f"{row['symbol']}:{row['buy_exchange']}:{row['sell_exchange']}"
+        existing = day_rows.get(record_key)
+        if not existing:
+            existing = {
+                "symbol": row["symbol"],
+                "buy_exchange": row["buy_exchange"],
+                "sell_exchange": row["sell_exchange"],
+                "first_seen": row["timestamp"],
+                "last_seen": row["timestamp"],
+                "detection_count": 0,
+                "max_gross_spread_numeric": row["gross_spread_numeric"],
+                "max_net_profit_numeric": row["net_profit_numeric"],
+                "latest_liquidity_warning": row["liquidity_warning"],
+            }
+
+        existing["detection_count"] = int(existing.get("detection_count", 0)) + 1
+        existing["first_seen"] = min(str(existing.get("first_seen") or row["timestamp"]), row["timestamp"])
+        existing["last_seen"] = max(str(existing.get("last_seen") or row["timestamp"]), row["timestamp"])
+        existing["max_gross_spread_numeric"] = max(float(existing.get("max_gross_spread_numeric", 0.0)), row["gross_spread_numeric"])
+        existing["max_net_profit_numeric"] = max(float(existing.get("max_net_profit_numeric", 0.0)), row["net_profit_numeric"])
+        existing["latest_liquidity_warning"] = row["liquidity_warning"]
+        day_rows[record_key] = existing
+
+    save_arbitrage_history(payload)
+    return payload
+
+
+def build_arbitrage_post_analysis(reference_date):
+    payload = prune_arbitrage_history_payload(load_arbitrage_history(), reference_date)
+    save_arbitrage_history(payload)
+    day_groups = []
+
+    for day_key in sorted(payload["days"].keys(), reverse=True):
+        day_rows = list((payload["days"].get(day_key) or {}).values())
+        if not day_rows:
+            continue
+
+        day_rows.sort(key=lambda row: row.get("max_net_profit_numeric", 0.0), reverse=True)
+        top_row = day_rows[0]
+        summary_note = (
+            f"{len(day_rows)} symbols flashed net-positive spreads. "
+            f"Best was {top_row['symbol']} at about {top_row['max_net_profit_numeric']:+.2f} net."
+        )
+
+        stories = []
+        for row in day_rows:
+            if row["latest_liquidity_warning"] == "Depth supported":
+                note = "Tradable depth held up cleanly when the spread appeared."
+            elif row["latest_liquidity_warning"] == "Depth limited":
+                note = "The spread appeared, but executable size was capped by displayed depth."
+            else:
+                note = "The spread appeared with thin depth, so execution needed extra care."
+
+            stories.append(
+                {
+                    "symbol": row["symbol"],
+                    "route": f"{row['buy_exchange']} buy -> {row['sell_exchange']} sell",
+                    "max_gross_spread": f"{row['max_gross_spread_numeric']:+.2f}",
+                    "max_net_profit": f"{row['max_net_profit_numeric']:+.2f}",
+                    "first_seen": row["first_seen"],
+                    "last_seen": row["last_seen"],
+                    "detection_count": row["detection_count"],
+                    "liquidity_warning": row["latest_liquidity_warning"],
+                    "story_note": note,
+                    "story_badge": classify_percent_badge(row["max_net_profit_numeric"]),
+                }
+            )
+
+        day_groups.append(
+            {
+                "day_label": day_key,
+                "summary_note": summary_note,
+                "stories": stories,
+            }
+        )
+
+    return day_groups
+
+
 def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_only):
     common_symbols = set(get_common_equity_symbols())
     eligible_symbols = [symbol for symbol in symbols if symbol in common_symbols]
 
     client = build_kite_client(with_access_token=True)
     quote_symbols = [*[f"NSE:{symbol}" for symbol in eligible_symbols], *[f"BSE:{symbol}" for symbol in eligible_symbols]]
-    quote_data = client.quote(quote_symbols)
+    quote_data = fetch_quote_map(client, quote_symbols)
 
     arbitrage_rows = []
     missing = []
@@ -8287,21 +8492,21 @@ def equity_backtest():
 
 @app.route("/equity-arbitrage")
 def equity_arbitrage():
-    active_watchlist = request.args.get("watchlist", "my_intraday")
-    raw_symbols = request.args.get("symbols", "")
     refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
     capital_amount = parse_positive_float(request.args.get("capital", "50000"), 50000.0)
     min_spread = parse_positive_float(request.args.get("min_spread", "0.50"), 0.50)
     net_positive_only = request.args.get("net_positive_only", "1") != "0"
+    reference_date = get_today_ist()
 
     error = None
-    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    symbols = get_common_equity_symbols()
     arbitrage_rows = []
     summary = build_arbitrage_summary([])
+    post_analysis_groups = build_arbitrage_post_analysis(reference_date)
 
     try:
         if not symbols:
-            raise ValueError("Please provide at least one NSE/BSE cash-equity symbol.")
+            raise ValueError("No common NSE/BSE EQ cash shares were available in the stock master.")
         creds = get_active_kite_credentials()
         if not creds["api_key"] or not creds["access_token"]:
             raise ValueError("Kite API key or access token is missing in .env.")
@@ -8313,16 +8518,16 @@ def equity_arbitrage():
             net_positive_only,
         )
         summary = build_arbitrage_summary(arbitrage_rows)
+        update_arbitrage_history(arbitrage_rows, reference_date)
+        post_analysis_groups = build_arbitrage_post_analysis(reference_date)
 
         if missing:
             error = (
-                "Some names were skipped because they were not available in the common NSE/BSE EQ cash universe "
-                f"or did not have depth data: {', '.join(missing[:12])}"
+                f"{len(missing)} shares were skipped because they did not have usable two-exchange depth quotes at scan time."
             )
     except Exception as exc:
         error = str(exc)
 
-    active_watchlist_label = active_watchlist.replace("_", " ").title()
     refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
     net_positive_label = "Yes" if net_positive_only else "No"
 
@@ -8331,10 +8536,7 @@ def equity_arbitrage():
         error=error,
         arbitrage_rows=arbitrage_rows,
         summary=summary,
-        watchlists=get_watchlist_options(),
-        active_watchlist=active_watchlist,
-        active_watchlist_label=active_watchlist_label,
-        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        common_symbol_count=len(symbols),
         capital_display=f"{capital_amount:.0f}",
         min_spread_display=f"{min_spread:.2f}",
         refresh_options=get_refresh_options_with_fast(),
@@ -8342,6 +8544,9 @@ def equity_arbitrage():
         refresh_label=refresh_label,
         net_positive_only=net_positive_only,
         net_positive_label=net_positive_label,
+        scan_mode_label="Full Common EQ Universe",
+        archive_days=ARBITRAGE_HISTORY_RETENTION_DAYS,
+        post_analysis_groups=post_analysis_groups,
     )
 
 
