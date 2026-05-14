@@ -3367,6 +3367,449 @@ SECTOR_HEATMAP_TEMPLATE = """
 </html>
 """
 
+ROTATION_HOME_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Rotation Home</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1460px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 980px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .quick-links, .nav-grid, .setup-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .heatmap-grid, .setup-grid, .nav-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid, .setup-grid, .nav-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .heatmap-grid { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+    .split-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link, .nav-link, .heat-tile {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link, .nav-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .quick-link.active { background: #dbece7; color: var(--accent); border-color: rgba(31,111,95,0.24); }
+    .summary-box, .setup-box, .nav-link {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .heat-tile {
+      display: block;
+      padding: 16px;
+      border: 1px solid var(--line);
+      color: inherit;
+      background: #fff;
+    }
+    .heat-up-strong { background: linear-gradient(180deg, rgba(15,90,67,0.95), rgba(38,127,97,0.92)); color: #f8f5ef; }
+    .heat-up-soft { background: linear-gradient(180deg, #d9f0e8, #ecf8f3); }
+    .heat-neutral { background: linear-gradient(180deg, #faf5e4, #f5ebcc); }
+    .heat-down-soft { background: linear-gradient(180deg, #fbeeee, #f7dddd); }
+    .heat-down-strong { background: linear-gradient(180deg, rgba(132,43,43,0.93), rgba(167,66,66,0.88)); color: #f8f5ef; }
+    .tile-title { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    .tile-score { font-size: 28px; font-weight: 700; line-height: 1; }
+    .tile-note { margin-top: 10px; font-size: 14px; line-height: 1.45; }
+    .tile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 14px; margin-top: 12px; font-size: 14px; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1100px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: rgba(31,111,95,0.06); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .symbol-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+    .symbol-link:hover { text-decoration: underline; }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .muted { color: var(--muted); }
+    .note-text { line-height: 1.45; }
+    @media (max-width: 980px) { .split-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Rotation Summary Home</h1>
+      <p class="sub">
+        A command-center landing page that summarizes sector rotation, breadth, confirmed setups, previous-day level breaks,
+        and the best places to drill deeper across the rest of TraderHub.
+      </p>
+      <div class="meta">
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Range: {{ start_time }} to {{ end_time }}</div>
+        <div class="pill">Rotation Bias: {{ home_summary.rotation_bias }}</div>
+        <div class="pill">Confidence: {{ home_summary.confidence_label }}</div>
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit">Open Home</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-rotation-home?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-rotation-home?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Market Briefing</h2>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <strong>Strongest Sector</strong>
+          <div class="summary-value">{{ heatmap_summary.strongest_sector }}</div>
+          <div>{{ heatmap_summary.strongest_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Weakest Sector</strong>
+          <div class="summary-value">{{ heatmap_summary.weakest_sector }}</div>
+          <div>{{ heatmap_summary.weakest_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Strongest Sub-Sector</strong>
+          <div class="summary-value">{{ heatmap_summary.strongest_sub_sector }}</div>
+          <div>{{ heatmap_summary.strongest_sub_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Rotation Note</strong>
+          <div class="summary-value">{{ home_summary.rotation_bias }}</div>
+          <div>{{ home_summary.market_note }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Summary Cards</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Bullish Sectors</strong><div class="summary-value">{{ home_summary.bullish_sector_count }}</div><div>Sectors with positive rotation scores</div></div>
+        <div class="summary-box"><strong>Bearish Sectors</strong><div class="summary-value">{{ home_summary.bearish_sector_count }}</div><div>Sectors with negative rotation scores</div></div>
+        <div class="summary-box"><strong>Confirmed Longs</strong><div class="summary-value">{{ home_summary.confirmed_long_count }}</div><div>From the selected watchlist</div></div>
+        <div class="summary-box"><strong>Confirmed Shorts</strong><div class="summary-value">{{ home_summary.confirmed_short_count }}</div><div>From the selected watchlist</div></div>
+        <div class="summary-box"><strong>Above PDH</strong><div class="summary-value">{{ home_summary.above_pdh_count }}</div><div>Names above previous-day high</div></div>
+        <div class="summary-box"><strong>Below PDL</strong><div class="summary-value">{{ home_summary.below_pdl_count }}</div><div>Names below previous-day low</div></div>
+        <div class="summary-box"><strong>High-Volume Leaders</strong><div class="summary-value">{{ home_summary.high_volume_leaders }}</div><div>Across the selected watchlist</div></div>
+        <div class="summary-box"><strong>VWAP Breadth Leaders</strong><div class="summary-value">{{ home_summary.broad_above_vwap }}</div><div>Top sectors by above-VWAP breadth</div></div>
+      </div>
+    </section>
+
+    <section class="card split-grid">
+      <div>
+        <h2>Top Rotation Table</h2>
+        <div class="table-wrap">
+          <table id="rotation-home-table">
+            <thead>
+              <tr>
+                <th>Sector</th>
+                <th>Score</th>
+                <th>Avg Change %</th>
+                <th>Avg Gap %</th>
+                <th>Bullish</th>
+                <th>Bearish</th>
+                <th>Above VWAP</th>
+                <th>Below VWAP</th>
+                <th>High Vol</th>
+                <th>Top Gainer</th>
+                <th>Top Loser</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sector_rows[:8] %}
+              <tr onclick="window.location='/equity-sector-strength?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ row.sector_key }}&refresh={{ refresh_seconds }}'">
+                <td>{{ row.sector_label }}</td>
+                <td><span class="badge {{ row.score_badge }}">{{ row.sector_score_display }}</span></td>
+                <td><span class="badge {{ row.avg_change_badge }}">{{ row.avg_change_pct }}</span></td>
+                <td><span class="badge {{ row.avg_gap_badge }}">{{ row.avg_gap_pct }}</span></td>
+                <td>{{ row.bullish_confirmations }}</td>
+                <td>{{ row.bearish_confirmations }}</td>
+                <td>{{ row.above_vwap_count }}</td>
+                <td>{{ row.below_vwap_count }}</td>
+                <td>{{ row.high_volume_count }}</td>
+                <td>{{ row.top_gainer }}</td>
+                <td>{{ row.top_loser }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2>Trade Focus</h2>
+        <div class="setup-box">
+          <div class="badge {{ home_summary.focus_badge }}">{{ home_summary.focus_label }}</div>
+          <p class="note-text">{{ home_summary.focus_note }}</p>
+          <div class="setup-links">
+            <a class="nav-link" href="/equity-confirmation?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">Open Confirmation</a>
+            <a class="nav-link" href="/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector=financials&refresh={{ refresh_seconds }}">Open Heatmap</a>
+            <a class="nav-link" href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&refresh={{ refresh_seconds }}">Open Previous Levels</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Heatmap Snapshot</h2>
+      <div class="heatmap-grid">
+        {% for row in heatmap_sector_rows[:8] %}
+        <a class="heat-tile {{ row.heat_class }}"
+           href="/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ row.sector_key }}&subsector={{ row.default_sub_sector }}&refresh={{ refresh_seconds }}">
+          <div class="tile-title">{{ row.sector_label }}</div>
+          <div class="tile-score">{{ row.sector_score_display }}</div>
+          <div class="badge {{ row.score_badge }}">{{ row.rotation_label }}</div>
+          <div class="tile-note">{{ row.ai_note }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Best Setups</h2>
+      <div class="setup-grid">
+        <div class="setup-box">
+          <strong>Top Confirmed Longs</strong>
+          {% for row in top_longs %}
+          <p><a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">{{ row.symbol }}</a> {{ row.last_price }} | {{ row.orb_status }} | {{ row.volume_status }}</p>
+          {% else %}
+          <p class="muted">No confirmed long setups right now.</p>
+          {% endfor %}
+        </div>
+        <div class="setup-box">
+          <strong>Top Confirmed Shorts</strong>
+          {% for row in top_shorts %}
+          <p><a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">{{ row.symbol }}</a> {{ row.last_price }} | {{ row.orb_status }} | {{ row.volume_status }}</p>
+          {% else %}
+          <p class="muted">No confirmed short setups right now.</p>
+          {% endfor %}
+        </div>
+        <div class="setup-box">
+          <strong>Near PDH Breakouts</strong>
+          {% for row in near_pdh_rows %}
+          <p><a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">{{ row.symbol }}</a> {{ row.last_price }} | {{ row.distance_pdh }}</p>
+          {% else %}
+          <p class="muted">No close PDH tests in the selected list.</p>
+          {% endfor %}
+        </div>
+        <div class="setup-box">
+          <strong>Near PDL Breakdowns</strong>
+          {% for row in near_pdl_rows %}
+          <p><a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">{{ row.symbol }}</a> {{ row.last_price }} | {{ row.distance_pdl }}</p>
+          {% else %}
+          <p class="muted">No close PDL tests in the selected list.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Quick Navigation</h2>
+      <div class="nav-grid">
+        <a class="nav-link" href="/equity-scanner?symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">Open Scanner</a>
+        <a class="nav-link" href="/equity-watchlists?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">Open Watchlists</a>
+        <a class="nav-link" href="/equity-movers?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&refresh={{ refresh_seconds }}">Open Movers</a>
+        <a class="nav-link" href="/equity-confirmation?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">Open Confirmation</a>
+        <a class="nav-link" href="/equity-sector-strength?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">Open Sector Strength</a>
+        <a class="nav-link" href="/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector=financials&refresh={{ refresh_seconds }}">Open Sector Heatmap</a>
+        <a class="nav-link" href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&refresh={{ refresh_seconds }}">Open Previous Levels</a>
+        <a class="nav-link" href="/equity-ohlc?symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">Open OHLC</a>
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+</body>
+</html>
+"""
+
 PD_LEVELS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -4499,8 +4942,14 @@ def get_intraday_scanner_rows(symbols, selected_date, start_time, end_time, incl
     return scanner_rows, missing
 
 
-def get_confirmation_rows(symbols, selected_date, start_time, end_time):
-    scanner_rows, missing = get_intraday_scanner_rows(symbols, selected_date, start_time, end_time)
+def get_confirmation_rows(symbols, selected_date, start_time, end_time, include_ai=True):
+    scanner_rows, missing = get_intraday_scanner_rows(
+        symbols,
+        selected_date,
+        start_time,
+        end_time,
+        include_ai=include_ai,
+    )
     confirmation_rows = []
 
     for row in scanner_rows:
@@ -4812,6 +5261,68 @@ def build_sector_heatmap_summary(sector_rows, sub_sector_rows):
         "strongest_sub_sector_note": strongest_sub_sector["rotation_label"] if strongest_sub_sector else "No data",
         "rotation_bias": rotation_bias,
         "rotation_note": rotation_note,
+    }
+
+
+def build_rotation_home_summary(sector_rows, heatmap_summary, confirmation_rows, level_rows):
+    bullish_sector_count = sum(1 for row in sector_rows if row["sector_score_numeric"] > 0)
+    bearish_sector_count = sum(1 for row in sector_rows if row["sector_score_numeric"] < 0)
+    confirmed_long_count = sum(1 for row in confirmation_rows if row["confirmation_status"] == "Confirmed Long")
+    confirmed_short_count = sum(1 for row in confirmation_rows if row["confirmation_status"] == "Confirmed Short")
+    high_volume_leaders = sum(1 for row in confirmation_rows if row["volume_status"].startswith("High Volume"))
+    above_pdh_count = sum(1 for row in level_rows if row["status_label"] == "Above PDH")
+    below_pdl_count = sum(1 for row in level_rows if row["status_label"] == "Below PDL")
+
+    broad_above_vwap_rows = sorted(sector_rows, key=lambda row: row["above_vwap_count"], reverse=True)[:2]
+    broad_above_vwap = ", ".join(row["sector_label"] for row in broad_above_vwap_rows if row["above_vwap_count"] > 0) or "None"
+
+    if bullish_sector_count >= bearish_sector_count + 2:
+        rotation_bias = "Bullish"
+        confidence_label = "High" if confirmed_long_count >= max(1, confirmed_short_count + 1) else "Medium"
+        focus_label = "Long Focus"
+        focus_badge = "badge-up"
+        focus_note = (
+            f"Leadership is tilted toward {heatmap_summary['strongest_sector']} and {heatmap_summary['strongest_sub_sector']}. "
+            "Favor confirmed long themes and avoid forcing mean-reversion shorts."
+        )
+    elif bearish_sector_count >= bullish_sector_count + 2:
+        rotation_bias = "Bearish"
+        confidence_label = "High" if confirmed_short_count >= max(1, confirmed_long_count + 1) else "Medium"
+        focus_label = "Short Focus"
+        focus_badge = "badge-down"
+        focus_note = (
+            f"Weakness is concentrated in {heatmap_summary['weakest_sector']}. "
+            "Favor breakdowns with clean VWAP and volume confirmation."
+        )
+    else:
+        rotation_bias = "Mixed"
+        confidence_label = "Low"
+        focus_label = "Selective Focus"
+        focus_badge = "badge-neutral"
+        focus_note = (
+            "Leadership is mixed across sectors. Prioritize only the cleanest confirmed setups and avoid overtrading."
+        )
+
+    market_note = (
+        f"Rotation bias is {rotation_bias.lower()} with {bullish_sector_count} bullish sectors and "
+        f"{bearish_sector_count} bearish sectors. {heatmap_summary['rotation_note']}"
+    )
+
+    return {
+        "rotation_bias": rotation_bias,
+        "confidence_label": confidence_label,
+        "bullish_sector_count": bullish_sector_count,
+        "bearish_sector_count": bearish_sector_count,
+        "confirmed_long_count": confirmed_long_count,
+        "confirmed_short_count": confirmed_short_count,
+        "above_pdh_count": above_pdh_count,
+        "below_pdl_count": below_pdl_count,
+        "high_volume_leaders": high_volume_leaders,
+        "broad_above_vwap": broad_above_vwap,
+        "focus_label": focus_label,
+        "focus_badge": focus_badge,
+        "focus_note": focus_note,
+        "market_note": market_note,
     }
 
 
@@ -5392,6 +5903,102 @@ def equity_sector_heatmap():
         refresh_options=get_refresh_options(),
         refresh_seconds=refresh_seconds,
         refresh_label=refresh_label,
+    )
+
+
+@app.route("/equity-rotation-home")
+def equity_rotation_home():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+
+    error = None
+    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    sector_rows = []
+    heatmap_sector_rows = []
+    confirmation_rows = []
+    level_rows = []
+    heatmap_summary = build_sector_heatmap_summary([], [])
+    home_summary = build_rotation_home_summary([], heatmap_summary, [], [])
+    top_longs = []
+    top_shorts = []
+    near_pdh_rows = []
+    near_pdl_rows = []
+
+    try:
+        selected_date = parse_date(raw_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if end_time <= start_time:
+            raise ValueError("End time must be after start time.")
+
+        sector_rows, _, _ = get_sector_strength_rows(selected_date, start_time, end_time)
+        heatmap_sector_rows, _, _, _ = get_sector_heatmap_data(selected_date, start_time, end_time)
+        heatmap_summary = build_sector_heatmap_summary(heatmap_sector_rows, [])
+        confirmation_rows, confirmation_missing = get_confirmation_rows(
+            symbols,
+            selected_date,
+            start_time,
+            end_time,
+            include_ai=False,
+        )
+        level_rows, level_missing = get_previous_day_level_rows(symbols, selected_date)
+
+        top_longs = [row for row in confirmation_rows if row["confirmation_status"] == "Confirmed Long"][:4]
+        top_shorts = [row for row in confirmation_rows if row["confirmation_status"] == "Confirmed Short"][:4]
+
+        pdh_candidates = [row for row in level_rows if row["status_label"] != "Above PDH"]
+        pdl_candidates = [row for row in level_rows if row["status_label"] != "Below PDL"]
+        near_pdh_rows = sorted(pdh_candidates, key=lambda row: abs(row["distance_pdh_numeric"]))[:4]
+        near_pdl_rows = sorted(pdl_candidates, key=lambda row: abs(row["distance_pdl_numeric"]))[:4]
+
+        home_summary = build_rotation_home_summary(sector_rows, heatmap_summary, confirmation_rows, level_rows)
+
+        missing_values = sorted(set(confirmation_missing + level_missing))
+        if missing_values:
+            error = f"Some symbols had partial data: {', '.join(missing_values)}"
+    except Exception as exc:
+        selected_date = raw_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+
+    return render_template_string(
+        ROTATION_HOME_TEMPLATE,
+        error=error,
+        symbols=symbols,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+        sector_rows=sector_rows,
+        heatmap_sector_rows=heatmap_sector_rows,
+        heatmap_summary=heatmap_summary,
+        home_summary=home_summary,
+        top_longs=top_longs,
+        top_shorts=top_shorts,
+        near_pdh_rows=near_pdh_rows,
+        near_pdl_rows=near_pdl_rows,
     )
 
 
