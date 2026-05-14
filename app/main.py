@@ -8,6 +8,7 @@ from kiteconnect import KiteConnect
 
 from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
+from app.symbol_resolver import resolve_symbol_list
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DEFAULT_SYMBOLS = ["IOC", "PNB"]
@@ -5260,8 +5261,7 @@ def get_yesterday_ist():
 
 
 def parse_symbol_list(raw_symbols):
-    values = [item.strip().upper() for item in raw_symbols.split(",")]
-    return [item for item in values if item]
+    return resolve_symbol_list(raw_symbols)
 
 
 def parse_date(value):
