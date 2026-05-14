@@ -4239,6 +4239,20 @@ def build_signed_price(value):
     return f"{value:+.2f}"
 
 
+def build_rule_based_trade_setup_insight(symbol, orb_status, breakout_gap_numeric, vwap_status, volume_status):
+    if orb_status == "Above OR High" and vwap_status == "Above VWAP" and volume_status.startswith("High Volume"):
+        return f"{symbol} has bullish confirmation across ORB, VWAP, and volume; watch for continuation with tight risk."
+    if orb_status == "Below OR Low" and vwap_status == "Below VWAP" and volume_status.startswith("High Volume"):
+        return f"{symbol} has bearish confirmation across ORB, VWAP, and volume; watch for follow-through while weakness holds."
+    if orb_status == "Above OR High" and vwap_status == "Above VWAP":
+        return f"{symbol} is constructive intraday, but volume confirmation is still important before chasing."
+    if orb_status == "Below OR Low" and vwap_status == "Below VWAP":
+        return f"{symbol} is weak intraday, but wait for cleaner volume participation before pressing shorts."
+    if abs(breakout_gap_numeric) <= 0.05:
+        return f"{symbol} is still near its opening range; patience is better than forcing a trade here."
+    return f"{symbol} is mixed intraday; wait for clearer alignment between price, VWAP, and volume."
+
+
 def get_active_kite_credentials():
     runtime = get_runtime_config()
     access_token = CURRENT_ACCESS_TOKEN or runtime["KITE_ACCESS_TOKEN"]
@@ -4382,7 +4396,7 @@ def get_equity_ohlc(symbols, selected_date, start_time, end_time):
     return results, missing
 
 
-def get_intraday_scanner_rows(symbols, selected_date, start_time, end_time):
+def get_intraday_scanner_rows(symbols, selected_date, start_time, end_time, include_ai=True):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
     from_dt = datetime.datetime.combine(selected_date, start_time, tzinfo=APP_TZ)
@@ -4439,13 +4453,21 @@ def get_intraday_scanner_rows(symbols, selected_date, start_time, end_time):
         average_volume = sum(prior_volumes) / len(prior_volumes) if prior_volumes else latest_volume
         volume_status, volume_badge, volume_ratio = classify_volume_status(latest_volume, average_volume)
 
-        ai_suggestion = get_trade_setup_insight(
+        ai_suggestion = build_rule_based_trade_setup_insight(
             symbol,
             orb_status,
             breakout_gap_numeric,
             vwap_status,
             volume_status,
         )
+        if include_ai:
+            ai_suggestion = get_trade_setup_insight(
+                symbol,
+                orb_status,
+                breakout_gap_numeric,
+                vwap_status,
+                volume_status,
+            )
 
         scanner_rows.append(
             {
@@ -4706,7 +4728,13 @@ def get_sector_heatmap_data(selected_date, start_time, end_time):
         sector_missing = []
 
         for sub_sector_key, symbols in sector_config["subsectors"].items():
-            scanner_rows, scanner_missing = get_intraday_scanner_rows(symbols, selected_date, start_time, end_time)
+            scanner_rows, scanner_missing = get_intraday_scanner_rows(
+                symbols,
+                selected_date,
+                start_time,
+                end_time,
+                include_ai=False,
+            )
             mover_rows, mover_missing = get_mover_rows(symbols)
             mover_map = {row["symbol"]: row for row in mover_rows}
 
