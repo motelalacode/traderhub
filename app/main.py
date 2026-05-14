@@ -4515,6 +4515,331 @@ BACKTEST_TEMPLATE = """
 </html>
 """
 
+TRADE_PLAN_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Trade Plan</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 960px; margin: 0 auto; padding: 20px 14px 40px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 22px;
+      padding: 22px 18px;
+      box-shadow: 0 20px 50px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 32px; line-height: 1.05; }
+    .sub {
+      margin: 10px 0 0;
+      font-size: 16px;
+      line-height: 1.45;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 13px;
+    }
+    .card {
+      margin-top: 16px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: 0 16px 36px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 22px; }
+    .toolbar-grid, .summary-grid, .plan-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .toolbar-grid { grid-template-columns: 1fr 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .plan-grid { grid-template-columns: 1fr; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 11px 12px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link, .symbol-link {
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px 14px;
+      font-weight: 700;
+    }
+    .quick-link.active { background: #dbece7; color: var(--accent); border-color: rgba(31,111,95,0.24); }
+    .summary-box, .plan-card {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value { font-size: 26px; font-weight: 700; margin-top: 6px; }
+    .plan-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .plan-title { font-size: 22px; font-weight: 700; }
+    .plan-sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .metric-value { font-size: 18px; font-weight: 700; }
+    .plan-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .symbol-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      font-weight: 700;
+    }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .note-text { line-height: 1.45; margin: 0; }
+    @media (min-width: 760px) {
+      .toolbar-grid { grid-template-columns: repeat(5, 1fr); }
+      .summary-grid { grid-template-columns: repeat(4, 1fr); }
+      .plan-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Trade Plan Dashboard</h1>
+      <p class="sub">
+        A mobile-optimized execution page that turns intraday signals into clean trade plans with entry, stop, target levels,
+        and fast drilldowns to the detailed OHLC view.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Range: {{ start_time }} to {{ end_time }}</div>
+        <div class="pill">Risk Stop: {{ risk_multiple }}R</div>
+        <div class="pill">Target 1: {{ target_one_multiple }}R</div>
+        <div class="pill">Target 2: {{ target_two_multiple }}R</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">ORB Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">ORB End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="risk_multiple">Stop Multiple</label>
+          <input id="risk_multiple" name="risk_multiple" value="{{ risk_multiple }}" placeholder="1.0">
+        </div>
+        <div>
+          <label for="target_one_multiple">Target 1</label>
+          <input id="target_one_multiple" name="target_one_multiple" value="{{ target_one_multiple }}" placeholder="1.0">
+        </div>
+        <div>
+          <label for="target_two_multiple">Target 2</label>
+          <input id="target_two_multiple" name="target_two_multiple" value="{{ target_two_multiple }}" placeholder="2.0">
+        </div>
+        <div style="align-self:end">
+          <button type="submit">Open Trade Plans</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-trade-plan?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&start={{ start_time }}&end={{ end_time }}&risk_multiple={{ risk_multiple }}&target_one_multiple={{ target_one_multiple }}&target_two_multiple={{ target_two_multiple }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-trade-plan?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}&risk_multiple={{ risk_multiple }}&target_one_multiple={{ target_one_multiple }}&target_two_multiple={{ target_two_multiple }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Long Plans</strong><div class="summary-value">{{ summary.long_count }}</div><div>Constructive execution candidates</div></div>
+        <div class="summary-box"><strong>Short Plans</strong><div class="summary-value">{{ summary.short_count }}</div><div>Weak execution candidates</div></div>
+        <div class="summary-box"><strong>Wait / Mixed</strong><div class="summary-value">{{ summary.wait_count }}</div><div>Names without clean alignment</div></div>
+        <div class="summary-box"><strong>High Conviction</strong><div class="summary-value">{{ summary.high_conviction_count }}</div><div>ORB, VWAP, and level alignment</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Trade Cards</h2>
+      <div class="plan-grid">
+        {% for row in trade_plan_rows %}
+        <div class="plan-card">
+          <div class="plan-head">
+            <div>
+              <div class="plan-title">{{ row.symbol }}</div>
+              <div class="plan-sub">{{ row.plan_label }} | {{ row.orb_status }} | {{ row.vwap_status }}</div>
+            </div>
+            <span class="badge {{ row.plan_badge }}">{{ row.plan_label }}</span>
+          </div>
+          <div class="metrics">
+            <div class="metric"><div class="metric-label">Entry</div><div class="metric-value">{{ row.entry_price }}</div></div>
+            <div class="metric"><div class="metric-label">Stop Loss</div><div class="metric-value">{{ row.stop_price }}</div></div>
+            <div class="metric"><div class="metric-label">Target 1</div><div class="metric-value">{{ row.target_one_price }}</div></div>
+            <div class="metric"><div class="metric-label">Target 2</div><div class="metric-value">{{ row.target_two_price }}</div></div>
+            <div class="metric"><div class="metric-label">Range Size</div><div class="metric-value">{{ row.range_size }}</div></div>
+            <div class="metric"><div class="metric-label">Gap / PD Levels</div><div class="metric-value">{{ row.gap_pct }} | {{ row.status_label }}</div></div>
+          </div>
+          <p class="note-text">{{ row.plan_note }}</p>
+          <div class="plan-links">
+            <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">Open OHLC</a>
+            <a class="symbol-link" href="/equity-previous-levels?symbols={{ row.symbol }}&date={{ selected_date }}">Prev Levels</a>
+            <a class="symbol-link" href="/equity-confirmation?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}">Confirmation</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
 PD_LEVELS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -6161,6 +6486,122 @@ def build_backtest_summary(trade_rows):
     }
 
 
+def build_trade_plan_summary(trade_plan_rows):
+    long_count = sum(1 for row in trade_plan_rows if row["plan_side"] == "Long")
+    short_count = sum(1 for row in trade_plan_rows if row["plan_side"] == "Short")
+    wait_count = sum(1 for row in trade_plan_rows if row["plan_side"] == "Wait")
+    high_conviction_count = sum(1 for row in trade_plan_rows if row["conviction"] == "High")
+    return {
+        "long_count": long_count,
+        "short_count": short_count,
+        "wait_count": wait_count,
+        "high_conviction_count": high_conviction_count,
+    }
+
+
+def get_trade_plan_rows(symbols, selected_date, start_time, end_time, risk_multiple, target_one_multiple, target_two_multiple):
+    scanner_rows, scanner_missing = get_intraday_scanner_rows(
+        symbols,
+        selected_date,
+        start_time,
+        end_time,
+        include_ai=False,
+    )
+    mover_rows, mover_missing = get_mover_rows(symbols)
+    level_rows, level_missing = get_previous_day_level_rows(symbols, selected_date)
+    mover_map = {row["symbol"]: row for row in mover_rows}
+    level_map = {row["symbol"]: row for row in level_rows}
+
+    trade_plan_rows = []
+    for scanner_row in scanner_rows:
+        mover_row = mover_map.get(scanner_row["symbol"])
+        level_row = level_map.get(scanner_row["symbol"])
+        if not mover_row or not level_row:
+            continue
+
+        range_size_numeric = scanner_row["range_size_numeric"]
+        if range_size_numeric <= 0:
+            continue
+
+        orb_status = scanner_row["orb_status"]
+        vwap_status = scanner_row["vwap_status"]
+        status_label = level_row["status_label"]
+        volume_status = scanner_row["volume_status"]
+
+        if orb_status == "Above OR High" and vwap_status == "Above VWAP":
+            plan_side = "Long"
+            plan_label = "Long Plan"
+            plan_badge = "badge-up"
+            entry_price_numeric = scanner_row["or_high_numeric"]
+            stop_price_numeric = entry_price_numeric - (range_size_numeric * risk_multiple)
+            target_one_price_numeric = entry_price_numeric + (range_size_numeric * target_one_multiple)
+            target_two_price_numeric = entry_price_numeric + (range_size_numeric * target_two_multiple)
+            conviction = "High" if volume_status.startswith("High Volume") or status_label == "Above PDH" else "Medium"
+            plan_note = (
+                f"{scanner_row['symbol']} has bullish ORB and VWAP alignment. Use the OR high as the trigger and manage risk below the range."
+            )
+        elif orb_status == "Below OR Low" and vwap_status == "Below VWAP":
+            plan_side = "Short"
+            plan_label = "Short Plan"
+            plan_badge = "badge-down"
+            entry_price_numeric = scanner_row["or_low_numeric"]
+            stop_price_numeric = entry_price_numeric + (range_size_numeric * risk_multiple)
+            target_one_price_numeric = entry_price_numeric - (range_size_numeric * target_one_multiple)
+            target_two_price_numeric = entry_price_numeric - (range_size_numeric * target_two_multiple)
+            conviction = "High" if volume_status.startswith("High Volume") or status_label == "Below PDL" else "Medium"
+            plan_note = (
+                f"{scanner_row['symbol']} has bearish ORB and VWAP alignment. Use the OR low as the trigger and protect above the range."
+            )
+        else:
+            plan_side = "Wait"
+            plan_label = "Wait / Mixed"
+            plan_badge = "badge-neutral"
+            entry_price_numeric = scanner_row["last_price_numeric"]
+            stop_price_numeric = scanner_row["last_price_numeric"] - (range_size_numeric * risk_multiple)
+            target_one_price_numeric = scanner_row["last_price_numeric"] + (range_size_numeric * target_one_multiple)
+            target_two_price_numeric = scanner_row["last_price_numeric"] + (range_size_numeric * target_two_multiple)
+            conviction = "Low"
+            plan_note = (
+                f"{scanner_row['symbol']} is not fully aligned yet. Wait for cleaner ORB plus VWAP confirmation before planning a full-size trade."
+            )
+
+        trade_plan_rows.append(
+            {
+                "symbol": scanner_row["symbol"],
+                "plan_side": plan_side,
+                "plan_label": plan_label,
+                "plan_badge": plan_badge,
+                "conviction": conviction,
+                "orb_status": orb_status,
+                "orb_badge": scanner_row["orb_badge"],
+                "vwap_status": vwap_status,
+                "vwap_badge": scanner_row["vwap_badge"],
+                "volume_status": volume_status,
+                "volume_badge": scanner_row["volume_badge"],
+                "status_label": status_label,
+                "status_badge": level_row["status_badge"],
+                "entry_price": format_price(entry_price_numeric),
+                "entry_price_numeric": round(entry_price_numeric, 2),
+                "stop_price": format_price(stop_price_numeric),
+                "stop_price_numeric": round(stop_price_numeric, 2),
+                "target_one_price": format_price(target_one_price_numeric),
+                "target_one_price_numeric": round(target_one_price_numeric, 2),
+                "target_two_price": format_price(target_two_price_numeric),
+                "target_two_price_numeric": round(target_two_price_numeric, 2),
+                "range_size": scanner_row["range_size"],
+                "range_size_numeric": scanner_row["range_size_numeric"],
+                "gap_pct": mover_row["gap_pct"],
+                "gap_badge": mover_row["gap_badge"],
+                "plan_note": plan_note,
+            }
+        )
+
+    sort_priority = {"Long": 0, "Short": 1, "Wait": 2}
+    trade_plan_rows.sort(key=lambda row: (sort_priority[row["plan_side"]], -row["range_size_numeric"], row["symbol"]))
+    missing = sorted(set(scanner_missing + mover_missing + level_missing))
+    return trade_plan_rows, missing
+
+
 def get_previous_day_level_rows(symbols, selected_date):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
@@ -7207,6 +7648,78 @@ def equity_backtest():
             f"{stop_multiple:.2f}",
             f"{target_multiple:.2f}",
         ),
+    )
+
+
+@app.route("/equity-trade-plan")
+def equity_trade_plan():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    risk_multiple = parse_positive_float(request.args.get("risk_multiple", "1.0"), 1.0)
+    target_one_multiple = parse_positive_float(request.args.get("target_one_multiple", "1.0"), 1.0)
+    target_two_multiple = parse_positive_float(request.args.get("target_two_multiple", "2.0"), 2.0)
+
+    error = None
+    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    trade_plan_rows = []
+    summary = build_trade_plan_summary([])
+
+    try:
+        selected_date = parse_date(raw_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if end_time <= start_time:
+            raise ValueError("ORB end time must be after ORB start time.")
+        if target_two_multiple < target_one_multiple:
+            raise ValueError("Target 2 should be greater than or equal to Target 1.")
+
+        trade_plan_rows, missing = get_trade_plan_rows(
+            symbols,
+            selected_date,
+            start_time,
+            end_time,
+            risk_multiple,
+            target_one_multiple,
+            target_two_multiple,
+        )
+        summary = build_trade_plan_summary(trade_plan_rows)
+
+        if missing:
+            error = f"Some symbols had partial data: {', '.join(missing)}"
+    except Exception as exc:
+        selected_date = raw_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+
+    return render_template_string(
+        TRADE_PLAN_TEMPLATE,
+        error=error,
+        trade_plan_rows=trade_plan_rows,
+        summary=summary,
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        risk_multiple=f"{risk_multiple:.2f}",
+        target_one_multiple=f"{target_one_multiple:.2f}",
+        target_two_multiple=f"{target_two_multiple:.2f}",
     )
 
 
