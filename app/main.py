@@ -3810,6 +3810,379 @@ ROTATION_HOME_TEMPLATE = """
 </html>
 """
 
+MARKET_BREADTH_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Market Breadth</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1460px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 980px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .signal-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid, .signal-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .split-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .quick-link.active { background: #dbece7; color: var(--accent); border-color: rgba(31,111,95,0.24); }
+    .summary-box, .signal-box {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1080px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: rgba(31,111,95,0.06); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    .symbol-link { color: var(--accent); font-weight: 700; text-decoration: none; }
+    .symbol-link:hover { text-decoration: underline; }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .muted { color: var(--muted); }
+    .note-text { line-height: 1.45; }
+    @media (max-width: 980px) { .split-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Market Breadth Dashboard</h1>
+      <p class="sub">
+        A breadth-first view of the market that combines sector participation, ORB/VWAP alignment, gap behavior,
+        and previous-day level pressure so you can judge whether momentum is broad, narrow, or fading.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Range: {{ start_time }} to {{ end_time }}</div>
+        <div class="pill">Breadth Bias: {{ summary.breadth_bias }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit">Open Breadth Page</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-market-breadth?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-market-breadth?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}&refresh={{ refresh_seconds }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Breadth Snapshot</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Above VWAP</strong><div class="summary-value">{{ summary.above_vwap_count }}</div><div>Names holding above intraday VWAP</div></div>
+        <div class="summary-box"><strong>Below VWAP</strong><div class="summary-value">{{ summary.below_vwap_count }}</div><div>Names trading below intraday VWAP</div></div>
+        <div class="summary-box"><strong>Above OR High</strong><div class="summary-value">{{ summary.above_or_count }}</div><div>Opening-range bullish breaks</div></div>
+        <div class="summary-box"><strong>Below OR Low</strong><div class="summary-value">{{ summary.below_or_count }}</div><div>Opening-range bearish breaks</div></div>
+        <div class="summary-box"><strong>Above PDH</strong><div class="summary-value">{{ summary.above_pdh_count }}</div><div>Names clearing previous-day highs</div></div>
+        <div class="summary-box"><strong>Below PDL</strong><div class="summary-value">{{ summary.below_pdl_count }}</div><div>Names breaking previous-day lows</div></div>
+        <div class="summary-box"><strong>Gap Up</strong><div class="summary-value">{{ summary.gap_up_count }}</div><div>Positive opening gap breadth</div></div>
+        <div class="summary-box"><strong>Gap Down</strong><div class="summary-value">{{ summary.gap_down_count }}</div><div>Negative opening gap breadth</div></div>
+      </div>
+    </section>
+
+    <section class="card split-grid">
+      <div>
+        <h2>Sector Breadth Leaders</h2>
+        <div class="table-wrap">
+          <table id="breadth-sector-table">
+            <thead>
+              <tr>
+                <th>Sector</th>
+                <th>Score</th>
+                <th>Rotation</th>
+                <th>Above VWAP</th>
+                <th>Below VWAP</th>
+                <th>High Vol</th>
+                <th>Bullish</th>
+                <th>Bearish</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sector_rows[:10] %}
+              <tr onclick="window.location='/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ row.sector_key }}&subsector={{ row.default_sub_sector }}&refresh={{ refresh_seconds }}'">
+                <td>{{ row.sector_label }}</td>
+                <td><span class="badge {{ row.score_badge }}">{{ row.sector_score_display }}</span></td>
+                <td>{{ row.rotation_label }}</td>
+                <td>{{ row.above_vwap_count }}</td>
+                <td>{{ row.below_vwap_count }}</td>
+                <td>{{ row.high_volume_count }}</td>
+                <td>{{ row.bullish_confirmations }}</td>
+                <td>{{ row.bearish_confirmations }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2>Signal Notes</h2>
+        <div class="signal-grid">
+          <div class="signal-box">
+            <div class="badge {{ summary.bias_badge }}">{{ summary.breadth_bias }}</div>
+            <p class="note-text">{{ summary.bias_note }}</p>
+          </div>
+          <div class="signal-box">
+            <strong>Best Breadth Sector</strong>
+            <p>{{ summary.best_sector }}</p>
+            <p class="muted">{{ summary.best_sector_note }}</p>
+          </div>
+          <div class="signal-box">
+            <strong>Weakest Breadth Sector</strong>
+            <p>{{ summary.weakest_sector }}</p>
+            <p class="muted">{{ summary.weakest_sector_note }}</p>
+          </div>
+          <div class="signal-box">
+            <strong>Watchlist Focus</strong>
+            <p class="note-text">{{ summary.watchlist_focus_note }}</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Watchlist Breadth Table</h2>
+      <div class="table-wrap">
+        <table id="breadth-stock-table">
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>ORB</th>
+              <th>VWAP</th>
+              <th>Volume</th>
+              <th>Day Change %</th>
+              <th>Gap %</th>
+              <th>Prev-Day Status</th>
+              <th>Dist to PDH</th>
+              <th>Dist to PDL</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in breadth_rows %}
+            <tr onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}'">
+              <td><a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}" onclick="event.stopPropagation()">{{ row.symbol }}</a></td>
+              <td><span class="badge {{ row.orb_badge }}">{{ row.orb_status }}</span></td>
+              <td><span class="badge {{ row.vwap_badge }}">{{ row.vwap_status }}</span></td>
+              <td><span class="badge {{ row.volume_badge }}">{{ row.volume_status }}</span></td>
+              <td><span class="badge {{ row.day_change_badge }}">{{ row.day_change_pct }}</span></td>
+              <td><span class="badge {{ row.gap_badge }}">{{ row.gap_pct }}</span></td>
+              <td><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
+              <td><span class="badge {{ row.distance_pdh_badge }}">{{ row.distance_pdh }}</span></td>
+              <td><span class="badge {{ row.distance_pdl_badge }}">{{ row.distance_pdl }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+</body>
+</html>
+"""
+
 PD_LEVELS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -5326,6 +5699,59 @@ def build_rotation_home_summary(sector_rows, heatmap_summary, confirmation_rows,
     }
 
 
+def build_market_breadth_summary(scanner_rows, mover_rows, level_rows, sector_rows):
+    above_vwap_count = sum(1 for row in scanner_rows if row["vwap_status"] == "Above VWAP")
+    below_vwap_count = sum(1 for row in scanner_rows if row["vwap_status"] == "Below VWAP")
+    above_or_count = sum(1 for row in scanner_rows if row["orb_status"] == "Above OR High")
+    below_or_count = sum(1 for row in scanner_rows if row["orb_status"] == "Below OR Low")
+    above_pdh_count = sum(1 for row in level_rows if row["status_label"] == "Above PDH")
+    below_pdl_count = sum(1 for row in level_rows if row["status_label"] == "Below PDL")
+    gap_up_count = sum(1 for row in mover_rows if row["gap_pct_numeric"] > 0)
+    gap_down_count = sum(1 for row in mover_rows if row["gap_pct_numeric"] < 0)
+
+    if above_vwap_count >= below_vwap_count + 2 and above_or_count >= below_or_count:
+        breadth_bias = "Bullish Breadth"
+        bias_badge = "badge-up"
+    elif below_vwap_count >= above_vwap_count + 2 and below_or_count >= above_or_count:
+        breadth_bias = "Bearish Breadth"
+        bias_badge = "badge-down"
+    else:
+        breadth_bias = "Mixed Breadth"
+        bias_badge = "badge-neutral"
+
+    best_sector_row = sector_rows[0] if sector_rows else None
+    weakest_sector_row = sector_rows[-1] if sector_rows else None
+
+    if breadth_bias == "Bullish Breadth":
+        watchlist_focus_note = "Favor long setups where ORB, VWAP, and previous-day levels are aligned."
+    elif breadth_bias == "Bearish Breadth":
+        watchlist_focus_note = "Favor weak names losing VWAP and previous-day support rather than forcing longs."
+    else:
+        watchlist_focus_note = "Breadth is mixed, so focus only on the cleanest high-conviction names."
+
+    return {
+        "above_vwap_count": above_vwap_count,
+        "below_vwap_count": below_vwap_count,
+        "above_or_count": above_or_count,
+        "below_or_count": below_or_count,
+        "above_pdh_count": above_pdh_count,
+        "below_pdl_count": below_pdl_count,
+        "gap_up_count": gap_up_count,
+        "gap_down_count": gap_down_count,
+        "breadth_bias": breadth_bias,
+        "bias_badge": bias_badge,
+        "bias_note": (
+            f"VWAP breadth is {above_vwap_count} up vs {below_vwap_count} down, while ORB breadth is "
+            f"{above_or_count} bullish vs {below_or_count} bearish."
+        ),
+        "best_sector": best_sector_row["sector_label"] if best_sector_row else "-",
+        "best_sector_note": best_sector_row["ai_note"] if best_sector_row else "No data",
+        "weakest_sector": weakest_sector_row["sector_label"] if weakest_sector_row else "-",
+        "weakest_sector_note": weakest_sector_row["ai_note"] if weakest_sector_row else "No data",
+        "watchlist_focus_note": watchlist_focus_note,
+    }
+
+
 def get_previous_day_level_rows(symbols, selected_date):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
@@ -5999,6 +6425,110 @@ def equity_rotation_home():
         top_shorts=top_shorts,
         near_pdh_rows=near_pdh_rows,
         near_pdl_rows=near_pdl_rows,
+    )
+
+
+@app.route("/equity-market-breadth")
+def equity_market_breadth():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+
+    error = None
+    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    scanner_rows = []
+    mover_rows = []
+    level_rows = []
+    sector_rows = []
+    breadth_rows = []
+    summary = build_market_breadth_summary([], [], [], [])
+
+    try:
+        selected_date = parse_date(raw_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if end_time <= start_time:
+            raise ValueError("End time must be after start time.")
+
+        scanner_rows, scanner_missing = get_intraday_scanner_rows(
+            symbols,
+            selected_date,
+            start_time,
+            end_time,
+            include_ai=False,
+        )
+        mover_rows, mover_missing = get_mover_rows(symbols)
+        level_rows, level_missing = get_previous_day_level_rows(symbols, selected_date)
+        sector_rows, _, _, _ = get_sector_heatmap_data(selected_date, start_time, end_time)
+
+        mover_map = {row["symbol"]: row for row in mover_rows}
+        level_map = {row["symbol"]: row for row in level_rows}
+        breadth_rows = []
+        for scanner_row in scanner_rows:
+            mover_row = mover_map.get(scanner_row["symbol"])
+            level_row = level_map.get(scanner_row["symbol"])
+            if not mover_row or not level_row:
+                continue
+
+            breadth_row = dict(scanner_row)
+            breadth_row.update(
+                {
+                    "day_change_pct": mover_row["day_change_pct"],
+                    "day_change_badge": mover_row["day_change_badge"],
+                    "gap_pct": mover_row["gap_pct"],
+                    "gap_badge": mover_row["gap_badge"],
+                    "status_label": level_row["status_label"],
+                    "status_badge": level_row["status_badge"],
+                    "distance_pdh": level_row["distance_pdh"],
+                    "distance_pdh_badge": level_row["distance_pdh_badge"],
+                    "distance_pdl": level_row["distance_pdl"],
+                    "distance_pdl_badge": level_row["distance_pdl_badge"],
+                }
+            )
+            breadth_rows.append(breadth_row)
+
+        summary = build_market_breadth_summary(scanner_rows, mover_rows, level_rows, sector_rows)
+
+        missing_values = sorted(set(scanner_missing + mover_missing + level_missing))
+        if missing_values:
+            error = f"Some symbols had partial data: {', '.join(missing_values)}"
+    except Exception as exc:
+        selected_date = raw_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+
+    return render_template_string(
+        MARKET_BREADTH_TEMPLATE,
+        error=error,
+        symbols=symbols,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+        sector_rows=sector_rows,
+        breadth_rows=breadth_rows,
+        summary=summary,
     )
 
 
