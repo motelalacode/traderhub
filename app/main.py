@@ -1,4 +1,5 @@
 import datetime
+import math
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -8,7 +9,7 @@ from kiteconnect import KiteConnect
 
 from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
-from app.symbol_resolver import resolve_symbol_list
+from app.symbol_resolver import load_symbol_master, resolve_symbol_list
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DEFAULT_SYMBOLS = ["IOC", "PNB"]
@@ -4255,12 +4256,13 @@ BACKTEST_TEMPLATE = """
       box-shadow: 0 18px 44px rgba(24,32,39,0.07);
     }
     .card h2 { margin: 0 0 12px; font-size: 24px; }
-    .toolbar-grid, .summary-grid, .legend {
+    .toolbar-grid, .summary-grid, .legend, .mobile-card-grid {
       display: grid;
       gap: 14px;
     }
     .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .mobile-card-grid { grid-template-columns: 1fr; }
     label {
       display: block;
       font-size: 13px;
@@ -4837,6 +4839,431 @@ TRADE_PLAN_TEMPLATE = """
       </div>
     </section>
   </div>
+</body>
+</html>
+"""
+
+ARBITRAGE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Cash Arbitrage</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1460px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 1020px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .legend {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .summary-box, .legend-item {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; }
+    .desktop-only { display: block; }
+    .mobile-only { display: none; }
+    table { width: 100%; border-collapse: collapse; min-width: 1440px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr:hover { background: rgba(31,111,95,0.05); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+    }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .mobile-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+    }
+    .mobile-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .mobile-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .mobile-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .mobile-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .mobile-metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .mobile-metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .mobile-metric-value {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .mobile-note {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    @media (max-width: 760px) {
+      .desktop-only { display: none; }
+      .mobile-only { display: block; }
+      .page { padding: 20px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+      h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Cash Arbitrage Monitor</h1>
+      <p class="sub">
+        A tradable NSE-vs-BSE cash-equity arbitrage page that compares the best ask on the cheaper exchange against the best bid
+        on the richer exchange, then estimates net opportunity after brokerage and transaction taxes. Phase 1 uses the common NSE/BSE EQ universe and scans your selected symbols.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Capital: {{ capital_display }}</div>
+        <div class="pill">Min Spread: {{ min_spread_display }}</div>
+        <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
+        </div>
+        <div>
+          <label for="capital">Capital (INR)</label>
+          <input id="capital" name="capital" value="{{ capital_display }}" placeholder="50000">
+        </div>
+        <div>
+          <label for="min_spread">Min Spread / Share</label>
+          <input id="min_spread" name="min_spread" value="{{ min_spread_display }}" placeholder="0.50">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="net_positive_only">Net Positive Only</label>
+          <select id="net_positive_only" name="net_positive_only">
+            <option value="1" {{ 'selected' if net_positive_only else '' }}>Yes</option>
+            <option value="0" {{ 'selected' if not net_positive_only else '' }}>No</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit">Scan Arbitrage</button>
+        </div>
+      </form>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Opportunities</strong><div class="summary-value">{{ summary.opportunity_count }}</div><div>Tradable spreads after filters</div></div>
+        <div class="summary-box"><strong>Best Net Opportunity</strong><div class="summary-value">{{ summary.best_net_profit }}</div><div>Highest estimated net profit</div></div>
+        <div class="summary-box"><strong>Total Net Potential</strong><div class="summary-value">{{ summary.total_net_profit }}</div><div>Across shown rows</div></div>
+        <div class="summary-box"><strong>Liquidity Flags</strong><div class="summary-value">{{ summary.depth_limited_count }}</div><div>Rows limited by best-depth quantity</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How To Read It</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>Tradable Mode</strong>
+          Buy price uses the best ask on the lower exchange and sell price uses the best bid on the higher exchange, not last traded price.
+        </div>
+        <div class="legend-item">
+          <strong>Common NSE/BSE EQ Stocks</strong>
+          This page is designed for shares that are available in both NSE and BSE cash markets with EQ series treatment in your stock master.
+        </div>
+        <div class="legend-item">
+          <strong>Depth Warning</strong>
+          Quantity is capped by capital and best-depth availability. Thin depth can make a theoretical spread unusable in practice.
+        </div>
+      </div>
+    </section>
+
+    <section class="card desktop-only">
+      <h2>Arbitrage Table</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>NSE Ask</th>
+              <th>NSE Bid</th>
+              <th>BSE Ask</th>
+              <th>BSE Bid</th>
+              <th>Buy On</th>
+              <th>Sell On</th>
+              <th>Gross Spread</th>
+              <th>Spread %</th>
+              <th>Qty</th>
+              <th>Gross Profit</th>
+              <th>Charges</th>
+              <th>Net Profit</th>
+              <th>Liquidity Warning</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in arbitrage_rows %}
+            <tr>
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.nse_ask }}</td>
+              <td>{{ row.nse_bid }}</td>
+              <td>{{ row.bse_ask }}</td>
+              <td>{{ row.bse_bid }}</td>
+              <td><span class="badge {{ row.buy_badge }}">{{ row.buy_exchange }}</span></td>
+              <td><span class="badge {{ row.sell_badge }}">{{ row.sell_exchange }}</span></td>
+              <td><span class="badge {{ row.gross_badge }}">{{ row.gross_spread }}</span></td>
+              <td><span class="badge {{ row.spread_pct_badge }}">{{ row.spread_pct }}</span></td>
+              <td>{{ row.quantity }}</td>
+              <td><span class="badge {{ row.gross_total_badge }}">{{ row.gross_profit }}</span></td>
+              <td>{{ row.total_charges }}</td>
+              <td><span class="badge {{ row.net_badge }}">{{ row.net_profit }}</span></td>
+              <td>{{ row.liquidity_warning }}</td>
+              <td>{{ row.timestamp }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card mobile-only">
+      <h2>Arbitrage Cards</h2>
+      <div class="mobile-card-grid">
+        {% for row in arbitrage_rows %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ row.symbol }}</div>
+              <div class="mobile-sub">{{ row.buy_exchange }} buy -> {{ row.sell_exchange }} sell</div>
+            </div>
+            <span class="badge {{ row.net_badge }}">{{ row.net_profit }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Buy Price</div>
+              <div class="mobile-metric-value">{{ row.buy_exchange }} {{ row.nse_ask if row.buy_exchange == 'NSE' else row.bse_ask }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Sell Price</div>
+              <div class="mobile-metric-value">{{ row.sell_exchange }} {{ row.bse_bid if row.sell_exchange == 'BSE' else row.nse_bid }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Gross Spread</div>
+              <div class="mobile-metric-value">{{ row.gross_spread }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Spread %</div>
+              <div class="mobile-metric-value">{{ row.spread_pct }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Quantity</div>
+              <div class="mobile-metric-value">{{ row.quantity }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Charges</div>
+              <div class="mobile-metric-value">{{ row.total_charges }}</div>
+            </div>
+          </div>
+          <div class="mobile-note">
+            <strong>Gross:</strong> {{ row.gross_profit }}<br>
+            <strong>Liquidity:</strong> {{ row.liquidity_warning }}<br>
+            <strong>Time:</strong> {{ row.timestamp }}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
 </body>
 </html>
 """
@@ -6499,6 +6926,213 @@ def build_trade_plan_summary(trade_plan_rows):
     }
 
 
+def get_refresh_options_with_fast():
+    return [
+        {"value": 0, "label": "Off"},
+        {"value": 15, "label": "15 seconds"},
+        {"value": 30, "label": "30 seconds"},
+        {"value": 60, "label": "60 seconds"},
+    ]
+
+
+def get_brokerage_charge(turnover):
+    return turnover * (600 / 10000000)
+
+
+def estimate_cash_arbitrage_charges(buy_turnover, sell_turnover):
+    total_turnover = buy_turnover + sell_turnover
+    brokerage = get_brokerage_charge(total_turnover)
+    exchange_txn = total_turnover * 0.0000325
+    sebi_charges = total_turnover * 0.000001
+    gst = (brokerage + exchange_txn) * 0.18
+    stamp_duty = buy_turnover * 0.00015
+    stt = sell_turnover * 0.00025
+    total_charges = brokerage + exchange_txn + sebi_charges + gst + stamp_duty + stt
+    return {
+        "brokerage": brokerage,
+        "exchange_txn": exchange_txn,
+        "sebi_charges": sebi_charges,
+        "gst": gst,
+        "stamp_duty": stamp_duty,
+        "stt": stt,
+        "total_charges": total_charges,
+    }
+
+
+@lru_cache(maxsize=1)
+def get_bse_instrument_map():
+    client = build_kite_client(with_access_token=True)
+    rows = client.instruments("BSE")
+    instrument_map = {}
+
+    for row in rows:
+        symbol = str(row.get("tradingsymbol") or "").upper()
+        if symbol:
+            instrument_map[symbol] = row
+
+    return instrument_map
+
+
+@lru_cache(maxsize=1)
+def get_common_equity_symbols():
+    master = load_symbol_master()
+    nse_map = get_nse_instrument_map()
+    bse_map = get_bse_instrument_map()
+    common_symbols = []
+
+    for symbol, row in master["by_symbol"].items():
+        if row.get("series") != "EQ":
+            continue
+        if symbol not in nse_map or symbol not in bse_map:
+            continue
+
+        nse_series = str(nse_map[symbol].get("tradingsymbol") or "").upper()
+        bse_series = str(bse_map[symbol].get("tradingsymbol") or "").upper()
+        if nse_series and bse_series:
+            common_symbols.append(symbol)
+
+    return sorted(common_symbols)
+
+
+def get_depth_price(quote, side, field):
+    depth = (quote or {}).get("depth") or {}
+    rows = depth.get(side) or []
+    if not rows:
+        return None
+    value = rows[0].get(field)
+    return float(value) if value not in (None, "") else None
+
+
+def get_depth_timestamp(quote):
+    timestamp = quote.get("timestamp") or quote.get("last_trade_time")
+    if hasattr(timestamp, "astimezone"):
+        return timestamp.astimezone(APP_TZ).strftime("%H:%M:%S")
+    return str(timestamp or "-")
+
+
+def build_arbitrage_summary(arbitrage_rows):
+    opportunity_count = len(arbitrage_rows)
+    total_net_profit_numeric = sum(row["net_profit_numeric"] for row in arbitrage_rows)
+    best_net_profit_numeric = max((row["net_profit_numeric"] for row in arbitrage_rows), default=0.0)
+    depth_limited_count = sum(1 for row in arbitrage_rows if row["liquidity_warning"] != "Depth supported")
+    return {
+        "opportunity_count": opportunity_count,
+        "best_net_profit": f"{best_net_profit_numeric:+.2f}",
+        "total_net_profit": f"{total_net_profit_numeric:+.2f}",
+        "depth_limited_count": depth_limited_count,
+    }
+
+
+def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_only):
+    common_symbols = set(get_common_equity_symbols())
+    eligible_symbols = [symbol for symbol in symbols if symbol in common_symbols]
+
+    client = build_kite_client(with_access_token=True)
+    quote_symbols = [*[f"NSE:{symbol}" for symbol in eligible_symbols], *[f"BSE:{symbol}" for symbol in eligible_symbols]]
+    quote_data = client.quote(quote_symbols)
+
+    arbitrage_rows = []
+    missing = []
+
+    for symbol in eligible_symbols:
+        nse_quote = quote_data.get(f"NSE:{symbol}")
+        bse_quote = quote_data.get(f"BSE:{symbol}")
+        if not nse_quote or not bse_quote:
+            missing.append(symbol)
+            continue
+
+        nse_ask = get_depth_price(nse_quote, "sell", "price")
+        nse_bid = get_depth_price(nse_quote, "buy", "price")
+        bse_ask = get_depth_price(bse_quote, "sell", "price")
+        bse_bid = get_depth_price(bse_quote, "buy", "price")
+        nse_ask_qty = get_depth_price(nse_quote, "sell", "quantity")
+        nse_bid_qty = get_depth_price(nse_quote, "buy", "quantity")
+        bse_ask_qty = get_depth_price(bse_quote, "sell", "quantity")
+        bse_bid_qty = get_depth_price(bse_quote, "buy", "quantity")
+
+        if None in {nse_ask, nse_bid, bse_ask, bse_bid, nse_ask_qty, nse_bid_qty, bse_ask_qty, bse_bid_qty}:
+            missing.append(symbol)
+            continue
+
+        if nse_ask < bse_bid:
+            buy_exchange = "NSE"
+            sell_exchange = "BSE"
+            buy_price = nse_ask
+            sell_price = bse_bid
+            buy_qty_depth = int(nse_ask_qty)
+            sell_qty_depth = int(bse_bid_qty)
+        elif bse_ask < nse_bid:
+            buy_exchange = "BSE"
+            sell_exchange = "NSE"
+            buy_price = bse_ask
+            sell_price = nse_bid
+            buy_qty_depth = int(bse_ask_qty)
+            sell_qty_depth = int(nse_bid_qty)
+        else:
+            continue
+
+        gross_spread_numeric = sell_price - buy_price
+        if gross_spread_numeric < min_spread:
+            continue
+
+        capital_qty = math.floor(capital_amount / buy_price) if buy_price > 0 else 0
+        tradable_qty = max(0, min(capital_qty, buy_qty_depth, sell_qty_depth))
+        if tradable_qty <= 0:
+            continue
+
+        gross_profit_numeric = gross_spread_numeric * tradable_qty
+        charges = estimate_cash_arbitrage_charges(buy_price * tradable_qty, sell_price * tradable_qty)
+        net_profit_numeric = gross_profit_numeric - charges["total_charges"]
+        if net_positive_only and net_profit_numeric <= 0:
+            continue
+
+        if tradable_qty < capital_qty:
+            liquidity_warning = "Depth limited"
+        elif tradable_qty <= 10:
+            liquidity_warning = "Thin depth"
+        else:
+            liquidity_warning = "Depth supported"
+
+        spread_pct_numeric = (gross_spread_numeric / buy_price * 100) if buy_price > 0 else 0.0
+        timestamp = max(get_depth_timestamp(nse_quote), get_depth_timestamp(bse_quote))
+
+        arbitrage_rows.append(
+            {
+                "symbol": symbol,
+                "nse_ask": format_price(nse_ask),
+                "nse_bid": format_price(nse_bid),
+                "bse_ask": format_price(bse_ask),
+                "bse_bid": format_price(bse_bid),
+                "buy_exchange": buy_exchange,
+                "buy_badge": "badge-info",
+                "sell_exchange": sell_exchange,
+                "sell_badge": "badge-up",
+                "gross_spread": f"{gross_spread_numeric:+.2f}",
+                "gross_spread_numeric": round(gross_spread_numeric, 2),
+                "gross_badge": classify_percent_badge(gross_spread_numeric),
+                "spread_pct": f"{spread_pct_numeric:+.2f}%",
+                "spread_pct_numeric": round(spread_pct_numeric, 2),
+                "spread_pct_badge": classify_percent_badge(spread_pct_numeric),
+                "quantity": tradable_qty,
+                "gross_profit": f"{gross_profit_numeric:+.2f}",
+                "gross_profit_numeric": round(gross_profit_numeric, 2),
+                "gross_total_badge": classify_percent_badge(gross_profit_numeric),
+                "total_charges": f"{charges['total_charges']:.2f}",
+                "total_charges_numeric": round(charges["total_charges"], 2),
+                "net_profit": f"{net_profit_numeric:+.2f}",
+                "net_profit_numeric": round(net_profit_numeric, 2),
+                "net_badge": classify_percent_badge(net_profit_numeric),
+                "liquidity_warning": liquidity_warning,
+                "timestamp": timestamp,
+            }
+        )
+
+    arbitrage_rows.sort(key=lambda row: row["net_profit_numeric"], reverse=True)
+    skipped = [symbol for symbol in symbols if symbol not in common_symbols]
+    missing.extend(skipped)
+    return arbitrage_rows, sorted(set(missing))
+
+
 def get_trade_plan_rows(symbols, selected_date, start_time, end_time, risk_multiple, target_one_multiple, target_two_multiple):
     scanner_rows, scanner_missing = get_intraday_scanner_rows(
         symbols,
@@ -7648,6 +8282,66 @@ def equity_backtest():
             f"{stop_multiple:.2f}",
             f"{target_multiple:.2f}",
         ),
+    )
+
+
+@app.route("/equity-arbitrage")
+def equity_arbitrage():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+    capital_amount = parse_positive_float(request.args.get("capital", "50000"), 50000.0)
+    min_spread = parse_positive_float(request.args.get("min_spread", "0.50"), 0.50)
+    net_positive_only = request.args.get("net_positive_only", "1") != "0"
+
+    error = None
+    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    arbitrage_rows = []
+    summary = build_arbitrage_summary([])
+
+    try:
+        if not symbols:
+            raise ValueError("Please provide at least one NSE/BSE cash-equity symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+
+        arbitrage_rows, missing = get_cash_arbitrage_rows(
+            symbols,
+            capital_amount,
+            min_spread,
+            net_positive_only,
+        )
+        summary = build_arbitrage_summary(arbitrage_rows)
+
+        if missing:
+            error = (
+                "Some names were skipped because they were not available in the common NSE/BSE EQ cash universe "
+                f"or did not have depth data: {', '.join(missing[:12])}"
+            )
+    except Exception as exc:
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+    net_positive_label = "Yes" if net_positive_only else "No"
+
+    return render_template_string(
+        ARBITRAGE_TEMPLATE,
+        error=error,
+        arbitrage_rows=arbitrage_rows,
+        summary=summary,
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        capital_display=f"{capital_amount:.0f}",
+        min_spread_display=f"{min_spread:.2f}",
+        refresh_options=get_refresh_options_with_fast(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+        net_positive_only=net_positive_only,
+        net_positive_label=net_positive_label,
     )
 
 
