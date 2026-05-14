@@ -4183,6 +4183,338 @@ MARKET_BREADTH_TEMPLATE = """
 </html>
 """
 
+BACKTEST_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Strategy Backtest</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1480px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 980px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .preset-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .legend {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .preset-link {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .preset-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .summary-box, .legend-item {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 18px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1320px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr:hover { background: rgba(31,111,95,0.05); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+    }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .muted { color: var(--muted); }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Strategy Backtest</h1>
+      <p class="sub">
+        A separate ORB backtest page for replaying breakout trades across a date range with configurable direction,
+        stop multiple, target multiple, and simple rule-based exits.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">From: {{ from_date }}</div>
+        <div class="pill">To: {{ to_date }}</div>
+        <div class="pill">Direction: {{ direction_label }}</div>
+        <div class="pill">Stop: {{ stop_multiple }}R</div>
+        <div class="pill">Target: {{ target_multiple }}R</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Backtest Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN">
+        </div>
+        <div>
+          <label for="from_date">From Date</label>
+          <input id="from_date" name="from_date" value="{{ from_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="to_date">To Date</label>
+          <input id="to_date" name="to_date" value="{{ to_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">ORB Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">ORB End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="direction">Direction</label>
+          <select id="direction" name="direction">
+            {% for option in direction_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == direction else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="stop_multiple">Stop Multiple</label>
+          <input id="stop_multiple" name="stop_multiple" value="{{ stop_multiple }}" placeholder="1.0">
+        </div>
+        <div>
+          <label for="target_multiple">Target Multiple</label>
+          <input id="target_multiple" name="target_multiple" value="{{ target_multiple }}" placeholder="1.5">
+        </div>
+        <div>
+          <button type="submit">Run Backtest</button>
+        </div>
+      </form>
+      <div class="preset-links">
+        {% for preset in presets %}
+        <a class="preset-link" href="{{ preset.href }}">{{ preset.label }}</a>
+        {% endfor %}
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Total Trades</strong><div class="summary-value">{{ summary.total_trades }}</div><div>Triggered breakout entries</div></div>
+        <div class="summary-box"><strong>Wins</strong><div class="summary-value">{{ summary.win_count }}</div><div>Target hits or profitable EOD exits</div></div>
+        <div class="summary-box"><strong>Losses</strong><div class="summary-value">{{ summary.loss_count }}</div><div>Stop hits or losing EOD exits</div></div>
+        <div class="summary-box"><strong>Win Rate</strong><div class="summary-value">{{ summary.win_rate }}</div><div>Percentage of winning trades</div></div>
+        <div class="summary-box"><strong>Total P&L</strong><div class="summary-value">{{ summary.total_pnl_points }}</div><div>Raw points across all trades</div></div>
+        <div class="summary-box"><strong>Average P&L</strong><div class="summary-value">{{ summary.avg_pnl_points }}</div><div>Average points per trade</div></div>
+        <div class="summary-box"><strong>Best Trade</strong><div class="summary-value">{{ summary.best_trade }}</div><div>Strongest single-trade result</div></div>
+        <div class="summary-box"><strong>Worst Trade</strong><div class="summary-value">{{ summary.worst_trade }}</div><div>Weakest single-trade result</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How To Read It</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>Entry Rule</strong>
+          A trade is opened on the first valid ORB break after the opening range window. Longs use OR high and shorts use OR low.
+        </div>
+        <div class="legend-item">
+          <strong>Risk Model</strong>
+          Stop and target are based on the opening-range size multiplied by your chosen stop and target settings.
+        </div>
+        <div class="legend-item">
+          <strong>Same-Candle Ambiguity</strong>
+          If stop and target are both touched in the same minute candle, the backtest assumes the stop was hit first.
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Trade Log</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Symbol</th>
+              <th>Date</th>
+              <th>Side</th>
+              <th>Entry Time</th>
+              <th>Entry</th>
+              <th>Stop</th>
+              <th>Target</th>
+              <th>Exit Time</th>
+              <th>Exit</th>
+              <th>Outcome</th>
+              <th>P&L</th>
+              <th>Range</th>
+              <th>Exit Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in trade_rows %}
+            <tr>
+              <td>{{ row.symbol }}</td>
+              <td>{{ row.trade_date }}</td>
+              <td><span class="badge {{ row.side_badge }}">{{ row.side }}</span></td>
+              <td>{{ row.entry_time }}</td>
+              <td>{{ row.entry_price }}</td>
+              <td>{{ row.stop_price }}</td>
+              <td>{{ row.target_price }}</td>
+              <td>{{ row.exit_time }}</td>
+              <td>{{ row.exit_price }}</td>
+              <td><span class="badge {{ row.outcome_badge }}">{{ row.outcome }}</span></td>
+              <td><span class="badge {{ row.pnl_badge }}">{{ row.pnl_points }}</span></td>
+              <td>{{ row.range_size }}</td>
+              <td>{{ row.exit_reason }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
 PD_LEVELS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -5752,6 +6084,83 @@ def build_market_breadth_summary(scanner_rows, mover_rows, level_rows, sector_ro
     }
 
 
+def get_backtest_direction_options():
+    return [
+        {"value": "both", "label": "Both"},
+        {"value": "long", "label": "Long Only"},
+        {"value": "short", "label": "Short Only"},
+    ]
+
+
+def parse_positive_float(value, fallback):
+    try:
+        parsed = float(value or fallback)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
+
+
+def get_backtest_preset_ranges():
+    today = get_today_ist()
+    return [
+        {"label": "Last 5D", "from_date": (today - datetime.timedelta(days=7)).isoformat(), "to_date": today.isoformat()},
+        {"label": "Last 10D", "from_date": (today - datetime.timedelta(days=14)).isoformat(), "to_date": today.isoformat()},
+        {"label": "Last 20D", "from_date": (today - datetime.timedelta(days=30)).isoformat(), "to_date": today.isoformat()},
+    ]
+
+
+def build_backtest_presets(active_watchlist, request_symbols, start_time, end_time, direction, stop_multiple, target_multiple):
+    presets = []
+    for preset in get_backtest_preset_ranges():
+        presets.append(
+            {
+                "label": preset["label"],
+                "href": (
+                    f"/equity-backtest?watchlist={active_watchlist}"
+                    f"&symbols={request_symbols}"
+                    f"&from_date={preset['from_date']}"
+                    f"&to_date={preset['to_date']}"
+                    f"&start={start_time}"
+                    f"&end={end_time}"
+                    f"&direction={direction}"
+                    f"&stop_multiple={stop_multiple}"
+                    f"&target_multiple={target_multiple}"
+                ),
+            }
+        )
+    return presets
+
+
+def get_trade_outcome_badge(pnl_points):
+    if pnl_points > 0:
+        return "badge-up"
+    if pnl_points < 0:
+        return "badge-down"
+    return "badge-neutral"
+
+
+def build_backtest_summary(trade_rows):
+    total_trades = len(trade_rows)
+    win_count = sum(1 for row in trade_rows if row["pnl_points_numeric"] > 0)
+    loss_count = sum(1 for row in trade_rows if row["pnl_points_numeric"] < 0)
+    win_rate = (win_count / total_trades * 100) if total_trades else 0.0
+    total_pnl = sum(row["pnl_points_numeric"] for row in trade_rows)
+    avg_pnl = (total_pnl / total_trades) if total_trades else 0.0
+    best_trade = max((row["pnl_points_numeric"] for row in trade_rows), default=0.0)
+    worst_trade = min((row["pnl_points_numeric"] for row in trade_rows), default=0.0)
+
+    return {
+        "total_trades": total_trades,
+        "win_count": win_count,
+        "loss_count": loss_count,
+        "win_rate": f"{win_rate:.1f}%",
+        "total_pnl_points": f"{total_pnl:+.2f}",
+        "avg_pnl_points": f"{avg_pnl:+.2f}",
+        "best_trade": f"{best_trade:+.2f}",
+        "worst_trade": f"{worst_trade:+.2f}",
+    }
+
+
 def get_previous_day_level_rows(symbols, selected_date):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
@@ -5851,6 +6260,186 @@ def get_previous_day_level_rows(symbols, selected_date):
         )
 
     return level_rows, missing
+
+
+def get_orb_backtest_rows(symbols, from_date, to_date, start_time, end_time, direction, stop_multiple, target_multiple):
+    client = build_kite_client(with_access_token=True)
+    instrument_map = get_nse_instrument_map()
+    trade_rows = []
+    missing = []
+
+    if (to_date - from_date).days > 45:
+        raise ValueError("Please keep the backtest range to 45 days or less for stable performance.")
+
+    day_cursor = from_date
+    while day_cursor <= to_date:
+        if day_cursor.weekday() >= 5:
+            day_cursor += datetime.timedelta(days=1)
+            continue
+
+        session_start = datetime.datetime.combine(day_cursor, start_time, tzinfo=APP_TZ)
+        session_end = datetime.datetime.combine(day_cursor, datetime.time(15, 30), tzinfo=APP_TZ)
+
+        for symbol in symbols:
+            instrument = instrument_map.get(symbol)
+            if not instrument:
+                if symbol not in missing:
+                    missing.append(symbol)
+                continue
+
+            candles = client.historical_data(
+                instrument["instrument_token"],
+                session_start,
+                session_end,
+                "minute",
+                continuous=False,
+                oi=False,
+            )
+
+            if not candles:
+                continue
+
+            range_candles = [
+                candle
+                for candle in candles
+                if candle["date"].astimezone(APP_TZ).time() <= end_time
+            ]
+            post_candles = [
+                candle
+                for candle in candles
+                if candle["date"].astimezone(APP_TZ).time() > end_time
+            ]
+
+            if not range_candles or not post_candles:
+                continue
+
+            or_high = max(candle["high"] for candle in range_candles)
+            or_low = min(candle["low"] for candle in range_candles)
+            range_size = or_high - or_low
+            if range_size <= 0:
+                continue
+
+            trade = None
+            for candle in post_candles:
+                breakout_long = direction in {"both", "long"} and candle["high"] >= or_high
+                breakout_short = direction in {"both", "short"} and candle["low"] <= or_low
+
+                if breakout_long and breakout_short:
+                    continue
+
+                if breakout_long:
+                    trade = {
+                        "side": "Long",
+                        "entry_price_numeric": or_high,
+                        "entry_time": candle["date"].astimezone(APP_TZ).strftime("%H:%M"),
+                        "stop_price_numeric": or_high - (range_size * stop_multiple),
+                        "target_price_numeric": or_high + (range_size * target_multiple),
+                        "remaining_candles": post_candles[post_candles.index(candle):],
+                    }
+                    break
+
+                if breakout_short:
+                    trade = {
+                        "side": "Short",
+                        "entry_price_numeric": or_low,
+                        "entry_time": candle["date"].astimezone(APP_TZ).strftime("%H:%M"),
+                        "stop_price_numeric": or_low + (range_size * stop_multiple),
+                        "target_price_numeric": or_low - (range_size * target_multiple),
+                        "remaining_candles": post_candles[post_candles.index(candle):],
+                    }
+                    break
+
+            if not trade:
+                continue
+
+            exit_price = None
+            exit_time = None
+            exit_reason = "EOD Exit"
+
+            for candle in trade["remaining_candles"]:
+                candle_time = candle["date"].astimezone(APP_TZ).strftime("%H:%M")
+                if trade["side"] == "Long":
+                    hit_stop = candle["low"] <= trade["stop_price_numeric"]
+                    hit_target = candle["high"] >= trade["target_price_numeric"]
+                    if hit_stop and hit_target:
+                        exit_price = trade["stop_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Stop hit first on overlap candle"
+                        break
+                    if hit_stop:
+                        exit_price = trade["stop_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Stop Hit"
+                        break
+                    if hit_target:
+                        exit_price = trade["target_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Target Hit"
+                        break
+                else:
+                    hit_stop = candle["high"] >= trade["stop_price_numeric"]
+                    hit_target = candle["low"] <= trade["target_price_numeric"]
+                    if hit_stop and hit_target:
+                        exit_price = trade["stop_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Stop hit first on overlap candle"
+                        break
+                    if hit_stop:
+                        exit_price = trade["stop_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Stop Hit"
+                        break
+                    if hit_target:
+                        exit_price = trade["target_price_numeric"]
+                        exit_time = candle_time
+                        exit_reason = "Target Hit"
+                        break
+
+            if exit_price is None:
+                last_candle = candles[-1]
+                exit_price = last_candle["close"]
+                exit_time = last_candle["date"].astimezone(APP_TZ).strftime("%H:%M")
+
+            if trade["side"] == "Long":
+                pnl_points = exit_price - trade["entry_price_numeric"]
+                outcome = "Win" if pnl_points > 0 else "Loss" if pnl_points < 0 else "Flat"
+                side_badge = "badge-up"
+            else:
+                pnl_points = trade["entry_price_numeric"] - exit_price
+                outcome = "Win" if pnl_points > 0 else "Loss" if pnl_points < 0 else "Flat"
+                side_badge = "badge-down"
+
+            trade_rows.append(
+                {
+                    "symbol": symbol,
+                    "trade_date": day_cursor.isoformat(),
+                    "side": trade["side"],
+                    "side_badge": side_badge,
+                    "entry_time": trade["entry_time"],
+                    "entry_price": format_price(trade["entry_price_numeric"]),
+                    "entry_price_numeric": round(trade["entry_price_numeric"], 2),
+                    "stop_price": format_price(trade["stop_price_numeric"]),
+                    "stop_price_numeric": round(trade["stop_price_numeric"], 2),
+                    "target_price": format_price(trade["target_price_numeric"]),
+                    "target_price_numeric": round(trade["target_price_numeric"], 2),
+                    "exit_time": exit_time,
+                    "exit_price": format_price(exit_price),
+                    "exit_price_numeric": round(exit_price, 2),
+                    "outcome": outcome,
+                    "outcome_badge": get_trade_outcome_badge(pnl_points),
+                    "pnl_points": f"{pnl_points:+.2f}",
+                    "pnl_points_numeric": round(pnl_points, 2),
+                    "pnl_badge": get_trade_outcome_badge(pnl_points),
+                    "range_size": format_price(range_size),
+                    "range_size_numeric": round(range_size, 2),
+                    "exit_reason": exit_reason,
+                }
+            )
+
+        day_cursor += datetime.timedelta(days=1)
+
+    trade_rows.sort(key=lambda row: (row["trade_date"], row["symbol"], row["entry_time"]))
+    return trade_rows, missing
 
 
 app = Flask(__name__)
@@ -6529,6 +7118,95 @@ def equity_market_breadth():
         sector_rows=sector_rows,
         breadth_rows=breadth_rows,
         summary=summary,
+    )
+
+
+@app.route("/equity-backtest")
+def equity_backtest():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_from_date = request.args.get("from_date", (get_today_ist() - datetime.timedelta(days=14)).isoformat())
+    raw_to_date = request.args.get("to_date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    direction = request.args.get("direction", "both")
+    stop_multiple = parse_positive_float(request.args.get("stop_multiple", "1.0"), 1.0)
+    target_multiple = parse_positive_float(request.args.get("target_multiple", "1.5"), 1.5)
+
+    error = None
+    symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+    trade_rows = []
+    summary = build_backtest_summary([])
+
+    try:
+        from_date = parse_date(raw_from_date)
+        to_date = parse_date(raw_to_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if to_date < from_date:
+            raise ValueError("To date must be on or after from date.")
+        if end_time <= start_time:
+            raise ValueError("ORB end time must be after ORB start time.")
+        if direction not in {"both", "long", "short"}:
+            raise ValueError("Direction must be one of: both, long, short.")
+
+        trade_rows, missing = get_orb_backtest_rows(
+            symbols,
+            from_date,
+            to_date,
+            start_time,
+            end_time,
+            direction,
+            stop_multiple,
+            target_multiple,
+        )
+        summary = build_backtest_summary(trade_rows)
+
+        if missing:
+            error = f"Some symbols were unavailable on NSE: {', '.join(sorted(set(missing)))}"
+    except Exception as exc:
+        from_date = raw_from_date
+        to_date = raw_to_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    direction_label = next((item["label"] for item in get_backtest_direction_options() if item["value"] == direction), direction.title())
+
+    return render_template_string(
+        BACKTEST_TEMPLATE,
+        error=error,
+        trade_rows=trade_rows,
+        summary=summary,
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        from_date=from_date if isinstance(from_date, str) else from_date.isoformat(),
+        to_date=to_date if isinstance(to_date, str) else to_date.isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        direction=direction,
+        direction_label=direction_label,
+        direction_options=get_backtest_direction_options(),
+        stop_multiple=f"{stop_multiple:.2f}",
+        target_multiple=f"{target_multiple:.2f}",
+        presets=build_backtest_presets(
+            active_watchlist,
+            (",".join(symbols) if not raw_symbols else raw_symbols),
+            start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+            end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+            direction,
+            f"{stop_multiple:.2f}",
+            f"{target_multiple:.2f}",
+        ),
     )
 
 
