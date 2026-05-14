@@ -2716,6 +2716,409 @@ SECTOR_TEMPLATE = """
 </html>
 """
 
+PD_LEVELS_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Previous Day Levels</title>
+  <style>
+    :root {
+      --bg: #f2ede2;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --accent-soft: #dbece7;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at right top, rgba(31,111,95,0.1), transparent 28%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 920px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .watch-links, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .watch-link, .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 16px;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    button { color: #fff; background: var(--accent); }
+    .watch-link, .quick-link {
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .watch-link.active, .quick-link.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(31,111,95,0.24);
+    }
+    .summary-box, .legend-item {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    .summary-box strong, .legend-item strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .summary-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 1260px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: rgba(31,111,95,0.06); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover { color: var(--ink); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .symbol-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .symbol-link:hover { text-decoration: underline; }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .muted { color: var(--muted); }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Previous Day Levels Dashboard</h1>
+      <p class="sub">
+        A separate page for previous-day high, previous-day low, and previous close reference levels. Use it to quickly see
+        which names are trading above PDH, below PDL, or hugging previous close before you shift into the deeper intraday pages.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Saved Watchlists</h2>
+      <div class="watch-links">
+        {% for watch in watchlists %}
+        <a class="watch-link {{ 'active' if watch.key == active_watchlist else '' }}"
+           href="/equity-previous-levels?watchlist={{ watch.key }}&date={{ selected_date }}&refresh={{ refresh_seconds }}">
+          {{ watch.label }}
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Levels Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="watchlist">Watchlist</label>
+          <select id="watchlist" name="watchlist">
+            {% for watch in watchlists %}
+            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="symbols">Custom Symbols</label>
+          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN,RELIANCE">
+        </div>
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit">Open Levels Page</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&refresh={{ refresh_seconds }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&refresh={{ refresh_seconds }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <strong>Above PDH</strong>
+          <div class="summary-value">{{ summary.above_pdh_count }}</div>
+          <div>Names trading above previous-day high</div>
+        </div>
+        <div class="summary-box">
+          <strong>Below PDL</strong>
+          <div class="summary-value">{{ summary.below_pdl_count }}</div>
+          <div>Names trading below previous-day low</div>
+        </div>
+        <div class="summary-box">
+          <strong>Near Prev Close</strong>
+          <div class="summary-value">{{ summary.near_close_count }}</div>
+          <div>Names still near previous close</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How To Read It</h2>
+      <div class="legend">
+        <div class="legend-item">
+          <strong>PDH / PDL</strong>
+          Previous-day high and low are strong reference levels. Above PDH often signals strength; below PDL often signals weakness.
+        </div>
+        <div class="legend-item">
+          <strong>Distance Columns</strong>
+          These show how far the current price is from PDH, PDL, and previous close, which helps you spot the cleanest level breaks.
+        </div>
+        <div class="legend-item">
+          <strong>Click Through</strong>
+          Click any row or symbol to jump into the detailed OHLC page for minute-level context around the same symbol.
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Levels Table</h2>
+      <div class="table-wrap">
+        <table id="pd-levels-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-key="symbol">Symbol</th>
+              <th class="sortable" data-key="status_sort">Status</th>
+              <th class="sortable" data-key="last_price">Last Price</th>
+              <th class="sortable" data-key="pdh">PDH</th>
+              <th class="sortable" data-key="pdl">PDL</th>
+              <th class="sortable" data-key="prev_close">Prev Close</th>
+              <th class="sortable" data-key="distance_pdh">Dist to PDH</th>
+              <th class="sortable" data-key="distance_pdl">Dist to PDL</th>
+              <th class="sortable" data-key="distance_close">Dist to Prev Close</th>
+              <th class="sortable" data-key="gap_pct">Gap %</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in level_rows %}
+            <tr onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start=09:15&end=09:30'">
+              <td data-sort="{{ row.symbol }}">
+                <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start=09:15&end=09:30" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+              </td>
+              <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
+              <td data-sort="{{ row.last_price_numeric }}">{{ row.last_price }}</td>
+              <td data-sort="{{ row.pdh_numeric }}">{{ row.pdh }}</td>
+              <td data-sort="{{ row.pdl_numeric }}">{{ row.pdl }}</td>
+              <td data-sort="{{ row.prev_close_numeric }}">{{ row.prev_close }}</td>
+              <td data-sort="{{ row.distance_pdh_numeric }}"><span class="badge {{ row.distance_pdh_badge }}">{{ row.distance_pdh }}</span></td>
+              <td data-sort="{{ row.distance_pdl_numeric }}"><span class="badge {{ row.distance_pdl_badge }}">{{ row.distance_pdl }}</span></td>
+              <td data-sort="{{ row.distance_close_numeric }}"><span class="badge {{ row.distance_close_badge }}">{{ row.distance_close }}</span></td>
+              <td data-sort="{{ row.gap_pct_numeric }}"><span class="badge {{ row.gap_badge }}">{{ row.gap_pct }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+  <script>
+    (function () {
+      const table = document.getElementById("pd-levels-table");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      const headers = table.querySelectorAll("th.sortable");
+      let currentKey = null;
+      let ascending = false;
+
+      function getCellValue(row, index) {
+        const cell = row.children[index];
+        return cell ? cell.dataset.sort || cell.textContent.trim() : "";
+      }
+
+      headers.forEach((header, index) => {
+        header.addEventListener("click", () => {
+          const key = header.dataset.key;
+          ascending = currentKey === key ? !ascending : false;
+          currentKey = key;
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          rows.sort((a, b) => {
+            const aValue = getCellValue(a, index);
+            const bValue = getCellValue(b, index);
+            const aNumber = Number(aValue);
+            const bNumber = Number(bValue);
+            let result = 0;
+
+            if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+              result = aNumber - bNumber;
+            } else {
+              result = aValue.localeCompare(bValue);
+            }
+
+            return ascending ? result : -result;
+          });
+          rows.forEach((row) => tbody.appendChild(row));
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+"""
+
 
 def is_market_open():
     now = datetime.datetime.now(APP_TZ).time()
@@ -2958,6 +3361,18 @@ def build_confirmation_summary(confirmation_rows):
     }
 
 
+def build_previous_levels_summary(level_rows):
+    above_pdh_count = sum(1 for row in level_rows if row["status_label"] == "Above PDH")
+    below_pdl_count = sum(1 for row in level_rows if row["status_label"] == "Below PDL")
+    near_close_count = sum(1 for row in level_rows if row["status_label"] == "Near Prev Close")
+
+    return {
+        "above_pdh_count": above_pdh_count,
+        "below_pdl_count": below_pdl_count,
+        "near_close_count": near_close_count,
+    }
+
+
 def get_sector_options():
     return [
         {"key": key, "label": key.replace("_", " ").title()}
@@ -3023,6 +3438,10 @@ def build_empty_mover_row(symbol, reason):
         "gap_status": reason,
         "gap_sort": -1,
     }
+
+
+def build_signed_price(value):
+    return f"{value:+.2f}"
 
 
 def get_active_kite_credentials():
@@ -3479,6 +3898,107 @@ def get_sector_strength_rows(selected_date, start_time, end_time):
     return sector_rows, sector_detail_map, missing
 
 
+def get_previous_day_level_rows(symbols, selected_date):
+    client = build_kite_client(with_access_token=True)
+    instrument_map = get_nse_instrument_map()
+    quote_symbols = [f"NSE:{symbol}" for symbol in symbols]
+    quote_data = client.quote(quote_symbols)
+
+    level_rows = []
+    missing = []
+
+    for symbol in symbols:
+        instrument = instrument_map.get(symbol)
+        quote = quote_data.get(f"NSE:{symbol}")
+
+        if not instrument or not quote:
+            missing.append(symbol)
+            continue
+
+        from_dt = datetime.datetime.combine(selected_date - datetime.timedelta(days=10), datetime.time(0, 0), tzinfo=APP_TZ)
+        to_dt = datetime.datetime.combine(selected_date, datetime.time(0, 0), tzinfo=APP_TZ)
+        daily_candles = client.historical_data(
+            instrument["instrument_token"],
+            from_dt,
+            to_dt,
+            "day",
+            continuous=False,
+            oi=False,
+        )
+
+        previous_candles = [
+            candle
+            for candle in daily_candles
+            if candle["date"].astimezone(APP_TZ).date() < selected_date
+        ]
+
+        if not previous_candles:
+            missing.append(symbol)
+            continue
+
+        prev_day = previous_candles[-1]
+        pdh = float(prev_day["high"])
+        pdl = float(prev_day["low"])
+        prev_close = float(prev_day["close"])
+        last_price = float(quote.get("last_price") or 0)
+        open_price = float((quote.get("ohlc") or {}).get("open") or 0)
+
+        distance_pdh = last_price - pdh
+        distance_pdl = last_price - pdl
+        distance_close = last_price - prev_close
+        gap_pct = ((open_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+
+        if last_price > pdh:
+            status_label = "Above PDH"
+            status_sort = 2
+            status_badge = "badge-up"
+        elif last_price < pdl:
+            status_label = "Below PDL"
+            status_sort = 0
+            status_badge = "badge-down"
+        else:
+            close_band = max(prev_close * 0.003, 0.10)
+            if abs(distance_close) <= close_band:
+                status_label = "Near Prev Close"
+                status_sort = 1
+                status_badge = "badge-info"
+            else:
+                status_label = "Inside Prev Range"
+                status_sort = 1
+                status_badge = "badge-neutral"
+
+        level_rows.append(
+            {
+                "symbol": symbol,
+                "status_label": status_label,
+                "status_sort": status_sort,
+                "status_badge": status_badge,
+                "last_price": format_price(last_price),
+                "last_price_numeric": round(last_price, 2),
+                "pdh": format_price(pdh),
+                "pdh_numeric": round(pdh, 2),
+                "pdl": format_price(pdl),
+                "pdl_numeric": round(pdl, 2),
+                "prev_close": format_price(prev_close),
+                "prev_close_numeric": round(prev_close, 2),
+                "distance_pdh": build_signed_price(distance_pdh),
+                "distance_pdh_numeric": round(distance_pdh, 2),
+                "distance_pdh_badge": classify_percent_badge(distance_pdh),
+                "distance_pdl": build_signed_price(distance_pdl),
+                "distance_pdl_numeric": round(distance_pdl, 2),
+                "distance_pdl_badge": classify_percent_badge(distance_pdl),
+                "distance_close": build_signed_price(distance_close),
+                "distance_close_numeric": round(distance_close, 2),
+                "distance_close_badge": classify_percent_badge(distance_close),
+                "gap_pct": f"{gap_pct:+.2f}%",
+                "gap_pct_numeric": round(gap_pct, 2),
+                "gap_badge": classify_percent_badge(gap_pct),
+            }
+        )
+
+    return level_rows, missing
+
+
 app = Flask(__name__)
 
 
@@ -3863,6 +4383,57 @@ def equity_sector_strength():
         sector_options=get_sector_options(),
         selected_sector=selected_sector,
         selected_sector_label=selected_sector_label,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+    )
+
+
+@app.route("/equity-previous-levels")
+def equity_previous_levels():
+    active_watchlist = request.args.get("watchlist", "my_intraday")
+    raw_symbols = request.args.get("symbols", "")
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+
+    error = None
+    level_rows = []
+
+    try:
+        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+        selected_date = parse_date(raw_date)
+
+        if not symbols:
+            raise ValueError("Please provide at least one NSE symbol.")
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+
+        level_rows, missing = get_previous_day_level_rows(symbols, selected_date)
+        if missing:
+            missing_text = ", ".join(missing)
+            error = f"Could not load previous-day levels for: {missing_text}"
+    except Exception as exc:
+        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols) or SCANNER_DEFAULT_SYMBOLS
+        selected_date = raw_date
+        error = str(exc)
+
+    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+
+    return render_template_string(
+        PD_LEVELS_TEMPLATE,
+        level_rows=level_rows,
+        summary=build_previous_levels_summary(level_rows),
+        error=error,
+        symbols=symbols,
+        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        watchlists=get_watchlist_options(),
+        active_watchlist=active_watchlist,
+        active_watchlist_label=active_watchlist_label,
         refresh_options=get_refresh_options(),
         refresh_seconds=refresh_seconds,
         refresh_label=refresh_label,
