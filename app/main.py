@@ -5941,8 +5941,8 @@ def equity_rotation_home():
         if end_time <= start_time:
             raise ValueError("End time must be after start time.")
 
-        sector_rows, _, _ = get_sector_strength_rows(selected_date, start_time, end_time)
         heatmap_sector_rows, _, _, _ = get_sector_heatmap_data(selected_date, start_time, end_time)
+        sector_rows = heatmap_sector_rows
         heatmap_summary = build_sector_heatmap_summary(heatmap_sector_rows, [])
         confirmation_rows, confirmation_missing = get_confirmation_rows(
             symbols,
