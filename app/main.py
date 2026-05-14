@@ -607,6 +607,12 @@ SCANNER_TEMPLATE = """
       vertical-align: top;
       font-size: 14px;
     }
+    tbody tr {
+      cursor: pointer;
+    }
+    tbody tr:hover {
+      background: rgba(31,111,95,0.06);
+    }
     th {
       font-size: 12px;
       text-transform: uppercase;
@@ -659,6 +665,14 @@ SCANNER_TEMPLATE = """
     .ai-text {
       max-width: 320px;
       line-height: 1.45;
+    }
+    .symbol-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .symbol-link:hover {
+      text-decoration: underline;
     }
     .legend {
       display: grid;
@@ -776,8 +790,10 @@ SCANNER_TEMPLATE = """
           </thead>
           <tbody>
             {% for row in scanner_rows %}
-            <tr>
-              <td data-sort="{{ row.symbol }}">{{ row.symbol }}</td>
+            <tr onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}'">
+              <td data-sort="{{ row.symbol }}">
+                <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+              </td>
               <td data-sort="{{ row.orb_sort }}">
                 <span class="badge {{ row.orb_badge }}">{{ row.orb_status }}</span>
               </td>
