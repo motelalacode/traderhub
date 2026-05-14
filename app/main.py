@@ -28,6 +28,82 @@ SECTOR_GROUPS = {
     "private_banks": ["HDFCBANK", "ICICIBANK", "AXISBANK", "KOTAKBANK", "INDUSINDBK"],
     "fmcg": ["ITC", "HINDUNILVR", "NESTLEIND", "BRITANNIA", "DABUR"],
 }
+SECTOR_HEATMAP_GROUPS = {
+    "financials": {
+        "label": "Financials",
+        "subsectors": {
+            "psu_banks": ["PNB", "SBIN", "BANKBARODA", "CANBK", "UNIONBANK", "INDIANB"],
+            "private_banks": ["HDFCBANK", "ICICIBANK", "AXISBANK", "KOTAKBANK", "INDUSINDBK"],
+            "nbfcs": ["BAJFINANCE", "BAJAJFINSV", "CHOLAFIN", "SHRIRAMFIN", "MUTHOOTFIN"],
+            "insurance": ["SBILIFE", "HDFCLIFE", "ICICIPRULI", "ICICIGI"],
+        },
+    },
+    "energy": {
+        "label": "Energy",
+        "subsectors": {
+            "omcs": ["IOC", "BPCL", "HPCL", "MRPL"],
+            "upstream_oil_gas": ["ONGC", "OIL"],
+            "gas_utilities": ["GAIL", "IGL", "MGL", "PETRONET"],
+            "integrated_energy": ["RELIANCE"],
+        },
+    },
+    "technology": {
+        "label": "Technology",
+        "subsectors": {
+            "it_services": ["TCS", "INFY", "HCLTECH", "WIPRO", "TECHM", "LTIM"],
+            "digital_telecom": ["BHARTIARTL", "IDEA", "TATACOMM"],
+        },
+    },
+    "auto_mobility": {
+        "label": "Auto & Mobility",
+        "subsectors": {
+            "passenger_vehicles": ["MARUTI", "M&M", "TATAMOTORS"],
+            "two_wheelers": ["HEROMOTOCO", "BAJAJ-AUTO", "TVSMOTOR", "EICHERMOT"],
+            "auto_ancillaries": ["BOSCHLTD", "MOTHERSON", "BHARATFORG", "EXIDEIND"],
+        },
+    },
+    "metals_materials": {
+        "label": "Metals & Materials",
+        "subsectors": {
+            "steel": ["TATASTEEL", "JSWSTEEL", "JINDALSTEL", "SAIL"],
+            "non_ferrous": ["HINDALCO", "VEDL", "NALCO", "HINDCOPPER"],
+            "mining": ["NMDC", "COALINDIA"],
+            "cement": ["ULTRACEMCO", "ACC", "AMBUJACEM", "DALBHARAT"],
+        },
+    },
+    "industrials": {
+        "label": "Industrials",
+        "subsectors": {
+            "capital_goods": ["LT", "SIEMENS", "ABB", "CUMMINSIND"],
+            "railways": ["IRFC", "RVNL", "IRCON", "RAILTEL"],
+            "defence": ["HAL", "BEL", "BDL", "MAZDOCK"],
+            "infrastructure": ["LT", "KEC", "NBCC"],
+        },
+    },
+    "consumer": {
+        "label": "Consumer",
+        "subsectors": {
+            "fmcg": ["ITC", "HINDUNILVR", "NESTLEIND", "BRITANNIA", "DABUR"],
+            "consumer_durables": ["VOLTAS", "HAVELLS", "DIXON"],
+            "retail": ["TRENT", "DMART", "VMART", "SHOPERSTOP"],
+        },
+    },
+    "healthcare": {
+        "label": "Healthcare",
+        "subsectors": {
+            "pharma": ["SUNPHARMA", "DRREDDY", "CIPLA", "LUPIN", "AUROPHARMA"],
+            "hospitals": ["APOLLOHOSP", "MAXHEALTH", "FORTIS"],
+        },
+    },
+    "utilities_real_assets": {
+        "label": "Utilities & Real Assets",
+        "subsectors": {
+            "power_utilities": ["NTPC", "POWERGRID", "TATAPOWER", "NHPC"],
+            "realty": ["DLF", "GODREJPROP", "OBEROIRLTY", "PRESTIGE"],
+            "chemicals": ["PIDILITIND", "DEEPAKNTR", "AARTIIND", "TATACHEM"],
+        },
+    },
+}
 DEFAULT_START = "09:15"
 DEFAULT_END = "09:30"
 CURRENT_ACCESS_TOKEN = None
@@ -2716,6 +2792,581 @@ SECTOR_TEMPLATE = """
 </html>
 """
 
+SECTOR_HEATMAP_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Sector Rotation Heatmap</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up-strong: #0f5a43;
+      --up-soft: #d9f0e8;
+      --up-light: #ecf8f3;
+      --down-strong: #842b2b;
+      --down-soft: #f7dddd;
+      --down-light: #fbeeee;
+      --neutral-strong: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --neutral-light: #faf5e4;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.11), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 980px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .legend, .heatmap-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .heatmap-grid {
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    }
+    .split-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link, .heat-tile {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .quick-link.active {
+      background: #dbece7;
+      color: var(--accent);
+      border-color: rgba(31,111,95,0.24);
+    }
+    .summary-box, .legend-item {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.72);
+    }
+    .summary-value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-top: 8px;
+    }
+    .heat-tile {
+      display: block;
+      padding: 18px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: inherit;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.25);
+    }
+    .heat-tile:hover {
+      transform: translateY(-1px);
+      transition: transform 0.15s ease;
+    }
+    .heat-tile.active {
+      outline: 2px solid rgba(20,44,62,0.35);
+    }
+    .heat-up-strong { background: linear-gradient(180deg, rgba(15,90,67,0.95), rgba(38,127,97,0.92)); color: #f8f5ef; }
+    .heat-up-soft { background: linear-gradient(180deg, #d9f0e8, #ecf8f3); }
+    .heat-neutral { background: linear-gradient(180deg, #faf5e4, #f5ebcc); }
+    .heat-down-soft { background: linear-gradient(180deg, #fbeeee, #f7dddd); }
+    .heat-down-strong { background: linear-gradient(180deg, rgba(132,43,43,0.93), rgba(167,66,66,0.88)); color: #f8f5ef; }
+    .tile-title {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .tile-score {
+      font-size: 30px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .tile-label {
+      margin-top: 8px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      opacity: 0.88;
+    }
+    .tile-stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px 14px;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+    .tile-note {
+      margin-top: 12px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    table { width: 100%; border-collapse: collapse; min-width: 1240px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr { cursor: pointer; }
+    tbody tr:hover { background: rgba(31,111,95,0.06); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover { color: var(--ink); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up-strong); }
+    .badge-down { background: var(--down-soft); color: var(--down-strong); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral-strong); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .symbol-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .symbol-link:hover { text-decoration: underline; }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .muted { color: var(--muted); }
+    .note-text { max-width: 360px; line-height: 1.45; }
+    @media (max-width: 980px) {
+      .split-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Sector Rotation Heatmap</h1>
+      <p class="sub">
+        A rotation-first dashboard that maps broad sectors and sub-sectors by strength, breadth, VWAP participation,
+        opening-range confirmation, and gap behavior. Use it to spot where money is flowing before committing to a single stock.
+      </p>
+      <div class="meta">
+        <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Range: {{ start_time }} to {{ end_time }}</div>
+        <div class="pill">Sector: {{ selected_sector_label }}</div>
+        <div class="pill">Sub-Sector: {{ selected_sub_sector_label }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="date">Date</label>
+          <input id="date" name="date" value="{{ selected_date }}" placeholder="YYYY-MM-DD">
+        </div>
+        <div>
+          <label for="start">Start</label>
+          <input id="start" name="start" value="{{ start_time }}" placeholder="09:15">
+        </div>
+        <div>
+          <label for="end">End</label>
+          <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
+        </div>
+        <div>
+          <label for="sector">Sector</label>
+          <select id="sector" name="sector">
+            {% for sector in sector_options %}
+            <option value="{{ sector.key }}" {{ 'selected' if sector.key == selected_sector else '' }}>{{ sector.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="subsector">Sub-Sector</label>
+          <select id="subsector" name="subsector">
+            {% for sub_sector in sub_sector_options %}
+            <option value="{{ sub_sector.key }}" {{ 'selected' if sub_sector.key == selected_sub_sector else '' }}>{{ sub_sector.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <button type="submit">Open Heatmap</button>
+        </div>
+      </form>
+      <div class="quick-links">
+        <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
+           href="/equity-sector-heatmap?date={{ today_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ selected_sector }}&subsector={{ selected_sub_sector }}&refresh={{ refresh_seconds }}">
+          Today
+        </a>
+        <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
+           href="/equity-sector-heatmap?date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ selected_sector }}&subsector={{ selected_sub_sector }}&refresh={{ refresh_seconds }}">
+          Yesterday
+        </a>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Market Pulse</h2>
+      <div class="summary-grid">
+        <div class="summary-box">
+          <strong>Strongest Sector</strong>
+          <div class="summary-value">{{ summary.strongest_sector }}</div>
+          <div>{{ summary.strongest_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Weakest Sector</strong>
+          <div class="summary-value">{{ summary.weakest_sector }}</div>
+          <div>{{ summary.weakest_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Strongest Sub-Sector</strong>
+          <div class="summary-value">{{ summary.strongest_sub_sector }}</div>
+          <div>{{ summary.strongest_sub_sector_note }}</div>
+        </div>
+        <div class="summary-box">
+          <strong>Rotation Breadth</strong>
+          <div class="summary-value">{{ summary.rotation_bias }}</div>
+          <div>{{ summary.rotation_note }}</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Main Sector Heatmap</h2>
+      <div class="heatmap-grid">
+        {% for row in sector_rows %}
+        <a class="heat-tile {{ row.heat_class }} {{ 'active' if row.sector_key == selected_sector else '' }}"
+           href="/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ row.sector_key }}&subsector={{ row.default_sub_sector }}&refresh={{ refresh_seconds }}">
+          <div class="tile-title">{{ row.sector_label }}</div>
+          <div class="tile-score">{{ row.sector_score_display }}</div>
+          <div class="tile-label">{{ row.rotation_label }}</div>
+          <div class="tile-stats">
+            <span>Avg Chg</span><strong>{{ row.avg_change_pct }}</strong>
+            <span>Avg Gap</span><strong>{{ row.avg_gap_pct }}</strong>
+            <span>Bullish</span><strong>{{ row.bullish_confirmations }}</strong>
+            <span>Bearish</span><strong>{{ row.bearish_confirmations }}</strong>
+          </div>
+          <div class="tile-note">{{ row.ai_note }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>{{ selected_sector_label }} Sub-Sectors</h2>
+      <div class="heatmap-grid">
+        {% for row in sub_sector_rows %}
+        <a class="heat-tile {{ row.heat_class }} {{ 'active' if row.sector_key == selected_sub_sector else '' }}"
+           href="/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ selected_sector }}&subsector={{ row.sector_key }}&refresh={{ refresh_seconds }}">
+          <div class="tile-title">{{ row.sector_label }}</div>
+          <div class="tile-score">{{ row.sector_score_display }}</div>
+          <div class="tile-label">{{ row.rotation_label }}</div>
+          <div class="tile-stats">
+            <span>Avg Chg</span><strong>{{ row.avg_change_pct }}</strong>
+            <span>Above VWAP</span><strong>{{ row.above_vwap_count }}</strong>
+            <span>High Vol</span><strong>{{ row.high_volume_count }}</strong>
+            <span>Top Gainer</span><strong>{{ row.top_gainer }}</strong>
+          </div>
+          <div class="tile-note">{{ row.ai_note }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>How To Read It</h2>
+      <div class="summary-grid">
+        <div class="legend-item">
+          <strong>Color Depth</strong>
+          Deep green means strong bullish rotation. Deep red means strong bearish rotation. Yellow means mixed breadth.
+        </div>
+        <div class="legend-item">
+          <strong>Broad vs Narrow</strong>
+          Compare confirmations, VWAP breadth, and high-volume counts. A green tile with weak breadth is less trustworthy.
+        </div>
+        <div class="legend-item">
+          <strong>Drilldown Flow</strong>
+          Pick a sector, then a sub-sector, then use the detail table to jump into symbol-level ORB context.
+        </div>
+        <div class="legend-item">
+          <strong>Rotation Use</strong>
+          This page is best used to answer where capital is rotating, not just which stock is printing the biggest candle.
+        </div>
+      </div>
+    </section>
+
+    <section class="card split-grid">
+      <div>
+        <h2>Sector Ranking Table</h2>
+        <div class="table-wrap">
+          <table id="heatmap-sector-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-key="sector">Sector</th>
+                <th class="sortable" data-key="sector_score">Score</th>
+                <th class="sortable" data-key="avg_change_pct">Avg Change %</th>
+                <th class="sortable" data-key="avg_gap_pct">Avg Gap %</th>
+                <th class="sortable" data-key="bullish_confirmations">Bullish</th>
+                <th class="sortable" data-key="bearish_confirmations">Bearish</th>
+                <th class="sortable" data-key="above_vwap_count">Above VWAP</th>
+                <th class="sortable" data-key="high_volume_count">High Vol</th>
+                <th>Top Gainer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in sector_rows %}
+              <tr onclick="window.location='/equity-sector-heatmap?date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&sector={{ row.sector_key }}&subsector={{ row.default_sub_sector }}&refresh={{ refresh_seconds }}'">
+                <td data-sort="{{ row.sector_label }}">{{ row.sector_label }}</td>
+                <td data-sort="{{ row.sector_score_numeric }}"><span class="badge {{ row.score_badge }}">{{ row.sector_score_display }}</span></td>
+                <td data-sort="{{ row.avg_change_pct_numeric }}"><span class="badge {{ row.avg_change_badge }}">{{ row.avg_change_pct }}</span></td>
+                <td data-sort="{{ row.avg_gap_pct_numeric }}"><span class="badge {{ row.avg_gap_badge }}">{{ row.avg_gap_pct }}</span></td>
+                <td data-sort="{{ row.bullish_confirmations }}">{{ row.bullish_confirmations }}</td>
+                <td data-sort="{{ row.bearish_confirmations }}">{{ row.bearish_confirmations }}</td>
+                <td data-sort="{{ row.above_vwap_count }}">{{ row.above_vwap_count }}</td>
+                <td data-sort="{{ row.high_volume_count }}">{{ row.high_volume_count }}</td>
+                <td>{{ row.top_gainer }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h2>{{ selected_sub_sector_label }} Note</h2>
+        <div class="legend-item">
+          <div class="badge {{ selected_sub_sector_row.score_badge }}">{{ selected_sub_sector_row.rotation_label }}</div>
+          <p class="tile-note">{{ selected_sub_sector_row.ai_note }}</p>
+          <div class="tile-stats">
+            <span>Top Gainer</span><strong>{{ selected_sub_sector_row.top_gainer }}</strong>
+            <span>Top Loser</span><strong>{{ selected_sub_sector_row.top_loser }}</strong>
+            <span>Above VWAP</span><strong>{{ selected_sub_sector_row.above_vwap_count }}</strong>
+            <span>Below VWAP</span><strong>{{ selected_sub_sector_row.below_vwap_count }}</strong>
+            <span>High Volume</span><strong>{{ selected_sub_sector_row.high_volume_count }}</strong>
+            <span>Breadth</span><strong>{{ selected_sub_sector_row.breadth_label }}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>{{ selected_sub_sector_label }} Stocks</h2>
+      <div class="table-wrap">
+        <table id="heatmap-detail-table">
+          <thead>
+            <tr>
+              <th class="sortable" data-key="symbol">Symbol</th>
+              <th class="sortable" data-key="orb_sort">ORB Status</th>
+              <th class="sortable" data-key="last_price">Latest Price</th>
+              <th class="sortable" data-key="day_change_pct">Day Change %</th>
+              <th class="sortable" data-key="gap_pct">Gap %</th>
+              <th class="sortable" data-key="vwap_sort">VWAP Status</th>
+              <th class="sortable" data-key="volume_ratio">Volume Status</th>
+              <th>AI Suggestion</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in selected_sub_sector_rows %}
+            <tr onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}'">
+              <td data-sort="{{ row.symbol }}">
+                <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+              </td>
+              <td data-sort="{{ row.orb_sort }}"><span class="badge {{ row.orb_badge }}">{{ row.orb_status }}</span></td>
+              <td data-sort="{{ row.last_price_numeric }}">{{ row.last_price }}</td>
+              <td data-sort="{{ row.day_change_pct_numeric }}"><span class="badge {{ row.day_change_badge }}">{{ row.day_change_pct }}</span></td>
+              <td data-sort="{{ row.gap_pct_numeric }}"><span class="badge {{ row.gap_badge }}">{{ row.gap_pct }}</span></td>
+              <td data-sort="{{ row.vwap_sort }}"><span class="badge {{ row.vwap_badge }}">{{ row.vwap_status }}</span></td>
+              <td data-sort="{{ row.volume_ratio_numeric }}"><span class="badge {{ row.volume_badge }}">{{ row.volume_status }}</span></td>
+              <td class="note-text">{{ row.ai_suggestion }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+  <script>
+    (function () {
+      ["heatmap-sector-table", "heatmap-detail-table"].forEach((tableId) => {
+        const table = document.getElementById(tableId);
+        if (!table) return;
+        const tbody = table.querySelector("tbody");
+        const headers = table.querySelectorAll("th.sortable");
+        let currentKey = null;
+        let ascending = false;
+
+        function getCellValue(row, index) {
+          const cell = row.children[index];
+          return cell ? cell.dataset.sort || cell.textContent.trim() : "";
+        }
+
+        headers.forEach((header, index) => {
+          header.addEventListener("click", () => {
+            const key = header.dataset.key;
+            ascending = currentKey === key ? !ascending : false;
+            currentKey = key;
+            const rows = Array.from(tbody.querySelectorAll("tr"));
+            rows.sort((a, b) => {
+              const aValue = getCellValue(a, index);
+              const bValue = getCellValue(b, index);
+              const aNumber = Number(aValue);
+              const bNumber = Number(bValue);
+              let result = 0;
+
+              if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+                result = aNumber - bNumber;
+              } else {
+                result = aValue.localeCompare(bValue);
+              }
+
+              return ascending ? result : -result;
+            });
+            rows.forEach((row) => tbody.appendChild(row));
+          });
+        });
+      });
+    })();
+  </script>
+</body>
+</html>
+"""
+
 PD_LEVELS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -3380,6 +4031,22 @@ def get_sector_options():
     ]
 
 
+def get_heatmap_sector_options():
+    return [
+        {"key": key, "label": value["label"]}
+        for key, value in SECTOR_HEATMAP_GROUPS.items()
+    ]
+
+
+def get_heatmap_sub_sector_options(sector_key):
+    sector_config = SECTOR_HEATMAP_GROUPS.get(sector_key, {})
+    sub_sectors = sector_config.get("subsectors", {})
+    return [
+        {"key": key, "label": key.replace("_", " ").title()}
+        for key in sub_sectors
+    ]
+
+
 def build_movers_summary(mover_rows):
     gainers_count = sum(1 for row in mover_rows if row["day_change_pct_numeric"] > 0)
     losers_count = sum(1 for row in mover_rows if row["day_change_pct_numeric"] < 0)
@@ -3414,6 +4081,134 @@ def build_sector_note(sector_label, avg_change_pct, bullish_confirmations, beari
             f"and weak breadth across the basket."
         )
     return f"{sector_label} is mixed right now; sector participation is not yet one-sided."
+
+
+def build_rotation_label(sector_score, bullish_confirmations, bearish_confirmations, above_vwap_count, below_vwap_count):
+    if sector_score >= 4 and bullish_confirmations > bearish_confirmations and above_vwap_count >= below_vwap_count:
+        return "Strong Bullish Rotation"
+    if sector_score >= 1.5 and bullish_confirmations >= bearish_confirmations:
+        return "Bullish Breadth"
+    if sector_score <= -4 and bearish_confirmations > bullish_confirmations and below_vwap_count >= above_vwap_count:
+        return "Strong Bearish Rotation"
+    if sector_score <= -1.5 and bearish_confirmations >= bullish_confirmations:
+        return "Bearish Breadth"
+    return "Mixed Rotation"
+
+
+def build_heat_class(sector_score):
+    if sector_score >= 4:
+        return "heat-up-strong"
+    if sector_score >= 1:
+        return "heat-up-soft"
+    if sector_score <= -4:
+        return "heat-down-strong"
+    if sector_score <= -1:
+        return "heat-down-soft"
+    return "heat-neutral"
+
+
+def build_breadth_label(above_vwap_count, below_vwap_count, high_volume_count):
+    if above_vwap_count > below_vwap_count and high_volume_count >= 2:
+        return "Positive Breadth"
+    if below_vwap_count > above_vwap_count and high_volume_count >= 2:
+        return "Negative Breadth"
+    return "Balanced Breadth"
+
+
+def summarize_rotation_bucket(group_key, group_label, detail_rows):
+    if not detail_rows:
+        return {
+            "sector_key": group_key,
+            "sector_label": group_label,
+            "sector_score_numeric": -999,
+            "sector_score_display": "N/A",
+            "score_badge": "badge-info",
+            "heat_class": "heat-neutral",
+            "rotation_label": "Data Unavailable",
+            "avg_change_pct": "0.00%",
+            "avg_change_pct_numeric": 0.0,
+            "avg_change_badge": "badge-neutral",
+            "avg_gap_pct": "0.00%",
+            "avg_gap_pct_numeric": 0.0,
+            "avg_gap_badge": "badge-neutral",
+            "bullish_confirmations": 0,
+            "bearish_confirmations": 0,
+            "above_vwap_count": 0,
+            "below_vwap_count": 0,
+            "high_volume_count": 0,
+            "top_gainer": "-",
+            "top_loser": "-",
+            "ai_note": f"No usable data returned for {group_label}.",
+            "breadth_label": "No Breadth",
+        }
+
+    avg_change_pct = sum(row["day_change_pct_numeric"] for row in detail_rows) / len(detail_rows)
+    avg_gap_pct = sum(row["gap_pct_numeric"] for row in detail_rows) / len(detail_rows)
+    bullish_confirmations = sum(
+        1
+        for row in detail_rows
+        if row["orb_status"] == "Above OR High"
+        and row["vwap_status"] == "Above VWAP"
+        and row["volume_status"].startswith("High Volume")
+    )
+    bearish_confirmations = sum(
+        1
+        for row in detail_rows
+        if row["orb_status"] == "Below OR Low"
+        and row["vwap_status"] == "Below VWAP"
+        and row["volume_status"].startswith("High Volume")
+    )
+    above_vwap_count = sum(1 for row in detail_rows if row["vwap_status"] == "Above VWAP")
+    below_vwap_count = sum(1 for row in detail_rows if row["vwap_status"] == "Below VWAP")
+    high_volume_count = sum(1 for row in detail_rows if row["volume_status"].startswith("High Volume"))
+    sector_score = (
+        avg_change_pct
+        + avg_gap_pct * 0.5
+        + (bullish_confirmations * 1.5)
+        - (bearish_confirmations * 1.5)
+        + (above_vwap_count * 0.35)
+        - (below_vwap_count * 0.35)
+    )
+    top_gainer_row = max(detail_rows, key=lambda row: row["day_change_pct_numeric"])
+    top_loser_row = min(detail_rows, key=lambda row: row["day_change_pct_numeric"])
+    rotation_label = build_rotation_label(
+        sector_score,
+        bullish_confirmations,
+        bearish_confirmations,
+        above_vwap_count,
+        below_vwap_count,
+    )
+
+    return {
+        "sector_key": group_key,
+        "sector_label": group_label,
+        "sector_score_numeric": round(sector_score, 2),
+        "sector_score_display": f"{sector_score:+.2f}",
+        "score_badge": classify_percent_badge(sector_score),
+        "heat_class": build_heat_class(sector_score),
+        "rotation_label": rotation_label,
+        "avg_change_pct": f"{avg_change_pct:+.2f}%",
+        "avg_change_pct_numeric": round(avg_change_pct, 2),
+        "avg_change_badge": classify_percent_badge(avg_change_pct),
+        "avg_gap_pct": f"{avg_gap_pct:+.2f}%",
+        "avg_gap_pct_numeric": round(avg_gap_pct, 2),
+        "avg_gap_badge": classify_percent_badge(avg_gap_pct),
+        "bullish_confirmations": bullish_confirmations,
+        "bearish_confirmations": bearish_confirmations,
+        "above_vwap_count": above_vwap_count,
+        "below_vwap_count": below_vwap_count,
+        "high_volume_count": high_volume_count,
+        "top_gainer": f"{top_gainer_row['symbol']} ({top_gainer_row['day_change_pct']})",
+        "top_loser": f"{top_loser_row['symbol']} ({top_loser_row['day_change_pct']})",
+        "ai_note": build_sector_note(
+            group_label,
+            avg_change_pct,
+            bullish_confirmations,
+            bearish_confirmations,
+            high_volume_count,
+        ),
+        "breadth_label": build_breadth_label(above_vwap_count, below_vwap_count, high_volume_count),
+    }
 
 
 def build_empty_mover_row(symbol, reason):
@@ -3896,6 +4691,100 @@ def get_sector_strength_rows(selected_date, start_time, end_time):
 
     sector_rows.sort(key=lambda row: row["sector_score_numeric"], reverse=True)
     return sector_rows, sector_detail_map, missing
+
+
+def get_sector_heatmap_data(selected_date, start_time, end_time):
+    sector_rows = []
+    sub_sector_rows_map = {}
+    sub_sector_detail_map = {}
+    missing = {}
+
+    for sector_key, sector_config in SECTOR_HEATMAP_GROUPS.items():
+        sector_label = sector_config["label"]
+        sub_sector_rows = []
+        combined_detail_rows = []
+        sector_missing = []
+
+        for sub_sector_key, symbols in sector_config["subsectors"].items():
+            scanner_rows, scanner_missing = get_intraday_scanner_rows(symbols, selected_date, start_time, end_time)
+            mover_rows, mover_missing = get_mover_rows(symbols)
+            mover_map = {row["symbol"]: row for row in mover_rows}
+
+            detail_rows = []
+            for scanner_row in scanner_rows:
+                mover_row = mover_map.get(scanner_row["symbol"])
+                if not mover_row:
+                    continue
+
+                detail_row = dict(scanner_row)
+                detail_row.update(
+                    {
+                        "day_change_pct": mover_row["day_change_pct"],
+                        "day_change_pct_numeric": mover_row["day_change_pct_numeric"],
+                        "day_change_badge": mover_row["day_change_badge"],
+                        "gap_pct": mover_row["gap_pct"],
+                        "gap_pct_numeric": mover_row["gap_pct_numeric"],
+                        "gap_badge": mover_row["gap_badge"],
+                    }
+                )
+                detail_rows.append(detail_row)
+
+            row = summarize_rotation_bucket(
+                sub_sector_key,
+                sub_sector_key.replace("_", " ").title(),
+                detail_rows,
+            )
+            sub_sector_rows.append(row)
+            sub_sector_detail_map[sub_sector_key] = detail_rows
+            combined_detail_rows.extend(detail_rows)
+            sector_missing.extend(scanner_missing + mover_missing)
+
+        sub_sector_rows.sort(key=lambda row: row["sector_score_numeric"], reverse=True)
+        sub_sector_rows_map[sector_key] = sub_sector_rows
+        missing[sector_key] = sorted(set(sector_missing))
+
+        sector_row = summarize_rotation_bucket(sector_key, sector_label, combined_detail_rows)
+        sector_row["default_sub_sector"] = sub_sector_rows[0]["sector_key"] if sub_sector_rows else ""
+        sector_rows.append(sector_row)
+
+    sector_rows.sort(key=lambda row: row["sector_score_numeric"], reverse=True)
+    return sector_rows, sub_sector_rows_map, sub_sector_detail_map, missing
+
+
+def build_sector_heatmap_summary(sector_rows, sub_sector_rows):
+    strongest_sector = sector_rows[0] if sector_rows else None
+    weakest_sector = sector_rows[-1] if sector_rows else None
+    strongest_sub_sector = sub_sector_rows[0] if sub_sector_rows else None
+
+    bullish_total = sum(row["bullish_confirmations"] for row in sector_rows)
+    bearish_total = sum(row["bearish_confirmations"] for row in sector_rows)
+
+    if bullish_total > bearish_total:
+        rotation_bias = "Bullish"
+        rotation_note = (
+            f"Market breadth leans positive with {bullish_total} bullish confirmations "
+            f"versus {bearish_total} bearish confirmations."
+        )
+    elif bearish_total > bullish_total:
+        rotation_bias = "Bearish"
+        rotation_note = (
+            f"Market breadth leans defensive with {bearish_total} bearish confirmations "
+            f"versus {bullish_total} bullish confirmations."
+        )
+    else:
+        rotation_bias = "Balanced"
+        rotation_note = "Bullish and bearish confirmations are evenly matched across sectors."
+
+    return {
+        "strongest_sector": strongest_sector["sector_label"] if strongest_sector else "-",
+        "strongest_sector_note": strongest_sector["rotation_label"] if strongest_sector else "No data",
+        "weakest_sector": weakest_sector["sector_label"] if weakest_sector else "-",
+        "weakest_sector_note": weakest_sector["rotation_label"] if weakest_sector else "No data",
+        "strongest_sub_sector": strongest_sub_sector["sector_label"] if strongest_sub_sector else "-",
+        "strongest_sub_sector_note": strongest_sub_sector["rotation_label"] if strongest_sub_sector else "No data",
+        "rotation_bias": rotation_bias,
+        "rotation_note": rotation_note,
+    }
 
 
 def get_previous_day_level_rows(symbols, selected_date):
@@ -4383,6 +5272,95 @@ def equity_sector_strength():
         sector_options=get_sector_options(),
         selected_sector=selected_sector,
         selected_sector_label=selected_sector_label,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+    )
+
+
+@app.route("/equity-sector-heatmap")
+def equity_sector_heatmap():
+    raw_date = request.args.get("date", get_today_ist().isoformat())
+    raw_start = request.args.get("start", DEFAULT_START)
+    raw_end = request.args.get("end", DEFAULT_END)
+    selected_sector = request.args.get("sector", "financials")
+    selected_sub_sector = request.args.get("subsector", "")
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+
+    error = None
+    sector_rows = []
+    sub_sector_rows = []
+    selected_sub_sector_rows = []
+    selected_sector_label = SECTOR_HEATMAP_GROUPS.get(selected_sector, {}).get("label", selected_sector.replace("_", " ").title())
+    selected_sub_sector_label = selected_sub_sector.replace("_", " ").title()
+    selected_sub_sector_row = summarize_rotation_bucket("", "Selected Sub-Sector", [])
+    summary = build_sector_heatmap_summary([], [])
+
+    try:
+        selected_date = parse_date(raw_date)
+        start_time = parse_time(raw_start, DEFAULT_START)
+        end_time = parse_time(raw_end, DEFAULT_END)
+
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        if end_time <= start_time:
+            raise ValueError("End time must be after start time.")
+
+        sector_rows, sub_sector_rows_map, sub_sector_detail_map, sector_missing = get_sector_heatmap_data(
+            selected_date,
+            start_time,
+            end_time,
+        )
+
+        if selected_sector not in sub_sector_rows_map and sector_rows:
+            selected_sector = sector_rows[0]["sector_key"]
+
+        selected_sector_label = SECTOR_HEATMAP_GROUPS.get(selected_sector, {}).get("label", selected_sector.replace("_", " ").title())
+        sub_sector_rows = sub_sector_rows_map.get(selected_sector, [])
+        if not selected_sub_sector and sub_sector_rows:
+            selected_sub_sector = sub_sector_rows[0]["sector_key"]
+        elif selected_sub_sector not in {row["sector_key"] for row in sub_sector_rows} and sub_sector_rows:
+            selected_sub_sector = sub_sector_rows[0]["sector_key"]
+
+        selected_sub_sector_label = selected_sub_sector.replace("_", " ").title()
+        selected_sub_sector_rows = sub_sector_detail_map.get(selected_sub_sector, [])
+        selected_sub_sector_row = next(
+            (row for row in sub_sector_rows if row["sector_key"] == selected_sub_sector),
+            summarize_rotation_bucket(selected_sub_sector, selected_sub_sector_label, []),
+        )
+        summary = build_sector_heatmap_summary(sector_rows, sub_sector_rows)
+
+        if selected_sector in sector_missing and sector_missing[selected_sector]:
+            missing_text = ", ".join(sector_missing[selected_sector])
+            error = f"Missing or unavailable symbols in {selected_sector_label}: {missing_text}"
+    except Exception as exc:
+        selected_date = raw_date
+        start_time = raw_start
+        end_time = raw_end
+        error = str(exc)
+
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+
+    return render_template_string(
+        SECTOR_HEATMAP_TEMPLATE,
+        sector_rows=sector_rows,
+        sub_sector_rows=sub_sector_rows,
+        selected_sub_sector_rows=selected_sub_sector_rows,
+        selected_sub_sector_row=selected_sub_sector_row,
+        summary=summary,
+        error=error,
+        selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+        today_date=get_today_ist().isoformat(),
+        yesterday_date=get_yesterday_ist().isoformat(),
+        start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+        end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        sector_options=get_heatmap_sector_options(),
+        sub_sector_options=get_heatmap_sub_sector_options(selected_sector),
+        selected_sector=selected_sector,
+        selected_sector_label=selected_sector_label,
+        selected_sub_sector=selected_sub_sector,
+        selected_sub_sector_label=selected_sub_sector_label,
         refresh_options=get_refresh_options(),
         refresh_seconds=refresh_seconds,
         refresh_label=refresh_label,
