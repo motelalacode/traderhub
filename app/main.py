@@ -1,11 +1,13 @@
 import datetime
 import json
 import math
+import csv
+import io
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import Flask, jsonify, redirect, render_template_string, request
+from flask import Flask, Response, jsonify, redirect, render_template_string, request
 from kiteconnect import KiteConnect
 
 from app.ai_engine import get_trade_setup_insight
@@ -5015,6 +5017,36 @@ ARBITRAGE_TEMPLATE = """
       color: #8a3b12;
       border: 1px solid rgba(138,59,18,0.18);
     }
+    .hero-callout {
+      margin-top: 16px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+    .spotlight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .spotlight-metric {
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .spotlight-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .spotlight-value {
+      font-size: 21px;
+      font-weight: 700;
+    }
     .mobile-card {
       padding: 16px;
       border-radius: 18px;
@@ -5091,6 +5123,10 @@ ARBITRAGE_TEMPLATE = """
         <div class="pill">Auto Refresh: {{ refresh_label }}</div>
         <div class="pill">Archive Window: Last {{ archive_days }} days</div>
       </div>
+      <div class="hero-callout">
+        <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
+        <div style="margin-top: 10px; line-height: 1.5;">{{ market_state.detail }}</div>
+      </div>
     </section>
 
     <section class="card">
@@ -5143,6 +5179,36 @@ ARBITRAGE_TEMPLATE = """
         <div class="summary-box"><strong>Liquidity Flags</strong><div class="summary-value">{{ summary.depth_limited_count }}</div><div>Rows limited by best-depth quantity</div></div>
         <div class="summary-box"><strong>Scan Mode</strong><div class="summary-value">{{ scan_mode_label }}</div><div>Tradable best ask / best bid comparison</div></div>
       </div>
+    </section>
+
+    <section class="card">
+      <h2>Best Opportunity Alert</h2>
+      {% if spotlight %}
+      <div class="summary-box">
+        <strong>{{ spotlight.symbol }}</strong>
+        <div style="margin-top: 8px;"><span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span></div>
+        <div style="margin-top: 10px; color: var(--muted);">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
+        <div class="spotlight-grid">
+          <div class="spotlight-metric">
+            <div class="spotlight-label">Gross Spread</div>
+            <div class="spotlight-value">{{ spotlight.gross_spread }}</div>
+          </div>
+          <div class="spotlight-metric">
+            <div class="spotlight-label">Tradable Qty</div>
+            <div class="spotlight-value">{{ spotlight.quantity }}</div>
+          </div>
+          <div class="spotlight-metric">
+            <div class="spotlight-label">Liquidity</div>
+            <div class="spotlight-value" style="font-size: 18px;">{{ spotlight.liquidity_warning }}</div>
+          </div>
+        </div>
+        <div class="mobile-note">{{ spotlight.note }}</div>
+      </div>
+      {% else %}
+      <div class="legend-item">
+        No live best-opportunity alert is available right now because no spread survived the active filters after costs.
+      </div>
+      {% endif %}
     </section>
 
     <section class="card">
@@ -5273,6 +5339,22 @@ ARBITRAGE_TEMPLATE = """
 
     <section class="card">
       <h2>Post Analysis: Last {{ archive_days }} Days</h2>
+      <div class="meta" style="margin-bottom: 14px;">
+        <a class="quick-link" href="/equity-arbitrage-export.csv">Download 3-Day CSV</a>
+      </div>
+      {% if recurring_archive %}
+      <div class="summary-grid" style="margin-bottom: 14px;">
+        {% for item in recurring_archive %}
+        <div class="summary-box">
+          <strong>{{ item.symbol }}</strong>
+          <div style="margin-top: 8px;"><span class="badge {{ item.badge_class }}">{{ item.best_net_profit }}</span></div>
+          <div style="margin-top: 10px;">Seen on {{ item.appearances }} day{{ '' if item.appearances == 1 else 's' }}</div>
+          <div style="margin-top: 6px; color: var(--muted);">{{ item.latest_route }}</div>
+          <div style="margin-top: 6px; color: var(--muted);">{{ item.latest_liquidity_warning }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
       {% if post_analysis_groups %}
         {% for group in post_analysis_groups %}
         <div class="summary-box" style="margin-bottom: 14px;">
@@ -5747,6 +5829,30 @@ def is_market_open():
     start = datetime.time(9, 0)
     end = datetime.time(15, 30)
     return start <= now <= end
+
+
+def get_market_state():
+    now = datetime.datetime.now(APP_TZ)
+    open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+    close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+
+    if open_time <= now <= close_time:
+        return {
+            "label": "Market Live",
+            "detail": f"Cash market scan is live as of {now.strftime('%H:%M:%S')}. Refresh keeps watching current two-exchange depth.",
+            "badge_class": "badge-up",
+        }
+    if now < open_time:
+        return {
+            "label": "Pre-Open / Before Cash Session",
+            "detail": f"Archive stays available now. Live monitoring begins at {open_time.strftime('%H:%M')}.",
+            "badge_class": "badge-info",
+        }
+    return {
+        "label": "Post-Market Review",
+        "detail": "Live cash arbitrage has closed for the day, but the page still shows the last archived opportunities for review.",
+        "badge_class": "badge-neutral",
+    }
 
 
 def get_today_ist():
@@ -7228,6 +7334,70 @@ def build_arbitrage_post_analysis(reference_date):
     return day_groups
 
 
+def build_arbitrage_recurring_summary(post_analysis_groups):
+    recurring = {}
+    for group in post_analysis_groups:
+        for story in group["stories"]:
+            existing = recurring.get(story["symbol"])
+            if not existing:
+                existing = {
+                    "symbol": story["symbol"],
+                    "appearances": 0,
+                    "best_net_profit_numeric": float(story["max_net_profit"]),
+                    "latest_route": story["route"],
+                    "latest_liquidity_warning": story["liquidity_warning"],
+                }
+
+            existing["appearances"] += 1
+            existing["best_net_profit_numeric"] = max(existing["best_net_profit_numeric"], float(story["max_net_profit"]))
+            existing["latest_route"] = story["route"]
+            existing["latest_liquidity_warning"] = story["liquidity_warning"]
+            recurring[story["symbol"]] = existing
+
+    recurring_rows = sorted(
+        recurring.values(),
+        key=lambda row: (row["appearances"], row["best_net_profit_numeric"]),
+        reverse=True,
+    )
+
+    return [
+        {
+            "symbol": row["symbol"],
+            "appearances": row["appearances"],
+            "best_net_profit": f"{row['best_net_profit_numeric']:+.2f}",
+            "latest_route": row["latest_route"],
+            "latest_liquidity_warning": row["latest_liquidity_warning"],
+            "badge_class": classify_percent_badge(row["best_net_profit_numeric"]),
+        }
+        for row in recurring_rows[:6]
+    ]
+
+
+def build_best_arbitrage_spotlight(arbitrage_rows):
+    if not arbitrage_rows:
+        return None
+
+    row = arbitrage_rows[0]
+    if row["liquidity_warning"] == "Depth supported":
+        note = "This is the cleanest live setup right now because displayed depth is supporting the capital-based size."
+    elif row["liquidity_warning"] == "Depth limited":
+        note = "This is the best live spread, but the visible size is capped by depth, so execution may need smaller size."
+    else:
+        note = "This is the best live spread, but thin depth means the opportunity may disappear very quickly."
+
+    return {
+        "symbol": row["symbol"],
+        "route": f"{row['buy_exchange']} buy -> {row['sell_exchange']} sell",
+        "net_profit": row["net_profit"],
+        "gross_spread": row["gross_spread"],
+        "quantity": row["quantity"],
+        "liquidity_warning": row["liquidity_warning"],
+        "timestamp": row["timestamp"],
+        "badge_class": row["net_badge"],
+        "note": note,
+    }
+
+
 def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_only):
     common_symbols = set(get_common_equity_symbols())
     eligible_symbols = [symbol for symbol in symbols if symbol in common_symbols]
@@ -8503,6 +8673,9 @@ def equity_arbitrage():
     arbitrage_rows = []
     summary = build_arbitrage_summary([])
     post_analysis_groups = build_arbitrage_post_analysis(reference_date)
+    recurring_archive = build_arbitrage_recurring_summary(post_analysis_groups)
+    spotlight = None
+    market_state = get_market_state()
 
     try:
         if not symbols:
@@ -8520,6 +8693,8 @@ def equity_arbitrage():
         summary = build_arbitrage_summary(arbitrage_rows)
         update_arbitrage_history(arbitrage_rows, reference_date)
         post_analysis_groups = build_arbitrage_post_analysis(reference_date)
+        recurring_archive = build_arbitrage_recurring_summary(post_analysis_groups)
+        spotlight = build_best_arbitrage_spotlight(arbitrage_rows)
 
         if missing:
             error = (
@@ -8547,6 +8722,55 @@ def equity_arbitrage():
         scan_mode_label="Full Common EQ Universe",
         archive_days=ARBITRAGE_HISTORY_RETENTION_DAYS,
         post_analysis_groups=post_analysis_groups,
+        recurring_archive=recurring_archive,
+        spotlight=spotlight,
+        market_state=market_state,
+    )
+
+
+@app.route("/equity-arbitrage-export.csv")
+def equity_arbitrage_export():
+    reference_date = get_today_ist()
+    post_analysis_groups = build_arbitrage_post_analysis(reference_date)
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(
+        [
+            "date",
+            "symbol",
+            "route",
+            "best_gross_spread",
+            "best_net_profit",
+            "first_seen",
+            "last_seen",
+            "detection_count",
+            "liquidity_warning",
+            "story_note",
+        ]
+    )
+
+    for group in post_analysis_groups:
+        for story in group["stories"]:
+            writer.writerow(
+                [
+                    group["day_label"],
+                    story["symbol"],
+                    story["route"],
+                    story["max_gross_spread"],
+                    story["max_net_profit"],
+                    story["first_seen"],
+                    story["last_seen"],
+                    story["detection_count"],
+                    story["liquidity_warning"],
+                    story["story_note"],
+                ]
+            )
+
+    return Response(
+        buffer.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=equity-arbitrage-post-analysis.csv"},
     )
 
 
