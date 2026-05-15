@@ -3446,6 +3446,17 @@ ROTATION_HOME_TEMPLATE = """
       padding: 28px;
       box-shadow: 0 22px 60px rgba(24,32,39,0.14);
     }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.95fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
     h1 { margin: 0; font-size: 40px; line-height: 1; }
     .sub {
       margin: 12px 0 0;
@@ -3466,6 +3477,156 @@ ROTATION_HOME_TEMPLATE = """
       background: rgba(255,255,255,0.12);
       border: 1px solid rgba(255,255,255,0.18);
       font-size: 14px;
+    }
+    .hero-stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 32%),
+        linear-gradient(180deg, rgba(10,21,33,0.58), rgba(10,21,33,0.12));
+      min-height: 280px;
+      padding: 20px;
+    }
+    .hero-stage::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      height: 72px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(232,214,174,0.18), rgba(232,214,174,0.3));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .stage-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(248,245,239,0.9);
+    }
+    .desk-crew {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 14px;
+      margin-top: 16px;
+      min-height: 188px;
+    }
+    .crew-card {
+      width: 31%;
+      min-width: 84px;
+      text-align: center;
+      color: #f8f5ef;
+    }
+    .avatar {
+      position: relative;
+      width: 88px;
+      height: 112px;
+      margin: 0 auto 10px;
+    }
+    .avatar-head {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 56px;
+      height: 56px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: #f2d0b4;
+      border: 2px solid rgba(24,32,39,0.18);
+      box-shadow: inset 0 -6px 0 rgba(0,0,0,0.05);
+    }
+    .avatar-head::before,
+    .avatar-head::after {
+      content: "";
+      position: absolute;
+      top: 22px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #182027;
+    }
+    .avatar-head::before { left: 15px; }
+    .avatar-head::after { right: 15px; }
+    .avatar-face {
+      position: absolute;
+      left: 50%;
+      top: 29px;
+      width: 20px;
+      height: 10px;
+      transform: translateX(-50%);
+      border-bottom: 2px solid #182027;
+      border-radius: 0 0 16px 16px;
+    }
+    .avatar-body {
+      position: absolute;
+      left: 50%;
+      top: 46px;
+      width: 64px;
+      height: 62px;
+      transform: translateX(-50%);
+      border-radius: 18px 18px 14px 14px;
+      border: 2px solid rgba(255,255,255,0.24);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    }
+    .avatar-body::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      width: 16px;
+      height: 36px;
+      transform: translateX(-50%);
+      clip-path: polygon(50% 0, 100% 38%, 68% 100%, 32% 100%, 0 38%);
+      background: rgba(20,44,62,0.78);
+    }
+    .avatar-screen {
+      position: absolute;
+      left: 50%;
+      bottom: -2px;
+      width: 80px;
+      height: 26px;
+      transform: translateX(-50%);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(11,23,35,0.68);
+      box-shadow: 0 8px 16px rgba(7,13,20,0.2);
+      overflow: hidden;
+    }
+    .avatar-screen::before {
+      content: "";
+      position: absolute;
+      inset: 4px 6px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(17,97,73,0.75), rgba(255,255,255,0.12), rgba(138,46,46,0.75));
+    }
+    .crew-card.bull .avatar-body { background: linear-gradient(180deg, rgba(17,97,73,0.44), rgba(17,97,73,0.18)); }
+    .crew-card.bear .avatar-body { background: linear-gradient(180deg, rgba(138,46,46,0.4), rgba(138,46,46,0.14)); }
+    .crew-card.scout .avatar-body { background: linear-gradient(180deg, rgba(31,63,115,0.42), rgba(31,63,115,0.14)); }
+    .crew-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .crew-role {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(248,245,239,0.78);
+      line-height: 1.35;
     }
     .card {
       margin-top: 18px;
@@ -4347,6 +4508,13 @@ BACKTEST_TEMPLATE = """
       border: 1px solid var(--line);
       background: rgba(255,255,255,0.78);
     }
+    .summary-box strong {
+      display: block;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
     .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
     .badge {
       display: inline-flex;
@@ -5054,6 +5222,27 @@ ARBITRAGE_TEMPLATE = """
       background: rgba(255,255,255,0.12);
       border: 1px solid rgba(255,255,255,0.18);
     }
+    .spotlight-callout {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(31,111,95,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(31,111,95,0.18);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .spotlight-callout-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(31,111,95,0.12);
+    }
     .spotlight-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -5082,6 +5271,7 @@ ARBITRAGE_TEMPLATE = """
       border-radius: 18px;
       border: 1px solid var(--line);
       background: rgba(255,255,255,0.82);
+      box-shadow: 0 10px 26px rgba(24,32,39,0.06);
     }
     .mobile-head {
       display: flex;
@@ -5127,39 +5317,133 @@ ARBITRAGE_TEMPLATE = """
       font-size: 14px;
       line-height: 1.45;
     }
+    .notice-shell {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 16px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px dashed var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(247,243,234,0.9));
+    }
+    .notice-figure {
+      position: relative;
+      width: 78px;
+      height: 96px;
+      margin: 0 auto;
+    }
+    .notice-figure .avatar-head {
+      width: 48px;
+      height: 48px;
+      border-width: 1px;
+    }
+    .notice-figure .avatar-head::before,
+    .notice-figure .avatar-head::after {
+      top: 18px;
+      width: 6px;
+      height: 6px;
+    }
+    .notice-figure .avatar-body {
+      width: 56px;
+      height: 48px;
+      top: 38px;
+      border-width: 1px;
+    }
+    .notice-figure .avatar-screen {
+      width: 72px;
+      height: 20px;
+    }
+    .notice-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .notice-copy {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
     @media (max-width: 760px) {
       .desktop-only { display: none; }
       .mobile-only { display: block; }
       .page { padding: 20px 12px 40px; }
       .hero, .card { border-radius: 18px; }
       h1 { font-size: 32px; }
+      .hero-grid, .notice-shell { grid-template-columns: 1fr; }
+      .hero-stage { min-height: 230px; }
+      .crew-card { width: 32%; }
+      .avatar { width: 76px; height: 100px; }
+      .avatar-head { width: 48px; height: 48px; }
+      .avatar-body { width: 56px; height: 54px; }
+      .avatar-screen { width: 72px; }
+      .notice-figure { height: 86px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <section class="hero">
-      <h1>Cash Arbitrage Monitor</h1>
-      <p class="sub">
-        A tradable NSE-vs-BSE cash-equity arbitrage page that compares the best ask on the cheaper exchange against the best bid
-        on the richer exchange, then estimates net opportunity after brokerage and transaction taxes. It scans the full common NSE/BSE
-        EQ cash universe automatically for today's market and keeps a short post-analysis archive for the last 3 days.
-      </p>
-      <div class="meta">
-        <div class="pill">Universe: {{ common_symbol_count }} common NSE/BSE EQ shares</div>
-        <div class="pill">Capital: {{ capital_display }}</div>
-        <div class="pill">Min Spread: {{ min_spread_display }}</div>
-        <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
-        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
-        <div class="pill">Archive Window: Last {{ archive_days }} days</div>
-        <div class="pill">Virtual Trade Limit: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
-      </div>
-      <div class="hero-callout">
-        <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
-        <div style="margin-top: 10px; line-height: 1.5;">{{ market_state.detail }}</div>
-        {% if virtual_pause_reason %}
-        <div style="margin-top: 10px; line-height: 1.5;"><strong>Prep Status:</strong> {{ virtual_pause_reason }}</div>
-        {% endif %}
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1>Cash Arbitrage Monitor</h1>
+          <p class="sub">
+            A tradable NSE-vs-BSE cash-equity arbitrage page that compares the best ask on the cheaper exchange against the best bid
+            on the richer exchange, then estimates net opportunity after brokerage and transaction taxes. It scans the full common NSE/BSE
+            EQ cash universe automatically for today's market and keeps a short post-analysis archive for the last 3 days.
+          </p>
+          <div class="meta">
+            <div class="pill">Universe: {{ common_symbol_count }} common NSE/BSE EQ shares</div>
+            <div class="pill">Capital: {{ capital_display }}</div>
+            <div class="pill">Min Spread: {{ min_spread_display }}</div>
+            <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
+            <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+            <div class="pill">Archive Window: Last {{ archive_days }} days</div>
+            <div class="pill">Virtual Trade Limit: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
+          </div>
+          <div class="hero-callout">
+            <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
+            <div style="margin-top: 10px; line-height: 1.5;">{{ market_state.detail }}</div>
+            {% if virtual_pause_reason %}
+            <div style="margin-top: 10px; line-height: 1.5;"><strong>Prep Status:</strong> {{ virtual_pause_reason }}</div>
+            {% endif %}
+          </div>
+        </div>
+        <div class="hero-stage">
+          <div class="stage-label">Live Scanner Crew</div>
+          <div class="desk-crew">
+            <div class="crew-card bull">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Spread Runner</div>
+              <div class="crew-role">Hunts the best live spread between exchanges.</div>
+            </div>
+            <div class="crew-card scout">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Depth Scout</div>
+              <div class="crew-role">Checks whether the spread is actually tradable.</div>
+            </div>
+            <div class="crew-card bear">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Risk Officer</div>
+              <div class="crew-role">Cuts off weak setups before they waste attention.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -5221,6 +5505,7 @@ ARBITRAGE_TEMPLATE = """
       <h2>Best Opportunity Alert</h2>
       {% if spotlight %}
       <div class="summary-box">
+        <div class="spotlight-callout"><span class="spotlight-callout-dot"></span>Lead Opportunity On Screen</div>
         <strong>{{ spotlight.symbol }}</strong>
         <div style="margin-top: 8px;"><span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span></div>
         <div style="margin-top: 10px; color: var(--muted);">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
@@ -5241,8 +5526,17 @@ ARBITRAGE_TEMPLATE = """
         <div class="mobile-note">{{ spotlight.note }}</div>
       </div>
       {% else %}
-      <div class="legend-item">
-        No live best-opportunity alert is available right now because no spread survived the active filters after costs.
+      <div class="notice-shell">
+        <div class="notice-figure scout">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Best Opportunity Yet</div>
+          <div class="notice-copy">The scanner is alive, but no spread has cleared costs strongly enough to become the lead trade alert. That usually means the spread is thin, the edge is too brief, or size is not there yet.</div>
+        </div>
       </div>
       {% endif %}
     </section>
@@ -5315,8 +5609,17 @@ ARBITRAGE_TEMPLATE = """
         {% endfor %}
       </div>
       {% else %}
-      <div class="legend-item">
-        No setup is fully ready right now. The engine is waiting for at least {{ rules.persistence_seconds }} seconds of persistence, valid depth, and a net profit of at least {{ rules.min_net_profit }}.
+      <div class="notice-shell">
+        <div class="notice-figure bear">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Setup Fully Ready</div>
+          <div class="notice-copy">The rule engine is filtering the tape and waiting for at least {{ rules.persistence_seconds }} seconds of persistence, enough depth, and a net profit of at least {{ rules.min_net_profit }} before it promotes anything into the prep queue.</div>
+        </div>
       </div>
       {% endif %}
     </section>
@@ -5415,8 +5718,17 @@ ARBITRAGE_TEMPLATE = """
     <section class="card desktop-only">
       <h2>Arbitrage Table</h2>
       {% if not arbitrage_rows %}
-      <div class="legend-item">
-        No net-positive tradable arbitrage met the current filter right now. The page will keep checking the full NSE/BSE EQ common universe while the market is open.
+      <div class="notice-shell">
+        <div class="notice-figure scout">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Table Rows Yet</div>
+          <div class="notice-copy">No net-positive tradable arbitrage met the current filter right now. The scanner is still checking the full NSE/BSE EQ common universe in the background while the market is open.</div>
+        </div>
       </div>
       {% else %}
       <div class="table-wrap">
@@ -5469,8 +5781,17 @@ ARBITRAGE_TEMPLATE = """
     <section class="card mobile-only">
       <h2>Arbitrage Cards</h2>
       {% if not arbitrage_rows %}
-      <div class="legend-item">
-        No live tradable arbitrage met the current filter right now. The scanner is still checking the common NSE/BSE EQ universe automatically.
+      <div class="notice-shell">
+        <div class="notice-figure scout">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Mobile Cards Yet</div>
+          <div class="notice-copy">No live tradable arbitrage met the active filter right now. The mobile scanner is still watching the common NSE/BSE EQ universe automatically and will surface the next valid spread here.</div>
+        </div>
       </div>
       {% else %}
       <div class="mobile-card-grid">
@@ -5586,8 +5907,17 @@ ARBITRAGE_TEMPLATE = """
         </div>
         {% endfor %}
       {% else %}
-      <div class="legend-item">
-        No arbitrage opportunities have been archived yet. As soon as a live spread survives costs, this section will keep the story for the next {{ archive_days }} days.
+      <div class="notice-shell">
+        <div class="notice-figure bull">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">Archive Waiting For Its First Story</div>
+          <div class="notice-copy">No arbitrage opportunities have been archived yet. As soon as a live spread survives costs, this section will keep the story for the next {{ archive_days }} days so you can review repeated names and timing patterns.</div>
+        </div>
       </div>
       {% endif %}
     </section>
