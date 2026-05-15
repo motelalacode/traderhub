@@ -5564,6 +5564,8 @@ PD_LEVELS_TEMPLATE = """
       border: 1px solid var(--line);
       border-radius: 18px;
     }
+    .desktop-only { display: block; }
+    .mobile-only { display: none; }
     table { width: 100%; border-collapse: collapse; min-width: 1260px; }
     th, td {
       padding: 12px 10px;
@@ -5612,8 +5614,65 @@ PD_LEVELS_TEMPLATE = """
       color: #8a3b12;
       border: 1px solid rgba(138,59,18,0.18);
     }
+    .mobile-card-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: 1fr;
+    }
+    .mobile-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+    }
+    .mobile-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .mobile-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .mobile-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .mobile-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .mobile-metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .mobile-metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .mobile-metric-value {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .mobile-note {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
     .muted { color: var(--muted); }
     @media (max-width: 720px) {
+      .desktop-only { display: none; }
+      .mobile-only { display: block; }
       h1 { font-size: 32px; }
       .page { padding: 18px 12px 40px; }
       .hero, .card { border-radius: 18px; }
@@ -5750,7 +5809,7 @@ PD_LEVELS_TEMPLATE = """
       </div>
     </section>
 
-    <section class="card">
+    <section class="card desktop-only">
       <h2>Actionable Levels Table</h2>
       {% if not level_rows %}
       <div class="legend-item">
@@ -5798,6 +5857,62 @@ PD_LEVELS_TEMPLATE = """
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card mobile-only">
+      <h2>Actionable Breakout Cards</h2>
+      {% if not level_rows %}
+      <div class="legend-item">
+        No names matched the current universe and signal filter right now. Try switching between breakout, breakdown, near-level, or broader universe modes.
+      </div>
+      {% else %}
+      <div class="mobile-card-grid">
+        {% for row in level_rows %}
+        <div class="mobile-card" onclick="window.location='/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start=09:15&end=09:30'">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">
+                <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start=09:15&end=09:30" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+              </div>
+              <div class="mobile-sub">{{ row.sector_label }}</div>
+            </div>
+            <span class="badge {{ row.quality_badge }}">{{ row.quality_label }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Status</div>
+              <div class="mobile-metric-value"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Last Price</div>
+              <div class="mobile-metric-value">{{ row.last_price }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">PDH</div>
+              <div class="mobile-metric-value">{{ row.pdh }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">PDL</div>
+              <div class="mobile-metric-value">{{ row.pdl }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Gap %</div>
+              <div class="mobile-metric-value">{{ row.gap_pct }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Prev Close</div>
+              <div class="mobile-metric-value">{{ row.prev_close }}</div>
+            </div>
+          </div>
+          <div class="mobile-note">
+            <strong>Distance to PDH:</strong> {{ row.distance_pdh }}<br>
+            <strong>Distance to PDL:</strong> {{ row.distance_pdl }}<br>
+            <strong>Bias:</strong> {{ row.bias_note }}
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </section>
