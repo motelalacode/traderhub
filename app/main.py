@@ -17,7 +17,20 @@ from app.symbol_resolver import load_symbol_master, resolve_symbol_list
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
+ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
+ARBITRAGE_RULES = {
+    "capital_amount": 20000.0,
+    "min_spread": 0.20,
+    "min_net_profit": 5.0,
+    "min_depth_quantity": 5,
+    "persistence_seconds": 3,
+    "cooldown_seconds": 60,
+    "max_ready_setups": 3,
+    "max_trades_per_day": 10,
+    "stop_hour": 15,
+    "stop_minute": 0,
+}
 DEFAULT_SYMBOLS = ["IOC", "PNB"]
 SCANNER_DEFAULT_SYMBOLS = ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"]
 WATCHLISTS = {
@@ -5139,10 +5152,14 @@ ARBITRAGE_TEMPLATE = """
         <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
         <div class="pill">Auto Refresh: {{ refresh_label }}</div>
         <div class="pill">Archive Window: Last {{ archive_days }} days</div>
+        <div class="pill">Virtual Trade Limit: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
       </div>
       <div class="hero-callout">
         <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
         <div style="margin-top: 10px; line-height: 1.5;">{{ market_state.detail }}</div>
+        {% if virtual_pause_reason %}
+        <div style="margin-top: 10px; line-height: 1.5;"><strong>Prep Status:</strong> {{ virtual_pause_reason }}</div>
+        {% endif %}
       </div>
     </section>
 
@@ -5151,7 +5168,7 @@ ARBITRAGE_TEMPLATE = """
       <form method="get" class="toolbar-grid">
         <div>
           <label for="capital">Capital (INR)</label>
-          <input id="capital" name="capital" value="{{ capital_display }}" placeholder="50000">
+          <input id="capital" name="capital" value="{{ capital_display }}" placeholder="20000">
         </div>
         <div>
           <label for="min_spread">Min Spread / Share</label>
@@ -5195,6 +5212,8 @@ ARBITRAGE_TEMPLATE = """
         <div class="summary-box"><strong>Total Net Potential</strong><div class="summary-value">{{ summary.total_net_profit }}</div><div>Across shown rows</div></div>
         <div class="summary-box"><strong>Liquidity Flags</strong><div class="summary-value">{{ summary.depth_limited_count }}</div><div>Rows limited by best-depth quantity</div></div>
         <div class="summary-box"><strong>Scan Mode</strong><div class="summary-value">{{ scan_mode_label }}</div><div>Tradable best ask / best bid comparison</div></div>
+        <div class="summary-box"><strong>Ready Setups</strong><div class="summary-value">{{ ready_setup_count }}</div><div>Top rule-matched setups ready for virtual prep</div></div>
+        <div class="summary-box"><strong>Virtual Net</strong><div class="summary-value">{{ virtual_trade_book.total_virtual_net }}</div><div>Estimated total across virtual trades today</div></div>
       </div>
     </section>
 
@@ -5224,6 +5243,153 @@ ARBITRAGE_TEMPLATE = """
       {% else %}
       <div class="legend-item">
         No live best-opportunity alert is available right now because no spread survived the active filters after costs.
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Virtual Trade Prep Panel</h2>
+      <div class="legend" style="margin-bottom: 14px;">
+        <div class="legend-item">
+          <strong>Rule Engine</strong>
+          Capital {{ capital_display }}, minimum spread {{ rules.min_spread }}, minimum net {{ rules.min_net_profit }}, depth {{ rules.min_depth_quantity }} shares, persistence {{ rules.persistence_seconds }} seconds, cooldown {{ rules.cooldown_seconds }} seconds.
+        </div>
+      </div>
+      {% if ready_setups %}
+      <div class="mobile-card-grid">
+        {% for setup in ready_setups %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ setup.symbol }}</div>
+              <div class="mobile-sub">{{ setup.route }}</div>
+            </div>
+            <span class="badge {{ setup.ready_badge }}">{{ setup.net_profit }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Buy Price</div>
+              <div class="mobile-metric-value">{{ setup.buy_price }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Sell Price</div>
+              <div class="mobile-metric-value">{{ setup.sell_price }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Quantity</div>
+              <div class="mobile-metric-value">{{ setup.quantity }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Persisted</div>
+              <div class="mobile-metric-value">{{ setup.persisted_seconds }}s</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Gross</div>
+              <div class="mobile-metric-value">{{ setup.gross_profit }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Charges</div>
+              <div class="mobile-metric-value">{{ setup.total_charges }}</div>
+            </div>
+          </div>
+          <div class="mobile-note">
+            <strong>Liquidity:</strong> {{ setup.liquidity_warning }}<br>
+            <strong>Time:</strong> {{ setup.timestamp }}
+          </div>
+          <form method="post" style="margin-top: 12px;">
+            <input type="hidden" name="capital" value="{{ capital_display }}">
+            <input type="hidden" name="min_spread" value="{{ min_spread_display }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <input type="hidden" name="net_positive_only" value="{{ 1 if net_positive_only else 0 }}">
+            <input type="hidden" name="setup_key" value="{{ setup.setup_key }}">
+            <div class="toolbar-grid">
+              <div>
+                <button type="submit" name="action" value="prepare_virtual">Create Virtual Trade</button>
+              </div>
+              <div>
+                <button type="submit" name="action" value="dismiss_setup">Snooze 60s</button>
+              </div>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="legend-item">
+        No setup is fully ready right now. The engine is waiting for at least {{ rules.persistence_seconds }} seconds of persistence, valid depth, and a net profit of at least {{ rules.min_net_profit }}.
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Virtual Trade Book</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Prepared Today</strong><div class="summary-value">{{ virtual_trade_book.prepared_count }}</div><div>Virtual trades created so far</div></div>
+        <div class="summary-box"><strong>Remaining Slots</strong><div class="summary-value">{{ virtual_trade_book.remaining_trades }}</div><div>Prep slots left before the 10-trade stop</div></div>
+        <div class="summary-box"><strong>Total Virtual Trades</strong><div class="summary-value">{{ virtual_trade_book.total_virtual_count }}</div><div>Open and archived together</div></div>
+      </div>
+      {% if virtual_trade_book.open_trades %}
+      <h3 style="margin-top: 18px;">Open Virtual Trades</h3>
+      <div class="mobile-card-grid">
+        {% for trade in virtual_trade_book.open_trades %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ trade.symbol }}</div>
+              <div class="mobile-sub">{{ trade.route }}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Net Profit</div>
+              <div class="mobile-metric-value">{{ trade.net_profit }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Prepared At</div>
+              <div class="mobile-metric-value">{{ trade.prepared_at }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Buy Price</div>
+              <div class="mobile-metric-value">{{ trade.buy_price }}</div>
+            </div>
+            <div class="mobile-metric">
+              <div class="mobile-metric-label">Sell Price</div>
+              <div class="mobile-metric-value">{{ trade.sell_price }}</div>
+            </div>
+          </div>
+          <div class="mobile-note"><strong>Liquidity:</strong> {{ trade.liquidity_warning }}</div>
+          <form method="post" style="margin-top: 12px;">
+            <input type="hidden" name="capital" value="{{ capital_display }}">
+            <input type="hidden" name="min_spread" value="{{ min_spread_display }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <input type="hidden" name="net_positive_only" value="{{ 1 if net_positive_only else 0 }}">
+            <input type="hidden" name="trade_id" value="{{ trade.trade_id }}">
+            <button type="submit" name="action" value="archive_virtual">Archive Virtual Trade</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if virtual_trade_book.closed_trades %}
+      <h3 style="margin-top: 18px;">Archived Virtual Trades</h3>
+      <div class="mobile-card-grid">
+        {% for trade in virtual_trade_book.closed_trades %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ trade.symbol }}</div>
+              <div class="mobile-sub">{{ trade.route }}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="mobile-note">
+            <strong>Prepared:</strong> {{ trade.prepared_at }}<br>
+            <strong>Closed:</strong> {{ trade.closed_at or '-' }}<br>
+            <strong>Net:</strong> {{ trade.net_profit }}
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </section>
@@ -5422,6 +5588,415 @@ ARBITRAGE_TEMPLATE = """
       {% else %}
       <div class="legend-item">
         No arbitrage opportunities have been archived yet. As soon as a live spread survives costs, this section will keep the story for the next {{ archive_days }} days.
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
+</body>
+</html>
+"""
+
+ARBITRAGE_VIRTUAL_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Virtual Arbitrage Desk</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1280px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 980px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2 { margin: 0 0 12px; font-size: 24px; }
+    .toolbar-grid, .summary-grid, .mobile-card-grid, .spotlight-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .toolbar-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .mobile-card-grid { grid-template-columns: 1fr; }
+    .spotlight-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    button, .quick-link {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .summary-box, .legend-item, .spotlight-metric {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-value, .spotlight-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .spotlight-label, .mobile-metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .mobile-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+    }
+    .mobile-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .mobile-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .mobile-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .mobile-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .mobile-metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .mobile-metric-value {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .mobile-note {
+      margin-top: 8px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    @media (max-width: 760px) {
+      .page { padding: 20px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+      h1 { font-size: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Virtual Arbitrage Desk</h1>
+      <p class="sub">
+        A dedicated paper-trading workspace for your NSE-vs-BSE arbitrage rules. It watches the common EQ universe, promotes only persistent rule-matched setups, and lets you create virtual trades without placing any real orders.
+      </p>
+      <div class="meta">
+        <div class="pill">Capital: {{ capital_display }}</div>
+        <div class="pill">Min Spread: {{ min_spread_display }}</div>
+        <div class="pill">Ready Setups: {{ ready_setup_count }}/{{ rules.max_ready_setups }}</div>
+        <div class="pill">Prepared Today: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
+      </div>
+      <div class="nav-links">
+        <a class="quick-link" href="/equity-arbitrage">Open Scanner Page</a>
+        <a class="quick-link" href="/equity-arbitrage-export.csv">Download 3-Day CSV</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>System Status</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Market State</strong><div class="summary-value" style="font-size:22px;">{{ market_state.label }}</div><div>{{ market_state.detail }}</div></div>
+        <div class="summary-box"><strong>Prep Status</strong><div class="summary-value" style="font-size:22px;">{{ virtual_pause_title }}</div><div>{{ virtual_pause_reason or 'Ready to prepare new virtual trades.' }}</div></div>
+        <div class="summary-box"><strong>Best Live Net</strong><div class="summary-value">{{ summary.best_net_profit }}</div><div>Top net setup in the current scan</div></div>
+        <div class="summary-box"><strong>Total Virtual Net</strong><div class="summary-value">{{ virtual_trade_book.total_virtual_net }}</div><div>Estimated cumulative virtual net today</div></div>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Rule Controls</h2>
+      <form method="get" class="toolbar-grid">
+        <div>
+          <label for="capital">Capital (INR)</label>
+          <input id="capital" name="capital" value="{{ capital_display }}" placeholder="20000">
+        </div>
+        <div>
+          <label for="min_spread">Min Spread / Share</label>
+          <input id="min_spread" name="min_spread" value="{{ min_spread_display }}" placeholder="0.20">
+        </div>
+        <div>
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="net_positive_only">Net Positive Only</label>
+          <select id="net_positive_only" name="net_positive_only">
+            <option value="1" {{ 'selected' if net_positive_only else '' }}>Yes</option>
+            <option value="0" {{ 'selected' if not net_positive_only else '' }}>No</option>
+          </select>
+        </div>
+        <div>
+          <button type="submit">Refresh Virtual Desk</button>
+        </div>
+      </form>
+      <div class="mobile-note">
+        <strong>Locked strategy:</strong> minimum net {{ rules.min_net_profit }}, minimum depth {{ rules.min_depth_quantity }} shares, persistence {{ rules.persistence_seconds }} seconds, cooldown {{ rules.cooldown_seconds }} seconds, stop after 3:00 PM or {{ rules.max_trades_per_day }} prepared trades.
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Best Opportunity Spotlight</h2>
+      {% if spotlight %}
+      <div class="summary-box">
+        <strong>{{ spotlight.symbol }}</strong>
+        <div style="margin-top: 8px;"><span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span></div>
+        <div style="margin-top: 10px; color: var(--muted);">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
+        <div class="spotlight-grid" style="margin-top: 14px;">
+          <div class="spotlight-metric"><div class="spotlight-label">Gross Spread</div><div class="spotlight-value">{{ spotlight.gross_spread }}</div></div>
+          <div class="spotlight-metric"><div class="spotlight-label">Tradable Qty</div><div class="spotlight-value">{{ spotlight.quantity }}</div></div>
+          <div class="spotlight-metric"><div class="spotlight-label">Liquidity</div><div class="spotlight-value" style="font-size:20px;">{{ spotlight.liquidity_warning }}</div></div>
+        </div>
+        <div class="mobile-note">{{ spotlight.note }}</div>
+      </div>
+      {% else %}
+      <div class="legend-item">No live setup is currently strong enough to become the spotlight.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Ready Setups</h2>
+      {% if ready_setups %}
+      <div class="mobile-card-grid">
+        {% for setup in ready_setups %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ setup.symbol }}</div>
+              <div class="mobile-sub">{{ setup.route }}</div>
+            </div>
+            <span class="badge {{ setup.ready_badge }}">{{ setup.net_profit }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric"><div class="mobile-metric-label">Buy Price</div><div class="mobile-metric-value">{{ setup.buy_price }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Sell Price</div><div class="mobile-metric-value">{{ setup.sell_price }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Qty</div><div class="mobile-metric-value">{{ setup.quantity }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Persisted</div><div class="mobile-metric-value">{{ setup.persisted_seconds }}s</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Gross</div><div class="mobile-metric-value">{{ setup.gross_profit }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Charges</div><div class="mobile-metric-value">{{ setup.total_charges }}</div></div>
+          </div>
+          <div class="mobile-note">
+            <strong>Liquidity:</strong> {{ setup.liquidity_warning }}<br>
+            <strong>Time:</strong> {{ setup.timestamp }}
+          </div>
+          <form method="post" style="margin-top: 12px;">
+            <input type="hidden" name="capital" value="{{ capital_display }}">
+            <input type="hidden" name="min_spread" value="{{ min_spread_display }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <input type="hidden" name="net_positive_only" value="{{ 1 if net_positive_only else 0 }}">
+            <input type="hidden" name="setup_key" value="{{ setup.setup_key }}">
+            <div class="toolbar-grid">
+              <div><button type="submit" name="action" value="prepare_virtual">Create Virtual Trade</button></div>
+              <div><button type="submit" name="action" value="dismiss_setup">Snooze 60s</button></div>
+            </div>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="legend-item">No setup is fully ready right now. The engine is waiting for persistence, minimum depth, and the required net profit.</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Virtual Trade Book</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Prepared Today</strong><div class="summary-value">{{ virtual_trade_book.prepared_count }}</div><div>Virtual trades created so far</div></div>
+        <div class="summary-box"><strong>Remaining Slots</strong><div class="summary-value">{{ virtual_trade_book.remaining_trades }}</div><div>Prep slots left before the daily stop</div></div>
+        <div class="summary-box"><strong>Total Virtual Trades</strong><div class="summary-value">{{ virtual_trade_book.total_virtual_count }}</div><div>Open and archived together</div></div>
+      </div>
+      {% if virtual_trade_book.open_trades %}
+      <h3 style="margin-top: 18px;">Open Virtual Trades</h3>
+      <div class="mobile-card-grid">
+        {% for trade in virtual_trade_book.open_trades %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ trade.symbol }}</div>
+              <div class="mobile-sub">{{ trade.route }}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="mobile-metrics">
+            <div class="mobile-metric"><div class="mobile-metric-label">Net Profit</div><div class="mobile-metric-value">{{ trade.net_profit }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Prepared At</div><div class="mobile-metric-value">{{ trade.prepared_at }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Buy Price</div><div class="mobile-metric-value">{{ trade.buy_price }}</div></div>
+            <div class="mobile-metric"><div class="mobile-metric-label">Sell Price</div><div class="mobile-metric-value">{{ trade.sell_price }}</div></div>
+          </div>
+          <div class="mobile-note"><strong>Liquidity:</strong> {{ trade.liquidity_warning }}</div>
+          <form method="post" style="margin-top: 12px;">
+            <input type="hidden" name="capital" value="{{ capital_display }}">
+            <input type="hidden" name="min_spread" value="{{ min_spread_display }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <input type="hidden" name="net_positive_only" value="{{ 1 if net_positive_only else 0 }}">
+            <input type="hidden" name="trade_id" value="{{ trade.trade_id }}">
+            <button type="submit" name="action" value="archive_virtual">Archive Virtual Trade</button>
+          </form>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if virtual_trade_book.closed_trades %}
+      <h3 style="margin-top: 18px;">Archived Virtual Trades</h3>
+      <div class="mobile-card-grid">
+        {% for trade in virtual_trade_book.closed_trades %}
+        <div class="mobile-card">
+          <div class="mobile-head">
+            <div>
+              <div class="mobile-title">{{ trade.symbol }}</div>
+              <div class="mobile-sub">{{ trade.route }}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="mobile-note">
+            <strong>Prepared:</strong> {{ trade.prepared_at }}<br>
+            <strong>Closed:</strong> {{ trade.closed_at or '-' }}<br>
+            <strong>Net:</strong> {{ trade.net_profit }}
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </section>
@@ -7502,6 +8077,256 @@ def save_arbitrage_history(payload):
     ARBITRAGE_HISTORY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def load_arbitrage_virtual_state():
+    if not ARBITRAGE_VIRTUAL_STATE_PATH.exists():
+        return {"days": {}}
+
+    try:
+        payload = json.loads(ARBITRAGE_VIRTUAL_STATE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"days": {}}
+
+    if not isinstance(payload, dict):
+        return {"days": {}}
+    if not isinstance(payload.get("days"), dict):
+        payload["days"] = {}
+    return payload
+
+
+def save_arbitrage_virtual_state(payload):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ARBITRAGE_VIRTUAL_STATE_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def prune_arbitrage_virtual_state(payload, reference_date):
+    cutoff_date = reference_date - datetime.timedelta(days=6)
+    pruned_days = {}
+
+    for day_key, day_state in (payload.get("days") or {}).items():
+        try:
+            row_date = datetime.date.fromisoformat(day_key)
+        except ValueError:
+            continue
+
+        if row_date < cutoff_date or row_date > reference_date:
+            continue
+        if isinstance(day_state, dict):
+            pruned_days[day_key] = day_state
+
+    payload["days"] = pruned_days
+    return payload
+
+
+def ensure_virtual_day_state(payload, reference_date):
+    payload = prune_arbitrage_virtual_state(payload, reference_date)
+    day_key = reference_date.isoformat()
+    day_state = payload["days"].setdefault(
+        day_key,
+        {
+            "tracked": {},
+            "virtual_trades": [],
+            "prepared_count": 0,
+            "paused": False,
+            "pause_reason": "",
+        },
+    )
+    day_state.setdefault("tracked", {})
+    day_state.setdefault("virtual_trades", [])
+    day_state.setdefault("prepared_count", 0)
+    day_state.setdefault("paused", False)
+    day_state.setdefault("pause_reason", "")
+    return payload, day_key, day_state
+
+
+def build_arbitrage_row_key(row):
+    return f"{row['symbol']}:{row['buy_exchange']}:{row['sell_exchange']}"
+
+
+def evaluate_arbitrage_broker_health(error, missing_count, symbol_count, now_dt):
+    stop_time = now_dt.replace(
+        hour=ARBITRAGE_RULES["stop_hour"],
+        minute=ARBITRAGE_RULES["stop_minute"],
+        second=0,
+        microsecond=0,
+    )
+    if now_dt >= stop_time:
+        return False, "Trading prep stops after 3:00 PM."
+    if error:
+        return False, "Broker data is unstable right now because the latest scan raised an error."
+    if symbol_count > 0 and missing_count > max(15, int(symbol_count * 0.35)):
+        return False, "Broker data is unstable right now because too many quotes were missing in the latest scan."
+    return True, "Broker data is stable."
+
+
+def update_arbitrage_virtual_candidates(day_state, arbitrage_rows, now_dt, broker_stable):
+    tracked = day_state.get("tracked", {})
+    active_keys = set()
+
+    for row in arbitrage_rows:
+        if row["quantity"] < ARBITRAGE_RULES["min_depth_quantity"]:
+            continue
+        if row["net_profit_numeric"] < ARBITRAGE_RULES["min_net_profit"]:
+            continue
+
+        key = build_arbitrage_row_key(row)
+        active_keys.add(key)
+        existing = tracked.get(key, {})
+        first_seen_iso = existing.get("first_seen")
+        if first_seen_iso:
+            try:
+                first_seen_dt = datetime.datetime.fromisoformat(first_seen_iso)
+            except ValueError:
+                first_seen_dt = now_dt
+        else:
+            first_seen_dt = now_dt
+
+        cooldown_until_iso = existing.get("cooldown_until")
+        cooldown_until_dt = None
+        if cooldown_until_iso:
+            try:
+                cooldown_until_dt = datetime.datetime.fromisoformat(cooldown_until_iso)
+            except ValueError:
+                cooldown_until_dt = None
+
+        tracked[key] = {
+            "symbol": row["symbol"],
+            "buy_exchange": row["buy_exchange"],
+            "sell_exchange": row["sell_exchange"],
+            "first_seen": first_seen_dt.isoformat(),
+            "last_seen": now_dt.isoformat(),
+            "cooldown_until": cooldown_until_dt.isoformat() if cooldown_until_dt else "",
+            "quantity": row["quantity"],
+            "gross_spread_numeric": row["gross_spread_numeric"],
+            "net_profit_numeric": row["net_profit_numeric"],
+            "gross_spread": row["gross_spread"],
+            "net_profit": row["net_profit"],
+            "gross_profit": row["gross_profit"],
+            "total_charges": row["total_charges"],
+            "liquidity_warning": row["liquidity_warning"],
+            "timestamp": row["timestamp"],
+            "buy_price": row["nse_ask"] if row["buy_exchange"] == "NSE" else row["bse_ask"],
+            "sell_price": row["bse_bid"] if row["sell_exchange"] == "BSE" else row["nse_bid"],
+            "route": f"{row['buy_exchange']} buy -> {row['sell_exchange']} sell",
+        }
+
+    for key, existing in tracked.items():
+        if key not in active_keys:
+            existing["active"] = False
+        else:
+            existing["active"] = True
+
+    day_state["tracked"] = tracked
+    stop_trading = day_state.get("prepared_count", 0) >= ARBITRAGE_RULES["max_trades_per_day"]
+    ready_rows = []
+
+    for key, item in tracked.items():
+        if not item.get("active"):
+            continue
+        first_seen_dt = datetime.datetime.fromisoformat(item["first_seen"])
+        persisted_seconds = max(0, int((now_dt - first_seen_dt).total_seconds()))
+        if persisted_seconds < ARBITRAGE_RULES["persistence_seconds"]:
+            continue
+
+        cooldown_until = item.get("cooldown_until")
+        if cooldown_until:
+            cooldown_until_dt = datetime.datetime.fromisoformat(cooldown_until)
+            if now_dt < cooldown_until_dt:
+                continue
+
+        if not broker_stable or stop_trading:
+            continue
+
+        ready_rows.append(
+            {
+                "setup_key": key,
+                "symbol": item["symbol"],
+                "route": item["route"],
+                "quantity": item["quantity"],
+                "gross_spread": item["gross_spread"],
+                "gross_profit": item["gross_profit"],
+                "total_charges": item["total_charges"],
+                "net_profit": item["net_profit"],
+                "net_profit_numeric": item["net_profit_numeric"],
+                "liquidity_warning": item["liquidity_warning"],
+                "timestamp": item["timestamp"],
+                "buy_price": item["buy_price"],
+                "sell_price": item["sell_price"],
+                "persisted_seconds": persisted_seconds,
+                "ready_badge": classify_percent_badge(item["net_profit_numeric"]),
+            }
+        )
+
+    ready_rows.sort(key=lambda row: row["net_profit_numeric"], reverse=True)
+    return ready_rows[:ARBITRAGE_RULES["max_ready_setups"]]
+
+
+def create_virtual_trade(day_state, setup_key, now_dt):
+    tracked = day_state.get("tracked", {})
+    item = tracked.get(setup_key)
+    if not item:
+        return "This setup is no longer available."
+
+    trade_id = f"VT-{now_dt.strftime('%H%M%S')}-{item['symbol']}"
+    day_state["virtual_trades"].append(
+        {
+            "trade_id": trade_id,
+            "symbol": item["symbol"],
+            "route": item["route"],
+            "buy_price": item["buy_price"],
+            "sell_price": item["sell_price"],
+            "quantity": item["quantity"],
+            "gross_spread": item["gross_spread"],
+            "gross_profit": item["gross_profit"],
+            "total_charges": item["total_charges"],
+            "net_profit": item["net_profit"],
+            "net_profit_numeric": item["net_profit_numeric"],
+            "liquidity_warning": item["liquidity_warning"],
+            "prepared_at": now_dt.strftime("%H:%M:%S"),
+            "status": "Prepared",
+            "status_badge": "badge-up",
+        }
+    )
+    day_state["prepared_count"] = int(day_state.get("prepared_count", 0)) + 1
+    cooldown_until = now_dt + datetime.timedelta(seconds=ARBITRAGE_RULES["cooldown_seconds"])
+    tracked[setup_key]["cooldown_until"] = cooldown_until.isoformat()
+    return f"Virtual trade prepared for {item['symbol']}."
+
+
+def dismiss_virtual_setup(day_state, setup_key, now_dt):
+    tracked = day_state.get("tracked", {})
+    item = tracked.get(setup_key)
+    if not item:
+        return "This setup is no longer available."
+    cooldown_until = now_dt + datetime.timedelta(seconds=ARBITRAGE_RULES["cooldown_seconds"])
+    tracked[setup_key]["cooldown_until"] = cooldown_until.isoformat()
+    return f"{item['symbol']} was snoozed for 60 seconds."
+
+
+def archive_virtual_trade(day_state, trade_id, now_dt):
+    for trade in day_state.get("virtual_trades", []):
+        if trade["trade_id"] == trade_id and trade["status"] == "Prepared":
+            trade["status"] = "Closed"
+            trade["status_badge"] = "badge-neutral"
+            trade["closed_at"] = now_dt.strftime("%H:%M:%S")
+            return f"Virtual trade {trade_id} archived."
+    return "Virtual trade not found."
+
+
+def build_virtual_trade_book(day_state):
+    virtual_trades = day_state.get("virtual_trades", [])
+    open_trades = [trade for trade in virtual_trades if trade["status"] == "Prepared"]
+    closed_trades = [trade for trade in virtual_trades if trade["status"] != "Prepared"]
+    total_net_numeric = sum(trade["net_profit_numeric"] for trade in virtual_trades)
+    return {
+        "open_trades": list(reversed(open_trades[-10:])),
+        "closed_trades": list(reversed(closed_trades[-10:])),
+        "prepared_count": int(day_state.get("prepared_count", 0)),
+        "remaining_trades": max(0, ARBITRAGE_RULES["max_trades_per_day"] - int(day_state.get("prepared_count", 0))),
+        "total_virtual_net": f"{total_net_numeric:+.2f}",
+        "total_virtual_count": len(virtual_trades),
+    }
+
+
 def update_arbitrage_history(arbitrage_rows, reference_date):
     payload = prune_arbitrage_history_payload(load_arbitrage_history(), reference_date)
     day_key = reference_date.isoformat()
@@ -8968,13 +9793,13 @@ def equity_backtest():
     )
 
 
-@app.route("/equity-arbitrage")
-def equity_arbitrage():
-    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
-    capital_amount = parse_positive_float(request.args.get("capital", "50000"), 50000.0)
-    min_spread = parse_positive_float(request.args.get("min_spread", "0.50"), 0.50)
-    net_positive_only = request.args.get("net_positive_only", "1") != "0"
+def build_arbitrage_page_context(request_data, request_method):
+    refresh_seconds = parse_refresh_seconds(request_data.get("refresh", "30"))
+    capital_amount = parse_positive_float(request_data.get("capital", f"{ARBITRAGE_RULES['capital_amount']:.0f}"), ARBITRAGE_RULES["capital_amount"])
+    min_spread = parse_positive_float(request_data.get("min_spread", f"{ARBITRAGE_RULES['min_spread']:.2f}"), ARBITRAGE_RULES["min_spread"])
+    net_positive_only = request_data.get("net_positive_only", "1") != "0"
     reference_date = get_today_ist()
+    now_dt = datetime.datetime.now(APP_TZ)
 
     error = None
     symbols = get_common_equity_symbols()
@@ -8984,6 +9809,12 @@ def equity_arbitrage():
     recurring_archive = build_arbitrage_recurring_summary(post_analysis_groups)
     spotlight = None
     market_state = get_market_state()
+    ready_setups = []
+    virtual_pause_reason = ""
+    virtual_state_payload = load_arbitrage_virtual_state()
+    virtual_state_payload, _, day_state = ensure_virtual_day_state(virtual_state_payload, reference_date)
+    virtual_trade_book = build_virtual_trade_book(day_state)
+    action_message = None
 
     try:
         if not symbols:
@@ -9003,6 +9834,33 @@ def equity_arbitrage():
         post_analysis_groups = build_arbitrage_post_analysis(reference_date)
         recurring_archive = build_arbitrage_recurring_summary(post_analysis_groups)
         spotlight = build_best_arbitrage_spotlight(arbitrage_rows)
+        broker_stable, broker_reason = evaluate_arbitrage_broker_health(error, len(missing), len(symbols), now_dt)
+        day_state["paused"] = not broker_stable
+        day_state["pause_reason"] = broker_reason
+        ready_setups = update_arbitrage_virtual_candidates(day_state, arbitrage_rows, now_dt, broker_stable)
+
+        if request_method == "POST":
+            action = request_data.get("action", "")
+            if action == "prepare_virtual":
+                action_message = create_virtual_trade(day_state, request_data.get("setup_key", ""), now_dt)
+            elif action == "dismiss_setup":
+                action_message = dismiss_virtual_setup(day_state, request_data.get("setup_key", ""), now_dt)
+            elif action == "archive_virtual":
+                action_message = archive_virtual_trade(day_state, request_data.get("trade_id", ""), now_dt)
+
+            ready_setups = update_arbitrage_virtual_candidates(day_state, arbitrage_rows, now_dt, broker_stable)
+            virtual_trade_book = build_virtual_trade_book(day_state)
+            save_arbitrage_virtual_state(virtual_state_payload)
+        else:
+            virtual_trade_book = build_virtual_trade_book(day_state)
+            save_arbitrage_virtual_state(virtual_state_payload)
+        if virtual_trade_book["prepared_count"] >= ARBITRAGE_RULES["max_trades_per_day"]:
+            day_state["paused"] = True
+            day_state["pause_reason"] = "New prep setups are paused because the 10-trade daily limit has been reached."
+            virtual_pause_reason = day_state["pause_reason"]
+            save_arbitrage_virtual_state(virtual_state_payload)
+        else:
+            virtual_pause_reason = day_state.get("pause_reason", "")
 
         if missing:
             error = (
@@ -9010,12 +9868,19 @@ def equity_arbitrage():
             )
     except Exception as exc:
         error = str(exc)
+        day_state["paused"] = True
+        day_state["pause_reason"] = "Virtual prep paused because the latest broker scan failed."
+        virtual_pause_reason = day_state["pause_reason"]
+        virtual_trade_book = build_virtual_trade_book(day_state)
+        save_arbitrage_virtual_state(virtual_state_payload)
 
     refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
     net_positive_label = "Yes" if net_positive_only else "No"
+    if action_message:
+        error = action_message if error is None else f"{action_message} {error}"
 
-    return render_template_string(
-        ARBITRAGE_TEMPLATE,
+    virtual_pause_title = "Paused" if virtual_pause_reason else "Active"
+    return dict(
         error=error,
         arbitrage_rows=arbitrage_rows,
         summary=summary,
@@ -9033,6 +9898,32 @@ def equity_arbitrage():
         recurring_archive=recurring_archive,
         spotlight=spotlight,
         market_state=market_state,
+        rules=ARBITRAGE_RULES,
+        ready_setups=ready_setups,
+        ready_setup_count=len(ready_setups),
+        virtual_trade_book=virtual_trade_book,
+        virtual_pause_reason=virtual_pause_reason,
+        virtual_pause_title=virtual_pause_title,
+    )
+
+
+@app.route("/equity-arbitrage", methods=["GET", "POST"])
+def equity_arbitrage():
+    request_data = request.form if request.method == "POST" else request.args
+    context = build_arbitrage_page_context(request_data, request.method)
+    return render_template_string(
+        ARBITRAGE_TEMPLATE,
+        **context,
+    )
+
+
+@app.route("/equity-arbitrage-virtual", methods=["GET", "POST"])
+def equity_arbitrage_virtual():
+    request_data = request.form if request.method == "POST" else request.args
+    context = build_arbitrage_page_context(request_data, request.method)
+    return render_template_string(
+        ARBITRAGE_VIRTUAL_TEMPLATE,
+        **context,
     )
 
 
