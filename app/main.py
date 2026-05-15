@@ -5623,44 +5623,37 @@ PD_LEVELS_TEMPLATE = """
 <body>
   <div class="page">
     <section class="hero">
-      <h1>Previous Day Levels Dashboard</h1>
+      <h1>Previous Day Breakouts Dashboard</h1>
       <p class="sub">
-        A separate page for previous-day high, previous-day low, and previous close reference levels. Use it to quickly see
-        which names are trading above PDH, below PDL, or hugging previous close before you shift into the deeper intraday pages.
+        An automatic market monitor for previous-day high and low breaks. It scans a broad equity universe, surfaces names
+        trading above PDH or below PDL, and highlights the cleaner setups with sector context before you drill into the deeper intraday pages.
       </p>
       <div class="meta">
-        <div class="pill">Watchlist: {{ active_watchlist_label }}</div>
+        <div class="pill">Universe: {{ universe_label }}</div>
+        <div class="pill">Signal View: {{ signal_view_label }}</div>
         <div class="pill">Date: {{ selected_date }}</div>
         <div class="pill">Auto Refresh: {{ refresh_label }}</div>
       </div>
     </section>
 
     <section class="card">
-      <h2>Saved Watchlists</h2>
-      <div class="watch-links">
-        {% for watch in watchlists %}
-        <a class="watch-link {{ 'active' if watch.key == active_watchlist else '' }}"
-           href="/equity-previous-levels?watchlist={{ watch.key }}&date={{ selected_date }}&refresh={{ refresh_seconds }}">
-          {{ watch.label }}
-        </a>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Levels Controls</h2>
+      <h2>Market Controls</h2>
       <form method="get" class="toolbar-grid">
         <div>
-          <label for="watchlist">Watchlist</label>
-          <select id="watchlist" name="watchlist">
-            {% for watch in watchlists %}
-            <option value="{{ watch.key }}" {{ 'selected' if watch.key == active_watchlist else '' }}>{{ watch.label }}</option>
+          <label for="universe_mode">Universe</label>
+          <select id="universe_mode" name="universe_mode">
+            {% for option in universe_mode_options %}
+            <option value="{{ option.key }}" {{ 'selected' if option.key == universe_mode else '' }}>{{ option.label }}</option>
             {% endfor %}
           </select>
         </div>
         <div>
-          <label for="symbols">Custom Symbols</label>
-          <input id="symbols" name="symbols" value="{{ request_symbols }}" placeholder="IOC,PNB,SBIN,RELIANCE">
+          <label for="signal_view">Signal View</label>
+          <select id="signal_view" name="signal_view">
+            {% for option in signal_view_options %}
+            <option value="{{ option.key }}" {{ 'selected' if option.key == signal_view else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
         </div>
         <div>
           <label for="date">Date</label>
@@ -5680,13 +5673,19 @@ PD_LEVELS_TEMPLATE = """
       </form>
       <div class="quick-links">
         <a class="quick-link {{ 'active' if selected_date == today_date else '' }}"
-           href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ today_date }}&refresh={{ refresh_seconds }}">
+           href="/equity-previous-levels?universe_mode={{ universe_mode }}&signal_view={{ signal_view }}&date={{ today_date }}&refresh={{ refresh_seconds }}">
           Today
         </a>
         <a class="quick-link {{ 'active' if selected_date == yesterday_date else '' }}"
-           href="/equity-previous-levels?watchlist={{ active_watchlist }}&symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&refresh={{ refresh_seconds }}">
+           href="/equity-previous-levels?universe_mode={{ universe_mode }}&signal_view={{ signal_view }}&date={{ yesterday_date }}&refresh={{ refresh_seconds }}">
           Yesterday
         </a>
+      </div>
+      <div class="legend" style="margin-top: 14px;">
+        <div class="legend-item">
+          <strong>Default Shape</strong>
+          The page now auto-scans a liquid trading universe by default so traders can discover actionable PDH/PDL breaks without typing stock names.
+        </div>
       </div>
       {% if error %}
       <div class="error">{{ error }}</div>
@@ -5711,6 +5710,21 @@ PD_LEVELS_TEMPLATE = """
           <div class="summary-value">{{ summary.near_close_count }}</div>
           <div>Names still near previous close</div>
         </div>
+        <div class="summary-box">
+          <strong>Near PDH</strong>
+          <div class="summary-value">{{ summary.near_pdh_count }}</div>
+          <div>Names sitting just under PDH</div>
+        </div>
+        <div class="summary-box">
+          <strong>Near PDL</strong>
+          <div class="summary-value">{{ summary.near_pdl_count }}</div>
+          <div>Names sitting just above PDL</div>
+        </div>
+        <div class="summary-box">
+          <strong>Strong Breaks</strong>
+          <div class="summary-value">{{ summary.strong_count }}</div>
+          <div>Higher-quality previous-day level breaks</div>
+        </div>
       </div>
     </section>
 
@@ -5729,16 +5743,27 @@ PD_LEVELS_TEMPLATE = """
           <strong>Click Through</strong>
           Click any row or symbol to jump into the detailed OHLC page for minute-level context around the same symbol.
         </div>
+        <div class="legend-item">
+          <strong>Quality Tags</strong>
+          Strong bullish or bearish breaks rank first. Near PDH or near PDL tags help traders watch the names that are closest to triggering next.
+        </div>
       </div>
     </section>
 
     <section class="card">
-      <h2>Levels Table</h2>
+      <h2>Actionable Levels Table</h2>
+      {% if not level_rows %}
+      <div class="legend-item">
+        No names matched the current universe and signal filter right now. Try switching between breakout, breakdown, near-level, or broader universe modes.
+      </div>
+      {% else %}
       <div class="table-wrap">
         <table id="pd-levels-table">
           <thead>
             <tr>
               <th class="sortable" data-key="symbol">Symbol</th>
+              <th class="sortable" data-key="sector">Sector</th>
+              <th class="sortable" data-key="breakout_rank">Quality</th>
               <th class="sortable" data-key="status_sort">Status</th>
               <th class="sortable" data-key="last_price">Last Price</th>
               <th class="sortable" data-key="pdh">PDH</th>
@@ -5748,6 +5773,7 @@ PD_LEVELS_TEMPLATE = """
               <th class="sortable" data-key="distance_pdl">Dist to PDL</th>
               <th class="sortable" data-key="distance_close">Dist to Prev Close</th>
               <th class="sortable" data-key="gap_pct">Gap %</th>
+              <th>Bias</th>
             </tr>
           </thead>
           <tbody>
@@ -5756,6 +5782,8 @@ PD_LEVELS_TEMPLATE = """
               <td data-sort="{{ row.symbol }}">
                 <a class="symbol-link" href="/equity-ohlc?symbols={{ row.symbol }}&date={{ selected_date }}&start=09:15&end=09:30" onclick="event.stopPropagation()">{{ row.symbol }}</a>
               </td>
+              <td data-sort="{{ row.sector_label }}">{{ row.sector_label }}</td>
+              <td data-sort="{{ row.breakout_rank }}"><span class="badge {{ row.quality_badge }}">{{ row.quality_label }}</span></td>
               <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
               <td data-sort="{{ row.last_price_numeric }}">{{ row.last_price }}</td>
               <td data-sort="{{ row.pdh_numeric }}">{{ row.pdh }}</td>
@@ -5765,11 +5793,13 @@ PD_LEVELS_TEMPLATE = """
               <td data-sort="{{ row.distance_pdl_numeric }}"><span class="badge {{ row.distance_pdl_badge }}">{{ row.distance_pdl }}</span></td>
               <td data-sort="{{ row.distance_close_numeric }}"><span class="badge {{ row.distance_close_badge }}">{{ row.distance_close }}</span></td>
               <td data-sort="{{ row.gap_pct_numeric }}"><span class="badge {{ row.gap_badge }}">{{ row.gap_pct }}</span></td>
+              <td>{{ row.bias_note }}</td>
             </tr>
             {% endfor %}
           </tbody>
         </table>
       </div>
+      {% endif %}
     </section>
   </div>
   {% if refresh_seconds > 0 %}
@@ -6092,12 +6122,96 @@ def build_previous_levels_summary(level_rows):
     above_pdh_count = sum(1 for row in level_rows if row["status_label"] == "Above PDH")
     below_pdl_count = sum(1 for row in level_rows if row["status_label"] == "Below PDL")
     near_close_count = sum(1 for row in level_rows if row["status_label"] == "Near Prev Close")
+    near_pdh_count = sum(1 for row in level_rows if row["near_pdh"])
+    near_pdl_count = sum(1 for row in level_rows if row["near_pdl"])
+    strong_count = sum(1 for row in level_rows if row["quality_label"].startswith("Strong"))
 
     return {
         "above_pdh_count": above_pdh_count,
         "below_pdl_count": below_pdl_count,
         "near_close_count": near_close_count,
+        "near_pdh_count": near_pdh_count,
+        "near_pdl_count": near_pdl_count,
+        "strong_count": strong_count,
     }
+
+
+def get_previous_levels_universe_mode_options():
+    return [
+        {"key": "liquid_eq", "label": "Liquid Trading Universe"},
+        {"key": "common_eq", "label": "Common NSE/BSE EQ Universe"},
+    ]
+
+
+def get_previous_levels_signal_view_options():
+    return [
+        {"key": "actionable", "label": "Breakouts + Breakdowns"},
+        {"key": "breakouts", "label": "Above PDH Only"},
+        {"key": "breakdowns", "label": "Below PDL Only"},
+        {"key": "near", "label": "Near PDH / PDL"},
+        {"key": "all", "label": "All Signals"},
+    ]
+
+
+def get_liquid_equity_symbols():
+    liquid_symbols = []
+    seen = set()
+
+    def add_symbol(symbol):
+        if symbol and symbol not in seen:
+            seen.add(symbol)
+            liquid_symbols.append(symbol)
+
+    for group_symbols in WATCHLISTS.values():
+        for symbol in group_symbols:
+            add_symbol(symbol)
+
+    for group_symbols in SECTOR_GROUPS.values():
+        for symbol in group_symbols:
+            add_symbol(symbol)
+
+    for sector_config in SECTOR_HEATMAP_GROUPS.values():
+        for sub_symbols in sector_config.get("subsectors", {}).values():
+            for symbol in sub_symbols:
+                add_symbol(symbol)
+
+    nse_map = get_nse_instrument_map()
+    return [symbol for symbol in liquid_symbols if symbol in nse_map]
+
+
+def get_auto_previous_levels_universe(universe_mode):
+    if universe_mode == "common_eq":
+        return get_common_equity_symbols()
+    return get_liquid_equity_symbols()
+
+
+def get_symbol_sector_lookup():
+    lookup = {}
+    for sector_key, sector_symbols in SECTOR_GROUPS.items():
+        label = sector_key.replace("_", " ").title()
+        for symbol in sector_symbols:
+            lookup.setdefault(symbol, label)
+
+    for sector_config in SECTOR_HEATMAP_GROUPS.values():
+        broad_label = sector_config["label"]
+        for sub_key, sub_symbols in sector_config.get("subsectors", {}).items():
+            sub_label = sub_key.replace("_", " ").title()
+            for symbol in sub_symbols:
+                lookup.setdefault(symbol, f"{broad_label} / {sub_label}")
+
+    return lookup
+
+
+def filter_previous_level_rows(level_rows, signal_view):
+    if signal_view == "breakouts":
+        return [row for row in level_rows if row["status_label"] == "Above PDH"]
+    if signal_view == "breakdowns":
+        return [row for row in level_rows if row["status_label"] == "Below PDL"]
+    if signal_view == "near":
+        return [row for row in level_rows if row["near_pdh"] or row["near_pdl"]]
+    if signal_view == "actionable":
+        return [row for row in level_rows if row["status_label"] in {"Above PDH", "Below PDL"}]
+    return level_rows
 
 
 def get_sector_options():
@@ -7615,7 +7729,8 @@ def get_previous_day_level_rows(symbols, selected_date):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
     quote_symbols = [f"NSE:{symbol}" for symbol in symbols]
-    quote_data = client.quote(quote_symbols)
+    quote_data = fetch_quote_map(client, quote_symbols)
+    sector_lookup = get_symbol_sector_lookup()
 
     level_rows = []
     missing = []
@@ -7660,10 +7775,13 @@ def get_previous_day_level_rows(symbols, selected_date):
         distance_pdl = last_price - pdl
         distance_close = last_price - prev_close
         gap_pct = ((open_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+        near_band = max(prev_close * 0.005, 0.20)
+        near_pdh = abs(distance_pdh) <= near_band
+        near_pdl = abs(distance_pdl) <= near_band
 
         if last_price > pdh:
             status_label = "Above PDH"
-            status_sort = 2
+            status_sort = 4
             status_badge = "badge-up"
         elif last_price < pdl:
             status_label = "Below PDL"
@@ -7677,15 +7795,58 @@ def get_previous_day_level_rows(symbols, selected_date):
                 status_badge = "badge-info"
             else:
                 status_label = "Inside Prev Range"
-                status_sort = 1
+                status_sort = 2
                 status_badge = "badge-neutral"
+
+        if status_label == "Above PDH":
+            if gap_pct > 0 and distance_pdh > near_band:
+                quality_label = "Strong Bullish Breakout"
+                quality_badge = "badge-up"
+                breakout_rank = 5
+            else:
+                quality_label = "Bullish Breakout"
+                quality_badge = "badge-info"
+                breakout_rank = 4
+            bias_note = "Continuation long bias while price holds above PDH."
+        elif status_label == "Below PDL":
+            if gap_pct < 0 and abs(distance_pdl) > near_band:
+                quality_label = "Strong Bearish Breakdown"
+                quality_badge = "badge-down"
+                breakout_rank = 0
+            else:
+                quality_label = "Bearish Breakdown"
+                quality_badge = "badge-info"
+                breakout_rank = 1
+            bias_note = "Continuation short bias while price holds below PDL."
+        elif near_pdh:
+            quality_label = "Near PDH"
+            quality_badge = "badge-info"
+            breakout_rank = 3
+            bias_note = "Watch for a clean breakout through PDH."
+        elif near_pdl:
+            quality_label = "Near PDL"
+            quality_badge = "badge-info"
+            breakout_rank = 2
+            bias_note = "Watch for a clean breakdown through PDL."
+        else:
+            quality_label = "Inside Previous Range"
+            quality_badge = "badge-neutral"
+            breakout_rank = 1
+            bias_note = "No decisive previous-day level break yet."
 
         level_rows.append(
             {
                 "symbol": symbol,
+                "sector_label": sector_lookup.get(symbol, "General"),
                 "status_label": status_label,
                 "status_sort": status_sort,
                 "status_badge": status_badge,
+                "quality_label": quality_label,
+                "quality_badge": quality_badge,
+                "breakout_rank": breakout_rank,
+                "bias_note": bias_note,
+                "near_pdh": near_pdh,
+                "near_pdl": near_pdl,
                 "last_price": format_price(last_price),
                 "last_price_numeric": round(last_price, 2),
                 "pdh": format_price(pdh),
@@ -7709,6 +7870,14 @@ def get_previous_day_level_rows(symbols, selected_date):
             }
         )
 
+    level_rows.sort(
+        key=lambda row: (
+            row["breakout_rank"],
+            -abs(row["distance_pdh_numeric"]) if row["status_label"] == "Above PDH" else abs(row["distance_pdl_numeric"]),
+            row["symbol"],
+        ),
+        reverse=True,
+    )
     return level_rows, missing
 
 
@@ -8848,8 +9017,8 @@ def equity_trade_plan():
 
 @app.route("/equity-previous-levels")
 def equity_previous_levels():
-    active_watchlist = request.args.get("watchlist", "my_intraday")
-    raw_symbols = request.args.get("symbols", "")
+    universe_mode = request.args.get("universe_mode", "liquid_eq")
+    signal_view = request.args.get("signal_view", "actionable")
     raw_date = request.args.get("date", get_today_ist().isoformat())
     refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
 
@@ -8857,25 +9026,26 @@ def equity_previous_levels():
     level_rows = []
 
     try:
-        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols)
+        symbols = get_auto_previous_levels_universe(universe_mode)
         selected_date = parse_date(raw_date)
 
         if not symbols:
-            raise ValueError("Please provide at least one NSE symbol.")
+            raise ValueError("No eligible symbols were available for the selected universe.")
         creds = get_active_kite_credentials()
         if not creds["api_key"] or not creds["access_token"]:
             raise ValueError("Kite API key or access token is missing in .env.")
 
-        level_rows, missing = get_previous_day_level_rows(symbols, selected_date)
+        all_level_rows, missing = get_previous_day_level_rows(symbols, selected_date)
+        level_rows = filter_previous_level_rows(all_level_rows, signal_view)
         if missing:
-            missing_text = ", ".join(missing)
-            error = f"Could not load previous-day levels for: {missing_text}"
+            error = f"{len(missing)} symbols were skipped because previous-day levels could not be loaded for them."
     except Exception as exc:
-        symbols = get_symbols_for_watchlist(active_watchlist, raw_symbols) or SCANNER_DEFAULT_SYMBOLS
+        symbols = get_auto_previous_levels_universe(universe_mode)
         selected_date = raw_date
         error = str(exc)
 
-    active_watchlist_label = active_watchlist.replace("_", " ").title()
+    universe_labels = {option["key"]: option["label"] for option in get_previous_levels_universe_mode_options()}
+    signal_labels = {option["key"]: option["label"] for option in get_previous_levels_signal_view_options()}
     refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
 
     return render_template_string(
@@ -8884,13 +9054,15 @@ def equity_previous_levels():
         summary=build_previous_levels_summary(level_rows),
         error=error,
         symbols=symbols,
-        request_symbols=",".join(symbols) if not raw_symbols else raw_symbols,
         selected_date=selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
         today_date=get_today_ist().isoformat(),
         yesterday_date=get_yesterday_ist().isoformat(),
-        watchlists=get_watchlist_options(),
-        active_watchlist=active_watchlist,
-        active_watchlist_label=active_watchlist_label,
+        universe_mode=universe_mode,
+        universe_label=universe_labels.get(universe_mode, "Liquid Trading Universe"),
+        universe_mode_options=get_previous_levels_universe_mode_options(),
+        signal_view=signal_view,
+        signal_view_label=signal_labels.get(signal_view, "Breakouts + Breakdowns"),
+        signal_view_options=get_previous_levels_signal_view_options(),
         refresh_options=get_refresh_options(),
         refresh_seconds=refresh_seconds,
         refresh_label=refresh_label,
