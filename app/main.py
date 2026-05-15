@@ -25,7 +25,7 @@ ARBITRAGE_RULES = {
     "min_net_profit": 5.0,
     "min_depth_quantity": 5,
     "persistence_seconds": 3,
-    "cooldown_seconds": 60,
+    "cooldown_seconds": 5,
     "max_ready_setups": 3,
     "max_trades_per_day": 10,
     "stop_hour": 15,
@@ -5307,7 +5307,7 @@ ARBITRAGE_TEMPLATE = """
                 <button type="submit" name="action" value="prepare_virtual">Create Virtual Trade</button>
               </div>
               <div>
-                <button type="submit" name="action" value="dismiss_setup">Snooze 60s</button>
+                <button type="submit" name="action" value="dismiss_setup">Snooze 5s</button>
               </div>
             </div>
           </form>
@@ -5644,6 +5644,17 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       padding: 28px;
       box-shadow: 0 22px 60px rgba(24,32,39,0.14);
     }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
+      gap: 22px;
+      align-items: stretch;
+    }
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
     h1 { margin: 0; font-size: 40px; line-height: 1; }
     .sub {
       margin: 12px 0 0;
@@ -5664,6 +5675,156 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       background: rgba(255,255,255,0.12);
       border: 1px solid rgba(255,255,255,0.18);
       font-size: 14px;
+    }
+    .hero-stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 32%),
+        linear-gradient(180deg, rgba(10,21,33,0.58), rgba(10,21,33,0.12));
+      min-height: 260px;
+      padding: 20px;
+    }
+    .hero-stage::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      height: 64px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(232,214,174,0.18), rgba(232,214,174,0.3));
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .stage-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(248,245,239,0.9);
+    }
+    .desk-crew {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 14px;
+      margin-top: 16px;
+      min-height: 170px;
+    }
+    .crew-card {
+      width: 31%;
+      min-width: 84px;
+      text-align: center;
+      color: #f8f5ef;
+    }
+    .avatar {
+      position: relative;
+      width: 88px;
+      height: 112px;
+      margin: 0 auto 10px;
+    }
+    .avatar-head {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 56px;
+      height: 56px;
+      transform: translateX(-50%);
+      border-radius: 50%;
+      background: #f2d0b4;
+      border: 2px solid rgba(24,32,39,0.18);
+      box-shadow: inset 0 -6px 0 rgba(0,0,0,0.05);
+    }
+    .avatar-head::before,
+    .avatar-head::after {
+      content: "";
+      position: absolute;
+      top: 22px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #182027;
+    }
+    .avatar-head::before { left: 15px; }
+    .avatar-head::after { right: 15px; }
+    .avatar-face {
+      position: absolute;
+      left: 50%;
+      top: 29px;
+      width: 20px;
+      height: 10px;
+      transform: translateX(-50%);
+      border-bottom: 2px solid #182027;
+      border-radius: 0 0 16px 16px;
+    }
+    .avatar-body {
+      position: absolute;
+      left: 50%;
+      top: 46px;
+      width: 64px;
+      height: 62px;
+      transform: translateX(-50%);
+      border-radius: 18px 18px 14px 14px;
+      border: 2px solid rgba(255,255,255,0.24);
+      background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));
+    }
+    .avatar-body::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 10px;
+      width: 16px;
+      height: 36px;
+      transform: translateX(-50%);
+      clip-path: polygon(50% 0, 100% 38%, 68% 100%, 32% 100%, 0 38%);
+      background: rgba(20,44,62,0.78);
+    }
+    .avatar-screen {
+      position: absolute;
+      left: 50%;
+      bottom: -2px;
+      width: 80px;
+      height: 26px;
+      transform: translateX(-50%);
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(11,23,35,0.68);
+      box-shadow: 0 8px 16px rgba(7,13,20,0.2);
+      overflow: hidden;
+    }
+    .avatar-screen::before {
+      content: "";
+      position: absolute;
+      inset: 4px 6px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, rgba(17,97,73,0.75), rgba(255,255,255,0.12), rgba(138,46,46,0.75));
+    }
+    .crew-card.bull .avatar-body { background: linear-gradient(180deg, rgba(17,97,73,0.44), rgba(17,97,73,0.18)); }
+    .crew-card.bear .avatar-body { background: linear-gradient(180deg, rgba(138,46,46,0.4), rgba(138,46,46,0.14)); }
+    .crew-card.scout .avatar-body { background: linear-gradient(180deg, rgba(31,63,115,0.42), rgba(31,63,115,0.14)); }
+    .crew-name {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+    .crew-role {
+      margin-top: 4px;
+      font-size: 12px;
+      color: rgba(248,245,239,0.78);
+      line-height: 1.35;
     }
     .card {
       margin-top: 18px;
@@ -5730,6 +5891,13 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       border: 1px solid var(--line);
       background: rgba(255,255,255,0.78);
     }
+    .summary-box strong {
+      display: block;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
     .summary-value, .spotlight-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
     .spotlight-label, .mobile-metric-label {
       font-size: 11px;
@@ -5760,11 +5928,80 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       color: #8a3b12;
       border: 1px solid rgba(138,59,18,0.18);
     }
+    .notice-shell {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 16px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px dashed var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(247,243,234,0.9));
+    }
+    .notice-figure {
+      position: relative;
+      width: 78px;
+      height: 96px;
+      margin: 0 auto;
+    }
+    .notice-figure .avatar-head {
+      width: 48px;
+      height: 48px;
+      border-width: 1px;
+    }
+    .notice-figure .avatar-head::before,
+    .notice-figure .avatar-head::after {
+      top: 18px;
+      width: 6px;
+      height: 6px;
+    }
+    .notice-figure .avatar-body {
+      width: 56px;
+      height: 48px;
+      top: 38px;
+      border-width: 1px;
+    }
+    .notice-figure .avatar-screen {
+      width: 72px;
+      height: 20px;
+    }
+    .notice-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .notice-copy {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+    .spotlight-callout {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(31,111,95,0.1);
+      color: var(--accent);
+      border: 1px solid rgba(31,111,95,0.18);
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .spotlight-callout-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 0 4px rgba(31,111,95,0.12);
+    }
     .mobile-card {
       padding: 16px;
       border-radius: 18px;
       border: 1px solid var(--line);
       background: rgba(255,255,255,0.82);
+      box-shadow: 0 10px 26px rgba(24,32,39,0.06);
     }
     .mobile-head {
       display: flex;
@@ -5807,25 +6044,72 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       .page { padding: 20px 12px 40px; }
       .hero, .card { border-radius: 18px; }
       h1 { font-size: 32px; }
+      .hero-grid, .notice-shell { grid-template-columns: 1fr; }
+      .hero-stage { min-height: 220px; }
+      .crew-card { width: 32%; }
+      .avatar { width: 76px; height: 100px; }
+      .avatar-head { width: 48px; height: 48px; }
+      .avatar-body { width: 56px; height: 54px; }
+      .avatar-screen { width: 72px; }
+      .notice-figure { height: 86px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <section class="hero">
-      <h1>Virtual Arbitrage Desk</h1>
-      <p class="sub">
-        A dedicated paper-trading workspace for your NSE-vs-BSE arbitrage rules. It watches the common EQ universe, promotes only persistent rule-matched setups, and lets you create virtual trades without placing any real orders.
-      </p>
-      <div class="meta">
-        <div class="pill">Capital: {{ capital_display }}</div>
-        <div class="pill">Min Spread: {{ min_spread_display }}</div>
-        <div class="pill">Ready Setups: {{ ready_setup_count }}/{{ rules.max_ready_setups }}</div>
-        <div class="pill">Prepared Today: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
-      </div>
-      <div class="nav-links">
-        <a class="quick-link" href="/equity-arbitrage">Open Scanner Page</a>
-        <a class="quick-link" href="/equity-arbitrage-export.csv">Download 3-Day CSV</a>
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <h1>Virtual Arbitrage Desk</h1>
+          <p class="sub">
+            A dedicated paper-trading workspace for your NSE-vs-BSE arbitrage rules. It watches the common EQ universe, promotes only persistent rule-matched setups, and lets you create virtual trades without placing any real orders.
+          </p>
+          <div class="meta">
+            <div class="pill">Capital: {{ capital_display }}</div>
+            <div class="pill">Min Spread: {{ min_spread_display }}</div>
+            <div class="pill">Ready Setups: {{ ready_setup_count }}/{{ rules.max_ready_setups }}</div>
+            <div class="pill">Prepared Today: {{ virtual_trade_book.prepared_count }}/{{ rules.max_trades_per_day }}</div>
+          </div>
+          <div class="nav-links">
+            <a class="quick-link" href="/equity-arbitrage">Open Scanner Page</a>
+            <a class="quick-link" href="/equity-arbitrage-export.csv">Download 3-Day CSV</a>
+          </div>
+        </div>
+        <div class="hero-stage">
+          <div class="stage-label">Desk Crew On Duty</div>
+          <div class="desk-crew">
+            <div class="crew-card bull">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Spread Runner</div>
+              <div class="crew-role">Chases fast buy-low sell-high windows.</div>
+            </div>
+            <div class="crew-card scout">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Depth Scout</div>
+              <div class="crew-role">Checks if enough size exists to matter.</div>
+            </div>
+            <div class="crew-card bear">
+              <div class="avatar">
+                <div class="avatar-head"></div>
+                <div class="avatar-face"></div>
+                <div class="avatar-body"></div>
+                <div class="avatar-screen"></div>
+              </div>
+              <div class="crew-name">Risk Officer</div>
+              <div class="crew-role">Blocks noisy setups before they waste a slot.</div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -5881,6 +6165,7 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
       <h2>Best Opportunity Spotlight</h2>
       {% if spotlight %}
       <div class="summary-box">
+        <div class="spotlight-callout"><span class="spotlight-callout-dot"></span>Lead Opportunity On Screen</div>
         <strong>{{ spotlight.symbol }}</strong>
         <div style="margin-top: 8px;"><span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span></div>
         <div style="margin-top: 10px; color: var(--muted);">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
@@ -5892,7 +6177,18 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
         <div class="mobile-note">{{ spotlight.note }}</div>
       </div>
       {% else %}
-      <div class="legend-item">No live setup is currently strong enough to become the spotlight.</div>
+      <div class="notice-shell">
+        <div class="notice-figure scout">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Spotlight Yet</div>
+          <div class="notice-copy">The desk is scanning, but nothing is strong enough yet to become the lead opportunity. That usually means the spread is thin, depth is weak, or the move has not survived long enough.</div>
+        </div>
+      </div>
       {% endif %}
     </section>
 
@@ -5929,14 +6225,25 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
             <input type="hidden" name="setup_key" value="{{ setup.setup_key }}">
             <div class="toolbar-grid">
               <div><button type="submit" name="action" value="prepare_virtual">Create Virtual Trade</button></div>
-              <div><button type="submit" name="action" value="dismiss_setup">Snooze 60s</button></div>
+              <div><button type="submit" name="action" value="dismiss_setup">Snooze 5s</button></div>
             </div>
           </form>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <div class="legend-item">No setup is fully ready right now. The engine is waiting for persistence, minimum depth, and the required net profit.</div>
+      <div class="notice-shell">
+        <div class="notice-figure bear">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Setup Fully Ready</div>
+          <div class="notice-copy">The rule engine is still filtering the tape. It is waiting for persistence, enough depth, and a net profit that clears your threshold before it promotes anything into the trade prep queue.</div>
+        </div>
+      </div>
       {% endif %}
     </section>
 
@@ -5997,6 +6304,20 @@ ARBITRAGE_VIRTUAL_TEMPLATE = """
           </div>
         </div>
         {% endfor %}
+      </div>
+      {% endif %}
+      {% if not virtual_trade_book.open_trades and not virtual_trade_book.closed_trades %}
+      <div class="notice-shell" style="margin-top: 18px;">
+        <div class="notice-figure bull">
+          <div class="avatar-head"></div>
+          <div class="avatar-face"></div>
+          <div class="avatar-body"></div>
+          <div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">Trade Book Waiting For Its First Session</div>
+          <div class="notice-copy">Once you create a virtual trade, this desk will keep the paper position here so you can review timing, route, charges, and repeated opportunities before you decide whether the strategy deserves full automation later.</div>
+        </div>
       </div>
       {% endif %}
     </section>
@@ -8299,7 +8620,7 @@ def dismiss_virtual_setup(day_state, setup_key, now_dt):
         return "This setup is no longer available."
     cooldown_until = now_dt + datetime.timedelta(seconds=ARBITRAGE_RULES["cooldown_seconds"])
     tracked[setup_key]["cooldown_until"] = cooldown_until.isoformat()
-    return f"{item['symbol']} was snoozed for 60 seconds."
+    return f"{item['symbol']} was snoozed for {ARBITRAGE_RULES['cooldown_seconds']} seconds."
 
 
 def archive_virtual_trade(day_state, trade_id, now_dt):
