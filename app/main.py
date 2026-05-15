@@ -27,6 +27,23 @@ WATCHLISTS = {
     "auto": ["TATAMOTORS", "MARUTI", "M&M", "BAJAJ-AUTO", "HEROMOTOCO"],
     "my_intraday": ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"],
 }
+NIFTY_50_SYMBOLS = [
+    "ADANIENT", "ADANIPORTS", "APOLLOHOSP", "ASIANPAINT", "AXISBANK", "BAJAJ-AUTO", "BAJFINANCE",
+    "BAJAJFINSV", "BEL", "BHARTIARTL", "BPCL", "BRITANNIA", "CIPLA", "COALINDIA", "DRREDDY",
+    "EICHERMOT", "ETERNAL", "GRASIM", "HCLTECH", "HDFCBANK", "HDFCLIFE", "HEROMOTOCO", "HINDALCO",
+    "HINDUNILVR", "ICICIBANK", "INDUSINDBK", "INFY", "ITC", "JIOFIN", "JSWSTEEL", "KOTAKBANK",
+    "LT", "M&M", "MARUTI", "NESTLEIND", "NTPC", "ONGC", "POWERGRID", "RELIANCE", "SBILIFE",
+    "SHRIRAMFIN", "SBIN", "SUNPHARMA", "TCS", "TATACONSUM", "TATAMOTORS", "TATASTEEL", "TECHM",
+    "TITAN", "TRENT", "ULTRACEMCO", "WIPRO",
+]
+NIFTY_NEXT_50_SYMBOLS = [
+    "ABB", "ADANIENSOL", "ADANIGREEN", "ADANIPOWER", "AMBUJACEM", "BAJAJHLDNG", "BANKBARODA",
+    "BOSCHLTD", "CANBK", "CGPOWER", "CHOLAFIN", "DABUR", "DIVISLAB", "DLF", "DMART", "GAIL",
+    "GODREJCP", "HAVELLS", "HAL", "HDFCAMC", "ICICIGI", "ICICIPRULI", "INDIGO", "INDUSTOWER",
+    "IOC", "IRFC", "JINDALSTEL", "JSWENERGY", "LICI", "LODHA", "MOTHERSON", "NAUKRI", "NHPC",
+    "PIDILITIND", "PFC", "PNB", "RECLTD", "SHREECEM", "SIEMENS", "SRF", "TORNTPHARM", "TVSMOTOR",
+    "UNITDSPR", "VBL", "VEDL", "ZYDUSLIFE", "HINDPETRO", "BERGEPAINT", "COLPAL", "MARICO",
+]
 SECTOR_GROUPS = {
     "psu_banks": ["PNB", "SBIN", "BANKBARODA", "CANBK", "UNIONBANK"],
     "oil_gas": ["IOC", "BPCL", "HPCL", "ONGC", "RELIANCE"],
@@ -5743,7 +5760,7 @@ PD_LEVELS_TEMPLATE = """
       <div class="legend" style="margin-top: 14px;">
         <div class="legend-item">
           <strong>Default Shape</strong>
-          The page now auto-scans a liquid trading universe by default so traders can discover actionable PDH/PDL breaks without typing stock names.
+          The page now starts with Nifty 50 by default to stay lighter on Zerodha requests, while still letting you expand into Nifty Next 50, a liquid trading universe, or the broader common EQ universe.
         </div>
       </div>
       {% if error %}
@@ -6253,6 +6270,8 @@ def build_previous_levels_summary(level_rows):
 
 def get_previous_levels_universe_mode_options():
     return [
+        {"key": "nifty50", "label": "Nifty 50"},
+        {"key": "nifty_next_50", "label": "Nifty Next 50"},
         {"key": "liquid_eq", "label": "Liquid Trading Universe"},
         {"key": "common_eq", "label": "Common NSE/BSE EQ Universe"},
     ]
@@ -6295,6 +6314,11 @@ def get_liquid_equity_symbols():
 
 
 def get_auto_previous_levels_universe(universe_mode):
+    nse_map = get_nse_instrument_map()
+    if universe_mode == "nifty50":
+        return [symbol for symbol in NIFTY_50_SYMBOLS if symbol in nse_map]
+    if universe_mode == "nifty_next_50":
+        return [symbol for symbol in NIFTY_NEXT_50_SYMBOLS if symbol in nse_map]
     if universe_mode == "common_eq":
         return get_common_equity_symbols()
     return get_liquid_equity_symbols()
@@ -9132,7 +9156,7 @@ def equity_trade_plan():
 
 @app.route("/equity-previous-levels")
 def equity_previous_levels():
-    universe_mode = request.args.get("universe_mode", "liquid_eq")
+    universe_mode = request.args.get("universe_mode", "nifty50")
     signal_view = request.args.get("signal_view", "actionable")
     raw_date = request.args.get("date", get_today_ist().isoformat())
     refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
@@ -9173,7 +9197,7 @@ def equity_previous_levels():
         today_date=get_today_ist().isoformat(),
         yesterday_date=get_yesterday_ist().isoformat(),
         universe_mode=universe_mode,
-        universe_label=universe_labels.get(universe_mode, "Liquid Trading Universe"),
+        universe_label=universe_labels.get(universe_mode, "Nifty 50"),
         universe_mode_options=get_previous_levels_universe_mode_options(),
         signal_view=signal_view,
         signal_view_label=signal_labels.get(signal_view, "Breakouts + Breakdowns"),
