@@ -1857,7 +1857,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
       </div>
       <div class="watch-tabs">
         {% for watch in watchlists %}
-        <a class="tab-link {{ 'active' if watch.key == active_watchlist.key else '' }}" href="/equity-watchlist-desk?watchlist={{ watch.key }}&refresh={{ refresh_seconds }}">{{ watch.name }}</a>
+        <a class="tab-link {{ 'active' if watch.key == active_watchlist.key else '' }}" href="/scripts-watchlists?watchlist={{ watch.key }}&refresh={{ refresh_seconds }}">{{ watch.name }}</a>
         {% endfor %}
       </div>
     </section>
@@ -1963,7 +1963,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
               {% for row in rows %}
               <tr>
                 <td data-sort="{{ row.symbol }}">
-                  <a class="symbol-link" href="/equity-watchlist-desk?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a><br>
+                  <a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a><br>
                   <span class="note-preview">{{ row.security_name }}</span>
                 </td>
                 <td data-sort="{{ row.last_price_numeric }}"><span class="badge {{ row.price_badge }}">{{ row.last_price }}</span></td>
@@ -2009,7 +2009,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
             <div class="mobile-card">
               <div class="mobile-head">
                 <div>
-                  <div class="mobile-title"><a class="symbol-link" href="/equity-watchlist-desk?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a></div>
+                  <div class="mobile-title"><a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a></div>
                   <div class="mobile-sub">{{ row.security_name }}</div>
                 </div>
                 <span class="badge {{ row.change_badge }}">{{ row.change_text }}</span>
@@ -10873,7 +10873,7 @@ def equity_watchlists():
     )
 
 
-@app.route("/equity-watchlist-desk", methods=["GET", "POST"])
+@app.route("/scripts-watchlists", methods=["GET", "POST"])
 def equity_watchlist_desk():
     state = load_manual_watchlists_state()
     refresh_seconds = parse_refresh_seconds(request.values.get("refresh", "60"))
@@ -11016,6 +11016,11 @@ def equity_watchlist_desk():
         stock_limit=MANUAL_WATCHLIST_STOCK_LIMIT,
         today_date=get_today_ist().isoformat(),
     )
+
+
+@app.route("/equity-watchlist-desk", methods=["GET"])
+def equity_watchlist_desk_legacy():
+    return redirect(f"/scripts-watchlists?{request.query_string.decode()}" if request.query_string else "/scripts-watchlists")
 
 
 @app.route("/equity-movers")
