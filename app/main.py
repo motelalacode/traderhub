@@ -1673,7 +1673,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
     }
     .desktop-only { display: block; }
     .mobile-only { display: none; }
-    table { width: 100%; border-collapse: collapse; min-width: 1380px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1120px; }
     th, td {
       padding: 12px 10px;
       border-bottom: 1px solid var(--line);
@@ -1698,11 +1698,29 @@ MANUAL_WATCHLIST_TEMPLATE = """
       text-decoration: none;
     }
     .symbol-link:hover { text-decoration: underline; }
+    .table-row-link {
+      color: inherit;
+      text-decoration: none;
+    }
     .note-preview {
       max-width: 220px;
       color: var(--muted);
       line-height: 1.45;
       white-space: normal;
+    }
+    .ohlc-compact {
+      line-height: 1.45;
+      white-space: nowrap;
+    }
+    .detail-actions {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .detail-actions button {
+      padding: 10px 12px;
+      font-size: 13px;
     }
     .range-shell {
       width: 132px;
@@ -1837,6 +1855,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
       h1 { font-size: 32px; }
       .detail-metrics, .controls-grid, .summary-grid { grid-template-columns: 1fr; }
       .mini-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .detail-actions { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -1943,10 +1962,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 <th class="sortable" data-key="symbol">Stock</th>
                 <th class="sortable" data-key="last_price">LTP</th>
                 <th class="sortable" data-key="change_pct">Change %</th>
-                <th class="sortable" data-key="open_price">Open</th>
-                <th class="sortable" data-key="day_high">High</th>
-                <th class="sortable" data-key="day_low">Low</th>
-                <th class="sortable" data-key="close_price">Close</th>
+                <th>OHLC</th>
                 <th class="sortable" data-key="volume_numeric">Volume</th>
                 <th class="sortable" data-key="pdh">PDH</th>
                 <th class="sortable" data-key="pdl">PDL</th>
@@ -1954,22 +1970,25 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 <th class="sortable" data-key="vwap">VWAP</th>
                 <th class="sortable" data-key="status_sort">Status</th>
                 <th>Alert</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {% for row in rows %}
-              <tr>
+              <tr onclick="window.location='/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}'">
                 <td data-sort="{{ row.symbol }}">
-                  <a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a><br>
+                  <a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}" onclick="event.stopPropagation()">{{ row.symbol }}</a><br>
                   <span class="note-preview">{{ row.security_name }}</span>
                 </td>
                 <td data-sort="{{ row.last_price_numeric }}"><span class="badge {{ row.price_badge }}">{{ row.last_price }}</span></td>
                 <td data-sort="{{ row.change_pct_numeric }}"><span class="badge {{ row.change_badge }}">{{ row.change_text }}</span></td>
-                <td data-sort="{{ row.open_price_numeric }}">{{ row.open_price }}</td>
-                <td data-sort="{{ row.day_high_numeric }}">{{ row.day_high }}</td>
-                <td data-sort="{{ row.day_low_numeric }}">{{ row.day_low }}</td>
-                <td data-sort="{{ row.close_price_numeric }}">{{ row.close_price }}</td>
+                <td data-sort="{{ row.close_price_numeric }}">
+                  <div class="ohlc-compact">
+                    O {{ row.open_price }}<br>
+                    H {{ row.day_high }}<br>
+                    L {{ row.day_low }}<br>
+                    C {{ row.close_price }}
+                  </div>
+                </td>
                 <td data-sort="{{ row.volume_numeric }}">{{ row.volume_display }}</td>
                 <td data-sort="{{ row.pdh_numeric }}">{{ row.pdh }}</td>
                 <td data-sort="{{ row.pdl_numeric }}">{{ row.pdl }}</td>
@@ -1977,17 +1996,6 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 <td data-sort="{{ row.vwap_numeric }}"><span class="badge {{ row.vwap_badge }}">{{ row.vwap }}</span></td>
                 <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
                 <td><span class="badge {{ row.alert_badge }}">{{ row.alert_label }}</span></td>
-                <td>
-                  <form method="post" class="mini-form">
-                    <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
-                    <input type="hidden" name="symbol" value="{{ row.symbol }}">
-                    <input type="hidden" name="selected_symbol" value="{{ row.symbol }}">
-                    <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
-                    <button type="submit" class="secondary" name="action" value="move_up">Up</button>
-                    <button type="submit" class="secondary" name="action" value="move_down">Down</button>
-                    <button type="submit" name="action" value="remove_stock">Remove</button>
-                  </form>
-                </td>
               </tr>
               {% endfor %}
             </tbody>
@@ -2071,6 +2079,15 @@ MANUAL_WATCHLIST_TEMPLATE = """
             <a class="action-link" href="/equity-ohlc?symbols={{ selected_row.symbol }}&date={{ today_date }}&start=09:15&end=09:30">Open OHLC Page</a>
             <a class="action-link" href="/equity-previous-levels?universe_mode=nifty50&signal_view=all&refresh=0">Open Previous Levels</a>
           </div>
+          <form method="post" class="detail-actions">
+            <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+            <input type="hidden" name="symbol" value="{{ selected_row.symbol }}">
+            <input type="hidden" name="selected_symbol" value="{{ selected_row.symbol }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <button type="submit" class="secondary" name="action" value="move_up">Move Up</button>
+            <button type="submit" class="secondary" name="action" value="move_down">Move Down</button>
+            <button type="submit" name="action" value="remove_stock">Remove Stock</button>
+          </form>
           <form method="post" style="margin-top: 16px;">
             <input type="hidden" name="action" value="save_meta">
             <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
