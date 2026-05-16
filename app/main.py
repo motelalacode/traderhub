@@ -1668,30 +1668,44 @@ MANUAL_WATCHLIST_TEMPLATE = """
     }
     .table-wrap {
       overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: 18px;
+      border: 1px solid #cfc6b5;
+      border-radius: 8px;
+      background: #fffdf9;
     }
     .desktop-only { display: block; }
     .mobile-only { display: none; }
-    table { width: 100%; border-collapse: collapse; min-width: 1120px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1060px; }
     th, td {
-      padding: 12px 10px;
-      border-bottom: 1px solid var(--line);
+      padding: 8px 10px;
+      border-bottom: 1px solid #d8cfbf;
+      border-right: 1px solid #e3dac9;
       text-align: left;
-      vertical-align: top;
-      font-size: 14px;
+      vertical-align: middle;
+      font-size: 13px;
+      line-height: 1.25;
     }
-    tbody tr:hover { background: rgba(31,111,95,0.05); }
+    th:last-child, td:last-child { border-right: 0; }
+    tbody tr:hover { background: #f5faf7; }
     th {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      color: var(--muted);
-      background: #faf7f1;
+      color: #55616c;
+      background: #f1ece2;
       cursor: pointer;
       user-select: none;
+      white-space: nowrap;
     }
     th.sortable:hover { color: var(--ink); }
+    .table-wrap tbody tr.active-row {
+      background: #edf5f2;
+    }
+    .table-wrap .badge {
+      padding: 5px 8px;
+      border-radius: 8px;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
     .symbol-link {
       color: var(--accent);
       font-weight: 700;
@@ -1709,8 +1723,36 @@ MANUAL_WATCHLIST_TEMPLATE = """
       white-space: normal;
     }
     .ohlc-compact {
-      line-height: 1.45;
+      line-height: 1.3;
       white-space: nowrap;
+      font-size: 12px;
+    }
+    .sheet-stock {
+      min-width: 210px;
+    }
+    .sheet-company {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+      color: #61707d;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .sheet-number {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    .sheet-ohlc-line {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .sheet-ohlc-tag {
+      width: 12px;
+      color: #6a7680;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
     }
     .detail-actions {
       display: grid;
@@ -1974,26 +2016,28 @@ MANUAL_WATCHLIST_TEMPLATE = """
             </thead>
             <tbody>
               {% for row in rows %}
-              <tr onclick="window.location='/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}'">
+              <tr class="{{ 'active-row' if row.symbol == selected_symbol else '' }}" onclick="window.location='/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}'">
                 <td data-sort="{{ row.symbol }}">
-                  <a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}" onclick="event.stopPropagation()">{{ row.symbol }}</a><br>
-                  <span class="note-preview">{{ row.security_name }}</span>
-                </td>
-                <td data-sort="{{ row.last_price_numeric }}"><span class="badge {{ row.price_badge }}">{{ row.last_price }}</span></td>
-                <td data-sort="{{ row.change_pct_numeric }}"><span class="badge {{ row.change_badge }}">{{ row.change_text }}</span></td>
-                <td data-sort="{{ row.close_price_numeric }}">
-                  <div class="ohlc-compact">
-                    O {{ row.open_price }}<br>
-                    H {{ row.day_high }}<br>
-                    L {{ row.day_low }}<br>
-                    C {{ row.close_price }}
+                  <div class="sheet-stock">
+                    <a class="symbol-link" href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}" onclick="event.stopPropagation()">{{ row.symbol }}</a>
+                    <span class="sheet-company">{{ row.security_name }}</span>
                   </div>
                 </td>
-                <td data-sort="{{ row.volume_numeric }}">{{ row.volume_display }}</td>
-                <td data-sort="{{ row.pdh_numeric }}">{{ row.pdh }}</td>
-                <td data-sort="{{ row.pdl_numeric }}">{{ row.pdl }}</td>
-                <td data-sort="{{ row.prev_close_numeric }}">{{ row.prev_close }}</td>
-                <td data-sort="{{ row.vwap_numeric }}"><span class="badge {{ row.vwap_badge }}">{{ row.vwap }}</span></td>
+                <td data-sort="{{ row.last_price_numeric }}"><span class="badge {{ row.price_badge }} sheet-number">{{ row.last_price }}</span></td>
+                <td data-sort="{{ row.change_pct_numeric }}"><span class="badge {{ row.change_badge }} sheet-number">{{ row.change_text }}</span></td>
+                <td data-sort="{{ row.close_price_numeric }}">
+                  <div class="ohlc-compact">
+                    <div class="sheet-ohlc-line"><span class="sheet-ohlc-tag">O</span><span class="sheet-number">{{ row.open_price }}</span></div>
+                    <div class="sheet-ohlc-line"><span class="sheet-ohlc-tag">H</span><span class="sheet-number">{{ row.day_high }}</span></div>
+                    <div class="sheet-ohlc-line"><span class="sheet-ohlc-tag">L</span><span class="sheet-number">{{ row.day_low }}</span></div>
+                    <div class="sheet-ohlc-line"><span class="sheet-ohlc-tag">C</span><span class="sheet-number">{{ row.close_price }}</span></div>
+                  </div>
+                </td>
+                <td data-sort="{{ row.volume_numeric }}" class="sheet-number">{{ row.volume_display }}</td>
+                <td data-sort="{{ row.pdh_numeric }}" class="sheet-number">{{ row.pdh }}</td>
+                <td data-sort="{{ row.pdl_numeric }}" class="sheet-number">{{ row.pdl }}</td>
+                <td data-sort="{{ row.prev_close_numeric }}" class="sheet-number">{{ row.prev_close }}</td>
+                <td data-sort="{{ row.vwap_numeric }}"><span class="badge {{ row.vwap_badge }} sheet-number">{{ row.vwap }}</span></td>
                 <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
                 <td><span class="badge {{ row.alert_badge }}">{{ row.alert_label }}</span></td>
               </tr>
