@@ -18,7 +18,11 @@ APP_TZ = ZoneInfo("Asia/Kolkata")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
 ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
+MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
+MANUAL_WATCHLIST_LIMIT = 5
+MANUAL_WATCHLIST_STOCK_LIMIT = 25
+MANUAL_WATCHLIST_DEFAULT_NAMES = ["Intraday", "Swing", "Portfolio", "Breakout", "Radar"]
 ARBITRAGE_RULES = {
     "capital_amount": 20000.0,
     "min_spread": 0.20,
@@ -1483,6 +1487,663 @@ WATCHLIST_TEMPLATE = """
       });
     })();
   </script>
+</body>
+</html>
+"""
+
+MANUAL_WATCHLIST_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Manual Watchlists</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1500px; margin: 0 auto; padding: 28px 18px 56px; }
+    .hero {
+      background: linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      border-radius: 24px;
+      padding: 28px;
+      box-shadow: 0 22px 60px rgba(24,32,39,0.14);
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    .sub {
+      margin: 12px 0 0;
+      max-width: 1000px;
+      font-size: 17px;
+      line-height: 1.5;
+      color: rgba(248,245,239,0.88);
+    }
+    .meta, .watch-tabs, .inline-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      font-size: 14px;
+    }
+    .tab-link, button, .action-link {
+      border-radius: 14px;
+      font: inherit;
+      text-decoration: none;
+    }
+    .tab-link, .action-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #fff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 12px 16px;
+      font-weight: 700;
+    }
+    .tab-link.active {
+      background: #dbece7;
+      color: var(--accent);
+      border-color: rgba(31,111,95,0.24);
+    }
+    .card {
+      margin-top: 18px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 20px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.07);
+    }
+    .card h2, .card h3 { margin: 0 0 12px; }
+    .controls-grid, .summary-grid, .detail-grid, .mobile-card-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .controls-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .detail-grid { grid-template-columns: 1.45fr 0.9fr; align-items: start; }
+    .mobile-card-grid { grid-template-columns: 1fr; }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    textarea { min-height: 110px; resize: vertical; }
+    button {
+      width: 100%;
+      border: 0;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+    }
+    button.secondary {
+      background: #f1eee7;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .summary-box, .detail-box, .notice-box {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-box strong {
+      display: block;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .summary-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .error, .success {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+    }
+    .error {
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .success {
+      background: #deefe8;
+      color: #155744;
+      border: 1px solid rgba(21,87,68,0.16);
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+    .desktop-only { display: block; }
+    .mobile-only { display: none; }
+    table { width: 100%; border-collapse: collapse; min-width: 1600px; }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+    tbody tr:hover { background: rgba(31,111,95,0.05); }
+    th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      background: #faf7f1;
+      cursor: pointer;
+      user-select: none;
+    }
+    th.sortable:hover { color: var(--ink); }
+    .symbol-link {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .symbol-link:hover { text-decoration: underline; }
+    .note-preview {
+      max-width: 220px;
+      color: var(--muted);
+      line-height: 1.45;
+      white-space: normal;
+    }
+    .range-shell {
+      width: 132px;
+    }
+    .range-bar {
+      position: relative;
+      height: 10px;
+      border-radius: 999px;
+      background: #ece3d6;
+      overflow: hidden;
+      border: 1px solid rgba(24,32,39,0.08);
+    }
+    .range-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, rgba(31,111,95,0.28), rgba(31,111,95,0.8));
+      border-radius: 999px;
+    }
+    .range-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .mini-form {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .mini-form button {
+      padding: 8px 10px;
+      font-size: 12px;
+    }
+    .detail-metrics {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .detail-metric {
+      padding: 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .detail-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .detail-value {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .mobile-card {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+      box-shadow: 0 10px 26px rgba(24,32,39,0.06);
+    }
+    .mobile-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .mobile-title {
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .mobile-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .mobile-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .mobile-metric {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #faf7f1;
+      border: 1px solid var(--line);
+    }
+    .mobile-metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .mobile-metric-value {
+      font-size: 17px;
+      font-weight: 700;
+    }
+    .empty-copy {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+    @media (max-width: 980px) {
+      .detail-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .desktop-only { display: none; }
+      .mobile-only { display: block; }
+      .page { padding: 20px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+      h1 { font-size: 32px; }
+      .detail-metrics, .controls-grid, .summary-grid { grid-template-columns: 1fr; }
+      .mini-form { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <h1>Manual Watchlist Desk</h1>
+      <p class="sub">
+        A personal watchlist workspace with five manual tabs, up to 25 stocks per list, live price tracking, previous-day breakout context,
+        saved notes, and alert-rule placeholders. Build your own Intraday, Swing, Portfolio, or Breakout desks without depending on preset baskets.
+      </p>
+      <div class="meta">
+        <div class="pill">Watchlists: {{ watchlist_limit }}</div>
+        <div class="pill">Stocks / List: {{ stock_limit }}</div>
+        <div class="pill">Active Desk: {{ active_watchlist.name }}</div>
+        <div class="pill">Tracked Stocks: {{ active_watchlist.stock_count }}</div>
+        <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+      </div>
+      <div class="watch-tabs">
+        {% for watch in watchlists %}
+        <a class="tab-link {{ 'active' if watch.key == active_watchlist.key else '' }}" href="/equity-watchlist-desk?watchlist={{ watch.key }}&refresh={{ refresh_seconds }}">{{ watch.name }}</a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Watchlist Controls</h2>
+      <div class="controls-grid">
+        <form method="post">
+          <input type="hidden" name="action" value="rename_watchlist">
+          <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+          <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+          <label for="watchlist_name">Rename Watchlist</label>
+          <input id="watchlist_name" name="watchlist_name" value="{{ active_watchlist.name }}" maxlength="24" placeholder="Intraday">
+          <div style="margin-top: 10px;"><button type="submit">Save Name</button></div>
+        </form>
+
+        <form method="post">
+          <input type="hidden" name="action" value="add_stock">
+          <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+          <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+          <label for="add_symbol">Search Stock and Add</label>
+          <input id="add_symbol" name="add_symbol" list="stock-master-options" placeholder="TATAMOTORS or Tata Motors">
+          <div style="margin-top: 10px;"><button type="submit">Add Stock</button></div>
+        </form>
+
+        <form method="get">
+          <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+          {% if selected_symbol %}
+          <input type="hidden" name="selected" value="{{ selected_symbol }}">
+          {% endif %}
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+          <div style="margin-top: 10px;"><button type="submit">Apply Refresh</button></div>
+        </form>
+
+        <div class="notice-box">
+          <strong>Working Rules</strong>
+          <div class="empty-copy" style="margin-top: 8px;">
+            Fixed at 5 watchlists and 25 stocks per list. Add by symbol or company name, then save notes and alert rules on the selected stock.
+            Use refresh carefully during market hours because each live row needs quote, daily, and intraday context.
+          </div>
+        </div>
+      </div>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+      {% if success_message %}
+      <div class="success">{{ success_message }}</div>
+      {% endif %}
+      <datalist id="stock-master-options">
+        {% for option in stock_search_options %}
+        <option value="{{ option.symbol }}">{{ option.label }}</option>
+        {% endfor %}
+      </datalist>
+    </section>
+
+    <section class="card">
+      <h2>Desk Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><strong>Stocks</strong><div class="summary-value">{{ summary.total_count }}</div><div>Active names in {{ active_watchlist.name }}</div></div>
+        <div class="summary-box"><strong>Gainers</strong><div class="summary-value">{{ summary.up_count }}</div><div>Names trading above previous close</div></div>
+        <div class="summary-box"><strong>Losers</strong><div class="summary-value">{{ summary.down_count }}</div><div>Names trading below previous close</div></div>
+        <div class="summary-box"><strong>Above PDH</strong><div class="summary-value">{{ summary.above_pdh_count }}</div><div>Breakout names holding above yesterday high</div></div>
+        <div class="summary-box"><strong>Below PDL</strong><div class="summary-value">{{ summary.below_pdl_count }}</div><div>Weak names trading below yesterday low</div></div>
+        <div class="summary-box"><strong>Gap Up</strong><div class="summary-value">{{ summary.gap_up_count }}</div><div>Opens above previous close</div></div>
+        <div class="summary-box"><strong>Gap Down</strong><div class="summary-value">{{ summary.gap_down_count }}</div><div>Opens below previous close</div></div>
+        <div class="summary-box"><strong>Above VWAP</strong><div class="summary-value">{{ summary.above_vwap_count }}</div><div>Names holding above intraday VWAP</div></div>
+      </div>
+    </section>
+
+    <section class="card detail-grid">
+      <div>
+        <h2>Watchlist Table</h2>
+        {% if rows %}
+        <div class="table-wrap desktop-only">
+          <table id="manual-watchlist-table">
+            <thead>
+              <tr>
+                <th class="sortable" data-key="symbol">Stock</th>
+                <th class="sortable" data-key="last_price">LTP</th>
+                <th class="sortable" data-key="change_pct">Change %</th>
+                <th class="sortable" data-key="open_price">Open</th>
+                <th class="sortable" data-key="day_high">High</th>
+                <th class="sortable" data-key="day_low">Low</th>
+                <th class="sortable" data-key="close_price">Close</th>
+                <th class="sortable" data-key="volume_numeric">Volume</th>
+                <th class="sortable" data-key="pdh">PDH</th>
+                <th class="sortable" data-key="pdl">PDL</th>
+                <th class="sortable" data-key="prev_close">Prev Close</th>
+                <th class="sortable" data-key="vwap">VWAP</th>
+                <th class="sortable" data-key="status_sort">Status</th>
+                <th>Day Range</th>
+                <th>Alert</th>
+                <th>Notes</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in rows %}
+              <tr>
+                <td data-sort="{{ row.symbol }}">
+                  <a class="symbol-link" href="/equity-watchlist-desk?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a><br>
+                  <span class="note-preview">{{ row.security_name }}</span>
+                </td>
+                <td data-sort="{{ row.last_price_numeric }}"><span class="badge {{ row.price_badge }}">{{ row.last_price }}</span></td>
+                <td data-sort="{{ row.change_pct_numeric }}"><span class="badge {{ row.change_badge }}">{{ row.change_text }}</span></td>
+                <td data-sort="{{ row.open_price_numeric }}">{{ row.open_price }}</td>
+                <td data-sort="{{ row.day_high_numeric }}">{{ row.day_high }}</td>
+                <td data-sort="{{ row.day_low_numeric }}">{{ row.day_low }}</td>
+                <td data-sort="{{ row.close_price_numeric }}">{{ row.close_price }}</td>
+                <td data-sort="{{ row.volume_numeric }}">{{ row.volume_display }}</td>
+                <td data-sort="{{ row.pdh_numeric }}">{{ row.pdh }}</td>
+                <td data-sort="{{ row.pdl_numeric }}">{{ row.pdl }}</td>
+                <td data-sort="{{ row.prev_close_numeric }}">{{ row.prev_close }}</td>
+                <td data-sort="{{ row.vwap_numeric }}"><span class="badge {{ row.vwap_badge }}">{{ row.vwap }}</span></td>
+                <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
+                <td>
+                  <div class="range-shell">
+                    <div class="range-bar"><div class="range-fill" style="width: {{ row.day_range_percent }}%;"></div></div>
+                    <div class="range-meta"><span>L</span><span>{{ row.day_range_percent }}%</span><span>H</span></div>
+                  </div>
+                </td>
+                <td><span class="badge {{ row.alert_badge }}">{{ row.alert_label }}</span></td>
+                <td class="note-preview">{{ row.note_preview }}</td>
+                <td>
+                  <form method="post" class="mini-form">
+                    <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+                    <input type="hidden" name="symbol" value="{{ row.symbol }}">
+                    <input type="hidden" name="selected_symbol" value="{{ row.symbol }}">
+                    <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+                    <button type="submit" class="secondary" name="action" value="move_up">Up</button>
+                    <button type="submit" class="secondary" name="action" value="move_down">Down</button>
+                    <button type="submit" name="action" value="remove_stock">Remove</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="mobile-only">
+          <div class="mobile-card-grid">
+            {% for row in rows %}
+            <div class="mobile-card">
+              <div class="mobile-head">
+                <div>
+                  <div class="mobile-title"><a class="symbol-link" href="/equity-watchlist-desk?watchlist={{ active_watchlist.key }}&selected={{ row.symbol }}&refresh={{ refresh_seconds }}">{{ row.symbol }}</a></div>
+                  <div class="mobile-sub">{{ row.security_name }}</div>
+                </div>
+                <span class="badge {{ row.change_badge }}">{{ row.change_text }}</span>
+              </div>
+              <div class="mobile-metrics">
+                <div class="mobile-metric"><div class="mobile-metric-label">LTP</div><div class="mobile-metric-value">{{ row.last_price }}</div></div>
+                <div class="mobile-metric"><div class="mobile-metric-label">Volume</div><div class="mobile-metric-value">{{ row.volume_display }}</div></div>
+                <div class="mobile-metric"><div class="mobile-metric-label">PDH</div><div class="mobile-metric-value">{{ row.pdh }}</div></div>
+                <div class="mobile-metric"><div class="mobile-metric-label">PDL</div><div class="mobile-metric-value">{{ row.pdl }}</div></div>
+                <div class="mobile-metric"><div class="mobile-metric-label">Prev Close</div><div class="mobile-metric-value">{{ row.prev_close }}</div></div>
+                <div class="mobile-metric"><div class="mobile-metric-label">VWAP</div><div class="mobile-metric-value">{{ row.vwap }}</div></div>
+              </div>
+              <div class="inline-actions">
+                <span class="badge {{ row.status_badge }}">{{ row.status_label }}</span>
+                <span class="badge {{ row.alert_badge }}">{{ row.alert_label }}</span>
+              </div>
+              <div class="mobile-note" style="margin-top: 10px;">
+                <strong>OHLC:</strong> {{ row.open_price }} / {{ row.day_high }} / {{ row.day_low }} / {{ row.close_price }}<br>
+                <strong>Gap:</strong> {{ row.gap_text }}<br>
+                <strong>Notes:</strong> {{ row.note_preview }}
+              </div>
+              <form method="post" class="mini-form" style="margin-top: 12px;">
+                <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+                <input type="hidden" name="symbol" value="{{ row.symbol }}">
+                <input type="hidden" name="selected_symbol" value="{{ row.symbol }}">
+                <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+                <button type="submit" class="secondary" name="action" value="move_up">Up</button>
+                <button type="submit" class="secondary" name="action" value="move_down">Down</button>
+                <button type="submit" name="action" value="remove_stock">Remove</button>
+              </form>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% else %}
+        <div class="notice-box">
+          <div class="empty-copy">This watchlist is empty right now. Add a stock above by symbol or company name and the desk will start tracking it here.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <div>
+        <h2>Selected Stock Detail</h2>
+        {% if selected_row %}
+        <div class="detail-box">
+          <div class="inline-actions" style="margin-top: 0;">
+            <span class="badge {{ selected_row.status_badge }}">{{ selected_row.status_label }}</span>
+            <span class="badge {{ selected_row.change_badge }}">{{ selected_row.change_text }}</span>
+            <span class="badge {{ selected_row.alert_badge }}">{{ selected_row.alert_label }}</span>
+          </div>
+          <h3 style="margin-top: 12px;">{{ selected_row.symbol }}</h3>
+          <div class="empty-copy">{{ selected_row.security_name }}</div>
+          <div class="detail-metrics">
+            <div class="detail-metric"><div class="detail-label">LTP</div><div class="detail-value">{{ selected_row.last_price }}</div></div>
+            <div class="detail-metric"><div class="detail-label">Volume</div><div class="detail-value">{{ selected_row.volume_display }}</div></div>
+            <div class="detail-metric"><div class="detail-label">PDH</div><div class="detail-value">{{ selected_row.pdh }}</div></div>
+            <div class="detail-metric"><div class="detail-label">PDL</div><div class="detail-value">{{ selected_row.pdl }}</div></div>
+            <div class="detail-metric"><div class="detail-label">Prev Close</div><div class="detail-value">{{ selected_row.prev_close }}</div></div>
+            <div class="detail-metric"><div class="detail-label">VWAP</div><div class="detail-value">{{ selected_row.vwap }}</div></div>
+            <div class="detail-metric"><div class="detail-label">Gap</div><div class="detail-value">{{ selected_row.gap_text }}</div></div>
+            <div class="detail-metric"><div class="detail-label">52 Week</div><div class="detail-value">{{ selected_row.week_high }} / {{ selected_row.week_low }}</div></div>
+          </div>
+          <div style="margin-top: 14px;">
+            <div class="detail-label">Day Range Position</div>
+            <div class="range-bar" style="height: 14px;"><div class="range-fill" style="width: {{ selected_row.day_range_percent }}%;"></div></div>
+            <div class="range-meta"><span>Low {{ selected_row.day_low }}</span><span>{{ selected_row.day_range_percent }}%</span><span>High {{ selected_row.day_high }}</span></div>
+          </div>
+          <div style="margin-top: 16px;">
+            <a class="action-link" href="/equity-ohlc?symbols={{ selected_row.symbol }}&date={{ today_date }}&start=09:15&end=09:30">Open OHLC Page</a>
+            <a class="action-link" href="/equity-previous-levels?universe_mode=nifty50&signal_view=all&refresh=0">Open Previous Levels</a>
+          </div>
+          <form method="post" style="margin-top: 16px;">
+            <input type="hidden" name="action" value="save_meta">
+            <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
+            <input type="hidden" name="symbol" value="{{ selected_row.symbol }}">
+            <input type="hidden" name="selected_symbol" value="{{ selected_row.symbol }}">
+            <input type="hidden" name="refresh" value="{{ refresh_seconds }}">
+            <div style="margin-bottom: 12px;">
+              <label for="alert_rule">Alert Rule</label>
+              <select id="alert_rule" name="alert_rule">
+                {% for option in alert_options %}
+                <option value="{{ option.value }}" {{ 'selected' if option.value == selected_row.alert_rule else '' }}>{{ option.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div>
+              <label for="note_text">Custom Notes</label>
+              <textarea id="note_text" name="note_text" placeholder="Watch above 520, strong volume, avoid below 485">{{ selected_row.note_text }}</textarea>
+            </div>
+            <div style="margin-top: 12px;"><button type="submit">Save Alert and Notes</button></div>
+          </form>
+        </div>
+        {% else %}
+        <div class="notice-box">
+          <div class="empty-copy">Choose a stock from the table to open its detail panel. Notes and alert rules are saved per stock inside this watchlist.</div>
+        </div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+  <script>
+    (function () {
+      const table = document.getElementById("manual-watchlist-table");
+      if (!table) return;
+      const tbody = table.querySelector("tbody");
+      const headers = table.querySelectorAll("th.sortable");
+      let currentKey = null;
+      let ascending = false;
+
+      function getCellValue(row, index) {
+        const cell = row.children[index];
+        return cell ? cell.dataset.sort || cell.textContent.trim() : "";
+      }
+
+      headers.forEach((header, index) => {
+        header.addEventListener("click", () => {
+          const key = header.dataset.key;
+          ascending = currentKey === key ? !ascending : false;
+          currentKey = key;
+          const rows = Array.from(tbody.querySelectorAll("tr"));
+          rows.sort((a, b) => {
+            const aValue = getCellValue(a, index);
+            const bValue = getCellValue(b, index);
+            const aNumber = Number(aValue);
+            const bNumber = Number(bValue);
+            let result = 0;
+
+            if (!Number.isNaN(aNumber) && !Number.isNaN(bNumber)) {
+              result = aNumber - bNumber;
+            } else {
+              result = aValue.localeCompare(bValue);
+            }
+
+            return ascending ? result : -result;
+          });
+          rows.forEach((row) => tbody.appendChild(row));
+        });
+      });
+    })();
+  </script>
+  {% if refresh_seconds > 0 %}
+  <script>
+    window.setTimeout(function () {
+      window.location.reload();
+    }, {{ refresh_seconds * 1000 }});
+  </script>
+  {% endif %}
 </body>
 </html>
 """
@@ -7423,6 +8084,313 @@ def get_watchlist_options():
     ]
 
 
+def get_manual_watchlist_alert_options():
+    return [
+        {"value": "none", "label": "No Alert"},
+        {"value": "pdh_break", "label": "Price Crosses PDH"},
+        {"value": "pdl_break", "label": "Price Crosses PDL"},
+        {"value": "volume_spike", "label": "Volume Spike"},
+        {"value": "rsi_above_60", "label": "RSI Above 60"},
+        {"value": "rsi_below_40", "label": "RSI Below 40"},
+        {"value": "near_vwap", "label": "Near VWAP"},
+        {"value": "support_resistance", "label": "Near Support / Resistance"},
+    ]
+
+
+def get_manual_watchlist_alert_label(alert_rule):
+    label_map = {option["value"]: option["label"] for option in get_manual_watchlist_alert_options()}
+    return label_map.get(alert_rule or "none", "No Alert")
+
+
+def get_manual_watchlist_alert_badge(alert_rule):
+    if alert_rule in {"pdh_break", "volume_spike", "rsi_above_60"}:
+        return "badge-up"
+    if alert_rule in {"pdl_break", "rsi_below_40"}:
+        return "badge-down"
+    if alert_rule == "none":
+        return "badge-neutral"
+    return "badge-info"
+
+
+def build_default_manual_watchlists_state():
+    return {
+        "watchlists": [
+            {"key": f"watchlist_{index + 1}", "name": MANUAL_WATCHLIST_DEFAULT_NAMES[index], "stocks": []}
+            for index in range(MANUAL_WATCHLIST_LIMIT)
+        ]
+    }
+
+
+def normalize_manual_watchlists_state(payload):
+    payload = payload or {}
+    watchlists = payload.get("watchlists") or []
+    normalized_watchlists = []
+    seen_keys = set()
+
+    for index in range(MANUAL_WATCHLIST_LIMIT):
+        source = watchlists[index] if index < len(watchlists) else {}
+        key = str(source.get("key") or f"watchlist_{index + 1}").strip().lower()
+        if not key or key in seen_keys:
+            key = f"watchlist_{index + 1}"
+        seen_keys.add(key)
+
+        default_name = MANUAL_WATCHLIST_DEFAULT_NAMES[index]
+        raw_name = str(source.get("name") or default_name).strip()
+        name = raw_name[:24] or default_name
+
+        stocks = []
+        seen_symbols = set()
+        for stock in source.get("stocks") or []:
+            resolved = resolve_symbol_list([stock.get("symbol")]) if stock.get("symbol") else []
+            symbol = resolved[0] if resolved else None
+            if not symbol or symbol in seen_symbols:
+                continue
+            seen_symbols.add(symbol)
+            stocks.append(
+                {
+                    "symbol": symbol,
+                    "note_text": str(stock.get("note_text") or "").strip()[:400],
+                    "alert_rule": str(stock.get("alert_rule") or "none").strip() or "none",
+                }
+            )
+            if len(stocks) >= MANUAL_WATCHLIST_STOCK_LIMIT:
+                break
+
+        normalized_watchlists.append({"key": key, "name": name, "stocks": stocks})
+
+    return {"watchlists": normalized_watchlists}
+
+
+def load_manual_watchlists_state():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not MANUAL_WATCHLISTS_PATH.exists():
+        state = build_default_manual_watchlists_state()
+        MANUAL_WATCHLISTS_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        return state
+
+    try:
+        payload = json.loads(MANUAL_WATCHLISTS_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        payload = build_default_manual_watchlists_state()
+
+    normalized = normalize_manual_watchlists_state(payload)
+    MANUAL_WATCHLISTS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_manual_watchlists_state(state):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_manual_watchlists_state(state)
+    MANUAL_WATCHLISTS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def get_manual_watchlist_options(state):
+    return [
+        {
+            "key": watch["key"],
+            "name": watch["name"],
+            "stock_count": len(watch.get("stocks") or []),
+        }
+        for watch in state.get("watchlists") or []
+    ]
+
+
+def get_manual_watchlist(state, active_watchlist):
+    watchlists = state.get("watchlists") or []
+    for watch in watchlists:
+        if watch["key"] == active_watchlist:
+            return watch
+    return watchlists[0] if watchlists else {"key": "watchlist_1", "name": "Intraday", "stocks": []}
+
+
+def get_manual_watchlist_stock_entry(watchlist, symbol):
+    for stock in watchlist.get("stocks") or []:
+        if stock.get("symbol") == symbol:
+            return stock
+    return None
+
+
+def format_volume(value):
+    volume = float(value or 0)
+    if volume >= 10000000:
+        return f"{volume / 10000000:.2f} Cr"
+    if volume >= 100000:
+        return f"{volume / 100000:.2f} L"
+    if volume >= 1000:
+        return f"{volume / 1000:.2f} K"
+    return f"{int(volume)}"
+
+
+def build_manual_watchlist_summary(rows):
+    return {
+        "total_count": len(rows),
+        "up_count": sum(1 for row in rows if row["change_pct_numeric"] > 0),
+        "down_count": sum(1 for row in rows if row["change_pct_numeric"] < 0),
+        "above_pdh_count": sum(1 for row in rows if row["status_label"] == "Above PDH"),
+        "below_pdl_count": sum(1 for row in rows if row["status_label"] == "Below PDL"),
+        "gap_up_count": sum(1 for row in rows if row["gap_pct_numeric"] > 0),
+        "gap_down_count": sum(1 for row in rows if row["gap_pct_numeric"] < 0),
+        "above_vwap_count": sum(1 for row in rows if row["vwap_status"] == "Above VWAP"),
+    }
+
+
+def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intraday_candles, security_name):
+    ohlc = (quote or {}).get("ohlc") or {}
+    last_price = float((quote or {}).get("last_price") or 0)
+    open_price = float(ohlc.get("open") or 0)
+    day_high = float(ohlc.get("high") or 0)
+    day_low = float(ohlc.get("low") or 0)
+    prev_close = float(ohlc.get("close") or 0)
+    close_price = last_price
+    change_abs = last_price - prev_close
+    change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+    gap_pct = ((open_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+
+    previous_candles = daily_candles[:-1] if len(daily_candles) > 1 else daily_candles
+    if previous_candles:
+        prev_day = previous_candles[-1]
+        pdh = float(prev_day["high"])
+        pdl = float(prev_day["low"])
+    else:
+        pdh = 0.0
+        pdl = 0.0
+
+    trailing_year = previous_candles[-260:] if previous_candles else []
+    week_high = max((float(candle["high"]) for candle in trailing_year), default=day_high)
+    week_low = min((float(candle["low"]) for candle in trailing_year), default=day_low)
+
+    total_volume = sum((candle.get("volume") or 0) for candle in intraday_candles)
+    vwap_value = get_vwap_value(intraday_candles)
+    vwap_status, vwap_badge, _ = classify_vwap_status(last_price, vwap_value) if vwap_value else ("VWAP N/A", "badge-info", -1)
+    near_band = max(prev_close * 0.005, 0.20) if prev_close > 0 else 0.20
+
+    if last_price > pdh > 0:
+        status_label = "Above PDH"
+        status_sort = 4
+        status_badge = "badge-up"
+    elif last_price < pdl and pdl > 0:
+        status_label = "Below PDL"
+        status_sort = 0
+        status_badge = "badge-down"
+    elif abs(day_high - last_price) <= max(last_price * 0.0025, 0.10):
+        status_label = "Near Day High"
+        status_sort = 3
+        status_badge = "badge-neutral"
+    elif vwap_status == "Near VWAP":
+        status_label = "Near VWAP"
+        status_sort = 2
+        status_badge = "badge-info"
+    else:
+        status_label = "Inside Day"
+        status_sort = 1
+        status_badge = "badge-neutral"
+
+    day_range_percent = 0
+    if day_high > day_low:
+        day_range_percent = max(0, min(100, round(((last_price - day_low) / (day_high - day_low)) * 100)))
+
+    note_text = str(stock_entry.get("note_text") or "").strip()
+    note_preview = note_text[:70] + ("..." if len(note_text) > 70 else "") if note_text else "-"
+    alert_rule = str(stock_entry.get("alert_rule") or "none")
+
+    return {
+        "symbol": symbol,
+        "security_name": security_name,
+        "last_price": format_price(last_price),
+        "last_price_numeric": round(last_price, 2),
+        "price_badge": classify_percent_badge(change_abs),
+        "change_text": f"{change_abs:+.2f} / {change_pct:+.2f}%",
+        "change_pct_numeric": round(change_pct, 2),
+        "change_badge": classify_percent_badge(change_pct),
+        "open_price": format_price(open_price),
+        "open_price_numeric": round(open_price, 2),
+        "day_high": format_price(day_high),
+        "day_high_numeric": round(day_high, 2),
+        "day_low": format_price(day_low),
+        "day_low_numeric": round(day_low, 2),
+        "close_price": format_price(close_price),
+        "close_price_numeric": round(close_price, 2),
+        "volume_display": format_volume(total_volume),
+        "volume_numeric": round(total_volume, 2),
+        "pdh": format_price(pdh),
+        "pdh_numeric": round(pdh, 2),
+        "pdl": format_price(pdl),
+        "pdl_numeric": round(pdl, 2),
+        "prev_close": format_price(prev_close),
+        "prev_close_numeric": round(prev_close, 2),
+        "vwap": format_price(vwap_value) if vwap_value else "-",
+        "vwap_numeric": round(vwap_value, 2) if vwap_value else -1,
+        "vwap_status": vwap_status,
+        "vwap_badge": vwap_badge,
+        "status_label": status_label,
+        "status_sort": status_sort,
+        "status_badge": status_badge,
+        "gap_text": f"{gap_pct:+.2f}%",
+        "gap_pct_numeric": round(gap_pct, 2),
+        "gap_badge": classify_percent_badge(gap_pct),
+        "day_range_percent": day_range_percent,
+        "week_high": format_price(week_high),
+        "week_low": format_price(week_low),
+        "alert_rule": alert_rule,
+        "alert_label": get_manual_watchlist_alert_label(alert_rule),
+        "alert_badge": get_manual_watchlist_alert_badge(alert_rule),
+        "note_text": note_text,
+        "note_preview": note_preview,
+    }
+
+
+def get_manual_watchlist_rows(watchlist, selected_date):
+    symbols = [stock["symbol"] for stock in (watchlist.get("stocks") or [])]
+    if not symbols:
+        return [], []
+
+    client = build_kite_client(with_access_token=True)
+    instrument_map = get_nse_instrument_map()
+    master = load_symbol_master()
+    quote_data = fetch_quote_map(client, [f"NSE:{symbol}" for symbol in symbols])
+    rows = []
+    missing = []
+
+    intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
+
+    for stock_entry in watchlist.get("stocks") or []:
+        symbol = stock_entry["symbol"]
+        instrument = instrument_map.get(symbol)
+        quote = quote_data.get(f"NSE:{symbol}")
+        security_name = (master.get("by_symbol", {}).get(symbol) or {}).get("security") or symbol
+
+        if not instrument or not quote:
+            missing.append(symbol)
+            continue
+
+        daily_from = datetime.datetime.combine(selected_date - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
+        daily_to = datetime.datetime.combine(selected_date, datetime.time(23, 59), tzinfo=APP_TZ)
+        intraday_from = datetime.datetime.combine(selected_date, datetime.time(9, 15), tzinfo=APP_TZ)
+        intraday_to = datetime.datetime.combine(selected_date, intraday_end, tzinfo=APP_TZ)
+
+        daily_candles = client.historical_data(
+            instrument["instrument_token"],
+            daily_from,
+            daily_to,
+            "day",
+            continuous=False,
+            oi=False,
+        )
+        intraday_candles = client.historical_data(
+            instrument["instrument_token"],
+            intraday_from,
+            intraday_to,
+            "5minute",
+            continuous=False,
+            oi=False,
+        )
+
+        rows.append(build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intraday_candles, security_name))
+
+    return rows, missing
+
+
 def get_refresh_options():
     return [
         {"value": 0, "label": "Off"},
@@ -9889,6 +10857,151 @@ def equity_watchlists():
         refresh_options=get_refresh_options(),
         refresh_seconds=refresh_seconds,
         refresh_label=refresh_label,
+    )
+
+
+@app.route("/equity-watchlist-desk", methods=["GET", "POST"])
+def equity_watchlist_desk():
+    state = load_manual_watchlists_state()
+    refresh_seconds = parse_refresh_seconds(request.values.get("refresh", "60"))
+    active_watchlist_key = request.values.get("watchlist", "watchlist_1")
+    selected_symbol = request.values.get("selected") or request.values.get("selected_symbol") or ""
+    error = None
+    success_message = None
+
+    active_watchlist = get_manual_watchlist(state, active_watchlist_key)
+    active_watchlist_key = active_watchlist["key"]
+
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        symbol = request.form.get("symbol", "").strip()
+        add_symbol_value = request.form.get("add_symbol", "").strip()
+        target_watchlist = get_manual_watchlist(state, request.form.get("watchlist", active_watchlist_key))
+        active_watchlist = target_watchlist
+        active_watchlist_key = active_watchlist["key"]
+
+        if action == "rename_watchlist":
+            new_name = str(request.form.get("watchlist_name", "")).strip()
+            if not new_name:
+                error = "Watchlist name cannot be empty."
+            else:
+                active_watchlist["name"] = new_name[:24]
+                state = save_manual_watchlists_state(state)
+                success_message = f"Watchlist renamed to {active_watchlist['name']}."
+        elif action == "add_stock":
+            resolved_symbols = parse_symbol_list(add_symbol_value)
+            if not resolved_symbols:
+                error = "Could not resolve that stock. Try a valid symbol or company name."
+            elif len(active_watchlist.get("stocks") or []) >= MANUAL_WATCHLIST_STOCK_LIMIT:
+                error = f"{active_watchlist['name']} already has the maximum of {MANUAL_WATCHLIST_STOCK_LIMIT} stocks."
+            else:
+                resolved_symbol = resolved_symbols[0]
+                if get_manual_watchlist_stock_entry(active_watchlist, resolved_symbol):
+                    error = f"{resolved_symbol} is already in {active_watchlist['name']}."
+                else:
+                    active_watchlist.setdefault("stocks", []).append(
+                        {"symbol": resolved_symbol, "note_text": "", "alert_rule": "none"}
+                    )
+                    state = save_manual_watchlists_state(state)
+                    selected_symbol = resolved_symbol
+                    success_message = f"{resolved_symbol} added to {active_watchlist['name']}."
+        elif action in {"move_up", "move_down", "remove_stock"}:
+            stocks = active_watchlist.get("stocks") or []
+            index = next((idx for idx, stock in enumerate(stocks) if stock.get("symbol") == symbol), -1)
+            if index == -1:
+                error = "That stock is no longer in this watchlist."
+            elif action == "move_up":
+                if index > 0:
+                    stocks[index - 1], stocks[index] = stocks[index], stocks[index - 1]
+                    state = save_manual_watchlists_state(state)
+                    success_message = f"{symbol} moved up."
+                selected_symbol = symbol
+            elif action == "move_down":
+                if index < len(stocks) - 1:
+                    stocks[index + 1], stocks[index] = stocks[index], stocks[index + 1]
+                    state = save_manual_watchlists_state(state)
+                    success_message = f"{symbol} moved down."
+                selected_symbol = symbol
+            else:
+                del stocks[index]
+                state = save_manual_watchlists_state(state)
+                selected_symbol = stocks[min(index, len(stocks) - 1)]["symbol"] if stocks else ""
+                success_message = f"{symbol} removed from {active_watchlist['name']}."
+        elif action == "save_meta":
+            stock_entry = get_manual_watchlist_stock_entry(active_watchlist, symbol)
+            if not stock_entry:
+                error = "That stock is no longer available for note updates."
+            else:
+                stock_entry["note_text"] = str(request.form.get("note_text", "")).strip()[:400]
+                stock_entry["alert_rule"] = str(request.form.get("alert_rule", "none")).strip() or "none"
+                state = save_manual_watchlists_state(state)
+                selected_symbol = symbol
+                success_message = f"Saved note and alert rule for {symbol}."
+
+        active_watchlist = get_manual_watchlist(state, active_watchlist_key)
+
+    rows = []
+    missing = []
+    try:
+        rows, missing = get_manual_watchlist_rows(active_watchlist, get_today_ist())
+        if missing and not error:
+            error = f"Could not fetch live data for: {', '.join(missing)}"
+    except Exception as exc:
+        error = str(exc)
+
+    if not selected_symbol and rows:
+        selected_symbol = rows[0]["symbol"]
+
+    row_map = {row["symbol"]: row for row in rows}
+    selected_row = row_map.get(selected_symbol) if selected_symbol else None
+    stock_entry = get_manual_watchlist_stock_entry(active_watchlist, selected_symbol) if selected_symbol else None
+    if selected_row and stock_entry:
+        selected_row["note_text"] = stock_entry.get("note_text", "")
+        selected_row["alert_rule"] = stock_entry.get("alert_rule", "none")
+        selected_row["alert_label"] = get_manual_watchlist_alert_label(selected_row["alert_rule"])
+        selected_row["alert_badge"] = get_manual_watchlist_alert_badge(selected_row["alert_rule"])
+
+    for row in rows:
+        stored = get_manual_watchlist_stock_entry(active_watchlist, row["symbol"])
+        if stored:
+            row["note_text"] = stored.get("note_text", "")
+            row["note_preview"] = (row["note_text"][:70] + ("..." if len(row["note_text"]) > 70 else "")) if row["note_text"] else "-"
+            row["alert_rule"] = stored.get("alert_rule", "none")
+            row["alert_label"] = get_manual_watchlist_alert_label(row["alert_rule"])
+            row["alert_badge"] = get_manual_watchlist_alert_badge(row["alert_rule"])
+
+    watchlist_options = get_manual_watchlist_options(state)
+    active_watchlist_payload = {
+        "key": active_watchlist["key"],
+        "name": active_watchlist["name"],
+        "stock_count": len(active_watchlist.get("stocks") or []),
+    }
+    stock_search_options = sorted(
+        (
+            {"symbol": row["symbol"], "label": f"{row['symbol']} - {row['security']}"}
+            for row in load_symbol_master().get("by_symbol", {}).values()
+        ),
+        key=lambda item: item["symbol"],
+    )
+
+    return render_template_string(
+        MANUAL_WATCHLIST_TEMPLATE,
+        watchlists=watchlist_options,
+        active_watchlist=active_watchlist_payload,
+        rows=rows,
+        selected_row=selected_row,
+        selected_symbol=selected_symbol,
+        refresh_options=get_refresh_options(),
+        refresh_seconds=refresh_seconds,
+        refresh_label="Off" if refresh_seconds == 0 else f"{refresh_seconds}s",
+        error=error,
+        success_message=success_message,
+        stock_search_options=stock_search_options,
+        summary=build_manual_watchlist_summary(rows),
+        alert_options=get_manual_watchlist_alert_options(),
+        watchlist_limit=MANUAL_WATCHLIST_LIMIT,
+        stock_limit=MANUAL_WATCHLIST_STOCK_LIMIT,
+        today_date=get_today_ist().isoformat(),
     )
 
 
