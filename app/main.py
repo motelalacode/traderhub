@@ -1953,9 +1953,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 <th class="sortable" data-key="prev_close">Prev Close</th>
                 <th class="sortable" data-key="vwap">VWAP</th>
                 <th class="sortable" data-key="status_sort">Status</th>
-                <th>Day Range</th>
                 <th>Alert</th>
-                <th>Notes</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -1978,14 +1976,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 <td data-sort="{{ row.prev_close_numeric }}">{{ row.prev_close }}</td>
                 <td data-sort="{{ row.vwap_numeric }}"><span class="badge {{ row.vwap_badge }}">{{ row.vwap }}</span></td>
                 <td data-sort="{{ row.status_sort }}"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
-                <td>
-                  <div class="range-shell">
-                    <div class="range-bar"><div class="range-fill" style="width: {{ row.day_range_percent }}%;"></div></div>
-                    <div class="range-meta"><span>L</span><span>{{ row.day_range_percent }}%</span><span>H</span></div>
-                  </div>
-                </td>
                 <td><span class="badge {{ row.alert_badge }}">{{ row.alert_label }}</span></td>
-                <td class="note-preview">{{ row.note_preview }}</td>
                 <td>
                   <form method="post" class="mini-form">
                     <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
@@ -2028,8 +2019,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
               </div>
               <div class="mobile-note" style="margin-top: 10px;">
                 <strong>OHLC:</strong> {{ row.open_price }} / {{ row.day_high }} / {{ row.day_low }} / {{ row.close_price }}<br>
-                <strong>Gap:</strong> {{ row.gap_text }}<br>
-                <strong>Notes:</strong> {{ row.note_preview }}
+                <strong>Gap:</strong> {{ row.gap_text }}
               </div>
               <form method="post" class="mini-form" style="margin-top: 12px;">
                 <input type="hidden" name="watchlist" value="{{ active_watchlist.key }}">
@@ -2095,11 +2085,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
                 {% endfor %}
               </select>
             </div>
-            <div>
-              <label for="note_text">Custom Notes</label>
-              <textarea id="note_text" name="note_text" placeholder="Watch above 520, strong volume, avoid below 485">{{ selected_row.note_text }}</textarea>
-            </div>
-            <div style="margin-top: 12px;"><button type="submit">Save Alert and Notes</button></div>
+            <div style="margin-top: 12px;"><button type="submit">Save Alert Rule</button></div>
           </form>
         </div>
         {% else %}
