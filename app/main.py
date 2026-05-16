@@ -1497,7 +1497,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TraderHub Manual Watchlists</title>
+  <title>TraderHub Watchlists</title>
   <style>
     :root {
       --bg: #f3ecdf;
@@ -1588,7 +1588,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
     }
     .controls-grid { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
     .summary-grid { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-    .detail-grid { grid-template-columns: 1.45fr 0.9fr; align-items: start; }
+    .detail-grid { grid-template-columns: minmax(0, 1fr) minmax(380px, 430px); align-items: start; }
     .mobile-card-grid { grid-template-columns: 1fr; }
     label {
       display: block;
@@ -1673,7 +1673,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
     }
     .desktop-only { display: block; }
     .mobile-only { display: none; }
-    table { width: 100%; border-collapse: collapse; min-width: 1600px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1380px; }
     th, td {
       padding: 12px 10px;
       border-bottom: 1px solid var(--line);
@@ -1739,6 +1739,11 @@ MANUAL_WATCHLIST_TEMPLATE = """
     .mini-form button {
       padding: 8px 10px;
       font-size: 12px;
+    }
+    .detail-column {
+      position: sticky;
+      top: 18px;
+      align-self: start;
     }
     .detail-metrics {
       display: grid;
@@ -1813,8 +1818,16 @@ MANUAL_WATCHLIST_TEMPLATE = """
       color: var(--muted);
       line-height: 1.55;
     }
-    @media (max-width: 980px) {
+    @media (max-width: 1320px) {
       .detail-grid { grid-template-columns: 1fr; }
+      .detail-column {
+        position: static;
+        order: -1;
+      }
+      .detail-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    }
+    @media (max-width: 980px) {
+      .detail-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
       .desktop-only { display: none; }
@@ -1830,15 +1843,15 @@ MANUAL_WATCHLIST_TEMPLATE = """
 <body>
   <div class="page">
     <section class="hero">
-      <h1>Manual Watchlist Desk</h1>
+      <h1>Watchlists</h1>
       <p class="sub">
         A personal watchlist workspace with five manual tabs, up to 25 stocks per list, live price tracking, previous-day breakout context,
-        saved notes, and alert-rule placeholders. Build your own Intraday, Swing, Portfolio, or Breakout desks without depending on preset baskets.
+        saved notes, and alert-rule placeholders. Build your own Intraday, Swing, Portfolio, Breakout, or future derivatives-focused lists without depending on preset baskets.
       </p>
       <div class="meta">
         <div class="pill">Watchlists: {{ watchlist_limit }}</div>
         <div class="pill">Stocks / List: {{ stock_limit }}</div>
-        <div class="pill">Active Desk: {{ active_watchlist.name }}</div>
+        <div class="pill">Active Watchlist: {{ active_watchlist.name }}</div>
         <div class="pill">Tracked Stocks: {{ active_watchlist.stock_count }}</div>
         <div class="pill">Auto Refresh: {{ refresh_label }}</div>
       </div>
@@ -1906,7 +1919,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
     </section>
 
     <section class="card">
-      <h2>Desk Summary</h2>
+      <h2>Watchlist Summary</h2>
       <div class="summary-grid">
         <div class="summary-box"><strong>Stocks</strong><div class="summary-value">{{ summary.total_count }}</div><div>Active names in {{ active_watchlist.name }}</div></div>
         <div class="summary-box"><strong>Gainers</strong><div class="summary-value">{{ summary.up_count }}</div><div>Names trading above previous close</div></div>
@@ -2038,7 +2051,7 @@ MANUAL_WATCHLIST_TEMPLATE = """
         {% endif %}
       </div>
 
-      <div>
+      <div class="detail-column">
         <h2>Selected Stock Detail</h2>
         {% if selected_row %}
         <div class="detail-box">
