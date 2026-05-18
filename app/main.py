@@ -12,7 +12,7 @@ from kiteconnect import KiteConnect
 
 from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
-from app.symbol_resolver import load_symbol_master, resolve_symbol_list
+from app.symbol_resolver import load_symbol_master, normalize_lookup_value, resolve_symbol_list
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -9667,23 +9667,87 @@ def get_bse_instrument_map():
 
 @lru_cache(maxsize=1)
 def get_common_equity_symbols():
+    return get_common_equity_universe_details()["symbols"]
+
+
+@lru_cache(maxsize=1)
+def get_common_equity_universe_details():
     master = load_symbol_master()
     nse_map = get_nse_instrument_map()
     bse_map = get_bse_instrument_map()
     common_symbols = []
+    rejected = {
+        "missing_on_exchange": 0,
+        "series_mismatch": 0,
+        "identity_mismatch": 0,
+    }
 
     for symbol, row in master["by_symbol"].items():
         if row.get("series") != "EQ":
-            continue
-        if symbol not in nse_map or symbol not in bse_map:
+            rejected["series_mismatch"] += 1
             continue
 
-        nse_series = str(nse_map[symbol].get("tradingsymbol") or "").upper()
-        bse_series = str(bse_map[symbol].get("tradingsymbol") or "").upper()
-        if nse_series and bse_series:
-            common_symbols.append(symbol)
+        nse_row = nse_map.get(symbol)
+        bse_row = bse_map.get(symbol)
+        if not nse_row or not bse_row:
+            rejected["missing_on_exchange"] += 1
+            continue
 
-    return sorted(common_symbols)
+        if not is_valid_common_cash_equity(symbol, row, nse_row, bse_row):
+            master_name = normalize_lookup_value(row.get("security"))
+            nse_name = normalize_lookup_value(nse_row.get("name") or nse_row.get("tradingsymbol"))
+            bse_name = normalize_lookup_value(bse_row.get("name") or bse_row.get("tradingsymbol"))
+            if "sme" in master_name.split() or "sme" in nse_name.split() or "sme" in bse_name.split():
+                rejected["series_mismatch"] += 1
+            else:
+                rejected["identity_mismatch"] += 1
+            continue
+
+        common_symbols.append(symbol)
+
+    return {
+        "symbols": sorted(common_symbols),
+        "rejected": rejected,
+    }
+
+
+def is_valid_common_cash_equity(symbol, master_row, nse_row, bse_row):
+    if str(master_row.get("series") or "").upper() != "EQ":
+        return False
+
+    if str(nse_row.get("exchange") or "").upper() != "NSE":
+        return False
+    if str(bse_row.get("exchange") or "").upper() != "BSE":
+        return False
+
+    if str(nse_row.get("tradingsymbol") or "").upper() != symbol:
+        return False
+    if str(bse_row.get("tradingsymbol") or "").upper() != symbol:
+        return False
+
+    nse_type = str(nse_row.get("instrument_type") or "").strip().upper()
+    bse_type = str(bse_row.get("instrument_type") or "").strip().upper()
+    allowed_types = {"", "EQ", "EQUITY"}
+    if nse_type not in allowed_types or bse_type not in allowed_types:
+        return False
+
+    nse_name = normalize_lookup_value(nse_row.get("name") or "")
+    bse_name = normalize_lookup_value(bse_row.get("name") or "")
+    master_name = normalize_lookup_value(master_row.get("security") or "")
+
+    if "sme" in master_name.split() or "sme" in nse_name.split() or "sme" in bse_name.split():
+        return False
+
+    if nse_name and bse_name and nse_name != bse_name:
+        return False
+
+    if master_name:
+        if nse_name and master_name != nse_name:
+            return False
+        if bse_name and master_name != bse_name:
+            return False
+
+    return True
 
 
 def get_depth_price(quote, side, field):
@@ -9700,6 +9764,13 @@ def get_depth_timestamp(quote):
     if hasattr(timestamp, "astimezone"):
         return timestamp.astimezone(APP_TZ).strftime("%H:%M:%S")
     return str(timestamp or "-")
+
+
+def get_quote_timestamp_dt(quote):
+    timestamp = quote.get("timestamp") or quote.get("last_trade_time")
+    if hasattr(timestamp, "astimezone"):
+        return timestamp.astimezone(APP_TZ)
+    return None
 
 
 def fetch_quote_map(client, quote_symbols, chunk_size=250):
@@ -10303,6 +10374,23 @@ def prepare_live_ready_setups(ready_setups, product="CNC", order_type="LIMIT"):
     return prepared_rows
 
 
+def build_arbitrage_rejection_summary(scan_meta):
+    universe_meta = get_common_equity_universe_details()
+    rejected_universe = universe_meta.get("rejected", {})
+    return {
+        "accepted": int(scan_meta.get("accepted", 0)),
+        "rejected_not_common_eq": int(scan_meta.get("rejected_not_common_eq", 0)),
+        "rejected_missing_depth": int(scan_meta.get("rejected_missing_depth", 0)),
+        "rejected_stale_quotes": int(scan_meta.get("rejected_stale_quotes", 0)),
+        "rejected_spread": int(scan_meta.get("rejected_spread", 0)),
+        "rejected_depth": int(scan_meta.get("rejected_depth", 0)),
+        "rejected_net_profit": int(scan_meta.get("rejected_net_profit", 0)),
+        "universe_missing_on_exchange": int(rejected_universe.get("missing_on_exchange", 0)),
+        "universe_series_mismatch": int(rejected_universe.get("series_mismatch", 0)),
+        "universe_identity_mismatch": int(rejected_universe.get("identity_mismatch", 0)),
+    }
+
+
 def update_arbitrage_history(arbitrage_rows, reference_date):
     payload = prune_arbitrage_history_payload(load_arbitrage_history(), reference_date)
     day_key = reference_date.isoformat()
@@ -10462,12 +10550,26 @@ def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_on
 
     arbitrage_rows = []
     missing = []
+    scan_meta = {
+        "requested_symbols": len(symbols),
+        "eligible_common_eq": len(eligible_symbols),
+        "rejected_not_common_eq": max(0, len(symbols) - len(eligible_symbols)),
+        "rejected_missing_depth": 0,
+        "rejected_stale_quotes": 0,
+        "rejected_spread": 0,
+        "rejected_depth": 0,
+        "rejected_net_profit": 0,
+        "accepted": 0,
+    }
+    stale_cutoff_seconds = 20
+    now_dt = datetime.datetime.now(APP_TZ)
 
     for symbol in eligible_symbols:
         nse_quote = quote_data.get(f"NSE:{symbol}")
         bse_quote = quote_data.get(f"BSE:{symbol}")
         if not nse_quote or not bse_quote:
             missing.append(symbol)
+            scan_meta["rejected_missing_depth"] += 1
             continue
 
         nse_ask = get_depth_price(nse_quote, "sell", "price")
@@ -10481,6 +10583,16 @@ def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_on
 
         if None in {nse_ask, nse_bid, bse_ask, bse_bid, nse_ask_qty, nse_bid_qty, bse_ask_qty, bse_bid_qty}:
             missing.append(symbol)
+            scan_meta["rejected_missing_depth"] += 1
+            continue
+
+        nse_ts_dt = get_quote_timestamp_dt(nse_quote)
+        bse_ts_dt = get_quote_timestamp_dt(bse_quote)
+        if not nse_ts_dt or not bse_ts_dt:
+            scan_meta["rejected_stale_quotes"] += 1
+            continue
+        if (now_dt - nse_ts_dt).total_seconds() > stale_cutoff_seconds or (now_dt - bse_ts_dt).total_seconds() > stale_cutoff_seconds:
+            scan_meta["rejected_stale_quotes"] += 1
             continue
 
         if nse_ask < bse_bid:
@@ -10502,17 +10614,20 @@ def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_on
 
         gross_spread_numeric = sell_price - buy_price
         if gross_spread_numeric < min_spread:
+            scan_meta["rejected_spread"] += 1
             continue
 
         capital_qty = math.floor(capital_amount / buy_price) if buy_price > 0 else 0
         tradable_qty = max(0, min(capital_qty, buy_qty_depth, sell_qty_depth))
         if tradable_qty <= 0:
+            scan_meta["rejected_depth"] += 1
             continue
 
         gross_profit_numeric = gross_spread_numeric * tradable_qty
         charges = estimate_cash_arbitrage_charges(buy_price * tradable_qty, sell_price * tradable_qty)
         net_profit_numeric = gross_profit_numeric - charges["total_charges"]
         if net_positive_only and net_profit_numeric <= 0:
+            scan_meta["rejected_net_profit"] += 1
             continue
 
         if tradable_qty < capital_qty:
@@ -10555,11 +10670,12 @@ def get_cash_arbitrage_rows(symbols, capital_amount, min_spread, net_positive_on
                 "timestamp": timestamp,
             }
         )
+        scan_meta["accepted"] += 1
 
     arbitrage_rows.sort(key=lambda row: row["net_profit_numeric"], reverse=True)
     skipped = [symbol for symbol in symbols if symbol not in common_symbols]
     missing.extend(skipped)
-    return arbitrage_rows, sorted(set(missing))
+    return arbitrage_rows, sorted(set(missing)), scan_meta
 
 
 def get_trade_plan_rows(symbols, selected_date, start_time, end_time, risk_multiple, target_one_multiple, target_two_multiple):
@@ -12293,10 +12409,11 @@ ARBITRAGE_LIVE_TEMPLATE = """
             <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
             <div class="pill">Auto Refresh: {{ refresh_label }}</div>
           </div>
-          <div class="state-banner">
+          <div class="state-banner" id="live-state-banner">
             <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
             <div style="margin-top: 10px;">{{ market_state.detail }}</div>
             <div style="margin-top: 8px;"><strong>{{ live_pause_title }}:</strong> {{ live_pause_reason or "Broker feed is stable and the live queue is active." }}</div>
+            <div class="tiny" id="live-updated-at" style="margin-top: 8px;">Last updated: {{ market_state.detail.split(' as of ')[-1].rstrip('.') if ' as of ' in market_state.detail else 'just now' }}</div>
           </div>
           <div class="hero-links">
             <a href="/equity-arbitrage">Scanner Page</a>
@@ -12360,25 +12477,31 @@ ARBITRAGE_LIVE_TEMPLATE = """
           <button class="primary-btn" type="submit">Refresh Live Queue</button>
         </div>
       </form>
-      {% if error %}
-      <div class="error">{{ error }}</div>
-      {% endif %}
+      <div id="live-error-box">
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+      </div>
     </section>
 
     <section class="card">
       <h2>Desk Summary</h2>
-      <div class="summary-grid">
+      <div class="summary-grid" id="live-summary-grid">
         <div class="summary-box"><div class="summary-label">Opportunities</div><div class="summary-value">{{ summary.opportunity_count }}</div><div class="summary-note">Tradable spreads after filters.</div></div>
         <div class="summary-box"><div class="summary-label">Best Net</div><div class="summary-value">{{ summary.best_net_profit }}</div><div class="summary-note">Strongest live opportunity right now.</div></div>
         <div class="summary-box"><div class="summary-label">Ready Queue</div><div class="summary-value">{{ ready_setup_count }}/{{ live_rules.max_ready_setups }}</div><div class="summary-note">Top setups ready for a paired execution handoff.</div></div>
         <div class="summary-box"><div class="summary-label">Launched Today</div><div class="summary-value">{{ live_trade_book.launched_count }}/{{ live_rules.max_trades_per_day }}</div><div class="summary-note">Logged live pairs from this page today.</div></div>
         <div class="summary-box"><div class="summary-label">Remaining Slots</div><div class="summary-value">{{ live_trade_book.remaining_trades }}</div><div class="summary-note">Live queue stops once this reaches zero.</div></div>
         <div class="summary-box"><div class="summary-label">Estimated Net Book</div><div class="summary-value">{{ live_trade_book.total_live_net }}</div><div class="summary-note">Running estimated net across launched pairs.</div></div>
+        <div class="summary-box"><div class="summary-label">Rejected For EQ / Identity</div><div class="summary-value">{{ scan_meta.rejected_not_common_eq }}</div><div class="summary-note">Filtered out before scan because they were not validated as matching NSE+BSE EQ cash shares.</div></div>
+        <div class="summary-box"><div class="summary-label">Stale Quotes</div><div class="summary-value">{{ scan_meta.rejected_stale_quotes }}</div><div class="summary-note">Skipped because quote timestamps were too old for a live pair.</div></div>
+        <div class="summary-box"><div class="summary-label">Missing Depth</div><div class="summary-value">{{ scan_meta.rejected_missing_depth }}</div><div class="summary-note">Skipped because one or both exchanges lacked usable top depth.</div></div>
       </div>
     </section>
 
     <section class="card">
       <h2>Best Opportunity Spotlight</h2>
+      <div id="live-spotlight-section">
       {% if spotlight %}
       <div class="ready-card">
         <div class="ready-head">
@@ -12406,6 +12529,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
         </div>
       </div>
       {% endif %}
+      </div>
     </section>
 
     <section class="card">
@@ -12415,6 +12539,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
         <div class="queue-step">Step 2: Open the official Zerodha basket in a separate tab.</div>
         <div class="queue-step">Step 3: Review both legs together and confirm manually.</div>
       </div>
+      <div id="live-ready-section">
       {% if ready_setups %}
       <div class="ready-grid">
         {% for setup in ready_setups %}
@@ -12492,10 +12617,12 @@ ARBITRAGE_LIVE_TEMPLATE = """
         </div>
       </div>
       {% endif %}
+      </div>
     </section>
 
     <section class="card">
       <h2>Launched Trade Book</h2>
+      <div id="live-tradebook-section">
       {% if live_trade_book.open_trades or live_trade_book.closed_trades %}
       <div class="trade-grid">
         {% for trade in live_trade_book.open_trades %}
@@ -12548,6 +12675,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
         </div>
       </div>
       {% endif %}
+      </div>
     </section>
   </div>
   <script>
@@ -12602,9 +12730,38 @@ ARBITRAGE_LIVE_TEMPLATE = """
       }
     }
 
+    async function refreshLiveSections() {
+      const params = new URLSearchParams({
+        capital: "{{ capital_display }}",
+        max_trades: "{{ max_trades_display }}",
+        min_spread: "{{ min_spread_display }}",
+        net_positive_only: "{{ 1 if net_positive_only else 0 }}",
+        refresh: "{{ refresh_seconds }}"
+      });
+      const response = await fetch("/equity-arbitrage-live/partial?" + params.toString(), {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      if (!response.ok) {
+        return;
+      }
+      const payload = await response.json();
+      const stateNode = document.getElementById("live-state-banner");
+      if (stateNode && payload.state_banner_html !== undefined) stateNode.outerHTML = payload.state_banner_html;
+      const errorNode = document.getElementById("live-error-box");
+      if (errorNode && payload.error_html !== undefined) errorNode.innerHTML = payload.error_html;
+      const summaryNode = document.getElementById("live-summary-grid");
+      if (summaryNode && payload.summary_html !== undefined) summaryNode.outerHTML = payload.summary_html;
+      const spotlightNode = document.getElementById("live-spotlight-section");
+      if (spotlightNode && payload.spotlight_html !== undefined) spotlightNode.outerHTML = payload.spotlight_html;
+      const readyNode = document.getElementById("live-ready-section");
+      if (readyNode && payload.ready_html !== undefined) readyNode.outerHTML = payload.ready_html;
+      const tradeNode = document.getElementById("live-tradebook-section");
+      if (tradeNode && payload.tradebook_html !== undefined) tradeNode.outerHTML = payload.tradebook_html;
+    }
+
     {% if refresh_seconds > 0 %}
-    window.setTimeout(() => {
-      window.location.href = "{{ request.path }}?capital={{ capital_display }}&max_trades={{ max_trades_display }}&min_spread={{ min_spread_display }}&net_positive_only={{ 1 if net_positive_only else 0 }}&refresh={{ refresh_seconds }}";
+    window.setInterval(() => {
+      refreshLiveSections();
     }, {{ refresh_seconds * 1000 }});
     {% endif %}
   </script>
@@ -12625,6 +12782,7 @@ def build_arbitrage_page_context(request_data, request_method):
     symbols = get_common_equity_symbols()
     arbitrage_rows = []
     summary = build_arbitrage_summary([])
+    scan_meta = build_arbitrage_rejection_summary({})
     post_analysis_groups = build_arbitrage_post_analysis(reference_date)
     recurring_archive = build_arbitrage_recurring_summary(post_analysis_groups)
     spotlight = None
@@ -12643,12 +12801,13 @@ def build_arbitrage_page_context(request_data, request_method):
         if not creds["api_key"] or not creds["access_token"]:
             raise ValueError("Kite API key or access token is missing in .env.")
 
-        arbitrage_rows, missing = get_cash_arbitrage_rows(
+        arbitrage_rows, missing, raw_scan_meta = get_cash_arbitrage_rows(
             symbols,
             capital_amount,
             min_spread,
             net_positive_only,
         )
+        scan_meta = build_arbitrage_rejection_summary(raw_scan_meta)
         summary = build_arbitrage_summary(arbitrage_rows)
         update_arbitrage_history(arbitrage_rows, reference_date)
         post_analysis_groups = build_arbitrage_post_analysis(reference_date)
@@ -12713,6 +12872,7 @@ def build_arbitrage_page_context(request_data, request_method):
         net_positive_only=net_positive_only,
         net_positive_label=net_positive_label,
         scan_mode_label="Full Common EQ Universe",
+        scan_meta=scan_meta,
         archive_days=ARBITRAGE_HISTORY_RETENTION_DAYS,
         post_analysis_groups=post_analysis_groups,
         recurring_archive=recurring_archive,
@@ -12741,6 +12901,7 @@ def build_arbitrage_live_context(request_data):
     symbols = get_common_equity_symbols()
     arbitrage_rows = []
     summary = build_arbitrage_summary([])
+    scan_meta = build_arbitrage_rejection_summary({})
     spotlight = None
     market_state = get_market_state()
     ready_setups = []
@@ -12758,12 +12919,13 @@ def build_arbitrage_live_context(request_data):
         if not creds["api_key"] or not creds["access_token"]:
             raise ValueError("Kite API key or access token is missing in .env.")
 
-        arbitrage_rows, missing = get_cash_arbitrage_rows(
+        arbitrage_rows, missing, raw_scan_meta = get_cash_arbitrage_rows(
             symbols,
             capital_amount,
             min_spread,
             net_positive_only,
         )
+        scan_meta = build_arbitrage_rejection_summary(raw_scan_meta)
         summary = build_arbitrage_summary(arbitrage_rows)
         spotlight = build_best_arbitrage_spotlight(arbitrage_rows)
         broker_stable, broker_reason = evaluate_arbitrage_broker_health(error, len(missing), len(symbols), now_dt)
@@ -12808,6 +12970,7 @@ def build_arbitrage_live_context(request_data):
         refresh_label=refresh_label,
         net_positive_only=net_positive_only,
         net_positive_label=net_positive_label,
+        scan_meta=scan_meta,
         spotlight=spotlight,
         market_state=market_state,
         live_rules=live_rules,
@@ -12820,6 +12983,216 @@ def build_arbitrage_live_context(request_data):
         order_type_label="LIMIT",
         product_label="CNC",
     )
+
+
+def render_arbitrage_live_partials(context):
+    state_banner_html = render_template_string(
+        """
+        <div class="state-banner" id="live-state-banner">
+          <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
+          <div style="margin-top: 10px;">{{ market_state.detail }}</div>
+          <div style="margin-top: 8px;"><strong>{{ live_pause_title }}:</strong> {{ live_pause_reason or "Broker feed is stable and the live queue is active." }}</div>
+          <div class="tiny" id="live-updated-at" style="margin-top: 8px;">Last updated: {{ market_state.detail.split(' as of ')[-1].rstrip('.') if ' as of ' in market_state.detail else 'just now' }}</div>
+        </div>
+        """,
+        **context,
+    )
+    error_html = ""
+    if context.get("error"):
+        error_html = render_template_string("""<div class="error">{{ error }}</div>""", **context)
+    summary_html = render_template_string(
+        """
+        <div class="summary-grid" id="live-summary-grid">
+          <div class="summary-box"><div class="summary-label">Opportunities</div><div class="summary-value">{{ summary.opportunity_count }}</div><div class="summary-note">Tradable spreads after filters.</div></div>
+          <div class="summary-box"><div class="summary-label">Best Net</div><div class="summary-value">{{ summary.best_net_profit }}</div><div class="summary-note">Strongest live opportunity right now.</div></div>
+          <div class="summary-box"><div class="summary-label">Ready Queue</div><div class="summary-value">{{ ready_setup_count }}/{{ live_rules.max_ready_setups }}</div><div class="summary-note">Top setups ready for a paired execution handoff.</div></div>
+          <div class="summary-box"><div class="summary-label">Launched Today</div><div class="summary-value">{{ live_trade_book.launched_count }}/{{ live_rules.max_trades_per_day }}</div><div class="summary-note">Logged live pairs from this page today.</div></div>
+          <div class="summary-box"><div class="summary-label">Remaining Slots</div><div class="summary-value">{{ live_trade_book.remaining_trades }}</div><div class="summary-note">Live queue stops once this reaches zero.</div></div>
+          <div class="summary-box"><div class="summary-label">Estimated Net Book</div><div class="summary-value">{{ live_trade_book.total_live_net }}</div><div class="summary-note">Running estimated net across launched pairs.</div></div>
+          <div class="summary-box"><div class="summary-label">Rejected For EQ / Identity</div><div class="summary-value">{{ scan_meta.rejected_not_common_eq }}</div><div class="summary-note">Filtered out before scan because they were not validated as matching NSE+BSE EQ cash shares.</div></div>
+          <div class="summary-box"><div class="summary-label">Stale Quotes</div><div class="summary-value">{{ scan_meta.rejected_stale_quotes }}</div><div class="summary-note">Skipped because quote timestamps were too old for a live pair.</div></div>
+          <div class="summary-box"><div class="summary-label">Missing Depth</div><div class="summary-value">{{ scan_meta.rejected_missing_depth }}</div><div class="summary-note">Skipped because one or both exchanges lacked usable top depth.</div></div>
+        </div>
+        """,
+        **context,
+    )
+    spotlight_html = render_template_string(
+        """
+        <div id="live-spotlight-section">
+        {% if spotlight %}
+          <div class="ready-card">
+            <div class="ready-head">
+              <div>
+                <div class="symbol">{{ spotlight.symbol }}</div>
+                <div class="route">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
+              </div>
+              <span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span>
+            </div>
+            <div class="metrics-grid">
+              <div class="metric-box"><div class="metric-label">Gross Spread</div><div class="metric-value">{{ spotlight.gross_spread }}</div></div>
+              <div class="metric-box"><div class="metric-label">Tradable Qty</div><div class="metric-value">{{ spotlight.quantity }}</div></div>
+              <div class="metric-box"><div class="metric-label">Liquidity</div><div class="metric-value" style="font-size:18px;">{{ spotlight.liquidity_warning }}</div></div>
+              <div class="metric-box"><div class="metric-label">Desk Note</div><div class="metric-value" style="font-size:18px;">{{ spotlight.note }}</div></div>
+            </div>
+          </div>
+        {% else %}
+          <div class="notice-shell">
+            <div class="notice-figure">
+              <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+            </div>
+            <div>
+              <div class="notice-title">No Lead Pair Yet</div>
+              <div class="notice-copy">The live desk is scanning, but nothing is strong enough yet to become the main execution candidate. That usually means the spread is thin, the net edge is too small, or the depth is fading too quickly.</div>
+            </div>
+          </div>
+        {% endif %}
+        </div>
+        """,
+        **context,
+    )
+    ready_html = render_template_string(
+        """
+        <div id="live-ready-section">
+        {% if ready_setups %}
+          <div class="ready-grid">
+          {% for setup in ready_setups %}
+            <div class="ready-card">
+              <div class="ready-head">
+                <div>
+                  <div class="symbol">{{ setup.symbol }}</div>
+                  <div class="route">{{ setup.route }} | seen for {{ setup.persisted_seconds }}s</div>
+                </div>
+                <span class="badge {{ setup.ready_badge }}">{{ setup.rank_label }}</span>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric-box"><div class="metric-label">Net Profit</div><div class="metric-value">{{ setup.net_profit }}</div></div>
+                <div class="metric-box"><div class="metric-label">Gross Spread</div><div class="metric-value">{{ setup.gross_spread }}</div></div>
+                <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+                <div class="metric-box"><div class="metric-label">Charges</div><div class="metric-value">{{ setup.total_charges }}</div></div>
+              </div>
+              <div class="sheet-box" style="margin-top: 12px;">
+                <div class="sheet-title">Paired Execution Sheet</div>
+                <div class="pair-sheet">
+                  <div class="pair-leg buy">
+                    <div class="leg-head">
+                      <div><div class="leg-title">Buy Leg</div><div class="leg-sub">{{ setup.buy_exchange }} | {{ product_label }} | {{ order_type_label }}</div></div>
+                      <span class="badge badge-up">{{ setup.buy_exchange }}</span>
+                    </div>
+                    <div class="metrics-grid">
+                      <div class="metric-box"><div class="metric-label">Symbol</div><div class="metric-value" style="font-size:18px;">{{ setup.symbol }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Limit Price</div><div class="metric-value">{{ setup.buy_price }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Timestamp</div><div class="metric-value" style="font-size:18px;">{{ setup.timestamp }}</div></div>
+                    </div>
+                  </div>
+                  <div class="pair-leg sell">
+                    <div class="leg-head">
+                      <div><div class="leg-title">Sell Leg</div><div class="leg-sub">{{ setup.sell_exchange }} | {{ product_label }} | {{ order_type_label }}</div></div>
+                      <span class="badge badge-down">{{ setup.sell_exchange }}</span>
+                    </div>
+                    <div class="metrics-grid">
+                      <div class="metric-box"><div class="metric-label">Symbol</div><div class="metric-value" style="font-size:18px;">{{ setup.symbol }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Limit Price</div><div class="metric-value">{{ setup.sell_price }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+                      <div class="metric-box"><div class="metric-label">Liquidity</div><div class="metric-value" style="font-size:18px;">{{ setup.liquidity_warning }}</div></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="desk-note">This is one arbitrage action with two exchange legs. The button below opens Zerodha’s official basket review in a new tab so you can confirm both legs together.</div>
+              <form id="{{ setup.form_id }}" method="post" action="https://kite.zerodha.com/connect/basket" target="_blank">
+                <input type="hidden" name="api_key" value="{{ kite_api_key }}">
+                <input type="hidden" name="data" value='{{ setup.basket_payload|e }}'>
+              </form>
+              <div class="action-bar">
+                <button class="primary-btn" type="button" onclick="executePair('{{ setup.setup_key }}', '{{ setup.form_id }}')">Execute Arbitrage Pair</button>
+                <button class="secondary-btn" type="button" onclick="snoozePair('{{ setup.setup_key }}')">Snooze {{ live_rules.cooldown_seconds }}s</button>
+              </div>
+            </div>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div class="notice-shell">
+            <div class="notice-figure">
+              <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+            </div>
+            <div>
+              <div class="notice-title">No Pair Is Fully Ready Yet</div>
+              <div class="notice-copy">The engine is still waiting for the live queue to satisfy spread, minimum depth, persistence, and net-profit checks together. Once a pair clears the rules, it will show up here as a one-tap paired execution card.</div>
+            </div>
+          </div>
+        {% endif %}
+        </div>
+        """,
+        **context,
+    )
+    tradebook_html = render_template_string(
+        """
+        <div id="live-tradebook-section">
+        {% if live_trade_book.open_trades or live_trade_book.closed_trades %}
+          <div class="trade-grid">
+          {% for trade in live_trade_book.open_trades %}
+            <div class="trade-card">
+              <div class="trade-head">
+                <div>
+                  <div class="symbol">{{ trade.symbol }}</div>
+                  <div class="route">{{ trade.route }} | launched at {{ trade.launched_at }}</div>
+                </div>
+                <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric-box"><div class="metric-label">Buy</div><div class="metric-value" style="font-size:18px;">{{ trade.buy_exchange }} {{ trade.buy_price }}</div></div>
+                <div class="metric-box"><div class="metric-label">Sell</div><div class="metric-value" style="font-size:18px;">{{ trade.sell_exchange }} {{ trade.sell_price }}</div></div>
+                <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ trade.quantity }}</div></div>
+                <div class="metric-box"><div class="metric-label">Net</div><div class="metric-value">{{ trade.net_profit }}</div></div>
+              </div>
+              <div class="action-bar">
+                <button class="secondary-btn" type="button" onclick="closeTrade('{{ trade.trade_id }}')">Mark Closed</button>
+                <div class="tiny" style="display:flex;align-items:center;justify-content:center;padding:12px;">{{ trade.trade_id }}</div>
+              </div>
+            </div>
+          {% endfor %}
+          {% for trade in live_trade_book.closed_trades %}
+            <div class="trade-card">
+              <div class="trade-head">
+                <div>
+                  <div class="symbol">{{ trade.symbol }}</div>
+                  <div class="route">{{ trade.route }} | {{ trade.launched_at }} {% if trade.closed_at %}to {{ trade.closed_at }}{% endif %}</div>
+                </div>
+                <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+              </div>
+              <div class="metrics-grid">
+                <div class="metric-box"><div class="metric-label">Buy</div><div class="metric-value" style="font-size:18px;">{{ trade.buy_exchange }} {{ trade.buy_price }}</div></div>
+                <div class="metric-box"><div class="metric-label">Sell</div><div class="metric-value" style="font-size:18px;">{{ trade.sell_exchange }} {{ trade.sell_price }}</div></div>
+                <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ trade.quantity }}</div></div>
+                <div class="metric-box"><div class="metric-label">Net</div><div class="metric-value">{{ trade.net_profit }}</div></div>
+              </div>
+            </div>
+          {% endfor %}
+          </div>
+        {% else %}
+          <div class="notice-shell">
+            <div class="notice-figure">
+              <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+            </div>
+            <div>
+              <div class="notice-title">No Live Trades Logged Yet</div>
+              <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of today’s live arbitrage flow without losing the scanner context.</div>
+            </div>
+          </div>
+        {% endif %}
+        </div>
+        """,
+        **context,
+    )
+    return {
+        "state_banner_html": state_banner_html,
+        "error_html": error_html,
+        "summary_html": summary_html,
+        "spotlight_html": spotlight_html,
+        "ready_html": ready_html,
+        "tradebook_html": tradebook_html,
+    }
 
 
 @app.route("/equity-arbitrage", methods=["GET", "POST"])
@@ -12849,6 +13222,12 @@ def equity_arbitrage_live():
         ARBITRAGE_LIVE_TEMPLATE,
         **context,
     )
+
+
+@app.route("/equity-arbitrage-live/partial")
+def equity_arbitrage_live_partial():
+    context = build_arbitrage_live_context(request.args)
+    return jsonify(render_arbitrage_live_partials(context))
 
 
 @app.route("/equity-arbitrage-live/action", methods=["POST"])
