@@ -9157,7 +9157,6 @@ def render_market_watch_partials(context):
         "error_html": error_html,
         "grid_html": grid_html,
         "detail_html": detail_html,
-        "selected_symbol": context.get("selected_symbol", ""),
     }
 
 
