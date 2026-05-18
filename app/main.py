@@ -1647,7 +1647,7 @@ MARKET_WATCH_TEMPLATE = """
     .workspace {
       margin-top: 12px;
       display: grid;
-      grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.74fr);
+      grid-template-columns: minmax(0, 1.85fr) minmax(280px, 0.62fr);
       gap: 12px;
       align-items: start;
       padding: 0 12px 12px;
@@ -1687,7 +1687,7 @@ MARKET_WATCH_TEMPLATE = """
       color: #344252;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
-      padding: 8px 8px;
+      padding: 7px 7px;
       text-align: left;
       text-transform: uppercase;
       font-size: 11px;
@@ -1697,20 +1697,20 @@ MARKET_WATCH_TEMPLATE = """
       background: var(--sheet-row);
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
-      padding: 8px 8px;
+      padding: 6px 7px;
       vertical-align: middle;
       font-variant-numeric: tabular-nums;
     }
     tbody tr:nth-child(even) td { background: var(--sheet-alt); }
     tbody tr:hover td { background: #edf3f8; }
     tbody tr.active td { background: var(--selected); }
-    .sheet-symbol { width: 164px; }
+    .sheet-symbol { width: 126px; }
     .sheet-num { text-align: right; }
     .sheet-center { text-align: center; }
     .symbol-main {
       font-weight: 700;
       color: #0c5678;
-      font-size: 14px;
+      font-size: 13px;
       line-height: 1.1;
     }
     .symbol-sub {
@@ -1724,11 +1724,16 @@ MARKET_WATCH_TEMPLATE = """
     }
     .cell-up, .cell-down, .cell-neutral {
       display: inline-block;
-      min-width: 68px;
-      padding: 4px 6px;
-      border-radius: 8px;
+      min-width: 62px;
+      padding: 3px 5px;
+      border-radius: 7px;
       font-weight: 700;
       text-align: right;
+    }
+    .sheet-change {
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 700;
     }
     .cell-up { background: var(--up-soft); color: var(--up); }
     .cell-down { background: var(--down-soft); color: var(--down); }
@@ -1742,7 +1747,7 @@ MARKET_WATCH_TEMPLATE = """
       top: 12px;
     }
     .detail-head {
-      padding: 14px 16px;
+      padding: 12px 14px;
       border-bottom: 1px solid var(--line);
       background: linear-gradient(135deg, #163346, #176f62);
       color: #fff;
@@ -1759,7 +1764,7 @@ MARKET_WATCH_TEMPLATE = """
       color: rgba(255,255,255,0.82);
       line-height: 1.35;
     }
-    .detail-body { padding: 14px 16px 16px; }
+    .detail-body { padding: 12px 14px 14px; }
     .detail-price {
       display: flex;
       justify-content: space-between;
@@ -8822,6 +8827,7 @@ def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intrad
         "last_price_numeric": round(last_price, 2),
         "price_badge": classify_percent_badge(change_abs),
         "change_text": f"{change_abs:+.2f} / {change_pct:+.2f}%",
+        "change_pct_display": f"{change_pct:+.2f}%",
         "change_pct_numeric": round(change_pct, 2),
         "change_badge": classify_percent_badge(change_pct),
         "open_price": format_price(open_price),
@@ -9062,7 +9068,7 @@ def render_market_watch_partials(context):
                     <div class="symbol-main">{{ row.symbol }}</div>
                   </td>
                   <td class="sheet-num"><span class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</span></td>
-                  <td class="sheet-num">{{ row.change_text }}</td>
+                  <td class="sheet-num sheet-change">{{ row.change_pct_display }}</td>
                   <td class="sheet-num">{{ row.bid_price }}</td>
                   <td class="sheet-num">{{ row.ask_price }}</td>
                   <td class="sheet-num">{{ row.open_price }}</td>
@@ -9087,7 +9093,7 @@ def render_market_watch_partials(context):
                 <div class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</div>
               </div>
               <div class="mobile-grid">
-                <div class="mobile-metric"><div class="mobile-label">Chg</div><div class="mobile-value">{{ row.change_text }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">Chg</div><div class="mobile-value">{{ row.change_pct_display }}</div></div>
                 <div class="mobile-metric"><div class="mobile-label">Bid</div><div class="mobile-value">{{ row.bid_price }}</div></div>
                 <div class="mobile-metric"><div class="mobile-label">Ask</div><div class="mobile-value">{{ row.ask_price }}</div></div>
                 <div class="mobile-metric"><div class="mobile-label">High</div><div class="mobile-value">{{ row.day_high }}</div></div>
