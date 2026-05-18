@@ -12202,7 +12202,6 @@ def market_watch():
         MARKET_WATCH_TEMPLATE,
         **context,
         **partials,
-        today_date=get_today_ist().isoformat(),
     )
 
 
@@ -12212,12 +12211,7 @@ def market_watch_partial():
     active_watchlist_key = request.args.get("watchlist", "watchlist_1")
     selected_symbol = request.args.get("selected", "")
     context = get_market_watch_context(active_watchlist_key, selected_symbol, refresh_seconds)
-    partials = render_market_watch_partials(
-        {
-            **context,
-            "today_date": get_today_ist().isoformat(),
-        }
-    )
+    partials = render_market_watch_partials(context)
     return jsonify(partials)
 
 
