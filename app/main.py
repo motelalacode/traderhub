@@ -1492,6 +1492,463 @@ WATCHLIST_TEMPLATE = """
 </html>
 """
 
+MARKET_WATCH_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Market Watch</title>
+  <style>
+    :root {
+      --bg: #eef1f4;
+      --panel: #f9fbfd;
+      --panel-strong: #ffffff;
+      --ink: #17212b;
+      --muted: #5a6775;
+      --line: #c9d3dd;
+      --accent: #176f62;
+      --up: #0f6a4b;
+      --up-soft: #d6f0e4;
+      --down: #8c2f34;
+      --down-soft: #f8dee1;
+      --neutral: #8a6a19;
+      --neutral-soft: #f4ebc8;
+      --info: #1e4f88;
+      --info-soft: #dbe8f7;
+      --sheet-head: #dde5ec;
+      --sheet-row: #fdfefe;
+      --sheet-alt: #f6f8fa;
+      --selected: #e4f0ec;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%),
+        linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%);
+      color: var(--ink);
+    }
+    .page { max-width: 1460px; margin: 0 auto; padding: 14px 12px 28px; }
+    .surface {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 12px 32px rgba(23,33,43,0.08);
+    }
+    .top-strip {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      padding: 10px;
+    }
+    .strip-box {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      min-height: 72px;
+    }
+    .strip-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .strip-value {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1;
+    }
+    .strip-note { margin-top: 6px; font-size: 12px; color: var(--muted); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .title-row {
+      margin-top: 12px;
+      padding: 14px 16px;
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+    }
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .subtitle {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .toolbar {
+      margin-top: 12px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 10px;
+      align-items: center;
+    }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .tab-link {
+      text-decoration: none;
+      color: var(--ink);
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 9px 12px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .tab-link.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .toolbar select, .toolbar a {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel-strong);
+      color: var(--ink);
+      font: inherit;
+      padding: 10px 12px;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .error {
+      margin: 12px 16px 0;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: #f8e2df;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.16);
+    }
+    .workspace {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.74fr);
+      gap: 12px;
+      align-items: start;
+      padding: 0 12px 12px;
+    }
+    .sheet-wrap {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+    .sheet-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, #f7fafc, #eef3f7);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+    }
+    .sheet-title {
+      font-size: 16px;
+      font-weight: 700;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .sheet-note { color: var(--muted); font-size: 12px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 13px;
+    }
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: var(--sheet-head);
+      color: #344252;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 8px 8px;
+      text-align: left;
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.05em;
+    }
+    tbody td {
+      background: var(--sheet-row);
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 8px 8px;
+      vertical-align: middle;
+      font-variant-numeric: tabular-nums;
+    }
+    tbody tr:nth-child(even) td { background: var(--sheet-alt); }
+    tbody tr:hover td { background: #edf3f8; }
+    tbody tr.active td { background: var(--selected); }
+    .sheet-symbol { width: 164px; }
+    .sheet-num { text-align: right; }
+    .sheet-center { text-align: center; }
+    .symbol-main {
+      font-weight: 700;
+      color: #0c5678;
+      font-size: 14px;
+      line-height: 1.1;
+    }
+    .symbol-sub {
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cell-up, .cell-down, .cell-neutral {
+      display: inline-block;
+      min-width: 68px;
+      padding: 4px 6px;
+      border-radius: 8px;
+      font-weight: 700;
+      text-align: right;
+    }
+    .cell-up { background: var(--up-soft); color: var(--up); }
+    .cell-down { background: var(--down-soft); color: var(--down); }
+    .cell-neutral { background: #edf1f4; color: #4f5c69; }
+    .detail-panel {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+      position: sticky;
+      top: 12px;
+    }
+    .detail-head {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(135deg, #163346, #176f62);
+      color: #fff;
+    }
+    .detail-symbol {
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .detail-name {
+      margin-top: 8px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.35;
+    }
+    .detail-body { padding: 14px 16px 16px; }
+    .detail-price {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    .detail-ltp {
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .detail-box {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 11px;
+      background: #fafcfe;
+    }
+    .detail-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 4px;
+      font-weight: 700;
+    }
+    .detail-value {
+      font-size: 18px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .detail-actions {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .detail-actions a {
+      text-decoration: none;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .mobile-list { display: none; }
+    .mobile-card {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      background: #fff;
+    }
+    .mobile-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: start;
+    }
+    .mobile-symbol { font-weight: 700; font-size: 18px; color: #0c5678; }
+    .mobile-name { color: var(--muted); font-size: 12px; margin-top: 3px; }
+    .mobile-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .mobile-metric {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: #fafcfe;
+    }
+    .mobile-label {
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin-bottom: 3px;
+      font-weight: 700;
+    }
+    .mobile-value {
+      font-size: 14px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    @media (max-width: 1180px) {
+      .workspace { grid-template-columns: 1fr; }
+      .detail-panel { position: static; }
+    }
+    @media (max-width: 900px) {
+      .top-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .toolbar { grid-template-columns: 1fr; }
+      .detail-actions { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 12px 10px 24px; }
+      .top-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .workspace { display: block; }
+      .desktop-sheet { display: none; }
+      .mobile-list { display: block; }
+      .detail-panel { margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="surface">
+      <div id="market-watch-strip">{{ top_strip_html|safe }}</div>
+      <div class="title-row">
+        <div>
+          <h1>Market Watch</h1>
+          <div class="subtitle">Terminal-style live pricing for your saved scripts. Values refresh in place through background requests, so the screen stays stable while you read.</div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <div class="tabs">
+          {% for watch in watchlist_options %}
+          <a class="tab-link {{ 'active' if watch.key == active_watchlist.key else '' }}" href="/market-watch?watchlist={{ watch.key }}&selected={{ selected_symbol }}&refresh={{ refresh_seconds }}">{{ watch.name }} ({{ watch.stock_count }})</a>
+          {% endfor %}
+        </div>
+        <select id="market-watch-refresh" onchange="setRefresh(this.value)">
+          {% for option in refresh_options %}
+          <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+          {% endfor %}
+        </select>
+        <a href="/scripts-watchlists">Manage Watchlists</a>
+      </div>
+      <div id="market-watch-error">{% if error %}<div class="error">{{ error }}</div>{% endif %}</div>
+      <div class="workspace">
+        <div id="market-watch-grid">{{ grid_html|safe }}</div>
+        <div id="market-watch-detail">{{ detail_html|safe }}</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    let currentWatchlist = "{{ active_watchlist.key }}";
+    let currentSelectedSymbol = "{{ selected_symbol }}";
+    let currentRefresh = {{ refresh_seconds }};
+
+    function setRefresh(value) {
+      const params = new URLSearchParams(window.location.search);
+      params.set("watchlist", currentWatchlist);
+      params.set("selected", currentSelectedSymbol);
+      params.set("refresh", value);
+      window.location.href = "/market-watch?" + params.toString();
+    }
+
+    async function loadMarketWatchPartial(options) {
+      if (options?.watchlist) currentWatchlist = options.watchlist;
+      if (options?.selectedSymbol !== undefined) currentSelectedSymbol = options.selectedSymbol;
+      const params = new URLSearchParams({
+        watchlist: currentWatchlist,
+        selected: currentSelectedSymbol,
+        refresh: currentRefresh
+      });
+      const response = await fetch("/market-watch/partial?" + params.toString(), {
+        headers: { "X-Requested-With": "XMLHttpRequest" }
+      });
+      if (!response.ok) return;
+      const payload = await response.json();
+      currentSelectedSymbol = payload.selected_symbol || currentSelectedSymbol;
+      document.getElementById("market-watch-strip").innerHTML = payload.top_strip_html || "";
+      document.getElementById("market-watch-error").innerHTML = payload.error_html || "";
+      document.getElementById("market-watch-grid").innerHTML = payload.grid_html || "";
+      document.getElementById("market-watch-detail").innerHTML = payload.detail_html || "";
+    }
+
+    function selectWatchSymbol(symbol) {
+      loadMarketWatchPartial({ selectedSymbol: symbol });
+    }
+
+    if (currentRefresh > 0) {
+      window.setInterval(() => {
+        loadMarketWatchPartial({});
+      }, currentRefresh * 1000);
+    }
+  </script>
+</body>
+</html>
+"""
+
 MANUAL_WATCHLIST_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -8299,6 +8756,8 @@ def build_manual_watchlist_summary(rows):
 def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intraday_candles, security_name):
     ohlc = (quote or {}).get("ohlc") or {}
     last_price = float((quote or {}).get("last_price") or 0)
+    bid_price = get_depth_price(quote, "buy", "price")
+    ask_price = get_depth_price(quote, "sell", "price")
     open_price = float(ohlc.get("open") or 0)
     day_high = float(ohlc.get("high") or 0)
     day_low = float(ohlc.get("low") or 0)
@@ -8324,6 +8783,7 @@ def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intrad
     total_volume = sum((candle.get("volume") or 0) for candle in intraday_candles)
     vwap_value = get_vwap_value(intraday_candles)
     vwap_status, vwap_badge, _ = classify_vwap_status(last_price, vwap_value) if vwap_value else ("VWAP N/A", "badge-info", -1)
+    tick_time = get_depth_timestamp(quote)
     near_band = max(prev_close * 0.005, 0.20) if prev_close > 0 else 0.20
 
     if last_price > pdh > 0:
@@ -8366,6 +8826,10 @@ def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intrad
         "change_badge": classify_percent_badge(change_pct),
         "open_price": format_price(open_price),
         "open_price_numeric": round(open_price, 2),
+        "bid_price": format_price(bid_price) if bid_price is not None else "-",
+        "bid_price_numeric": round(float(bid_price), 2) if bid_price is not None else -1,
+        "ask_price": format_price(ask_price) if ask_price is not None else "-",
+        "ask_price_numeric": round(float(ask_price), 2) if ask_price is not None else -1,
         "day_high": format_price(day_high),
         "day_high_numeric": round(day_high, 2),
         "day_low": format_price(day_low),
@@ -8384,6 +8848,7 @@ def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intrad
         "vwap_numeric": round(vwap_value, 2) if vwap_value else -1,
         "vwap_status": vwap_status,
         "vwap_badge": vwap_badge,
+        "tick_time": tick_time,
         "status_label": status_label,
         "status_sort": status_sort,
         "status_badge": status_badge,
@@ -8450,6 +8915,250 @@ def get_manual_watchlist_rows(watchlist, selected_date):
         rows.append(build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intraday_candles, security_name))
 
     return rows, missing
+
+
+def build_market_watch_status(rows, missing):
+    now = datetime.datetime.now(APP_TZ)
+    up_count = sum(1 for row in rows if row["change_pct_numeric"] > 0)
+    down_count = sum(1 for row in rows if row["change_pct_numeric"] < 0)
+    flat_count = max(0, len(rows) - up_count - down_count)
+    latest_tick = max((row.get("tick_time") for row in rows if row.get("tick_time") and row.get("tick_time") != "-"), default="-")
+
+    feed_health = "Stable"
+    feed_badge = "badge-up"
+    if missing:
+        feed_health = "Partial Feed"
+        feed_badge = "badge-neutral"
+    if not rows:
+        feed_health = "No Feed"
+        feed_badge = "badge-down"
+
+    return {
+        "market_label": "Market Live" if get_market_state()["label"] == "Market Live" else get_market_state()["label"],
+        "market_badge": get_market_state()["badge_class"],
+        "up_count": up_count,
+        "down_count": down_count,
+        "flat_count": flat_count,
+        "latest_tick": latest_tick if latest_tick != "-" else now.strftime("%H:%M:%S"),
+        "feed_health": feed_health,
+        "feed_badge": feed_badge,
+        "missing_count": len(missing),
+    }
+
+
+def get_market_watch_context(active_watchlist_key, selected_symbol, refresh_seconds):
+    state = load_manual_watchlists_state()
+    watchlist_options = get_manual_watchlist_options(state)
+    active_watchlist = get_manual_watchlist(state, active_watchlist_key)
+    selected_date = get_today_ist()
+
+    error = None
+    rows = []
+    missing = []
+    try:
+        creds = get_active_kite_credentials()
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+        rows, missing = get_manual_watchlist_rows(active_watchlist, selected_date)
+    except Exception as exc:
+        error = str(exc)
+
+    rows.sort(key=lambda row: row["symbol"])
+    active_selected_symbol = selected_symbol or (rows[0]["symbol"] if rows else "")
+    selected_row = next((row for row in rows if row["symbol"] == active_selected_symbol), rows[0] if rows else None)
+    summary = build_manual_watchlist_summary(rows)
+    status = build_market_watch_status(rows, missing)
+
+    return {
+        "error": error,
+        "watchlist_options": watchlist_options,
+        "active_watchlist": active_watchlist,
+        "rows": rows,
+        "summary": summary,
+        "status": status,
+        "selected_row": selected_row,
+        "selected_symbol": active_selected_symbol,
+        "refresh_options": get_refresh_options(),
+        "refresh_seconds": refresh_seconds,
+        "today_date": get_today_ist().isoformat(),
+    }
+
+
+def render_market_watch_partials(context):
+    top_strip_html = render_template_string(
+        """
+        <div class="top-strip">
+          <div class="strip-box">
+            <div class="strip-label">Session</div>
+            <div class="strip-value">{{ status.market_label }}</div>
+            <div class="strip-note"><span class="badge {{ status.market_badge }}">{{ status.market_label }}</span></div>
+          </div>
+          <div class="strip-box">
+            <div class="strip-label">Watchlist</div>
+            <div class="strip-value">{{ active_watchlist.name }}</div>
+            <div class="strip-note">{{ active_watchlist.stocks|length }} stocks tracked</div>
+          </div>
+          <div class="strip-box">
+            <div class="strip-label">Advancing</div>
+            <div class="strip-value">{{ summary.up_count }}</div>
+            <div class="strip-note">Rows trading above previous close</div>
+          </div>
+          <div class="strip-box">
+            <div class="strip-label">Declining</div>
+            <div class="strip-value">{{ summary.down_count }}</div>
+            <div class="strip-note">Rows trading below previous close</div>
+          </div>
+          <div class="strip-box">
+            <div class="strip-label">Last Tick</div>
+            <div class="strip-value">{{ status.latest_tick }}</div>
+            <div class="strip-note">Latest timestamp inside this screen</div>
+          </div>
+          <div class="strip-box">
+            <div class="strip-label">Feed Health</div>
+            <div class="strip-value">{{ status.feed_health }}</div>
+            <div class="strip-note"><span class="badge {{ status.feed_badge }}">{{ status.missing_count }} missing</span></div>
+          </div>
+        </div>
+        """,
+        **context,
+    )
+
+    error_html = ""
+    if context.get("error"):
+        error_html = render_template_string("""<div class="error">{{ error }}</div>""", **context)
+
+    grid_html = render_template_string(
+        """
+        <div class="sheet-wrap">
+          <div class="sheet-header">
+            <div>
+              <div class="sheet-title">Live Watch Sheet</div>
+              <div class="sheet-note">Tap a row to focus the selected-script panel. Prices update in place without reloading the screen.</div>
+            </div>
+            <div class="sheet-note">Refresh: {{ 'Off' if refresh_seconds == 0 else refresh_seconds ~ 's' }}</div>
+          </div>
+          <div class="desktop-sheet">
+            <table>
+              <thead>
+                <tr>
+                  <th class="sheet-symbol">Symbol</th>
+                  <th class="sheet-num">LTP</th>
+                  <th class="sheet-num">Chg %</th>
+                  <th class="sheet-num">Bid</th>
+                  <th class="sheet-num">Ask</th>
+                  <th class="sheet-num">Open</th>
+                  <th class="sheet-num">High</th>
+                  <th class="sheet-num">Low</th>
+                  <th class="sheet-num">Prev</th>
+                  <th class="sheet-num">Volume</th>
+                  <th class="sheet-num">VWAP</th>
+                  <th class="sheet-center">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                <tr class="{{ 'active' if row.symbol == selected_symbol else '' }}" onclick="selectWatchSymbol('{{ row.symbol }}')">
+                  <td>
+                    <div class="symbol-main">{{ row.symbol }}</div>
+                    <div class="symbol-sub">{{ row.security_name }}</div>
+                  </td>
+                  <td class="sheet-num"><span class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</span></td>
+                  <td class="sheet-num">{{ row.change_text }}</td>
+                  <td class="sheet-num">{{ row.bid_price }}</td>
+                  <td class="sheet-num">{{ row.ask_price }}</td>
+                  <td class="sheet-num">{{ row.open_price }}</td>
+                  <td class="sheet-num">{{ row.day_high }}</td>
+                  <td class="sheet-num">{{ row.day_low }}</td>
+                  <td class="sheet-num">{{ row.prev_close }}</td>
+                  <td class="sheet-num">{{ row.volume_display }}</td>
+                  <td class="sheet-num">{{ row.vwap }}</td>
+                  <td class="sheet-center"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="mobile-list">
+            {% for row in rows %}
+            <div class="mobile-card" onclick="selectWatchSymbol('{{ row.symbol }}')">
+              <div class="mobile-top">
+                <div>
+                  <div class="mobile-symbol">{{ row.symbol }}</div>
+                  <div class="mobile-name">{{ row.security_name }}</div>
+                </div>
+                <div class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</div>
+              </div>
+              <div class="mobile-grid">
+                <div class="mobile-metric"><div class="mobile-label">Chg</div><div class="mobile-value">{{ row.change_text }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">Bid</div><div class="mobile-value">{{ row.bid_price }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">Ask</div><div class="mobile-value">{{ row.ask_price }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">High</div><div class="mobile-value">{{ row.day_high }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">Low</div><div class="mobile-value">{{ row.day_low }}</div></div>
+                <div class="mobile-metric"><div class="mobile-label">VWAP</div><div class="mobile-value">{{ row.vwap }}</div></div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        """,
+        **context,
+    )
+
+    detail_html = render_template_string(
+        """
+        <div class="detail-panel">
+          {% if selected_row %}
+          <div class="detail-head">
+            <div class="detail-symbol">{{ selected_row.symbol }}</div>
+            <div class="detail-name">{{ selected_row.security_name }}</div>
+          </div>
+          <div class="detail-body">
+            <div class="detail-price">
+              <div>
+                <div class="detail-ltp">{{ selected_row.last_price }}</div>
+                <div style="margin-top:6px;"><span class="{{ 'cell-up' if selected_row.change_pct_numeric > 0 else 'cell-down' if selected_row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ selected_row.change_text }}</span></div>
+              </div>
+              <div class="badge {{ selected_row.status_badge }}">{{ selected_row.status_label }}</div>
+            </div>
+            <div class="detail-grid">
+              <div class="detail-box"><div class="detail-label">Bid</div><div class="detail-value">{{ selected_row.bid_price }}</div></div>
+              <div class="detail-box"><div class="detail-label">Ask</div><div class="detail-value">{{ selected_row.ask_price }}</div></div>
+              <div class="detail-box"><div class="detail-label">Open</div><div class="detail-value">{{ selected_row.open_price }}</div></div>
+              <div class="detail-box"><div class="detail-label">Prev Close</div><div class="detail-value">{{ selected_row.prev_close }}</div></div>
+              <div class="detail-box"><div class="detail-label">High</div><div class="detail-value">{{ selected_row.day_high }}</div></div>
+              <div class="detail-box"><div class="detail-label">Low</div><div class="detail-value">{{ selected_row.day_low }}</div></div>
+              <div class="detail-box"><div class="detail-label">PDH</div><div class="detail-value">{{ selected_row.pdh }}</div></div>
+              <div class="detail-box"><div class="detail-label">PDL</div><div class="detail-value">{{ selected_row.pdl }}</div></div>
+              <div class="detail-box"><div class="detail-label">VWAP</div><div class="detail-value">{{ selected_row.vwap }}</div></div>
+              <div class="detail-box"><div class="detail-label">Tick Time</div><div class="detail-value">{{ selected_row.tick_time }}</div></div>
+              <div class="detail-box"><div class="detail-label">Volume</div><div class="detail-value">{{ selected_row.volume_display }}</div></div>
+              <div class="detail-box"><div class="detail-label">Gap</div><div class="detail-value">{{ selected_row.gap_text }}</div></div>
+            </div>
+            <div class="detail-actions">
+              <a href="/equity-ohlc?symbols={{ selected_row.symbol }}">Open OHLC</a>
+              <a href="/equity-previous-levels?symbols={{ selected_row.symbol }}">Previous Levels</a>
+              <a href="/equity-trade-plan?symbols={{ selected_row.symbol }}&date={{ today_date }}&start=09:15&end=09:30">Trade Plan</a>
+              <a href="/scripts-watchlists?watchlist={{ active_watchlist.key }}&selected={{ selected_row.symbol }}">Watchlist Editor</a>
+            </div>
+          </div>
+          {% else %}
+          <div class="detail-head">
+            <div class="detail-symbol">No Selection</div>
+            <div class="detail-name">Add scripts into a watchlist first, then the live panel will show a selected stock here.</div>
+          </div>
+          {% endif %}
+        </div>
+        """,
+        **context,
+    )
+
+    return {
+        "top_strip_html": top_strip_html,
+        "error_html": error_html,
+        "grid_html": grid_html,
+        "detail_html": detail_html,
+        "selected_symbol": context.get("selected_symbol", ""),
+    }
 
 
 def get_refresh_options():
@@ -11481,6 +12190,36 @@ def equity_watchlist_desk():
 @app.route("/equity-watchlist-desk", methods=["GET"])
 def equity_watchlist_desk_legacy():
     return redirect(f"/scripts-watchlists?{request.query_string.decode()}" if request.query_string else "/scripts-watchlists")
+
+
+@app.route("/market-watch")
+def market_watch():
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+    active_watchlist_key = request.args.get("watchlist", "watchlist_1")
+    selected_symbol = request.args.get("selected", "")
+    context = get_market_watch_context(active_watchlist_key, selected_symbol, refresh_seconds)
+    partials = render_market_watch_partials(context)
+    return render_template_string(
+        MARKET_WATCH_TEMPLATE,
+        **context,
+        **partials,
+        today_date=get_today_ist().isoformat(),
+    )
+
+
+@app.route("/market-watch/partial")
+def market_watch_partial():
+    refresh_seconds = parse_refresh_seconds(request.args.get("refresh", "30"))
+    active_watchlist_key = request.args.get("watchlist", "watchlist_1")
+    selected_symbol = request.args.get("selected", "")
+    context = get_market_watch_context(active_watchlist_key, selected_symbol, refresh_seconds)
+    partials = render_market_watch_partials(
+        {
+            **context,
+            "today_date": get_today_ist().isoformat(),
+        }
+    )
+    return jsonify(partials)
 
 
 @app.route("/equity-movers")
