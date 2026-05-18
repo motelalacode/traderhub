@@ -9060,7 +9060,6 @@ def render_market_watch_partials(context):
                 <tr class="{{ 'active' if row.symbol == selected_symbol else '' }}" onclick="selectWatchSymbol('{{ row.symbol }}')">
                   <td>
                     <div class="symbol-main">{{ row.symbol }}</div>
-                    <div class="symbol-sub">{{ row.security_name }}</div>
                   </td>
                   <td class="sheet-num"><span class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</span></td>
                   <td class="sheet-num">{{ row.change_text }}</td>
@@ -9084,7 +9083,6 @@ def render_market_watch_partials(context):
               <div class="mobile-top">
                 <div>
                   <div class="mobile-symbol">{{ row.symbol }}</div>
-                  <div class="mobile-name">{{ row.security_name }}</div>
                 </div>
                 <div class="{{ 'cell-up' if row.change_pct_numeric > 0 else 'cell-down' if row.change_pct_numeric < 0 else 'cell-neutral' }}">{{ row.last_price }}</div>
               </div>
