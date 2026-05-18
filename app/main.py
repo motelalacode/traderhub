@@ -18,6 +18,7 @@ APP_TZ = ZoneInfo("Asia/Kolkata")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
 ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
+ARBITRAGE_LIVE_STATE_PATH = DATA_DIR / "arbitrage_live_state.json"
 MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
@@ -9535,6 +9536,14 @@ def parse_positive_float(value, fallback):
     return parsed if parsed > 0 else fallback
 
 
+def parse_positive_int(value, fallback):
+    try:
+        parsed = int(value or fallback)
+    except (TypeError, ValueError):
+        return fallback
+    return parsed if parsed > 0 else fallback
+
+
 def get_backtest_preset_ranges():
     today = get_today_ist()
     return [
@@ -10004,6 +10013,294 @@ def build_virtual_trade_book(day_state):
         "total_virtual_net": f"{total_net_numeric:+.2f}",
         "total_virtual_count": len(virtual_trades),
     }
+
+
+def load_arbitrage_live_state():
+    if not ARBITRAGE_LIVE_STATE_PATH.exists():
+        return {"days": {}}
+
+    try:
+        payload = json.loads(ARBITRAGE_LIVE_STATE_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {"days": {}}
+
+    if not isinstance(payload, dict):
+        return {"days": {}}
+    if not isinstance(payload.get("days"), dict):
+        payload["days"] = {}
+    return payload
+
+
+def save_arbitrage_live_state(payload):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    ARBITRAGE_LIVE_STATE_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def prune_arbitrage_live_state(payload, reference_date):
+    cutoff_date = reference_date - datetime.timedelta(days=6)
+    pruned_days = {}
+
+    for day_key, day_state in (payload.get("days") or {}).items():
+        try:
+            row_date = datetime.date.fromisoformat(day_key)
+        except ValueError:
+            continue
+
+        if row_date < cutoff_date or row_date > reference_date:
+            continue
+        if isinstance(day_state, dict):
+            pruned_days[day_key] = day_state
+
+    payload["days"] = pruned_days
+    return payload
+
+
+def ensure_live_day_state(payload, reference_date):
+    payload = prune_arbitrage_live_state(payload, reference_date)
+    day_key = reference_date.isoformat()
+    day_state = payload["days"].setdefault(
+        day_key,
+        {
+            "tracked": {},
+            "launched_trades": [],
+            "launched_count": 0,
+            "paused": False,
+            "pause_reason": "",
+        },
+    )
+    day_state.setdefault("tracked", {})
+    day_state.setdefault("launched_trades", [])
+    day_state.setdefault("launched_count", 0)
+    day_state.setdefault("paused", False)
+    day_state.setdefault("pause_reason", "")
+    return payload, day_key, day_state
+
+
+def build_arbitrage_runtime_rules(max_trades_per_day):
+    runtime_rules = dict(ARBITRAGE_RULES)
+    runtime_rules["max_trades_per_day"] = max(1, int(max_trades_per_day))
+    return runtime_rules
+
+
+def update_arbitrage_live_candidates(day_state, arbitrage_rows, now_dt, broker_stable, live_rules):
+    tracked = day_state.get("tracked", {})
+    active_keys = set()
+
+    for row in arbitrage_rows:
+        if row["quantity"] < live_rules["min_depth_quantity"]:
+            continue
+        if row["net_profit_numeric"] < live_rules["min_net_profit"]:
+            continue
+
+        key = build_arbitrage_row_key(row)
+        active_keys.add(key)
+        existing = tracked.get(key, {})
+        first_seen_iso = existing.get("first_seen")
+        if first_seen_iso:
+            try:
+                first_seen_dt = datetime.datetime.fromisoformat(first_seen_iso)
+            except ValueError:
+                first_seen_dt = now_dt
+        else:
+            first_seen_dt = now_dt
+
+        cooldown_until_iso = existing.get("cooldown_until")
+        cooldown_until_dt = None
+        if cooldown_until_iso:
+            try:
+                cooldown_until_dt = datetime.datetime.fromisoformat(cooldown_until_iso)
+            except ValueError:
+                cooldown_until_dt = None
+
+        tracked[key] = {
+            "symbol": row["symbol"],
+            "buy_exchange": row["buy_exchange"],
+            "sell_exchange": row["sell_exchange"],
+            "first_seen": first_seen_dt.isoformat(),
+            "last_seen": now_dt.isoformat(),
+            "cooldown_until": cooldown_until_dt.isoformat() if cooldown_until_dt else "",
+            "quantity": row["quantity"],
+            "gross_spread_numeric": row["gross_spread_numeric"],
+            "net_profit_numeric": row["net_profit_numeric"],
+            "gross_spread": row["gross_spread"],
+            "net_profit": row["net_profit"],
+            "gross_profit": row["gross_profit"],
+            "total_charges": row["total_charges"],
+            "liquidity_warning": row["liquidity_warning"],
+            "timestamp": row["timestamp"],
+            "buy_price": row["nse_ask"] if row["buy_exchange"] == "NSE" else row["bse_ask"],
+            "sell_price": row["bse_bid"] if row["sell_exchange"] == "BSE" else row["nse_bid"],
+            "route": f"{row['buy_exchange']} buy -> {row['sell_exchange']} sell",
+        }
+
+    for key, existing in tracked.items():
+        existing["active"] = key in active_keys
+
+    day_state["tracked"] = tracked
+    stop_trading = day_state.get("launched_count", 0) >= live_rules["max_trades_per_day"]
+    ready_rows = []
+
+    for key, item in tracked.items():
+        if not item.get("active"):
+            continue
+
+        first_seen_dt = datetime.datetime.fromisoformat(item["first_seen"])
+        persisted_seconds = max(0, int((now_dt - first_seen_dt).total_seconds()))
+        if persisted_seconds < live_rules["persistence_seconds"]:
+            continue
+
+        cooldown_until = item.get("cooldown_until")
+        if cooldown_until:
+            cooldown_until_dt = datetime.datetime.fromisoformat(cooldown_until)
+            if now_dt < cooldown_until_dt:
+                continue
+
+        if not broker_stable or stop_trading:
+            continue
+
+        ready_rows.append(
+            {
+                "setup_key": key,
+                "symbol": item["symbol"],
+                "route": item["route"],
+                "quantity": item["quantity"],
+                "gross_spread": item["gross_spread"],
+                "gross_profit": item["gross_profit"],
+                "total_charges": item["total_charges"],
+                "net_profit": item["net_profit"],
+                "net_profit_numeric": item["net_profit_numeric"],
+                "liquidity_warning": item["liquidity_warning"],
+                "timestamp": item["timestamp"],
+                "buy_price": item["buy_price"],
+                "sell_price": item["sell_price"],
+                "buy_exchange": item["buy_exchange"],
+                "sell_exchange": item["sell_exchange"],
+                "persisted_seconds": persisted_seconds,
+                "ready_badge": classify_percent_badge(item["net_profit_numeric"]),
+            }
+        )
+
+    ready_rows.sort(key=lambda row: row["net_profit_numeric"], reverse=True)
+    return ready_rows[:live_rules["max_ready_setups"]]
+
+
+def create_live_trade(day_state, setup_key, now_dt, live_rules):
+    tracked = day_state.get("tracked", {})
+    item = tracked.get(setup_key)
+    if not item:
+        return False, "This setup is no longer available."
+    if int(day_state.get("launched_count", 0)) >= live_rules["max_trades_per_day"]:
+        return False, "The live trading limit for today has already been reached."
+
+    trade_id = f"LT-{now_dt.strftime('%H%M%S')}-{item['symbol']}"
+    day_state["launched_trades"].append(
+        {
+            "trade_id": trade_id,
+            "symbol": item["symbol"],
+            "route": item["route"],
+            "buy_exchange": item["buy_exchange"],
+            "sell_exchange": item["sell_exchange"],
+            "buy_price": item["buy_price"],
+            "sell_price": item["sell_price"],
+            "quantity": item["quantity"],
+            "gross_spread": item["gross_spread"],
+            "gross_profit": item["gross_profit"],
+            "total_charges": item["total_charges"],
+            "net_profit": item["net_profit"],
+            "net_profit_numeric": item["net_profit_numeric"],
+            "liquidity_warning": item["liquidity_warning"],
+            "launched_at": now_dt.strftime("%H:%M:%S"),
+            "status": "Launched",
+            "status_badge": "badge-up",
+        }
+    )
+    day_state["launched_count"] = int(day_state.get("launched_count", 0)) + 1
+    cooldown_until = now_dt + datetime.timedelta(seconds=live_rules["cooldown_seconds"])
+    tracked[setup_key]["cooldown_until"] = cooldown_until.isoformat()
+    return True, f"Arbitrage pair opened for {item['symbol']}."
+
+
+def dismiss_live_setup(day_state, setup_key, now_dt, live_rules):
+    tracked = day_state.get("tracked", {})
+    item = tracked.get(setup_key)
+    if not item:
+        return False, "This setup is no longer available."
+    cooldown_until = now_dt + datetime.timedelta(seconds=live_rules["cooldown_seconds"])
+    tracked[setup_key]["cooldown_until"] = cooldown_until.isoformat()
+    return True, f"{item['symbol']} was snoozed for {live_rules['cooldown_seconds']} seconds."
+
+
+def close_live_trade(day_state, trade_id, now_dt):
+    for trade in day_state.get("launched_trades", []):
+        if trade["trade_id"] == trade_id and trade["status"] == "Launched":
+            trade["status"] = "Closed"
+            trade["status_badge"] = "badge-neutral"
+            trade["closed_at"] = now_dt.strftime("%H:%M:%S")
+            return True, f"Trade {trade_id} marked closed."
+    return False, "Live trade not found."
+
+
+def build_live_trade_book(day_state, live_rules):
+    launched_trades = day_state.get("launched_trades", [])
+    open_trades = [trade for trade in launched_trades if trade["status"] == "Launched"]
+    closed_trades = [trade for trade in launched_trades if trade["status"] != "Launched"]
+    total_net_numeric = sum(trade["net_profit_numeric"] for trade in launched_trades)
+    return {
+        "open_trades": list(reversed(open_trades[-10:])),
+        "closed_trades": list(reversed(closed_trades[-10:])),
+        "launched_count": int(day_state.get("launched_count", 0)),
+        "remaining_trades": max(0, live_rules["max_trades_per_day"] - int(day_state.get("launched_count", 0))),
+        "total_live_net": f"{total_net_numeric:+.2f}",
+        "total_live_count": len(launched_trades),
+    }
+
+
+def build_kite_basket_payload(setup, product="CNC", order_type="LIMIT"):
+    buy_price = float(setup["buy_price"])
+    sell_price = float(setup["sell_price"])
+    quantity = int(setup["quantity"])
+    tag_base = f"ARB{setup['symbol']}"[:20]
+    payload = [
+        {
+            "variety": "regular",
+            "tradingsymbol": setup["symbol"],
+            "exchange": setup["buy_exchange"],
+            "transaction_type": "BUY",
+            "order_type": order_type,
+            "product": product,
+            "price": buy_price,
+            "quantity": quantity,
+            "validity": "DAY",
+            "readonly": True,
+            "tag": f"{tag_base}B"[:20],
+        },
+        {
+            "variety": "regular",
+            "tradingsymbol": setup["symbol"],
+            "exchange": setup["sell_exchange"],
+            "transaction_type": "SELL",
+            "order_type": order_type,
+            "product": product,
+            "price": sell_price,
+            "quantity": quantity,
+            "validity": "DAY",
+            "readonly": True,
+            "tag": f"{tag_base}S"[:20],
+        },
+    ]
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def prepare_live_ready_setups(ready_setups, product="CNC", order_type="LIMIT"):
+    prepared_rows = []
+    for index, setup in enumerate(ready_setups, start=1):
+        form_key = "".join(ch.lower() if ch.isalnum() else "-" for ch in setup["setup_key"])
+        row = dict(setup)
+        row["basket_payload"] = build_kite_basket_payload(setup, product=product, order_type=order_type)
+        row["form_id"] = f"arb-live-form-{index}-{form_key}"
+        row["rank_label"] = f"Ready {index}"
+        prepared_rows.append(row)
+    return prepared_rows
 
 
 def update_arbitrage_history(arbitrage_rows, reference_date):
@@ -11622,6 +11919,700 @@ def equity_backtest():
     )
 
 
+ARBITRAGE_LIVE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub Arbitrage Live</title>
+  <style>
+    :root {
+      --bg: #f3ecdf;
+      --panel: #fffdf8;
+      --ink: #182027;
+      --muted: #5d6872;
+      --line: #d9d0bd;
+      --accent: #1f6f5f;
+      --accent-strong: #174c41;
+      --up: #116149;
+      --up-soft: #d7efe7;
+      --down: #8a2e2e;
+      --down-soft: #f7dddd;
+      --neutral: #7a5a18;
+      --neutral-soft: #f5ebcc;
+      --info: #1f3f73;
+      --info-soft: #dde8f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(31,111,95,0.12), transparent 25%),
+        linear-gradient(180deg, #fbf7ef 0%, #ece3d6 100%);
+    }
+    .page { max-width: 1240px; margin: 0 auto; padding: 22px 14px 56px; }
+    .hero, .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: 0 18px 44px rgba(24,32,39,0.08);
+    }
+    .hero {
+      overflow: hidden;
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.12), transparent 24%),
+        linear-gradient(135deg, rgba(20,44,62,0.98), rgba(31,111,95,0.92));
+      color: #f8f5ef;
+      padding: 24px;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.9fr);
+      gap: 18px;
+      align-items: stretch;
+    }
+    h1 { margin: 0; font-size: 40px; line-height: 1; }
+    h2 { margin: 0 0 12px; font-size: 24px; }
+    .sub {
+      margin: 12px 0 0;
+      font-size: 16px;
+      line-height: 1.55;
+      color: rgba(248,245,239,0.88);
+      max-width: 880px;
+    }
+    .meta, .hero-links, .button-row, .queue-steps {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .meta { margin-top: 14px; }
+    .hero-links { margin-top: 16px; }
+    .pill, .queue-step {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.16);
+      font-size: 14px;
+    }
+    .hero-links a, .secondary-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      text-decoration: none;
+      background: #fff;
+      color: var(--ink);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .hero-stage {
+      position: relative;
+      overflow: hidden;
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,0.18);
+      background:
+        radial-gradient(circle at top right, rgba(255,255,255,0.18), transparent 32%),
+        linear-gradient(180deg, rgba(10,21,33,0.58), rgba(10,21,33,0.12));
+      min-height: 250px;
+      padding: 18px;
+    }
+    .hero-stage::after {
+      content: "";
+      position: absolute;
+      left: 18px;
+      right: 18px;
+      bottom: 18px;
+      height: 62px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, rgba(232,214,174,0.18), rgba(232,214,174,0.3));
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .stage-label {
+      position: relative;
+      z-index: 2;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.12);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .desk-crew {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      gap: 14px;
+      margin-top: 14px;
+      min-height: 170px;
+    }
+    .crew-card { width: 31%; min-width: 84px; text-align: center; color: #f8f5ef; }
+    .avatar { position: relative; width: 88px; height: 112px; margin: 0 auto 10px; }
+    .avatar-head {
+      position: absolute; left: 50%; top: 0; width: 56px; height: 56px; transform: translateX(-50%);
+      border-radius: 50%; background: #f2d0b4; border: 2px solid rgba(24,32,39,0.18);
+      box-shadow: inset 0 -6px 0 rgba(0,0,0,0.05);
+    }
+    .avatar-head::before, .avatar-head::after {
+      content: ""; position: absolute; top: 22px; width: 7px; height: 7px; border-radius: 50%; background: #182027;
+    }
+    .avatar-head::before { left: 15px; }
+    .avatar-head::after { right: 15px; }
+    .avatar-face {
+      position: absolute; left: 50%; top: 29px; width: 20px; height: 10px; transform: translateX(-50%);
+      border-bottom: 2px solid #182027; border-radius: 0 0 16px 16px;
+    }
+    .avatar-body {
+      position: absolute; left: 50%; top: 46px; width: 64px; height: 62px; transform: translateX(-50%);
+      border-radius: 18px 18px 14px 14px; border: 2px solid rgba(255,255,255,0.24);
+    }
+    .avatar-screen {
+      position: absolute; left: 50%; bottom: -2px; width: 80px; height: 26px; transform: translateX(-50%);
+      border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(11,23,35,0.68);
+      box-shadow: 0 8px 16px rgba(7,13,20,0.2); overflow: hidden;
+    }
+    .avatar-screen::before {
+      content: ""; position: absolute; inset: 4px 6px; border-radius: 6px;
+      background: linear-gradient(90deg, rgba(17,97,73,0.75), rgba(255,255,255,0.12), rgba(138,46,46,0.75));
+    }
+    .crew-card.bull .avatar-body { background: linear-gradient(180deg, rgba(17,97,73,0.44), rgba(17,97,73,0.18)); }
+    .crew-card.bear .avatar-body { background: linear-gradient(180deg, rgba(138,46,46,0.4), rgba(138,46,46,0.14)); }
+    .crew-card.scout .avatar-body { background: linear-gradient(180deg, rgba(31,63,115,0.42), rgba(31,63,115,0.14)); }
+    .crew-name { font-size: 14px; font-weight: 700; letter-spacing: 0.03em; }
+    .crew-role { margin-top: 4px; font-size: 12px; color: rgba(248,245,239,0.78); line-height: 1.35; }
+    .card { margin-top: 18px; padding: 20px; }
+    .grid-3, .grid-2, .summary-grid, .ready-grid, .trade-grid, .metrics-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .grid-3, .summary-grid { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+    .grid-2, .ready-grid, .trade-grid { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    .metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .field label {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    .primary-btn {
+      width: 100%;
+      border: 0;
+      border-radius: 14px;
+      padding: 13px 16px;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 700;
+      background: var(--accent);
+      color: #fff;
+    }
+    .secondary-btn {
+      background: #faf7f1;
+      width: 100%;
+      border-radius: 14px;
+      font: inherit;
+    }
+    .summary-box, .sheet-box, .metric-box, .trade-card, .ready-card {
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.82);
+      border-radius: 18px;
+    }
+    .summary-box, .metric-box { padding: 14px; }
+    .summary-label, .metric-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .summary-value, .metric-value { font-size: 24px; font-weight: 700; }
+    .summary-note { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 6px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge-up { background: var(--up-soft); color: var(--up); }
+    .badge-down { background: var(--down-soft); color: var(--down); }
+    .badge-neutral { background: var(--neutral-soft); color: var(--neutral); }
+    .badge-info { background: var(--info-soft); color: var(--info); }
+    .error {
+      margin-top: 14px;
+      border-radius: 16px;
+      padding: 14px 16px;
+      background: #f7e3d9;
+      color: #8a3b12;
+      border: 1px solid rgba(138,59,18,0.18);
+    }
+    .sheet-box { padding: 16px; }
+    .sheet-title {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    .pair-sheet {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .pair-leg {
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #faf7f1;
+    }
+    .pair-leg.buy { border-left: 4px solid var(--up); }
+    .pair-leg.sell { border-left: 4px solid var(--down); }
+    .leg-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .leg-title { font-size: 18px; font-weight: 700; }
+    .leg-sub { color: var(--muted); font-size: 13px; }
+    .ready-card, .trade-card { padding: 16px; }
+    .ready-head, .trade-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+    .symbol { font-size: 26px; font-weight: 700; }
+    .route { color: var(--muted); font-size: 14px; margin-top: 4px; line-height: 1.4; }
+    .desk-note {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 14px;
+    }
+    .action-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .notice-shell {
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 16px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px dashed var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.85), rgba(247,243,234,0.9));
+    }
+    .notice-figure {
+      position: relative;
+      width: 78px;
+      height: 96px;
+      margin: 0 auto;
+    }
+    .notice-figure .avatar-head { width: 48px; height: 48px; border-width: 1px; }
+    .notice-figure .avatar-head::before, .notice-figure .avatar-head::after { top: 18px; width: 6px; height: 6px; }
+    .notice-figure .avatar-body { width: 56px; height: 48px; top: 38px; border-width: 1px; background: linear-gradient(180deg, rgba(31,63,115,0.42), rgba(31,63,115,0.14)); }
+    .notice-figure .avatar-screen { width: 72px; height: 20px; }
+    .notice-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+    .notice-copy { color: var(--muted); line-height: 1.55; font-size: 14px; }
+    .state-banner {
+      margin-top: 14px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      line-height: 1.5;
+    }
+    .tiny { font-size: 12px; color: var(--muted); }
+    .full-width { grid-column: 1 / -1; }
+    @media (max-width: 860px) {
+      .hero-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 32px; }
+      .page { padding: 18px 12px 40px; }
+      .hero, .card { border-radius: 18px; }
+      .hero-stage { min-height: 220px; }
+      .crew-card { width: 32%; }
+      .avatar { width: 76px; height: 100px; }
+      .avatar-head { width: 48px; height: 48px; }
+      .avatar-body { width: 56px; height: 54px; }
+      .avatar-screen { width: 72px; }
+      .notice-shell { grid-template-columns: 1fr; text-align: left; }
+    }
+    @media (max-width: 560px) {
+      .action-bar, .metrics-grid { grid-template-columns: 1fr; }
+      .hero-links a, .secondary-btn, .primary-btn { width: 100%; }
+      .button-row, .hero-links, .queue-steps { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <h1>Arbitrage Live</h1>
+          <p class="sub">
+            A real-money arbitrage assistant for your own Zerodha account. The scanner keeps the same approved formula, then hands both legs
+            to Zerodha’s official basket confirmation screen so you can review and place the paired trade manually without unattended execution.
+          </p>
+          <div class="meta">
+            <div class="pill">Capital: {{ capital_display }}</div>
+            <div class="pill">Max Trades: {{ live_rules.max_trades_per_day }}</div>
+            <div class="pill">Min Spread: {{ min_spread_display }}</div>
+            <div class="pill">Net Positive Only: {{ net_positive_label }}</div>
+            <div class="pill">Auto Refresh: {{ refresh_label }}</div>
+          </div>
+          <div class="state-banner">
+            <span class="badge {{ market_state.badge_class }}">{{ market_state.label }}</span>
+            <div style="margin-top: 10px;">{{ market_state.detail }}</div>
+            <div style="margin-top: 8px;"><strong>{{ live_pause_title }}:</strong> {{ live_pause_reason or "Broker feed is stable and the live queue is active." }}</div>
+          </div>
+          <div class="hero-links">
+            <a href="/equity-arbitrage">Scanner Page</a>
+            <a href="/equity-arbitrage-virtual">Virtual Desk</a>
+          </div>
+        </div>
+        <div class="hero-stage">
+          <div class="stage-label">Live Trading Crew</div>
+          <div class="desk-crew">
+            <div class="crew-card bull">
+              <div class="avatar"><div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div></div>
+              <div class="crew-name">Pair Captain</div>
+              <div class="crew-role">Keeps both arbitrage legs together as one action.</div>
+            </div>
+            <div class="crew-card scout">
+              <div class="avatar"><div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div></div>
+              <div class="crew-name">Depth Scout</div>
+              <div class="crew-role">Only promotes setups that survive depth, time, and net filters.</div>
+            </div>
+            <div class="crew-card bear">
+              <div class="avatar"><div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div></div>
+              <div class="crew-name">Risk Officer</div>
+              <div class="crew-role">Stops the queue after the trade cap or unstable broker data.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Live Controls</h2>
+      <form method="get" class="grid-3">
+        <div class="field">
+          <label for="capital">Fund Size (INR)</label>
+          <input id="capital" name="capital" value="{{ capital_display }}" placeholder="20000">
+        </div>
+        <div class="field">
+          <label for="max_trades">Max Trades Today</label>
+          <input id="max_trades" name="max_trades" value="{{ max_trades_display }}" placeholder="10">
+        </div>
+        <div class="field">
+          <label for="min_spread">Min Spread / Share</label>
+          <input id="min_spread" name="min_spread" value="{{ min_spread_display }}" placeholder="0.20">
+        </div>
+        <div class="field">
+          <label for="refresh">Auto Refresh</label>
+          <select id="refresh" name="refresh">
+            {% for option in refresh_options %}
+            <option value="{{ option.value }}" {{ 'selected' if option.value == refresh_seconds else '' }}>{{ option.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="net_positive_only">Net Positive Only</label>
+          <select id="net_positive_only" name="net_positive_only">
+            <option value="1" {{ 'selected' if net_positive_only else '' }}>Yes</option>
+            <option value="0" {{ 'selected' if not net_positive_only else '' }}>No</option>
+          </select>
+        </div>
+        <div class="field" style="align-self: end;">
+          <button class="primary-btn" type="submit">Refresh Live Queue</button>
+        </div>
+      </form>
+      {% if error %}
+      <div class="error">{{ error }}</div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Desk Summary</h2>
+      <div class="summary-grid">
+        <div class="summary-box"><div class="summary-label">Opportunities</div><div class="summary-value">{{ summary.opportunity_count }}</div><div class="summary-note">Tradable spreads after filters.</div></div>
+        <div class="summary-box"><div class="summary-label">Best Net</div><div class="summary-value">{{ summary.best_net_profit }}</div><div class="summary-note">Strongest live opportunity right now.</div></div>
+        <div class="summary-box"><div class="summary-label">Ready Queue</div><div class="summary-value">{{ ready_setup_count }}/{{ live_rules.max_ready_setups }}</div><div class="summary-note">Top setups ready for a paired execution handoff.</div></div>
+        <div class="summary-box"><div class="summary-label">Launched Today</div><div class="summary-value">{{ live_trade_book.launched_count }}/{{ live_rules.max_trades_per_day }}</div><div class="summary-note">Logged live pairs from this page today.</div></div>
+        <div class="summary-box"><div class="summary-label">Remaining Slots</div><div class="summary-value">{{ live_trade_book.remaining_trades }}</div><div class="summary-note">Live queue stops once this reaches zero.</div></div>
+        <div class="summary-box"><div class="summary-label">Estimated Net Book</div><div class="summary-value">{{ live_trade_book.total_live_net }}</div><div class="summary-note">Running estimated net across launched pairs.</div></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Best Opportunity Spotlight</h2>
+      {% if spotlight %}
+      <div class="ready-card">
+        <div class="ready-head">
+          <div>
+            <div class="symbol">{{ spotlight.symbol }}</div>
+            <div class="route">{{ spotlight.route }} at {{ spotlight.timestamp }}</div>
+          </div>
+          <span class="badge {{ spotlight.badge_class }}">{{ spotlight.net_profit }}</span>
+        </div>
+        <div class="metrics-grid">
+          <div class="metric-box"><div class="metric-label">Gross Spread</div><div class="metric-value">{{ spotlight.gross_spread }}</div></div>
+          <div class="metric-box"><div class="metric-label">Tradable Qty</div><div class="metric-value">{{ spotlight.quantity }}</div></div>
+          <div class="metric-box"><div class="metric-label">Liquidity</div><div class="metric-value" style="font-size:18px;">{{ spotlight.liquidity_warning }}</div></div>
+          <div class="metric-box"><div class="metric-label">Desk Note</div><div class="metric-value" style="font-size:18px;">{{ spotlight.note }}</div></div>
+        </div>
+      </div>
+      {% else %}
+      <div class="notice-shell">
+        <div class="notice-figure">
+          <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Lead Pair Yet</div>
+          <div class="notice-copy">The live desk is scanning, but nothing is strong enough yet to become the main execution candidate. That usually means the spread is thin, the net edge is too small, or the depth is fading too quickly.</div>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Ready Live Pairs</h2>
+      <div class="queue-steps" style="margin-bottom: 14px;">
+        <div class="queue-step">Step 1: Let the queue validate spread, depth, and persistence.</div>
+        <div class="queue-step">Step 2: Open the official Zerodha basket in a separate tab.</div>
+        <div class="queue-step">Step 3: Review both legs together and confirm manually.</div>
+      </div>
+      {% if ready_setups %}
+      <div class="ready-grid">
+        {% for setup in ready_setups %}
+        <div class="ready-card">
+          <div class="ready-head">
+            <div>
+              <div class="symbol">{{ setup.symbol }}</div>
+              <div class="route">{{ setup.route }} | seen for {{ setup.persisted_seconds }}s</div>
+            </div>
+            <span class="badge {{ setup.ready_badge }}">{{ setup.rank_label }}</span>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box"><div class="metric-label">Net Profit</div><div class="metric-value">{{ setup.net_profit }}</div></div>
+            <div class="metric-box"><div class="metric-label">Gross Spread</div><div class="metric-value">{{ setup.gross_spread }}</div></div>
+            <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+            <div class="metric-box"><div class="metric-label">Charges</div><div class="metric-value">{{ setup.total_charges }}</div></div>
+          </div>
+          <div class="sheet-box" style="margin-top: 12px;">
+            <div class="sheet-title">Paired Execution Sheet</div>
+            <div class="pair-sheet">
+              <div class="pair-leg buy">
+                <div class="leg-head">
+                  <div>
+                    <div class="leg-title">Buy Leg</div>
+                    <div class="leg-sub">{{ setup.buy_exchange }} | {{ product_label }} | {{ order_type_label }}</div>
+                  </div>
+                  <span class="badge badge-up">{{ setup.buy_exchange }}</span>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric-box"><div class="metric-label">Symbol</div><div class="metric-value" style="font-size:18px;">{{ setup.symbol }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Limit Price</div><div class="metric-value">{{ setup.buy_price }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Timestamp</div><div class="metric-value" style="font-size:18px;">{{ setup.timestamp }}</div></div>
+                </div>
+              </div>
+              <div class="pair-leg sell">
+                <div class="leg-head">
+                  <div>
+                    <div class="leg-title">Sell Leg</div>
+                    <div class="leg-sub">{{ setup.sell_exchange }} | {{ product_label }} | {{ order_type_label }}</div>
+                  </div>
+                  <span class="badge badge-down">{{ setup.sell_exchange }}</span>
+                </div>
+                <div class="metrics-grid">
+                  <div class="metric-box"><div class="metric-label">Symbol</div><div class="metric-value" style="font-size:18px;">{{ setup.symbol }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Limit Price</div><div class="metric-value">{{ setup.sell_price }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ setup.quantity }}</div></div>
+                  <div class="metric-box"><div class="metric-label">Liquidity</div><div class="metric-value" style="font-size:18px;">{{ setup.liquidity_warning }}</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="desk-note">
+            This is one arbitrage action with two exchange legs. The button below opens Zerodha’s official basket review in a new tab so you can confirm both legs together.
+          </div>
+          <form id="{{ setup.form_id }}" method="post" action="https://kite.zerodha.com/connect/basket" target="_blank">
+            <input type="hidden" name="api_key" value="{{ kite_api_key }}">
+            <input type="hidden" name="data" value='{{ setup.basket_payload|e }}'>
+          </form>
+          <div class="action-bar">
+            <button class="primary-btn" type="button" onclick="executePair('{{ setup.setup_key }}', '{{ setup.form_id }}')">Execute Arbitrage Pair</button>
+            <button class="secondary-btn" type="button" onclick="snoozePair('{{ setup.setup_key }}')">Snooze {{ live_rules.cooldown_seconds }}s</button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="notice-shell">
+        <div class="notice-figure">
+          <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Pair Is Fully Ready Yet</div>
+          <div class="notice-copy">The engine is still waiting for the live queue to satisfy spread, minimum depth, persistence, and net-profit checks together. Once a pair clears the rules, it will show up here as a one-tap paired execution card.</div>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Launched Trade Book</h2>
+      {% if live_trade_book.open_trades or live_trade_book.closed_trades %}
+      <div class="trade-grid">
+        {% for trade in live_trade_book.open_trades %}
+        <div class="trade-card">
+          <div class="trade-head">
+            <div>
+              <div class="symbol">{{ trade.symbol }}</div>
+              <div class="route">{{ trade.route }} | launched at {{ trade.launched_at }}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box"><div class="metric-label">Buy</div><div class="metric-value" style="font-size:18px;">{{ trade.buy_exchange }} {{ trade.buy_price }}</div></div>
+            <div class="metric-box"><div class="metric-label">Sell</div><div class="metric-value" style="font-size:18px;">{{ trade.sell_exchange }} {{ trade.sell_price }}</div></div>
+            <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ trade.quantity }}</div></div>
+            <div class="metric-box"><div class="metric-label">Net</div><div class="metric-value">{{ trade.net_profit }}</div></div>
+          </div>
+          <div class="action-bar">
+            <button class="secondary-btn" type="button" onclick="closeTrade('{{ trade.trade_id }}')">Mark Closed</button>
+            <div class="tiny" style="display:flex;align-items:center;justify-content:center;padding:12px;">{{ trade.trade_id }}</div>
+          </div>
+        </div>
+        {% endfor %}
+        {% for trade in live_trade_book.closed_trades %}
+        <div class="trade-card">
+          <div class="trade-head">
+            <div>
+              <div class="symbol">{{ trade.symbol }}</div>
+              <div class="route">{{ trade.route }} | {{ trade.launched_at }} {% if trade.closed_at %}to {{ trade.closed_at }}{% endif %}</div>
+            </div>
+            <span class="badge {{ trade.status_badge }}">{{ trade.status }}</span>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box"><div class="metric-label">Buy</div><div class="metric-value" style="font-size:18px;">{{ trade.buy_exchange }} {{ trade.buy_price }}</div></div>
+            <div class="metric-box"><div class="metric-label">Sell</div><div class="metric-value" style="font-size:18px;">{{ trade.sell_exchange }} {{ trade.sell_price }}</div></div>
+            <div class="metric-box"><div class="metric-label">Quantity</div><div class="metric-value">{{ trade.quantity }}</div></div>
+            <div class="metric-box"><div class="metric-label">Net</div><div class="metric-value">{{ trade.net_profit }}</div></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="notice-shell">
+        <div class="notice-figure">
+          <div class="avatar-head"></div><div class="avatar-face"></div><div class="avatar-body"></div><div class="avatar-screen"></div>
+        </div>
+        <div>
+          <div class="notice-title">No Live Trades Logged Yet</div>
+          <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of today’s live arbitrage flow without losing the scanner context.</div>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+  <script>
+    async function postLiveAction(action, payload) {
+      const body = new URLSearchParams();
+      body.set("action", action);
+      body.set("max_trades", "{{ live_rules.max_trades_per_day }}");
+      Object.entries(payload || {}).forEach(([key, value]) => body.set(key, value));
+      const response = await fetch("/equity-arbitrage-live/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: body.toString()
+      });
+      return response.json();
+    }
+
+    async function executePair(setupKey, formId) {
+      try {
+        const result = await postLiveAction("launch_live", { setup_key: setupKey });
+        if (!result.ok) {
+          alert(result.message || "This live pair could not be launched.");
+          return;
+        }
+        document.getElementById(formId).submit();
+        setTimeout(() => window.location.reload(), 1200);
+      } catch (error) {
+        alert("The live desk could not reach the local action endpoint.");
+      }
+    }
+
+    async function snoozePair(setupKey) {
+      try {
+        const result = await postLiveAction("dismiss_live", { setup_key: setupKey });
+        if (result.message) {
+          alert(result.message);
+        }
+        window.location.reload();
+      } catch (error) {
+        alert("The setup could not be snoozed right now.");
+      }
+    }
+
+    async function closeTrade(tradeId) {
+      try {
+        const result = await postLiveAction("close_live", { trade_id: tradeId });
+        if (result.message) {
+          alert(result.message);
+        }
+        window.location.reload();
+      } catch (error) {
+        alert("The trade could not be marked closed right now.");
+      }
+    }
+
+    {% if refresh_seconds > 0 %}
+    window.setTimeout(() => {
+      window.location.href = "{{ request.path }}?capital={{ capital_display }}&max_trades={{ max_trades_display }}&min_spread={{ min_spread_display }}&net_positive_only={{ 1 if net_positive_only else 0 }}&refresh={{ refresh_seconds }}";
+    }, {{ refresh_seconds * 1000 }});
+    {% endif %}
+  </script>
+</body>
+</html>
+"""
+
+
 def build_arbitrage_page_context(request_data, request_method):
     refresh_seconds = parse_refresh_seconds(request_data.get("refresh", "30"))
     capital_amount = parse_positive_float(request_data.get("capital", f"{ARBITRAGE_RULES['capital_amount']:.0f}"), ARBITRAGE_RULES["capital_amount"])
@@ -11736,6 +12727,101 @@ def build_arbitrage_page_context(request_data, request_method):
     )
 
 
+def build_arbitrage_live_context(request_data):
+    refresh_seconds = parse_refresh_seconds(request_data.get("refresh", "30"))
+    capital_amount = parse_positive_float(request_data.get("capital", f"{ARBITRAGE_RULES['capital_amount']:.0f}"), ARBITRAGE_RULES["capital_amount"])
+    min_spread = parse_positive_float(request_data.get("min_spread", f"{ARBITRAGE_RULES['min_spread']:.2f}"), ARBITRAGE_RULES["min_spread"])
+    max_trades = parse_positive_int(request_data.get("max_trades", ARBITRAGE_RULES["max_trades_per_day"]), ARBITRAGE_RULES["max_trades_per_day"])
+    net_positive_only = request_data.get("net_positive_only", "1") != "0"
+    reference_date = get_today_ist()
+    now_dt = datetime.datetime.now(APP_TZ)
+    live_rules = build_arbitrage_runtime_rules(max_trades)
+
+    error = None
+    symbols = get_common_equity_symbols()
+    arbitrage_rows = []
+    summary = build_arbitrage_summary([])
+    spotlight = None
+    market_state = get_market_state()
+    ready_setups = []
+    live_pause_reason = ""
+    live_state_payload = load_arbitrage_live_state()
+    live_state_payload, _, day_state = ensure_live_day_state(live_state_payload, reference_date)
+    live_trade_book = build_live_trade_book(day_state, live_rules)
+
+    creds = get_active_kite_credentials()
+    kite_api_key = creds["api_key"]
+
+    try:
+        if not symbols:
+            raise ValueError("No common NSE/BSE EQ cash shares were available in the stock master.")
+        if not creds["api_key"] or not creds["access_token"]:
+            raise ValueError("Kite API key or access token is missing in .env.")
+
+        arbitrage_rows, missing = get_cash_arbitrage_rows(
+            symbols,
+            capital_amount,
+            min_spread,
+            net_positive_only,
+        )
+        summary = build_arbitrage_summary(arbitrage_rows)
+        spotlight = build_best_arbitrage_spotlight(arbitrage_rows)
+        broker_stable, broker_reason = evaluate_arbitrage_broker_health(error, len(missing), len(symbols), now_dt)
+        day_state["paused"] = not broker_stable
+        day_state["pause_reason"] = broker_reason
+        ready_setups = update_arbitrage_live_candidates(day_state, arbitrage_rows, now_dt, broker_stable, live_rules)
+        live_trade_book = build_live_trade_book(day_state, live_rules)
+        save_arbitrage_live_state(live_state_payload)
+
+        if live_trade_book["launched_count"] >= live_rules["max_trades_per_day"]:
+            day_state["paused"] = True
+            day_state["pause_reason"] = f"New live pairs are paused because the {live_rules['max_trades_per_day']}-trade daily limit has been reached."
+            live_pause_reason = day_state["pause_reason"]
+            save_arbitrage_live_state(live_state_payload)
+        else:
+            live_pause_reason = day_state.get("pause_reason", "")
+
+        if missing:
+            error = f"{len(missing)} shares were skipped because they did not have usable two-exchange depth quotes at scan time."
+    except Exception as exc:
+        error = str(exc)
+        day_state["paused"] = True
+        day_state["pause_reason"] = "Live execution is paused because the latest broker scan failed."
+        live_pause_reason = day_state["pause_reason"]
+        live_trade_book = build_live_trade_book(day_state, live_rules)
+        save_arbitrage_live_state(live_state_payload)
+
+    refresh_label = "Off" if refresh_seconds == 0 else f"{refresh_seconds}s"
+    net_positive_label = "Yes" if net_positive_only else "No"
+    ready_setups = prepare_live_ready_setups(ready_setups, product="CNC", order_type="LIMIT")
+    live_pause_title = "Paused" if live_pause_reason else "Active"
+    return dict(
+        error=error,
+        arbitrage_rows=arbitrage_rows,
+        summary=summary,
+        common_symbol_count=len(symbols),
+        capital_display=f"{capital_amount:.0f}",
+        min_spread_display=f"{min_spread:.2f}",
+        max_trades_display=str(max_trades),
+        refresh_options=get_refresh_options_with_fast(),
+        refresh_seconds=refresh_seconds,
+        refresh_label=refresh_label,
+        net_positive_only=net_positive_only,
+        net_positive_label=net_positive_label,
+        spotlight=spotlight,
+        market_state=market_state,
+        live_rules=live_rules,
+        ready_setups=ready_setups,
+        ready_setup_count=len(ready_setups),
+        live_trade_book=live_trade_book,
+        live_pause_reason=live_pause_reason,
+        live_pause_title=live_pause_title,
+        kite_api_key=kite_api_key,
+        order_type_label="LIMIT",
+        product_label="CNC",
+    )
+
+
 @app.route("/equity-arbitrage", methods=["GET", "POST"])
 def equity_arbitrage():
     request_data = request.form if request.method == "POST" else request.args
@@ -11753,6 +12839,58 @@ def equity_arbitrage_virtual():
     return render_template_string(
         ARBITRAGE_VIRTUAL_TEMPLATE,
         **context,
+    )
+
+
+@app.route("/equity-arbitrage-live")
+def equity_arbitrage_live():
+    context = build_arbitrage_live_context(request.args)
+    return render_template_string(
+        ARBITRAGE_LIVE_TEMPLATE,
+        **context,
+    )
+
+
+@app.route("/equity-arbitrage-live/action", methods=["POST"])
+def equity_arbitrage_live_action():
+    reference_date = get_today_ist()
+    now_dt = datetime.datetime.now(APP_TZ)
+    action = request.form.get("action", "")
+    max_trades = parse_positive_int(request.form.get("max_trades", ARBITRAGE_RULES["max_trades_per_day"]), ARBITRAGE_RULES["max_trades_per_day"])
+    live_rules = build_arbitrage_runtime_rules(max_trades)
+    live_state_payload = load_arbitrage_live_state()
+    live_state_payload, _, day_state = ensure_live_day_state(live_state_payload, reference_date)
+
+    if action == "launch_live":
+        broker_stable, broker_reason = evaluate_arbitrage_broker_health(None, 0, 0, now_dt)
+        if not broker_stable:
+            day_state["paused"] = True
+            day_state["pause_reason"] = broker_reason
+            save_arbitrage_live_state(live_state_payload)
+            return jsonify({"ok": False, "message": broker_reason})
+        success, message = create_live_trade(day_state, request.form.get("setup_key", ""), now_dt, live_rules)
+    elif action == "dismiss_live":
+        success, message = dismiss_live_setup(day_state, request.form.get("setup_key", ""), now_dt, live_rules)
+    elif action == "close_live":
+        success, message = close_live_trade(day_state, request.form.get("trade_id", ""), now_dt)
+    else:
+        success, message = False, "Unknown live action."
+
+    if int(day_state.get("launched_count", 0)) >= live_rules["max_trades_per_day"]:
+        day_state["paused"] = True
+        day_state["pause_reason"] = f"New live pairs are paused because the {live_rules['max_trades_per_day']}-trade daily limit has been reached."
+
+    save_arbitrage_live_state(live_state_payload)
+    live_trade_book = build_live_trade_book(day_state, live_rules)
+    return jsonify(
+        {
+            "ok": success,
+            "message": message,
+            "launched_count": live_trade_book["launched_count"],
+            "remaining_trades": live_trade_book["remaining_trades"],
+            "paused": bool(day_state.get("paused")),
+            "pause_reason": day_state.get("pause_reason", ""),
+        }
     )
 
 
