@@ -1705,6 +1705,7 @@ MARKET_WATCH_TEMPLATE = """
     tbody tr:hover td { background: #edf3f8; }
     tbody tr.active td { background: var(--selected); }
     .sheet-symbol { width: 126px; }
+    .sheet-status { width: 122px; }
     .sheet-num { text-align: right; }
     .sheet-center { text-align: center; }
     .symbol-main {
@@ -9058,7 +9059,7 @@ def render_market_watch_partials(context):
                   <th class="sheet-num">Prev</th>
                   <th class="sheet-num">Volume</th>
                   <th class="sheet-num">VWAP</th>
-                  <th class="sheet-center">Status</th>
+                  <th class="sheet-center sheet-status">Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -9077,7 +9078,7 @@ def render_market_watch_partials(context):
                   <td class="sheet-num">{{ row.prev_close }}</td>
                   <td class="sheet-num">{{ row.volume_display }}</td>
                   <td class="sheet-num">{{ row.vwap }}</td>
-                  <td class="sheet-center"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
+                  <td class="sheet-center sheet-status"><span class="badge {{ row.status_badge }}">{{ row.status_label }}</span></td>
                 </tr>
                 {% endfor %}
               </tbody>
