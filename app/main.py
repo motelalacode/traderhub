@@ -14201,11 +14201,11 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
   </script>
   <style>
     :root {
-      --bg: #f5f2ea;
-      --paper: #fffdf8;
-      --panel: #fffaf1;
+      --bg: #f4f6f8;
+      --paper: #ffffff;
+      --panel: #f8fafc;
       --panel-strong: #ffffff;
-      --line: #d7cbb4;
+      --line: #d9e1e8;
       --ink: #1f2b38;
       --muted: #637182;
       --accent: #176f62;
@@ -14226,8 +14226,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       font-family: Georgia, "Times New Roman", serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(198,167,99,0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(23,111,98,0.05), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(120,132,145,0.08), transparent 28%),
         var(--bg);
     }
     a { color: inherit; }
@@ -14374,7 +14374,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       display: grid;
       gap: 12px;
       align-content: start;
-      background: linear-gradient(180deg, #fffdf8, #f9f2e7);
+      background: linear-gradient(180deg, #ffffff, #f6f8fb);
     }
     .ad-slot {
       border-style: dashed;
@@ -14383,8 +14383,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
         -45deg,
         rgba(23,111,98,0.03),
         rgba(23,111,98,0.03) 10px,
-        rgba(198,167,99,0.06) 10px,
-        rgba(198,167,99,0.06) 20px
+        rgba(160,172,186,0.06) 10px,
+        rgba(160,172,186,0.06) 20px
       ), var(--panel);
       display: flex;
       align-items: center;
@@ -14635,7 +14635,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       padding: 14px 16px;
       border: 1px dashed var(--line);
       border-radius: 16px;
-      background: rgba(255,255,255,0.6);
+      background: rgba(255,255,255,0.92);
       color: var(--muted);
       font-size: 13px;
       line-height: 1.65;
