@@ -14201,15 +14201,16 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
   </script>
   <style>
     :root {
-      --bg: #f4f6f8;
+      --bg: #eef1f4;
       --paper: #ffffff;
-      --panel: #f8fafc;
+      --panel: #f9fbfd;
       --panel-strong: #ffffff;
-      --line: #d9e1e8;
+      --line: #c9d3dd;
       --ink: #1f2b38;
-      --muted: #637182;
+      --muted: #627385;
       --accent: #176f62;
       --accent-strong: #0e554b;
+      --number-font: Arial, Helvetica, sans-serif;
       --up-soft: #daf0e4;
       --up: #116d47;
       --down-soft: #f9dcdc;
@@ -14226,9 +14227,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       font-family: Georgia, "Times New Roman", serif;
       color: var(--ink);
       background:
-        radial-gradient(circle at top right, rgba(23,111,98,0.05), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(120,132,145,0.08), transparent 28%),
-        var(--bg);
+        radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%),
+        linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%);
     }
     a { color: inherit; }
     .page {
@@ -14255,7 +14255,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       background: var(--paper);
       border: 1px solid var(--line);
       border-radius: 22px;
-      box-shadow: var(--shadow);
+      box-shadow: 0 12px 32px rgba(23,33,43,0.08);
     }
     .hero-main {
       padding: 20px 22px 18px;
@@ -14314,6 +14314,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       font-size: 52px;
       font-weight: 700;
       line-height: 0.92;
+      font-family: var(--number-font);
+      font-style: italic;
       font-variant-numeric: tabular-nums;
     }
     .hero-change {
@@ -14326,6 +14328,9 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       background: rgba(255,255,255,0.13);
       font-size: 18px;
       font-weight: 700;
+      font-family: var(--number-font);
+      font-style: italic;
+      font-variant-numeric: tabular-nums;
     }
     .hero-tags {
       position: relative;
@@ -14374,6 +14379,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
     .hero-value {
       font-size: 22px;
       font-weight: 700;
+      font-family: var(--number-font);
+      font-style: italic;
       font-variant-numeric: tabular-nums;
     }
     .hero-side {
@@ -14381,7 +14388,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       display: grid;
       gap: 12px;
       align-content: start;
-      background: linear-gradient(180deg, #ffffff, #f6f8fb);
+      background: linear-gradient(180deg, #f7fafc, #eef3f7);
     }
     .ad-slot {
       border-style: dashed;
@@ -14493,6 +14500,8 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
     .metric-value {
       font-size: 24px;
       font-weight: 700;
+      font-family: var(--number-font);
+      font-style: italic;
       font-variant-numeric: tabular-nums;
     }
     .metric-sub {
@@ -14573,6 +14582,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
     .list-table td, .peer-table td {
       padding: 11px 8px;
       border-bottom: 1px solid rgba(215,203,180,0.72);
+      font-family: var(--number-font);
       font-variant-numeric: tabular-nums;
     }
     .list-table tr:last-child td, .peer-table tr:last-child td { border-bottom: none; }
@@ -14642,7 +14652,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       padding: 14px 16px;
       border: 1px dashed var(--line);
       border-radius: 16px;
-      background: rgba(255,255,255,0.92);
+      background: rgba(255,255,255,0.88);
       color: var(--muted);
       font-size: 13px;
       line-height: 1.65;
