@@ -14259,7 +14259,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
     }
     .hero-main {
       padding: 20px 22px 18px;
-      background: linear-gradient(145deg, #173549, #176f62 70%);
+      background: linear-gradient(145deg, #21465c, #2b7d72 72%, #4e9a8a 100%);
       color: #fff;
       overflow: hidden;
       position: relative;
@@ -14272,7 +14272,14 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       width: 210px;
       height: 210px;
       border-radius: 50%;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.10);
+    }
+    .hero-main::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0));
+      pointer-events: none;
     }
     .hero-kicker {
       font-size: 12px;
