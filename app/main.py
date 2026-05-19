@@ -14182,6 +14182,855 @@ def equity_previous_levels():
     )
 
 
+STOCK_HUB_SAMPLE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">
+  {{ schema_json|safe }}
+  </script>
+  <style>
+    :root {
+      --bg: #f5f2ea;
+      --paper: #fffdf8;
+      --panel: #fffaf1;
+      --panel-strong: #ffffff;
+      --line: #d7cbb4;
+      --ink: #1f2b38;
+      --muted: #637182;
+      --accent: #176f62;
+      --accent-strong: #0e554b;
+      --up-soft: #daf0e4;
+      --up: #116d47;
+      --down-soft: #f9dcdc;
+      --down: #99353a;
+      --warn-soft: #f6ebc5;
+      --warn: #9a6c00;
+      --info-soft: #dbe8fb;
+      --info: #245fa7;
+      --shadow: 0 18px 40px rgba(34, 38, 43, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 30%),
+        radial-gradient(circle at bottom left, rgba(198,167,99,0.12), transparent 28%),
+        var(--bg);
+    }
+    a { color: inherit; }
+    .page {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 18px 14px 36px;
+    }
+    .microbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+    .hero-main, .hero-side, .section, .ad-slot, .peer-table-wrap, .chart-shell, .insight-grid > div {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .hero-main {
+      padding: 20px 22px 18px;
+      background: linear-gradient(145deg, #173549, #176f62 70%);
+      color: #fff;
+      overflow: hidden;
+      position: relative;
+    }
+    .hero-main::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      bottom: -36px;
+      width: 210px;
+      height: 210px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .hero-kicker {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.86;
+      margin-bottom: 10px;
+    }
+    .hero-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      align-items: start;
+      position: relative;
+      z-index: 1;
+    }
+    h1 {
+      margin: 0;
+      font-size: 44px;
+      line-height: 0.95;
+    }
+    .hero-sub {
+      margin-top: 10px;
+      font-size: 18px;
+      color: rgba(255,255,255,0.84);
+    }
+    .hero-price {
+      text-align: right;
+      min-width: 210px;
+    }
+    .hero-ltp {
+      font-size: 52px;
+      font-weight: 700;
+      line-height: 0.92;
+      font-variant-numeric: tabular-nums;
+    }
+    .hero-change {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.13);
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .hero-tags {
+      position: relative;
+      z-index: 1;
+      margin-top: 18px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+    .tag-up { background: var(--up-soft); color: var(--up); }
+    .tag-down { background: var(--down-soft); color: var(--down); }
+    .tag-warn { background: var(--warn-soft); color: var(--warn); }
+    .tag-info { background: var(--info-soft); color: var(--info); }
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .hero-box {
+      padding: 12px 12px 13px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .hero-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,0.74);
+      margin-bottom: 4px;
+    }
+    .hero-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .hero-side {
+      padding: 18px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      background: linear-gradient(180deg, #fffdf8, #f9f2e7);
+    }
+    .ad-slot {
+      border-style: dashed;
+      box-shadow: none;
+      background: repeating-linear-gradient(
+        -45deg,
+        rgba(23,111,98,0.03),
+        rgba(23,111,98,0.03) 10px,
+        rgba(198,167,99,0.06) 10px,
+        rgba(198,167,99,0.06) 20px
+      ), var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+      font-weight: 700;
+      min-height: 86px;
+      padding: 14px;
+    }
+    .ad-slot.tall { min-height: 220px; }
+    .side-card {
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 14px 15px;
+    }
+    .side-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .side-text {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      color: #324252;
+      line-height: 1.55;
+    }
+    .section-nav {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+    .nav-chip {
+      text-decoration: none;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 14px;
+      white-space: nowrap;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent-strong);
+    }
+    .layout {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+      gap: 16px;
+      align-items: start;
+    }
+    .main-stack {
+      display: grid;
+      gap: 16px;
+    }
+    .section {
+      padding: 18px 18px 16px;
+    }
+    .section h2 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+    .section-note {
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--muted);
+      font-size: 14px;
+      margin-bottom: 14px;
+      line-height: 1.55;
+    }
+    .overview-grid, .insight-grid, .tech-grid, .financial-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .overview-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .insight-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .tech-grid { grid-template-columns: 1.2fr 0.8fr; }
+    .financial-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .metric-card, .insight-grid > div, .financial-row {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel-strong);
+      padding: 13px 14px;
+    }
+    .metric-label, .mini-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 24px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .metric-sub {
+      margin-top: 6px;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .chart-shell {
+      background: linear-gradient(180deg, #102434, #14354a);
+      color: #fff;
+      padding: 14px;
+      overflow: hidden;
+    }
+    .chart-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    .chart-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .chart-box {
+      height: 280px;
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+      background:
+        linear-gradient(to right, rgba(255,255,255,0.07) 1px, transparent 1px) 0 0 / 12.5% 100%,
+        linear-gradient(to bottom, rgba(255,255,255,0.07) 1px, transparent 1px) 0 0 / 100% 20%,
+        linear-gradient(180deg, rgba(18,58,82,0.95), rgba(7,19,28,0.95));
+    }
+    .chart-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .chart-key {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 12px;
+      color: rgba(255,255,255,0.82);
+    }
+    .key-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+    .stats-stack {
+      display: grid;
+      gap: 10px;
+    }
+    .list-table, .peer-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+    }
+    .list-table th, .peer-table th {
+      text-align: left;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+      padding: 9px 8px;
+      white-space: nowrap;
+    }
+    .list-table td, .peer-table td {
+      padding: 11px 8px;
+      border-bottom: 1px solid rgba(215,203,180,0.72);
+      font-variant-numeric: tabular-nums;
+    }
+    .list-table tr:last-child td, .peer-table tr:last-child td { border-bottom: none; }
+    .peer-table-wrap { padding: 10px 12px 6px; overflow-x: auto; }
+    .section-aside {
+      display: grid;
+      gap: 16px;
+      position: sticky;
+      top: 12px;
+    }
+    .quick-box {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+    .quick-box h3 {
+      margin: 0 0 10px;
+      font-size: 22px;
+    }
+    .quick-list {
+      display: grid;
+      gap: 10px;
+    }
+    .quick-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid rgba(215,203,180,0.7);
+    }
+    .quick-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .muted {
+      color: var(--muted);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .story-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px;
+      background: var(--panel-strong);
+    }
+    .story-card + .story-card { margin-top: 10px; }
+    .story-title {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .story-meta {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 7px;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .story-copy {
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      color: #334253;
+      line-height: 1.55;
+    }
+    .footer-note {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.6);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    @media (max-width: 1160px) {
+      .hero, .layout, .tech-grid { grid-template-columns: 1fr; }
+      .section-aside { position: static; }
+    }
+    @media (max-width: 880px) {
+      .hero-head { flex-direction: column; }
+      .hero-price { text-align: left; min-width: 0; }
+      .hero-grid, .overview-grid, .financial-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .insight-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 36px; }
+      .hero-ltp { font-size: 42px; }
+    }
+    @media (max-width: 620px) {
+      .page { padding: 12px 10px 28px; }
+      .hero-main, .hero-side, .section, .quick-box { border-radius: 18px; }
+      .hero-grid, .overview-grid, .financial-grid { grid-template-columns: 1fr; }
+      .section-nav { gap: 8px; }
+      .nav-chip { padding: 9px 12px; }
+      h1 { font-size: 30px; }
+      .hero-ltp { font-size: 36px; }
+      .chart-box { height: 230px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>Stocks &rsaquo; Telecom &rsaquo; {{ stock.symbol }} Research Page Sample</div>
+      <div>SEO sample | No ads live yet | Last reviewed {{ today_date }}</div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-main">
+        <div class="hero-kicker">TraderHub Stock Intelligence</div>
+        <div class="hero-head">
+          <div>
+            <h1>{{ stock.symbol }}</h1>
+            <div class="hero-sub">{{ stock.company_name }}</div>
+            <div class="hero-sub">{{ stock.exchange }} | {{ stock.series }} Series | {{ stock.sector }} | {{ stock.industry }}</div>
+          </div>
+          <div class="hero-price">
+            <div class="hero-ltp">{{ stock.ltp }}</div>
+            <div class="hero-change">{{ stock.change_rupees }} | {{ stock.change_pct }}</div>
+          </div>
+        </div>
+        <div class="hero-tags">
+          {% for badge in hero_badges %}
+          <span class="tag {{ badge.kind }}">{{ badge.label }}</span>
+          {% endfor %}
+        </div>
+        <div class="hero-grid">
+          <div class="hero-box"><div class="hero-label">Market Cap</div><div class="hero-value">{{ stock.market_cap }}</div></div>
+          <div class="hero-box"><div class="hero-label">52W Range</div><div class="hero-value">{{ stock.range_52w }}</div></div>
+          <div class="hero-box"><div class="hero-label">VWAP</div><div class="hero-value">{{ stock.vwap }}</div></div>
+          <div class="hero-box"><div class="hero-label">Previous Close</div><div class="hero-value">{{ stock.prev_close }}</div></div>
+        </div>
+      </div>
+
+      <div class="hero-side">
+        <div class="ad-slot">Top Banner Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card">
+          <div class="side-title">Page Purpose</div>
+          <div class="side-text">This phase-1 sample is designed as a clean stock intelligence page: overview first, then technical, financials, peers, holdings, deals, and news. Layout is ad-ready without feeling ad-heavy on day one.</div>
+        </div>
+        <div class="side-card">
+          <div class="side-title">SEO Notes</div>
+          <div class="side-text">Single clear H1, stock-specific title, stock-specific description, canonical URL, schema JSON-LD, strong section headings, and readable structured content for future search visibility.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-nav">
+      <a class="nav-chip" href="#overview">Overview</a>
+      <a class="nav-chip" href="#technical">Technical</a>
+      <a class="nav-chip" href="#financials">Financials</a>
+      <a class="nav-chip" href="#peers">Peers</a>
+      <a class="nav-chip" href="#ownership">Ownership & Deals</a>
+      <a class="nav-chip" href="#news">News & Events</a>
+    </div>
+
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section" id="overview">
+          <h2>Overview</h2>
+          <div class="section-note">A fast, uncluttered summary of the stock, its live position, and why it matters today. This section should become the default entry point for users who search for a specific company page.</div>
+          <div class="overview-grid">
+            {% for metric in overview_metrics %}
+            <div class="metric-card">
+              <div class="metric-label">{{ metric.label }}</div>
+              <div class="metric-value">{{ metric.value }}</div>
+              <div class="metric-sub">{{ metric.subtext }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="footer-note">
+            {{ stock.company_name }} is shown here as a sample profile. In the real version, this overview will be populated dynamically from live market data, reference data, and company master data.
+          </div>
+        </section>
+
+        <section class="section" id="technical">
+          <h2>Technical Snapshot</h2>
+          <div class="section-note">Use this section to combine your current TraderHub strength: price context, levels, studies, and live chart-driven decision support. The chart is a sample visual placeholder in phase 1.</div>
+          <div class="tech-grid">
+            <div class="chart-shell">
+              <div class="chart-head">
+                <div class="chart-title">{{ stock.symbol }} Technical Chart Sample</div>
+                <span class="tag tag-info">1D | Candles | VWAP + RSI later</span>
+              </div>
+              <div class="chart-box">
+                <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                  <polyline fill="none" stroke="#f8b84b" stroke-width="1.3" points="0,72 7,68 14,70 21,61 28,56 35,58 42,53 49,46 56,48 63,41 70,36 77,39 84,28 91,32 100,22"></polyline>
+                  <polyline fill="none" stroke="#7ad7a7" stroke-width="1.1" points="0,78 7,73 14,72 21,65 28,62 35,61 42,59 49,54 56,51 63,49 70,45 77,43 84,39 91,37 100,34"></polyline>
+                  <line x1="0" y1="40" x2="100" y2="40" stroke="#eb6b6b" stroke-width="0.7" stroke-dasharray="3 3"></line>
+                  <line x1="0" y1="58" x2="100" y2="58" stroke="#5db0ff" stroke-width="0.7" stroke-dasharray="3 3"></line>
+                  <line x1="0" y1="66" x2="100" y2="66" stroke="#9df1d4" stroke-width="0.7" stroke-dasharray="3 3"></line>
+                </svg>
+              </div>
+              <div class="chart-key">
+                <span><span class="key-dot" style="background:#f8b84b;"></span>Price path</span>
+                <span><span class="key-dot" style="background:#7ad7a7;"></span>VWAP guide</span>
+                <span><span class="key-dot" style="background:#eb6b6b;"></span>PDH</span>
+                <span><span class="key-dot" style="background:#5db0ff;"></span>Prev close</span>
+                <span><span class="key-dot" style="background:#9df1d4;"></span>Support band</span>
+              </div>
+            </div>
+
+            <div class="stats-stack">
+              {% for item in technical_metrics %}
+              <div class="metric-card">
+                <div class="metric-label">{{ item.label }}</div>
+                <div class="metric-value">{{ item.value }}</div>
+                <div class="metric-sub">{{ item.subtext }}</div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </section>
+
+        <section class="section">
+          <h2>Technical Studies</h2>
+          <div class="section-note">This is where phase-1 can already look rich without overbuilding: short summaries, indicator values, moving-average view, and support/resistance levels.</div>
+          <div class="insight-grid">
+            {% for card in study_cards %}
+            <div>
+              <div class="mini-label">{{ card.label }}</div>
+              <div class="metric-value" style="font-size:22px;">{{ card.value }}</div>
+              <div class="metric-sub">{{ card.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="ad-slot" style="margin-top:14px;">Inline Sponsor Slot<br>Space for Ads</div>
+        </section>
+
+        <section class="section" id="financials">
+          <h2>Financial Snapshot</h2>
+          <div class="section-note">For phase 1, this should be summary-first rather than every line item. Users want quick quality clues first, then deeper balance-sheet and P&amp;L detail later.</div>
+          <div class="financial-grid">
+            {% for row in financial_metrics %}
+            <div class="financial-row">
+              <div class="metric-label">{{ row.label }}</div>
+              <div class="metric-value" style="font-size:23px;">{{ row.value }}</div>
+              <div class="metric-sub">{{ row.subtext }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="section" id="peers">
+          <h2>Peer Group Comparison</h2>
+          <div class="section-note">This comparison section is one of the biggest practical wins. It helps users understand whether the stock is expensive, stronger, or weaker than close competitors without leaving the page.</div>
+          <div class="peer-table-wrap">
+            <table class="peer-table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Market Cap</th>
+                  <th>P/E</th>
+                  <th>ROE</th>
+                  <th>Debt/Equity</th>
+                  <th>1Y Return</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for peer in peers %}
+                <tr>
+                  <td>{{ peer.company }}</td>
+                  <td>{{ peer.market_cap }}</td>
+                  <td>{{ peer.pe }}</td>
+                  <td>{{ peer.roe }}</td>
+                  <td>{{ peer.de_ratio }}</td>
+                  <td>{{ peer.return_1y }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="section" id="ownership">
+          <h2>Holdings, FII/DII, Deals</h2>
+          <div class="section-note">This section combines ownership quality and market activity. It is inspired by India-focused stock pages, but presented in a cleaner layout.</div>
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Value</th>
+                <th>Latest Signal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in holdings_deals %}
+              <tr>
+                <td>{{ item.label }}</td>
+                <td>{{ item.value }}</td>
+                <td>{{ item.note }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </section>
+
+        <section class="section" id="news">
+          <h2>News & Events</h2>
+          <div class="section-note">This is where earnings, management commentary, block deals, and major business updates should live. For the sample, it shows the intended card structure.</div>
+          {% for story in news_items %}
+          <div class="story-card">
+            <div class="story-title">{{ story.title }}</div>
+            <div class="story-meta">{{ story.meta }}</div>
+            <div class="story-copy">{{ story.copy }}</div>
+          </div>
+          {% endfor %}
+        </section>
+      </div>
+
+      <aside class="section-aside">
+        <div class="quick-box">
+          <h3>Quick Stats</h3>
+          <div class="quick-list">
+            {% for item in quick_stats %}
+            <div class="quick-row">
+              <span class="muted">{{ item.label }}</span>
+              <strong>{{ item.value }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="ad-slot tall">Right Rail Sponsor Slot<br>Space for Ads</div>
+        <div class="quick-box">
+          <h3>Why This Page Works</h3>
+          <div class="side-text">
+            It blends the breadth expected from Indian stock portals with the cleaner section hierarchy used by research-first platforms. The idea is to make one company page feel useful for both traders and investors.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def get_stock_hub_sample_context():
+    stock = {
+        "symbol": "BHARTIARTL",
+        "company_name": "Bharti Airtel Limited",
+        "exchange": "NSE",
+        "series": "EQ",
+        "sector": "Telecom",
+        "industry": "Telecommunications Service",
+        "ltp": "1,768.40",
+        "change_rupees": "+18.15",
+        "change_pct": "+1.04%",
+        "market_cap": "₹10.6 L Cr",
+        "range_52w": "₹1,066 - ₹1,912",
+        "vwap": "1,754.80",
+        "prev_close": "1,750.25",
+    }
+    seo_title = "Bharti Airtel Share Price, Technicals, Financials, Peers & Deals | TraderHub Sample"
+    seo_description = (
+        "Explore a sample TraderHub stock intelligence page for Bharti Airtel with live-price style summary, "
+        "technical snapshot, financial metrics, peer comparison, holdings, deals, and ad-ready SEO-friendly layout."
+    )
+    schema_json = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": seo_title,
+            "description": seo_description,
+            "url": "https://bot.traderhub.in/stock-hub-sample",
+            "about": {
+                "@type": "Corporation",
+                "name": stock["company_name"],
+                "tickerSymbol": stock["symbol"],
+            },
+        },
+        indent=2,
+    )
+    return {
+        "seo_title": seo_title,
+        "seo_description": seo_description,
+        "canonical_url": "https://bot.traderhub.in/stock-hub-sample",
+        "schema_json": schema_json,
+        "today_date": get_today_ist().isoformat(),
+        "stock": stock,
+        "hero_badges": [
+            {"label": "Above VWAP", "kind": "tag-up"},
+            {"label": "Near 52W High", "kind": "tag-warn"},
+            {"label": "Telecom Leader", "kind": "tag-info"},
+            {"label": "Strong Delivery Trend", "kind": "tag-up"},
+        ],
+        "overview_metrics": [
+            {"label": "Open", "value": "1,742.00", "subtext": "Gap-up opening above previous close"},
+            {"label": "Day Range", "value": "1,738 - 1,772", "subtext": "Holding near upper range"},
+            {"label": "Volume", "value": "71.3 L", "subtext": "Above recent session average"},
+            {"label": "Previous Day High / Low", "value": "1,756 / 1,718", "subtext": "Trading above prior breakout line"},
+            {"label": "52W High / Low", "value": "1,912 / 1,066", "subtext": "Still within long-term leadership zone"},
+            {"label": "Avg Volume", "value": "54.8 L", "subtext": "Useful for volume-spike interpretation"},
+            {"label": "Business Summary", "value": "Pan-India telecom major", "subtext": "Wireless, broadband, enterprise, digital"},
+            {"label": "Event Calendar", "value": "Results in 12 days", "subtext": "Earnings and telecom tariff watch"},
+        ],
+        "technical_metrics": [
+            {"label": "Daily RSI", "value": "63.4", "subtext": "Positive momentum without extreme overbought pressure"},
+            {"label": "MA View", "value": "Bullish", "subtext": "Price above 20DMA, 50DMA and 200DMA"},
+            {"label": "Pivot Bias", "value": "R1 in focus", "subtext": "Bullish if support band holds intraday"},
+            {"label": "Support / Resistance", "value": "1,742 / 1,781", "subtext": "Key short-term decision zone"},
+        ],
+        "study_cards": [
+            {"label": "RSI (14)", "value": "63.4", "copy": "Momentum is constructive. Not overheated yet, but strong enough to support trend continuation."},
+            {"label": "MACD", "value": "Bullish Crossover", "copy": "The structure suggests improving medium-term momentum and stronger follow-through probability."},
+            {"label": "20 / 50 / 200 DMA", "value": "Above all 3", "copy": "This is the cleanest quick trend filter for investors and swing traders."},
+            {"label": "Intraday Structure", "value": "Above VWAP", "copy": "This aligns well with your current TraderHub intraday logic and trade-plan workflow."},
+            {"label": "PDH / PDL Context", "value": "PDH reclaimed", "copy": "A useful signal for continuation-style setups and market-watch routing."},
+            {"label": "Technical Summary", "value": "Constructive", "copy": "The phase-1 page should compress many indicators into one practical sentence, not force users to decode everything manually."},
+        ],
+        "financial_metrics": [
+            {"label": "Sales Growth", "value": "+10.8%", "subtext": "Recent annual revenue expansion remains healthy"},
+            {"label": "Profit Growth", "value": "+14.2%", "subtext": "Margin discipline supporting earnings"},
+            {"label": "ROE", "value": "17.6%", "subtext": "Comfortable profitability profile"},
+            {"label": "ROCE", "value": "15.9%", "subtext": "Useful for capital efficiency comparison"},
+            {"label": "Debt / Equity", "value": "1.62", "subtext": "Important to compare with telecom peer set"},
+            {"label": "Book Value", "value": "₹233.40", "subtext": "Balance sheet anchor"},
+            {"label": "EPS (TTM)", "value": "₹31.90", "subtext": "Core profitability metric"},
+            {"label": "Operating Margin", "value": "24.7%", "subtext": "Operational quality snapshot"},
+        ],
+        "peers": [
+            {"company": "Bharti Airtel", "market_cap": "₹10.6 L Cr", "pe": "55.4", "roe": "17.6%", "de_ratio": "1.62", "return_1y": "+41.8%"},
+            {"company": "Reliance Jio proxy", "market_cap": "N/A", "pe": "N/A", "roe": "N/A", "de_ratio": "N/A", "return_1y": "N/A"},
+            {"company": "Vodafone Idea", "market_cap": "₹89.7 K Cr", "pe": "Loss", "roe": "Negative", "de_ratio": "High", "return_1y": "-22.4%"},
+            {"company": "Tata Communications", "market_cap": "₹52.1 K Cr", "pe": "41.8", "roe": "18.1%", "de_ratio": "0.19", "return_1y": "+12.5%"},
+        ],
+        "holdings_deals": [
+            {"label": "Promoter Holding", "value": "53.1%", "note": "Stable promoter control profile"},
+            {"label": "FII Holding", "value": "21.8%", "note": "Useful when foreign ownership trends are available"},
+            {"label": "DII Holding", "value": "16.4%", "note": "Institutional domestic support remains relevant"},
+            {"label": "Block / Bulk Deal Watch", "value": "No major fresh alert in sample", "note": "This zone should surface the newest notable deal first"},
+            {"label": "Pledge", "value": "Nil / low sample", "note": "Important risk flag when real data is connected"},
+        ],
+        "news_items": [
+            {
+                "title": "Tariff and subscriber commentary remain central to sentiment",
+                "meta": "Sample event note | Telecom theme | Research-style summary",
+                "copy": "The real page should convert scattered headlines into a compact event summary. Traders care about immediate reaction; investors care about earnings impact and capital allocation."
+            },
+            {
+                "title": "Institutional flows and large deals deserve visible placement",
+                "meta": "Sample market-activity note | FII/DII | Deal flow",
+                "copy": "If block deals or institutional holding changes are available, they should be shown near the ownership section rather than buried under unrelated content."
+            },
+            {
+                "title": "Peer context can be a decisive user-retention feature",
+                "meta": "Sample product note | Peer comparison | Stickiness",
+                "copy": "One reason users stay on a stock page is that they can compare quality, valuation, and trend with the nearest alternatives without leaving the page."
+            },
+        ],
+        "quick_stats": [
+            {"label": "Exchange / Series", "value": "NSE / EQ"},
+            {"label": "Sector", "value": "Telecom"},
+            {"label": "Industry", "value": "Telecom Services"},
+            {"label": "VWAP Position", "value": "Above VWAP"},
+            {"label": "52W Context", "value": "Near upper zone"},
+            {"label": "Phase-1 Ad Mode", "value": "Placeholders only"},
+        ],
+    }
+
+
+@app.route("/stock-hub-sample")
+def stock_hub_sample():
+    return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **get_stock_hub_sample_context())
+
+
 @app.route("/api/equity-ohlc")
 def equity_ohlc_api():
     raw_symbols = request.args.get("symbols", ",".join(DEFAULT_SYMBOLS))
