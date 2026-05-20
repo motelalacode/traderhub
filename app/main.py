@@ -17011,6 +17011,157 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
 """
 
 
+SECTOR_PHASE1_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --bg:#eef1f4; --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.ad-slot,.table-wrap,.sector-card,.notice { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; } .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.sector-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .sector-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .summary-card,.sector-card,.notice { padding:14px; background:var(--panel); }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(215,203,180,0.72); font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; }
+    .notice { border-style:dashed; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.sector-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.table-wrap,.sector-card,.notice { border-radius:18px; } .hero-grid,.summary-grid,.sector-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          {% if page_mode == "hub" %}
+          <div class="sector-grid">{% for card in sector_cards %}<div class="sector-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.count }}</div><div class="copy">{{ card["copy"] }}</div><div style="margin-top:12px;"><a class="nav-chip" href="/sectors/{{ card.slug }}">Open Sector Page</a></div></div>{% endfor %}</div>
+          {% else %}
+          <div class="summary-grid">
+            <div class="summary-card"><div class="metric-label">Strongest</div><div class="metric-value" style="font-size:20px;">{{ strongest.symbol if strongest else '-' }}</div><div class="copy">{{ strongest.change_pct_display if strongest else 'Pending' }}</div></div>
+            <div class="summary-card"><div class="metric-label">Weakest</div><div class="metric-value" style="font-size:20px;">{{ weakest.symbol if weakest else '-' }}</div><div class="copy">{{ weakest.change_pct_display if weakest else 'Pending' }}</div></div>
+            <div class="summary-card"><div class="metric-label">Missing Rows</div><div class="metric-value">{{ missing_symbols|length }}</div><div class="copy">Symbols skipped because live row data was not available right now.</div></div>
+            <div class="summary-card"><div class="metric-label">Tracked Rows</div><div class="metric-value">{{ sector_rows|length }}</div><div class="copy">Rows currently available in the public sector table.</div></div>
+          </div>
+          {% endif %}
+        </section>
+        {% if page_mode == "detail" %}
+        <section class="section">
+          <h2>Key Stocks</h2>
+          <div class="section-note">The table stays compact and public-facing. It is designed to connect sector research with live stock pages without turning into an overbuilt terminal.</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Symbol</th><th>Company</th><th>LTP</th><th>Day Change</th><th>VWAP</th><th>VWAP Status</th><th>Status</th><th>52W Range</th></tr></thead>
+              <tbody>
+                {% for row in sector_rows %}
+                <tr>
+                  <td><a href="/stocks/{{ get_canonical_stock_slug(row.symbol) }}">{{ row.symbol }}</a></td>
+                  <td>{{ row.company_name }}</td>
+                  <td>{{ row.last_price }}</td>
+                  <td>{{ row.change_pct_display }}</td>
+                  <td>{{ row.vwap }}</td>
+                  <td>{{ row.vwap_status }}</td>
+                  <td>{{ row.status_label }}</td>
+                  <td>{{ row.week_low }} - {{ row.week_high }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+SECTOR_NOT_FOUND_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sector Page Not Found | TraderHub</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef1f4; color: #1f2b38; }
+    .shell { max-width: 760px; margin: 60px auto; background: #fff; border: 1px solid #c9d3dd; border-radius: 22px; padding: 28px; box-shadow: 0 12px 32px rgba(23,33,43,0.08); }
+    h1 { margin: 0 0 10px; font-size: 34px; font-family: Georgia, "Times New Roman", serif; }
+    p { color: #627385; line-height: 1.65; }
+    a { color: #176f62; font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Sector Page Not Found</h1>
+    <p>The requested sector slug was not available in the current TraderHub public sector map.</p>
+    <p><a href="/sectors">Open Sector Hub</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
 def build_market_news_context(host_root, mode):
     feed = load_market_news_phase1_feed()
     block = feed["pre_market"] if mode == "pre_market" else feed["post_market"]
@@ -17048,6 +17199,175 @@ def build_market_news_context(host_root, mode):
         "side_box_title": block["side_box_title"],
         "side_box_copy": block["side_box_copy"],
         "why_page_works": block["why_page_works"],
+    }
+
+
+def slugify_sector_key(text):
+    return slugify_stock_text(text).replace("_", "-")
+
+
+def get_public_sector_maps():
+    slug_to_sector = {}
+    sector_to_slug = {}
+    for sector_key in sorted(SECTOR_GROUPS.keys()):
+        slug = slugify_sector_key(sector_key)
+        slug_to_sector[slug] = sector_key
+        sector_to_slug[sector_key] = slug
+    return {"slug_to_sector": slug_to_sector, "sector_to_slug": sector_to_slug}
+
+
+def get_public_sector_slug(sector_key):
+    return get_public_sector_maps()["sector_to_slug"].get(sector_key, slugify_sector_key(sector_key))
+
+
+def resolve_public_sector_slug(sector_slug):
+    cleaned = "-".join(part for part in str(sector_slug or "").strip().lower().split("-") if part)
+    return get_public_sector_maps()["slug_to_sector"].get(cleaned)
+
+
+def get_public_sector_members(sector_key):
+    return list(dict.fromkeys(SECTOR_GROUPS.get(sector_key, [])))
+
+
+def get_public_sector_rows(symbols, selected_date):
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return [], symbols[:], "Kite API key or access token is missing in .env."
+
+    client = build_kite_client(with_access_token=True)
+    instrument_map = get_nse_instrument_map()
+    master = load_symbol_master()
+    quote_data = fetch_quote_map(client, [f"NSE:{symbol}" for symbol in symbols])
+    rows = []
+    missing = []
+
+    intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
+    daily_from = datetime.datetime.combine(selected_date - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
+    daily_to = datetime.datetime.combine(selected_date, datetime.time(23, 59), tzinfo=APP_TZ)
+    intraday_from = datetime.datetime.combine(selected_date, datetime.time(9, 15), tzinfo=APP_TZ)
+    intraday_to = datetime.datetime.combine(selected_date, intraday_end, tzinfo=APP_TZ)
+
+    for symbol in symbols:
+        instrument = instrument_map.get(symbol)
+        quote = quote_data.get(f"NSE:{symbol}")
+        security_name = (master.get("by_symbol", {}).get(symbol) or {}).get("security") or symbol
+        if not instrument or not quote:
+            missing.append(symbol)
+            continue
+        try:
+            daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+            intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+            row = build_manual_watchlist_row(symbol, {"note_text": "", "alert_rule": "none"}, quote, daily_candles, intraday_candles, security_name)
+            row["company_name"] = prettify_company_name(security_name, symbol)
+            rows.append(row)
+        except Exception:
+            missing.append(symbol)
+
+    return rows, missing, None
+
+
+def build_public_sector_story(sector_label, rows):
+    if not rows:
+        return f"{sector_label} is staged for public research here, but live stock rows are waiting on market data."
+    avg_change = sum(row["change_pct_numeric"] for row in rows) / len(rows)
+    above_pdh = sum(1 for row in rows if row["status_label"] == "Above PDH")
+    below_pdl = sum(1 for row in rows if row["status_label"] == "Below PDL")
+    if avg_change > 0 and above_pdh > below_pdl:
+        return f"{sector_label} is leaning constructive today with positive average change and more breakout-style names than breakdown candidates."
+    if avg_change < 0 and below_pdl > above_pdh:
+        return f"{sector_label} is under pressure today, with weaker breadth and more names slipping below important previous-day levels."
+    return f"{sector_label} is mixed right now. Stock selection matters more than broad sector chasing until a clearer leader/laggard pattern appears."
+
+
+def build_sectors_hub_context(host_root):
+    today_iso = get_today_ist().isoformat()
+    sector_cards = []
+    for sector_key in sorted(SECTOR_GROUPS.keys()):
+        symbols = get_public_sector_members(sector_key)
+        sector_cards.append(
+            {
+                "label": sector_key.replace("_", " ").title(),
+                "slug": get_public_sector_slug(sector_key),
+                "count": len(symbols),
+                "copy": f"Public sector page for {sector_key.replace('_', ' ')} with stock links, market context, and room for future news and research layers.",
+            }
+        )
+    canonical_url = f"{host_root.rstrip('/')}/sectors"
+    return {
+        "page_mode": "hub",
+        "seo_title": "Sector Pages, Leaders, Laggards & Research | TraderHub",
+        "seo_description": "Browse public sector pages with key stocks, sector summaries, and market context in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Sector Pages | TraderHub", "description": "Public sector page hub for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Sectors › Public Sector Hub",
+        "breadcrumb_meta_text": f"Phase 1 sector module | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Pages",
+        "hero_title": "Sector Overview",
+        "hero_subtitle": "Public sector pages help connect stock pages, market news, peer group thinking, and future sponsor-friendly research in one organized layer.",
+        "hero_metric_primary": str(len(sector_cards)),
+        "hero_metric_secondary": "tracked sectors in phase 1",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "SEO Ready", "kind": "tag-up"}, {"label": "Stock-Linked", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Sector Pages", "value": len(sector_cards)},
+            {"label": "Theme", "value": "Current Site"},
+            {"label": "Use Case", "value": "Public SEO"},
+            {"label": "Next Layer", "value": "Sector News"},
+        ],
+        "nav_chips": [{"label": "Sector Hub", "href": "/sectors"}, {"label": "Market Watch", "href": "/market-watch"}, {"label": "Pre-Market News", "href": "/market/pre-market-news"}],
+        "section_title": "Tracked Sectors",
+        "section_note": "Phase 1 keeps the sector module focused: public entry pages, stock links, and market context first. Breadth, deep research, and sector news streams can come next without changing the page framework.",
+        "sector_cards": sector_cards,
+        "side_box_title": "Phase 1 Rule",
+        "side_box_copy": "A public sector page should help users discover the right stocks quickly and understand the sector tone before it becomes a full analytics surface.",
+        "why_page_works": "Sector pages improve internal linking, support SEO clustering, and create natural bridges between market news, stock pages, and future sponsor placements.",
+    }
+
+
+def build_sector_detail_context(sector_key, host_root):
+    today = get_today_ist()
+    today_iso = today.isoformat()
+    sector_label = sector_key.replace("_", " ").title()
+    symbols = get_public_sector_members(sector_key)
+    sector_rows, missing, error = get_public_sector_rows(symbols, today)
+    sorted_rows = sorted(sector_rows, key=lambda row: row["change_pct_numeric"], reverse=True)
+    strongest = sorted_rows[0] if sorted_rows else None
+    weakest = sorted(sorted_rows, key=lambda row: row["change_pct_numeric"])[0] if sorted_rows else None
+    avg_change = sum(row["change_pct_numeric"] for row in sorted_rows) / len(sorted_rows) if sorted_rows else 0.0
+    above_pdh = sum(1 for row in sorted_rows if row["status_label"] == "Above PDH")
+    below_pdl = sum(1 for row in sorted_rows if row["status_label"] == "Below PDL")
+    above_vwap = sum(1 for row in sorted_rows if row["vwap_status"] == "Above VWAP")
+    canonical_url = f"{host_root.rstrip('/')}/sectors/{get_public_sector_slug(sector_key)}"
+    return {
+        "page_mode": "detail",
+        "seo_title": f"{sector_label} Stocks, Leaders, Laggards & Sector View | TraderHub",
+        "seo_description": f"Track {sector_label.lower()} stocks, leaders, laggards, VWAP context, PDH/PDL status, and public sector summary in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{sector_label} Sector Page | TraderHub", "description": f"Public sector page for {sector_label}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"Sectors › {sector_label}",
+        "breadcrumb_meta_text": f"Phase 1 sector page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Research",
+        "hero_title": sector_label,
+        "hero_subtitle": build_public_sector_story(sector_label, sorted_rows),
+        "hero_metric_primary": f"{avg_change:+.2f}%",
+        "hero_metric_secondary": "average day move across tracked names" if sorted_rows else "live sector rows pending",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": f"{len(symbols)} tracked stocks", "kind": "tag-up"}, {"label": "Live Context When Available", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Tracked Stocks", "value": len(symbols)},
+            {"label": "Above PDH", "value": above_pdh},
+            {"label": "Below PDL", "value": below_pdl},
+            {"label": "Above VWAP", "value": above_vwap},
+        ],
+        "nav_chips": [{"label": "Sector Hub", "href": "/sectors"}, {"label": "Stocks", "href": "/stocks/itc"}, {"label": "Pre-Market News", "href": "/market/pre-market-news"}],
+        "section_title": "Sector Stock Table",
+        "section_note": "This table uses the same market-language logic as the rest of TraderHub: current price, day move, VWAP state, and previous-day level context. It is a public sector lens, not a cluttered scanner clone.",
+        "sector_rows": sorted_rows,
+        "strongest": strongest,
+        "weakest": weakest,
+        "market_error": error,
+        "missing_symbols": missing,
+        "side_box_title": "Sector Story",
+        "side_box_copy": build_public_sector_story(sector_label, sorted_rows),
+        "why_page_works": "It gives a user one public page to understand the sector tone, the leading stocks, and the weak names without forcing them to bounce between multiple tools.",
     }
 
 
@@ -17109,6 +17429,21 @@ def market_pre_market_news():
 def market_post_market_wrap():
     context = build_market_news_context(request.url_root.rstrip("/"), "post_market")
     return render_template_string(MARKET_NEWS_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/sectors")
+def sectors_hub():
+    context = build_sectors_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/sectors/<sector_slug>")
+def sector_detail(sector_slug):
+    sector_key = resolve_public_sector_slug(sector_slug)
+    if not sector_key:
+        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
+    context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
+    return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/api/equity-ohlc")
