@@ -22,6 +22,7 @@ ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
 ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
 ARBITRAGE_LIVE_STATE_PATH = DATA_DIR / "arbitrage_live_state.json"
 MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
+STOCK_ISIN_CACHE_PATH = DATA_DIR / "stock_isin_map.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -9825,6 +9826,76 @@ def get_upstox_fundamentals_bundle(isin):
     }
 
 
+def load_stock_isin_cache():
+    if not STOCK_ISIN_CACHE_PATH.exists():
+        return {}
+    try:
+        return json.loads(STOCK_ISIN_CACHE_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_stock_isin_cache(cache_map):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    STOCK_ISIN_CACHE_PATH.write_text(json.dumps(cache_map, indent=2, sort_keys=True), encoding="utf-8")
+
+
+def resolve_stock_isin(symbol, security_name=""):
+    symbol = str(symbol or "").strip().upper()
+    if not symbol:
+        return ""
+
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    master_isin = str(master_row.get("isin") or "").strip().upper()
+    if master_isin:
+        return master_isin
+
+    cache_map = load_stock_isin_cache()
+    cached_isin = str(cache_map.get(symbol) or "").strip().upper()
+    if cached_isin:
+        return cached_isin
+
+    try:
+        search_payload = upstox_api_get(
+            "/instruments/search",
+            params={
+                "query": symbol,
+                "exchanges": "NSE",
+                "segments": "EQ",
+                "page_number": 1,
+                "records": 10,
+            },
+        )
+    except Exception:
+        return ""
+
+    security_name = str(security_name or master_row.get("security") or "").strip().upper().rstrip(".")
+    for item in (search_payload or {}).get("data") or []:
+        trading_symbol = str(item.get("trading_symbol") or "").strip().upper()
+        exchange = str(item.get("exchange") or "").strip().upper()
+        item_isin = str(item.get("isin") or "").strip().upper()
+        item_name = str(item.get("name") or "").strip().upper().rstrip(".")
+        item_segment = str(item.get("segment") or "").strip().upper()
+        if exchange == "NSE" and item_segment == "NSE_EQ" and trading_symbol == symbol and item_isin:
+            if not security_name or item_name == security_name or security_name in item_name or item_name in security_name:
+                cache_map[symbol] = item_isin
+                save_stock_isin_cache(cache_map)
+                return item_isin
+
+    for item in (search_payload or {}).get("data") or []:
+        trading_symbol = str(item.get("trading_symbol") or "").strip().upper()
+        exchange = str(item.get("exchange") or "").strip().upper()
+        item_isin = str(item.get("isin") or "").strip().upper()
+        item_segment = str(item.get("segment") or "").strip().upper()
+        if exchange == "NSE" and item_segment == "NSE_EQ" and trading_symbol == symbol and item_isin:
+            cache_map[symbol] = item_isin
+            save_stock_isin_cache(cache_map)
+            return item_isin
+
+    return ""
+
+
 @lru_cache(maxsize=1)
 def get_nse_instrument_map():
     client = build_kite_client(with_access_token=True)
@@ -12216,7 +12287,7 @@ def upstox_fundamentals_test(symbol):
     master_row = master.get("by_symbol", {}).get(resolved_symbol) or {}
     instrument_map = get_nse_instrument_map()
     instrument = instrument_map.get(resolved_symbol) or {}
-    isin = str(master_row.get("isin") or instrument.get("isin") or "").strip()
+    isin = resolve_stock_isin(resolved_symbol, (master_row.get("security") or resolved_symbol))
 
     payload = {
         "symbol": resolved_symbol,
@@ -15671,7 +15742,7 @@ def build_stock_page_context(symbol, host_root):
         "vwap": "-",
         "prev_close": "-",
     }
-    stock_isin = master_row.get("isin") or ""
+    stock_isin = resolve_stock_isin(symbol, security_name)
     overview_metrics = []
     technical_metrics = []
     study_cards = []
@@ -15802,7 +15873,7 @@ def build_stock_page_context(symbol, host_root):
         creds = get_active_kite_credentials()
         instrument_map = get_nse_instrument_map()
         instrument = instrument_map.get(symbol)
-        stock_isin = stock_isin or str((instrument or {}).get("isin") or "").strip()
+        stock_isin = stock_isin or resolve_stock_isin(symbol, security_name)
         if not creds["api_key"] or not creds["access_token"] or not instrument:
             raise ValueError("Broker market data is not available right now, so this stock page is showing phase-1 placeholders where live or daily values cannot yet be recovered.")
 

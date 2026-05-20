@@ -55,6 +55,7 @@ def load_symbol_master():
                 "series": series,
                 "symbol": symbol,
                 "security": security,
+                "isin": str(row.get("ISIN") or "").strip().upper(),
             }
             by_symbol[symbol] = master_row
             by_normalized_symbol[normalize_lookup_value(symbol)] = symbol
