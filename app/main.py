@@ -3,6 +3,7 @@ import json
 import math
 import csv
 import io
+import re
 import urllib.parse
 from functools import lru_cache
 from pathlib import Path
@@ -23,6 +24,7 @@ ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
 ARBITRAGE_LIVE_STATE_PATH = DATA_DIR / "arbitrage_live_state.json"
 MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
 STOCK_ISIN_CACHE_PATH = DATA_DIR / "stock_isin_map.json"
+IPO_PHASE1_FEED_PATH = DATA_DIR / "ipo_phase1_feed.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -15829,6 +15831,173 @@ def build_placeholder_news_items(symbol, sector_label):
     ]
 
 
+def slugify_ipo_text(text):
+    text = str(text or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    return text.strip("-")
+
+
+def get_default_ipo_phase1_feed():
+    return [
+        {
+            "name": "Northstar Cables IPO",
+            "slug": "northstar-cables-ipo",
+            "status": "Open",
+            "segment": "Mainboard",
+            "open_date": "2026-05-20",
+            "close_date": "2026-05-22",
+            "allotment_date": "2026-05-23",
+            "refund_date": "2026-05-25",
+            "listing_date": "2026-05-27",
+            "price_band": "Rs 134 - Rs 141",
+            "lot_size": "106 shares",
+            "min_investment": "Rs 14,946",
+            "issue_size": "Rs 482 Cr",
+            "registrar": "KFin Technologies",
+            "lead_managers": ["Axis Capital", "IIFL Capital"],
+            "about": "Northstar Cables is a placeholder editorial issue used to stage the public IPO module. Replace this seeded data with your live IPO feed when the source is finalized.",
+            "strengths": [
+                "Clear use-of-proceeds section ready for editorial analysis.",
+                "Demand-tracking layout is built for subscription and listing coverage later.",
+                "Works well as a public SEO landing page even before live subscription data is connected.",
+            ],
+            "risks": [
+                "Seeded editorial data should be replaced with real issue information before public rollout.",
+                "No live subscription or GMP source is connected in phase 1.",
+            ],
+            "cta_label": "Open Demat Account",
+            "cta_note": "Reserved for broker lead-generation once the public IPO funnel is finalized.",
+            "editorial_note": "Phase 1 seeded IPO record for staging. Use this structure to replace or add real issues.",
+        },
+        {
+            "name": "Verde Hospitals IPO",
+            "slug": "verde-hospitals-ipo",
+            "status": "Upcoming",
+            "segment": "Mainboard",
+            "open_date": "2026-05-28",
+            "close_date": "2026-05-30",
+            "allotment_date": "2026-06-02",
+            "refund_date": "2026-06-03",
+            "listing_date": "2026-06-05",
+            "price_band": "Rs 92 - Rs 97",
+            "lot_size": "154 shares",
+            "min_investment": "Rs 14,938",
+            "issue_size": "Rs 318 Cr",
+            "registrar": "Link Intime",
+            "lead_managers": ["Nuvama Wealth", "SBI Capital Markets"],
+            "about": "Verde Hospitals is a sample upcoming issue that lets TraderHub show IPO timelines, review structure, and future subscription widgets in the approved public theme.",
+            "strengths": [
+                "Upcoming issue timeline is ideal for email alert and lead-generation CTAs later.",
+                "Healthcare-sector IPOs can pair well with public research and stock pages.",
+            ],
+            "risks": [
+                "Current phase does not yet include registrar allotment utilities or live subscription data.",
+                "Seed issue content should be replaced with live editorial feed before main-domain launch.",
+            ],
+            "cta_label": "Get IPO Alert",
+            "cta_note": "Reserved for IPO alert signup once the notification flow is finalized.",
+            "editorial_note": "Phase 1 seeded upcoming IPO record for structure testing.",
+        },
+        {
+            "name": "Orbit Finserve IPO",
+            "slug": "orbit-finserve-ipo",
+            "status": "Listing Soon",
+            "segment": "SME",
+            "open_date": "2026-05-14",
+            "close_date": "2026-05-16",
+            "allotment_date": "2026-05-19",
+            "refund_date": "2026-05-20",
+            "listing_date": "2026-05-23",
+            "price_band": "Rs 48 - Rs 50",
+            "lot_size": "3000 shares",
+            "min_investment": "Rs 150,000",
+            "issue_size": "Rs 72 Cr",
+            "registrar": "Bigshare Services",
+            "lead_managers": ["Fast Track Finsec"],
+            "about": "Orbit Finserve is a sample SME issue used to validate public listing-soon coverage, listing-date pages, and issue-type labels inside the IPO module.",
+            "strengths": [
+                "Shows the difference between Mainboard and SME issue presentation in phase 1.",
+                "Useful for validating IPO timeline UX and later listing-performance expansion.",
+            ],
+            "risks": [
+                "Subscription, allotment basis, and grey market modules are still planned for later phases.",
+            ],
+            "cta_label": "Track Listing",
+            "cta_note": "Reserved for listing-alert and broker CTA placement in later phases.",
+            "editorial_note": "Phase 1 seeded listing-soon IPO record for public module testing.",
+        },
+    ]
+
+
+def load_ipo_phase1_feed():
+    if IPO_PHASE1_FEED_PATH.exists():
+        try:
+            payload = json.loads(IPO_PHASE1_FEED_PATH.read_text(encoding="utf-8"))
+            if isinstance(payload, list) and payload:
+                return payload
+        except Exception:
+            pass
+    return get_default_ipo_phase1_feed()
+
+
+def parse_ipo_iso_date(value):
+    try:
+        return datetime.date.fromisoformat(str(value or ""))
+    except Exception:
+        return None
+
+
+def build_ipo_phase1_records():
+    today = get_today_ist()
+    records = []
+    for raw in load_ipo_phase1_feed():
+        record = dict(raw)
+        record["slug"] = record.get("slug") or slugify_ipo_text(record.get("name"))
+        open_date = parse_ipo_iso_date(record.get("open_date"))
+        close_date = parse_ipo_iso_date(record.get("close_date"))
+        listing_date = parse_ipo_iso_date(record.get("listing_date"))
+        status = str(record.get("status") or "").strip()
+        if not status:
+            if open_date and close_date and open_date <= today <= close_date:
+                status = "Open"
+            elif open_date and today < open_date:
+                status = "Upcoming"
+            elif listing_date and today < listing_date:
+                status = "Listing Soon"
+            else:
+                status = "Closed"
+        record["status"] = status
+        record["open_date_label"] = open_date.strftime("%d %b %Y") if open_date else "Pending"
+        record["close_date_label"] = close_date.strftime("%d %b %Y") if close_date else "Pending"
+        listing_dt = parse_ipo_iso_date(record.get("listing_date"))
+        record["listing_date_label"] = listing_dt.strftime("%d %b %Y") if listing_dt else "Pending"
+        allotment_dt = parse_ipo_iso_date(record.get("allotment_date"))
+        record["allotment_date_label"] = allotment_dt.strftime("%d %b %Y") if allotment_dt else "Pending"
+        refund_dt = parse_ipo_iso_date(record.get("refund_date"))
+        record["refund_date_label"] = refund_dt.strftime("%d %b %Y") if refund_dt else "Pending"
+        record["status_badge"] = (
+            "tag-up" if status == "Open"
+            else "tag-info" if status in {"Upcoming", "Listing Soon"}
+            else "tag-warn"
+        )
+        record["summary_line"] = f"{record.get('segment', 'IPO')} | {record['open_date_label']} to {record['close_date_label']}"
+        records.append(record)
+    return records
+
+
+def get_ipo_phase1_index():
+    records = build_ipo_phase1_records()
+    by_slug = {record["slug"]: record for record in records}
+    current_records = [record for record in records if record["status"] in {"Open", "Listing Soon"}]
+    upcoming_records = [record for record in records if record["status"] == "Upcoming"]
+    return {
+        "all": records,
+        "by_slug": by_slug,
+        "current": current_records,
+        "upcoming": upcoming_records,
+    }
+
+
 def build_stock_page_context(symbol, host_root):
     master = load_symbol_master()
     master_row = master.get("by_symbol", {}).get(symbol) or {}
@@ -16238,6 +16407,437 @@ STOCK_HUB_NOT_FOUND_TEMPLATE = """
 """
 
 
+IPO_PHASE1_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --bg: #eef1f4; --paper: #fff; --panel: #f9fbfd; --line: #c9d3dd; --ink: #1f2b38;
+      --muted: #627385; --accent: #176f62; --up-soft: #daf0e4; --up: #116d47;
+      --down-soft: #f9dcdc; --down: #99353a; --warn-soft: #f6ebc5; --warn: #9a6c00;
+      --info-soft: #dbe8fb; --info: #245fa7; --number-font: Arial, Helvetica, sans-serif;
+      --shadow: 0 12px 32px rgba(23,33,43,0.08);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Georgia, "Times New Roman", serif; color: var(--ink); background: radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width: 1380px; margin: 0 auto; padding: 18px 14px 36px; }
+    .microbar { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+    .hero, .section, .ad-slot, .side-card, .list-shell { background: var(--paper); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); }
+    .hero { padding: 20px 22px; background: linear-gradient(145deg, #21465c, #2b7d72 72%, #4e9a8a 100%); color: #fff; position: relative; overflow: hidden; }
+    .hero::after { content: ""; position: absolute; right: -40px; bottom: -36px; width: 210px; height: 210px; border-radius: 50%; background: rgba(255,255,255,0.10); }
+    .hero-kicker { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; opacity: 0.86; margin-bottom: 10px; position: relative; z-index: 1; }
+    .hero-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; position: relative; z-index: 1; }
+    h1 { margin: 0; font-size: 42px; line-height: 0.95; }
+    .hero-sub { margin-top: 10px; font-size: 18px; color: rgba(255,255,255,0.84); }
+    .hero-price { text-align: right; min-width: 220px; }
+    .hero-ltp { font-size: 34px; font-weight: 700; font-family: var(--number-font); font-style: italic; font-variant-numeric: tabular-nums; line-height: 0.95; }
+    .hero-tags { position: relative; z-index: 1; margin-top: 18px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .tag { display: inline-flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 999px; font-size: 12px; font-weight: 700; letter-spacing: 0.03em; }
+    .tag-up { background: var(--up-soft); color: var(--up); } .tag-down { background: var(--down-soft); color: var(--down); } .tag-warn { background: var(--warn-soft); color: var(--warn); } .tag-info { background: var(--info-soft); color: var(--info); }
+    .hero-grid { position: relative; z-index: 1; margin-top: 18px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+    .hero-box { padding: 12px; border-radius: 16px; background: rgba(255,255,255,0.10); border: 1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.74); margin-bottom: 4px; }
+    .hero-value { font-size: 20px; font-weight: 700; font-family: var(--number-font); font-style: italic; font-variant-numeric: tabular-nums; }
+    .section-nav { margin-top: 16px; display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+    .nav-chip { text-decoration: none; background: var(--paper); border: 1px solid var(--line); border-radius: 999px; padding: 10px 14px; white-space: nowrap; font-size: 13px; font-weight: 700; color: #0e554b; }
+    .layout { margin-top: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 290px; gap: 16px; align-items: start; }
+    .main-stack, .side-stack { display: grid; gap: 16px; }
+    .section { padding: 18px 18px 16px; }
+    .section h2 { margin: 0 0 6px; font-size: 28px; }
+    .section-note, .copy, .muted, .story-copy { font-family: Arial, Helvetica, sans-serif; color: var(--muted); font-size: 14px; line-height: 1.55; }
+    .summary-grid, .timeline-grid, .insight-grid, .cta-grid { display: grid; gap: 12px; }
+    .summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .timeline-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .insight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .summary-card, .timeline-card, .insight-card, .list-card { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); padding: 13px 14px; }
+    .metric-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+    .metric-value { font-size: 24px; font-weight: 700; font-family: var(--number-font); font-style: italic; font-variant-numeric: tabular-nums; }
+    .ad-slot { border-style: dashed; box-shadow: none; background: repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); font-size: 14px; font-weight: 700; min-height: 88px; padding: 14px; }
+    .ad-slot.tall { min-height: 220px; }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-family: Arial, Helvetica, sans-serif; font-size: 14px; }
+    th { text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); padding: 9px 8px; white-space: nowrap; }
+    td { padding: 11px 8px; border-bottom: 1px solid rgba(215,203,180,0.72); font-family: var(--number-font); font-variant-numeric: tabular-nums; }
+    tr:last-child td { border-bottom: none; }
+    .side-card { padding: 16px; }
+    .side-title { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 8px; font-weight: 700; }
+    .story-card { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: var(--panel); }
+    .story-card + .story-card { margin-top: 10px; }
+    .story-title { font-family: Arial, Helvetica, sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .story-meta { color: var(--muted); font-size: 12px; margin-bottom: 7px; font-family: Arial, Helvetica, sans-serif; }
+    .empty-state { padding: 22px; border: 1px dashed var(--line); border-radius: 18px; background: rgba(255,255,255,0.82); }
+    @media (max-width: 1160px) { .layout { grid-template-columns: 1fr; } }
+    @media (max-width: 880px) { .hero-head { flex-direction: column; } .hero-price { text-align: left; min-width: 0; } .hero-grid, .summary-grid, .timeline-grid, .insight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } h1 { font-size: 34px; } }
+    @media (max-width: 620px) { .page { padding: 12px 10px 28px; } .hero, .section, .side-card { border-radius: 18px; } .hero-grid, .summary-grid, .timeline-grid, .insight-grid { grid-template-columns: 1fr; } h1 { font-size: 29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>{{ breadcrumb_text }}</div>
+      <div>{{ breadcrumb_meta_text }}</div>
+    </div>
+
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <div class="hero-sub">{{ hero_subtitle }}</div>
+        </div>
+        <div class="hero-price">
+          <div class="hero-ltp">{{ hero_metric_primary }}</div>
+          <div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div>
+        </div>
+      </div>
+      <div class="hero-tags">
+        {% for badge in hero_badges %}
+        <span class="tag {{ badge.kind }}">{{ badge.label }}</span>
+        {% endfor %}
+      </div>
+      <div class="hero-grid">
+        {% for stat in hero_stats %}
+        <div class="hero-box">
+          <div class="hero-label">{{ stat.label }}</div>
+          <div class="hero-value">{{ stat.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="section-nav">
+      {% for chip in nav_chips %}
+      <a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="layout">
+      <div class="main-stack">
+        {% if page_mode == "hub" %}
+        <section class="section">
+          <h2>IPO Dashboard</h2>
+          <div class="section-note">Phase 1 keeps the IPO module public, SEO-friendly, and clean. This dashboard is built for traffic, clarity, and future lead-generation without adding clutter too early.</div>
+          <div class="summary-grid">
+            {% for card in summary_cards %}
+            <div class="summary-card">
+              <div class="metric-label">{{ card.label }}</div>
+              <div class="metric-value">{{ card.value }}</div>
+              <div class="copy">{{ card.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section">
+          <h2>Current & Listing Soon</h2>
+          <div class="section-note">These cards represent open or near-listing issues in the phase-1 feed. Replace staged editorial data with your live IPO feed when the source is ready.</div>
+          {% if current_records %}
+          <div class="insight-grid">
+            {% for item in current_records %}
+            <div class="insight-card">
+              <div class="metric-label">{{ item.segment }} | {{ item.status }}</div>
+              <div class="metric-value" style="font-size:22px;">{{ item.name }}</div>
+              <div class="copy">{{ item.summary_line }}</div>
+              <div class="hero-tags" style="margin-top:10px;">
+                <span class="tag {{ item.status_badge }}">{{ item.status }}</span>
+                <span class="tag tag-info">{{ item.price_band }}</span>
+                <span class="tag tag-warn">{{ item.lot_size }}</span>
+              </div>
+              <div style="margin-top:12px;"><a class="nav-chip" href="/ipo/{{ item.slug }}">Open IPO Page</a></div>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-state"><div class="copy">No current IPOs are staged in this environment yet.</div></div>
+          {% endif %}
+        </section>
+        <section class="section">
+          <h2>Upcoming IPOs</h2>
+          <div class="section-note">Upcoming issue pages are useful for SEO, reminders, and lead capture even before subscription windows open.</div>
+          {% if upcoming_records %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>IPO</th><th>Open</th><th>Close</th><th>Price Band</th><th>Lot Size</th><th>Status</th></tr></thead>
+              <tbody>
+                {% for item in upcoming_records %}
+                <tr>
+                  <td><a href="/ipo/{{ item.slug }}">{{ item.name }}</a></td>
+                  <td>{{ item.open_date_label }}</td>
+                  <td>{{ item.close_date_label }}</td>
+                  <td>{{ item.price_band }}</td>
+                  <td>{{ item.lot_size }}</td>
+                  <td>{{ item.status }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state"><div class="copy">No upcoming IPOs are staged in this environment yet.</div></div>
+          {% endif %}
+        </section>
+        {% elif page_mode == "list" %}
+        <section class="section">
+          <h2>{{ list_title }}</h2>
+          <div class="section-note">{{ list_note }}</div>
+          {% if list_records %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>IPO</th><th>Segment</th><th>Open</th><th>Close</th><th>Listing</th><th>Price Band</th><th>Min Investment</th><th>Status</th></tr></thead>
+              <tbody>
+                {% for item in list_records %}
+                <tr>
+                  <td><a href="/ipo/{{ item.slug }}">{{ item.name }}</a></td>
+                  <td>{{ item.segment }}</td>
+                  <td>{{ item.open_date_label }}</td>
+                  <td>{{ item.close_date_label }}</td>
+                  <td>{{ item.listing_date_label }}</td>
+                  <td>{{ item.price_band }}</td>
+                  <td>{{ item.min_investment }}</td>
+                  <td>{{ item.status }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="empty-state"><div class="copy">{{ empty_message }}</div></div>
+          {% endif %}
+        </section>
+        {% else %}
+        <section class="section">
+          <h2>IPO Overview</h2>
+          <div class="section-note">This phase-1 IPO page is designed for public research and traffic. It keeps the structure clean today while leaving space for subscription, allotment, and listing engines in later phases.</div>
+          <div class="summary-grid">
+            {% for card in overview_cards %}
+            <div class="summary-card">
+              <div class="metric-label">{{ card.label }}</div>
+              <div class="metric-value">{{ card.value }}</div>
+              <div class="copy">{{ card.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section" id="timeline">
+          <h2>Important Dates</h2>
+          <div class="section-note">A strong IPO timeline is one of the most practical parts of the page because it gives users the full issue journey without making them leave the site.</div>
+          <div class="timeline-grid">
+            {% for item in timeline_cards %}
+            <div class="timeline-card">
+              <div class="metric-label">{{ item.label }}</div>
+              <div class="metric-value" style="font-size:20px;">{{ item.value }}</div>
+              <div class="copy">{{ item.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section" id="review">
+          <h2>Strengths & Risks</h2>
+          <div class="section-note">Phase 1 uses editorial blocks here. Once the live IPO review workflow is finalized, this section can evolve into a richer issue-analysis page without changing the layout.</div>
+          <div class="insight-grid">
+            <div class="list-card">
+              <div class="metric-label">Strengths</div>
+              <ul class="copy">{% for point in strengths %}<li>{{ point }}</li>{% endfor %}</ul>
+            </div>
+            <div class="list-card">
+              <div class="metric-label">Risks</div>
+              <ul class="copy">{% for point in risks %}<li>{{ point }}</li>{% endfor %}</ul>
+            </div>
+          </div>
+        </section>
+        <section class="section" id="company">
+          <h2>Company Snapshot</h2>
+          <div class="section-note">The IPO page should still help a user understand the business quickly, even before deeper financial and subscription layers are connected.</div>
+          <div class="story-card">
+            <div class="story-title">{{ hero_title }}</div>
+            <div class="story-meta">{{ issue.segment }} | {{ issue.status }}</div>
+            <div class="story-copy">{{ issue.about }}</div>
+          </div>
+          <div class="footer-note">{{ issue.editorial_note }}</div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card">
+          <div class="side-title">{{ side_box_title }}</div>
+          <div class="copy">{{ side_box_copy }}</div>
+        </div>
+        <div class="side-card">
+          <div class="side-title">Why This Works</div>
+          <div class="copy">{{ why_page_works }}</div>
+        </div>
+        <div class="ad-slot">Inline Sponsor Slot<br>Space for Ads</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def build_ipo_hub_context(host_root):
+    index = get_ipo_phase1_index()
+    canonical_url = f"{host_root.rstrip('/')}/ipo"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "hub",
+        "seo_title": "IPO Dashboard, Current IPOs, Upcoming IPOs & Research | TraderHub",
+        "seo_description": "Track current IPOs, upcoming IPOs, listing-soon issues, timelines, and phase-1 public IPO research pages in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "IPO Dashboard | TraderHub", "description": "Public IPO dashboard for current and upcoming issues.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "IPO › Public Dashboard",
+        "breadcrumb_meta_text": f"Phase 1 IPO module | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub IPO Module",
+        "hero_title": "IPO Dashboard",
+        "hero_subtitle": "A public, SEO-friendly IPO hub built for traffic, research, and future lead-generation without cluttering the page too early.",
+        "hero_metric_primary": str(len(index["all"])),
+        "hero_metric_secondary": "staged IPO records in this environment",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "SEO Ready", "kind": "tag-up"}, {"label": "Sponsor Slots Reserved", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Current / Listing Soon", "value": len(index["current"])},
+            {"label": "Upcoming", "value": len(index["upcoming"])},
+            {"label": "Issue Pages", "value": len(index["all"])},
+            {"label": "Theme", "value": "Current Site"},
+            {"label": "Feed Mode", "value": "Phase 1"},
+        ],
+        "nav_chips": [{"label": "IPO Hub", "href": "/ipo"}, {"label": "Current IPOs", "href": "/ipo/current"}, {"label": "Upcoming IPOs", "href": "/ipo/upcoming"}],
+        "summary_cards": [
+            {"label": "Current / Listing Soon", "value": len(index["current"]), "copy": "Open and near-listing issues deserve their own public landing space because search intent is highest around live timelines."},
+            {"label": "Upcoming", "value": len(index["upcoming"]), "copy": "Upcoming IPO pages help capture early search demand and support alert-signup or broker lead funnels later."},
+            {"label": "Design Direction", "value": "Public First", "copy": "This module is built for traffic, research, and future monetization, not as a broker utility page."},
+            {"label": "Ad Policy", "value": "Reserved Slots", "copy": "Sponsor spaces are built in now so the page can monetize later without a structural redesign."},
+        ],
+        "current_records": index["current"],
+        "upcoming_records": index["upcoming"],
+        "side_box_title": "Phase 1 Rule",
+        "side_box_copy": "Keep the IPO module clean, readable, and SEO-friendly. Subscription engines, allotment utilities, and deeper calculators can come later without changing the public page framework.",
+        "why_page_works": "It mirrors strong IPO content patterns from high-traffic public sites while keeping the TraderHub design much cleaner and more mobile-friendly.",
+    }
+
+
+def build_ipo_list_context(host_root, list_mode):
+    index = get_ipo_phase1_index()
+    records = index["current"] if list_mode == "current" else index["upcoming"]
+    list_title = "Current & Listing Soon IPOs" if list_mode == "current" else "Upcoming IPOs"
+    canonical_url = f"{host_root.rstrip('/')}/ipo/{list_mode}"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "list",
+        "seo_title": f"{list_title} | TraderHub IPO",
+        "seo_description": f"Browse {list_title.lower()} with key dates, price bands, lot sizes, and public IPO page links in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": f"{list_title} | TraderHub", "description": f"Public IPO list page for {list_title.lower()}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"IPO › {list_title}",
+        "breadcrumb_meta_text": f"Phase 1 IPO list | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub IPO List",
+        "hero_title": list_title,
+        "hero_subtitle": "Clean issue lists are useful for both search intent and user habit. This phase keeps the lists simple while the richer activity layers are still being built.",
+        "hero_metric_primary": str(len(records)),
+        "hero_metric_secondary": "records in this list",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": list_title, "kind": "tag-up" if list_mode == "current" else 'tag-warn'}],
+        "hero_stats": [
+            {"label": "List Type", "value": list_title},
+            {"label": "Records", "value": len(records)},
+            {"label": "Theme", "value": "Current Site"},
+            {"label": "Use Case", "value": "Public SEO"},
+            {"label": "Status", "value": "Phase 1"},
+        ],
+        "nav_chips": [{"label": "IPO Hub", "href": "/ipo"}, {"label": "Current IPOs", "href": "/ipo/current"}, {"label": "Upcoming IPOs", "href": "/ipo/upcoming"}],
+        "list_title": list_title,
+        "list_note": "This list is intentionally clean and compact in phase 1. It gives users the key issue data first and leaves deeper subscription/allotment engines for later phases.",
+        "list_records": records,
+        "empty_message": f"No records are currently staged for {list_title.lower()} in this environment.",
+        "side_box_title": "Traffic Use",
+        "side_box_copy": "List pages are useful because they rank for broad IPO-intent queries and naturally feed users into single-IPO detail pages and future lead-generation flows.",
+        "why_page_works": "It captures list-intent traffic cleanly without overwhelming the user with too many widgets before the IPO data engine is fully connected.",
+    }
+
+
+def build_ipo_detail_context(issue, host_root):
+    canonical_url = f"{host_root.rstrip('/')}/ipo/{issue['slug']}"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "detail",
+        "issue": issue,
+        "seo_title": f"{issue['name']} Date, Price Band, Lot Size & Review | TraderHub IPO",
+        "seo_description": f"Track {issue['name']} with open date, close date, price band, lot size, listing timeline, strengths, risks, and public IPO research structure in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{issue['name']} | TraderHub IPO", "description": f"Public IPO detail page for {issue['name']}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"IPO › {issue['segment']} › {issue['name']}",
+        "breadcrumb_meta_text": f"Phase 1 IPO page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub IPO Research",
+        "hero_title": issue["name"],
+        "hero_subtitle": issue["about"],
+        "hero_metric_primary": issue["price_band"],
+        "hero_metric_secondary": f"{issue['status']} | {issue['segment']}",
+        "hero_badges": [{"label": issue["status"], "kind": issue["status_badge"]}, {"label": issue["segment"], "kind": "tag-info"}, {"label": "Phase 1 Research Page", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Lot Size", "value": issue["lot_size"]},
+            {"label": "Min Investment", "value": issue["min_investment"]},
+            {"label": "Issue Size", "value": issue["issue_size"]},
+            {"label": "Open", "value": issue["open_date_label"]},
+            {"label": "Close", "value": issue["close_date_label"]},
+        ],
+        "nav_chips": [{"label": "IPO Hub", "href": "/ipo"}, {"label": "Current IPOs", "href": "/ipo/current"}, {"label": "Upcoming IPOs", "href": "/ipo/upcoming"}, {"label": "Timeline", "href": "#timeline"}, {"label": "Review", "href": "#review"}, {"label": "Company", "href": "#company"}],
+        "overview_cards": [
+            {"label": "Price Band", "value": issue["price_band"], "copy": "A public IPO page should make the price band obvious immediately because it anchors both valuation discussion and retail application planning."},
+            {"label": "Lot Size", "value": issue["lot_size"], "copy": "Lot size and minimum investment are practical fields users expect to see instantly on an IPO page."},
+            {"label": "Issue Size", "value": issue["issue_size"], "copy": "Issue size helps users quickly understand whether the offering is likely to draw broad attention or remain niche."},
+            {"label": "Registrar", "value": issue["registrar"], "copy": "Registrar information matters later for allotment checks, basis-of-allotment pages, and support workflows."},
+        ],
+        "timeline_cards": [
+            {"label": "Open Date", "value": issue["open_date_label"], "copy": "Issue opens for bids."},
+            {"label": "Close Date", "value": issue["close_date_label"], "copy": "Issue closes for bids."},
+            {"label": "Allotment", "value": issue["allotment_date_label"], "copy": "Expected basis/allotment window."},
+            {"label": "Refunds", "value": issue["refund_date_label"], "copy": "Expected refund initiation window."},
+            {"label": "Listing", "value": issue["listing_date_label"], "copy": "Expected exchange debut."},
+        ],
+        "strengths": issue["strengths"],
+        "risks": issue["risks"],
+        "side_box_title": "CTA Placeholder",
+        "side_box_copy": f"{issue['cta_label']} is reserved as a future lead-generation block. Right now the page keeps the space and wording ready without forcing early monetization.",
+        "why_page_works": "It behaves like a strong public IPO landing page already: key dates, issue economics, strengths, risks, and sponsor-ready structure, all without the clutter of a mature ad-heavy portal.",
+    }
+
+
+IPO_NOT_FOUND_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IPO Page Not Found | TraderHub</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef1f4; color: #1f2b38; }
+    .shell { max-width: 760px; margin: 60px auto; background: #fff; border: 1px solid #c9d3dd; border-radius: 22px; padding: 28px; box-shadow: 0 12px 32px rgba(23,33,43,0.08); }
+    h1 { margin: 0 0 10px; font-size: 34px; font-family: Georgia, "Times New Roman", serif; }
+    p { color: #627385; line-height: 1.65; }
+    a { color: #176f62; font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>IPO Page Not Found</h1>
+    <p>The requested IPO slug was not available in the current phase-1 IPO feed for this environment.</p>
+    <p><a href="/ipo">Open IPO Dashboard</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/<stock_slug>")
 def stock_hub_public(stock_slug):
     symbol = resolve_stock_symbol_from_slug(stock_slug)
@@ -16256,6 +16856,34 @@ def stock_hub_public(stock_slug):
 @app.route("/stock-hub-sample")
 def stock_hub_sample():
     return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **get_stock_hub_sample_context())
+
+
+@app.route("/ipo")
+def ipo_hub():
+    context = build_ipo_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(IPO_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/ipo/current")
+def ipo_current():
+    context = build_ipo_list_context(request.url_root.rstrip("/"), "current")
+    return render_template_string(IPO_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/ipo/upcoming")
+def ipo_upcoming():
+    context = build_ipo_list_context(request.url_root.rstrip("/"), "upcoming")
+    return render_template_string(IPO_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/ipo/<ipo_slug>")
+def ipo_detail(ipo_slug):
+    index = get_ipo_phase1_index()
+    issue = index["by_slug"].get(str(ipo_slug or "").strip().lower())
+    if not issue:
+        return render_template_string(IPO_NOT_FOUND_TEMPLATE), 404
+    context = build_ipo_detail_context(issue, request.url_root.rstrip("/"))
+    return render_template_string(IPO_PHASE1_TEMPLATE, **context)
 
 
 @app.route("/api/equity-ohlc")
