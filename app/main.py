@@ -8997,6 +8997,8 @@ def build_manual_watchlist_row(symbol, stock_entry, quote, daily_candles, intrad
         "day_range_percent": day_range_percent,
         "week_high": format_price(week_high),
         "week_low": format_price(week_low),
+        "week_high_numeric": round(week_high, 2),
+        "week_low_numeric": round(week_low, 2),
         "alert_rule": alert_rule,
         "alert_label": get_manual_watchlist_alert_label(alert_rule),
         "alert_badge": get_manual_watchlist_alert_badge(alert_rule),
@@ -14948,7 +14950,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
             <div>
               <div class="mini-label">{{ card.label }}</div>
               <div class="metric-value" style="font-size:22px;">{{ card.value }}</div>
-              <div class="metric-sub">{{ card.copy }}</div>
+              <div class="metric-sub">{{ card["copy"] }}</div>
             </div>
             {% endfor %}
           </div>
@@ -15032,7 +15034,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
           <div class="story-card">
             <div class="story-title">{{ story.title }}</div>
             <div class="story-meta">{{ story.meta }}</div>
-            <div class="story-copy">{{ story.copy }}</div>
+            <div class="story-copy">{{ story["copy"] }}</div>
           </div>
           {% endfor %}
         </section>
