@@ -12208,6 +12208,48 @@ def upstox_test():
         ), 502
 
 
+@app.route("/upstox/fundamentals-test/<symbol>")
+def upstox_fundamentals_test(symbol):
+    resolved_symbol = resolve_symbol_list([symbol])
+    resolved_symbol = resolved_symbol[0] if resolved_symbol else str(symbol or "").strip().upper()
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(resolved_symbol) or {}
+    instrument_map = get_nse_instrument_map()
+    instrument = instrument_map.get(resolved_symbol) or {}
+    isin = str(master_row.get("isin") or instrument.get("isin") or "").strip()
+
+    payload = {
+        "symbol": resolved_symbol,
+        "master_security": master_row.get("security"),
+        "instrument_found": bool(instrument),
+        "isin": isin,
+        "upstox_connected": bool(get_active_upstox_credentials().get("access_token")),
+    }
+
+    if not isin:
+        payload["status"] = "missing_isin"
+        payload["message"] = "No ISIN was available from the stock master or NSE instrument map."
+        return jsonify(payload), 404
+
+    try:
+        fundamentals_bundle = get_upstox_fundamentals_bundle(isin)
+        payload["status"] = "ok"
+        payload["profile"] = fundamentals_bundle.get("profile")
+        payload["key_ratios"] = fundamentals_bundle.get("key_ratios")
+        payload["income_statement"] = fundamentals_bundle.get("income_statement")
+        payload["share_holdings"] = fundamentals_bundle.get("share_holdings")
+        return jsonify(payload)
+    except requests.RequestException as exc:
+        response_text = exc.response.text if exc.response is not None else str(exc)
+        payload["status"] = "request_error"
+        payload["details"] = response_text
+        return jsonify(payload), 502
+    except Exception as exc:
+        payload["status"] = "error"
+        payload["details"] = str(exc)
+        return jsonify(payload), 500
+
+
 @app.route("/ltp")
 def ltp():
     if not is_market_open():
