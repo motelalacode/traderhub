@@ -9790,6 +9790,41 @@ def upstox_api_get(path, params=None, access_token=None):
     return response.json()
 
 
+def parse_numeric_text(value):
+    text = str(value or "").strip()
+    if not text:
+        return None
+    cleaned = text.replace(",", "").replace("%", "").replace("Rs.", "").replace("INR", "").strip()
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def find_upstox_history_entry(history_rows):
+    history_rows = history_rows or []
+    for entry in history_rows:
+        if entry.get("value") not in (None, ""):
+            return entry
+    return history_rows[0] if history_rows else None
+
+
+def get_upstox_fundamentals_bundle(isin):
+    profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
+    key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
+    income_payload = upstox_api_get(
+        f"/fundamentals/{isin}/income-statement",
+        params={"type": "consolidated", "time_period": "yearly"},
+    )
+    holdings_payload = upstox_api_get(f"/fundamentals/{isin}/share-holdings")
+    return {
+        "profile": (profile_payload or {}).get("data") or {},
+        "key_ratios": (key_ratios_payload or {}).get("data") or [],
+        "income_statement": ((income_payload or {}).get("data") or {}).get("income_statement") or [],
+        "share_holdings": (holdings_payload or {}).get("data") or [],
+    }
+
+
 @lru_cache(maxsize=1)
 def get_nse_instrument_map():
     client = build_kite_client(with_access_token=True)
@@ -15594,6 +15629,7 @@ def build_stock_page_context(symbol, host_root):
         "vwap": "-",
         "prev_close": "-",
     }
+    stock_isin = master_row.get("isin") or ""
     overview_metrics = []
     technical_metrics = []
     study_cards = []
@@ -15724,6 +15760,7 @@ def build_stock_page_context(symbol, host_root):
         creds = get_active_kite_credentials()
         instrument_map = get_nse_instrument_map()
         instrument = instrument_map.get(symbol)
+        stock_isin = stock_isin or str((instrument or {}).get("isin") or "").strip()
         if not creds["api_key"] or not creds["access_token"] or not instrument:
             raise ValueError("Broker market data is not available right now, so this stock page is showing phase-1 placeholders where live or daily values cannot yet be recovered.")
 
@@ -15855,6 +15892,108 @@ def build_stock_page_context(symbol, host_root):
             {"label": "52W Context", "value": range_52w_context},
             {"label": "Peer Set", "value": f"{max(len(peers) - 1, 0)} mapped peers"},
         ]
+
+        if stock_isin:
+            try:
+                fundamentals_bundle = get_upstox_fundamentals_bundle(stock_isin)
+                profile_data = fundamentals_bundle.get("profile") or {}
+                ratio_rows = fundamentals_bundle.get("key_ratios") or []
+                income_rows = fundamentals_bundle.get("income_statement") or []
+                holdings_rows = fundamentals_bundle.get("share_holdings") or []
+
+                ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
+                income_map = {str(row.get("category") or "").strip().lower(): row for row in income_rows}
+                holdings_map = {str(row.get("category") or "").strip().lower(): row for row in holdings_rows}
+
+                revenue_entry = find_upstox_history_entry((income_map.get("revenue") or {}).get("history"))
+                operating_profit_entry = find_upstox_history_entry((income_map.get("operating_profit") or {}).get("history"))
+                net_profit_entry = find_upstox_history_entry((income_map.get("net_profit") or {}).get("history"))
+
+                revenue_latest = parse_numeric_text((revenue_entry or {}).get("value"))
+                operating_profit_latest = parse_numeric_text((operating_profit_entry or {}).get("value"))
+                operating_margin_value = None
+                if revenue_latest and operating_profit_latest is not None and revenue_latest != 0:
+                    operating_margin_value = (operating_profit_latest / revenue_latest) * 100
+
+                roe_value = (ratio_map.get("ROE") or {}).get("company_value")
+                roce_value = (ratio_map.get("ROCE") or {}).get("company_value")
+                pb_numeric = parse_numeric_text((ratio_map.get("P/B") or {}).get("company_value"))
+                pe_numeric = parse_numeric_text((ratio_map.get("P/E") or {}).get("company_value"))
+
+                book_value = None
+                if pb_numeric and pb_numeric > 0 and live_row["last_price_numeric"] > 0:
+                    book_value = live_row["last_price_numeric"] / pb_numeric
+
+                eps_value = None
+                if pe_numeric and pe_numeric > 0 and live_row["last_price_numeric"] > 0:
+                    eps_value = live_row["last_price_numeric"] / pe_numeric
+
+                financial_metrics = [
+                    {
+                        "label": "Sales Growth",
+                        "value": (revenue_entry or {}).get("change") or "Source Pending",
+                        "subtext": f"Latest yearly revenue move: {(revenue_entry or {}).get('period') or 'Period pending'}.",
+                    },
+                    {
+                        "label": "Profit Growth",
+                        "value": (net_profit_entry or {}).get("change") or "Source Pending",
+                        "subtext": f"Latest yearly net profit move: {(net_profit_entry or {}).get('period') or 'Period pending'}.",
+                    },
+                    {
+                        "label": "ROE",
+                        "value": roe_value or "Source Pending",
+                        "subtext": f"Sector benchmark: {(ratio_map.get('ROE') or {}).get('sector_value') or 'Pending'}.",
+                    },
+                    {
+                        "label": "ROCE",
+                        "value": roce_value or "Source Pending",
+                        "subtext": f"Sector benchmark: {(ratio_map.get('ROCE') or {}).get('sector_value') or 'Pending'}.",
+                    },
+                    {
+                        "label": "Debt / Equity",
+                        "value": "Source Pending",
+                        "subtext": "Debt / equity needs a deeper balance-sheet line-item mapping and is reserved for the next refinement pass.",
+                    },
+                    {
+                        "label": "Book Value",
+                        "value": format_price(book_value) if book_value is not None else "Source Pending",
+                        "subtext": "Approximate per-share book value derived from current price and P/B when available.",
+                    },
+                    {
+                        "label": "EPS (TTM)",
+                        "value": format_price(eps_value) if eps_value is not None else "Source Pending",
+                        "subtext": "Approximate EPS derived from current price and P/E when available.",
+                    },
+                    {
+                        "label": "Operating Margin",
+                        "value": f"{operating_margin_value:.2f}%" if operating_margin_value is not None else "Source Pending",
+                        "subtext": "Computed from latest operating profit and revenue history when available.",
+                    },
+                ]
+
+                def latest_holding_value(category_names):
+                    for category_name in category_names:
+                        entry = find_upstox_history_entry((holdings_map.get(category_name) or {}).get("history"))
+                        if entry and entry.get("value") is not None:
+                            return f"{entry.get('value')}%", entry.get("period") or "Latest quarter"
+                    return "Source Pending", "Quarterly holding source pending."
+
+                promoter_value, promoter_period = latest_holding_value(["promoters", "promoter"])
+                fii_value, fii_period = latest_holding_value(["fii", "foreign_institutional_investors"])
+                dii_value, dii_period = latest_holding_value(["dii", "other_dii", "domestic_institutional_investors"])
+
+                holdings_deals = [
+                    {"label": "Promoter Holding", "value": promoter_value, "note": promoter_period},
+                    {"label": "FII Holding", "value": fii_value, "note": fii_period},
+                    {"label": "DII Holding", "value": dii_value, "note": dii_period},
+                    {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Deals feed is still reserved for the next source integration."},
+                    {"label": "Pledge", "value": "Source Pending", "note": "Pledge data still needs a separate ownership/deal source."},
+                ]
+
+                if profile_data.get("sector"):
+                    quick_stats[3] = {"label": "Sector", "value": profile_data.get("sector")}
+            except Exception:
+                pass
     except Exception as exc:
         page_alert = str(exc)
         overview_metrics = [
