@@ -9928,11 +9928,13 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     promoter_value, promoter_period = latest_holding_value(["promoters", "promoter"])
     fii_value, fii_period = latest_holding_value(["fii", "foreign_institutional_investors"])
     dii_value, dii_period = latest_holding_value(["dii", "other_dii", "domestic_institutional_investors"])
+    mutual_fund_value, mutual_fund_period = latest_holding_value(["mutual_funds", "mutual fund"])
 
     holdings_deals = [
         {"label": "Promoter Holding", "value": promoter_value, "note": promoter_period},
         {"label": "FII Holding", "value": fii_value, "note": fii_period},
         {"label": "DII Holding", "value": dii_value, "note": dii_period},
+        {"label": "Mutual Fund Holding", "value": mutual_fund_value, "note": mutual_fund_period},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Deals feed is still reserved for the next source integration."},
         {"label": "Pledge", "value": "Source Pending", "note": "Pledge data still needs a separate ownership/deal source."},
     ]
@@ -16203,7 +16205,7 @@ def build_stock_page_context(symbol, host_root):
         "studies_section_note": studies_section_note,
         "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
         "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
-        "holdings_section_note": "Ownership, FII/DII, pledge, and deal tracking are structurally ready here and are intentionally marked pending until the next source integration.",
+        "holdings_section_note": "This block now mixes real ownership snapshot data with clearly marked pending fields. Holdings available from the current source are shown directly, while deals, pledge, and deeper ownership layers remain reserved for the next integration pass.",
         "news_section_note": "This section is ready for events, earnings notes, and company-specific updates. Phase 1 keeps the structure visible even before the final feed is connected.",
         "why_page_works_title": "Why This Page Works",
         "why_page_works_text": "It gives one company page both trading relevance and future SEO depth: live price context today, expandable research blocks tomorrow.",
