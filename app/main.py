@@ -25,6 +25,7 @@ ARBITRAGE_LIVE_STATE_PATH = DATA_DIR / "arbitrage_live_state.json"
 MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
 STOCK_ISIN_CACHE_PATH = DATA_DIR / "stock_isin_map.json"
 IPO_PHASE1_FEED_PATH = DATA_DIR / "ipo_phase1_feed.json"
+MARKET_NEWS_PHASE1_FEED_PATH = DATA_DIR / "market_news_phase1_feed.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -15940,6 +15941,74 @@ def load_ipo_phase1_feed():
     return get_default_ipo_phase1_feed()
 
 
+def get_default_market_news_phase1_feed():
+    return {
+        "pre_market": {
+            "hero_title": "Pre-Market News",
+            "hero_subtitle": "A public market-prep page built for traffic and trader habit. It surfaces the stories most likely to matter before the opening bell, without turning into a noisy article wall.",
+            "hero_metric_primary": "08:15 AM",
+            "hero_metric_secondary": "ideal reading window before cash-market open",
+            "summary_cards": [
+                {"label": "Stocks In News", "value": 6, "copy": "Use this block for result reactions, order wins, management commentary, and regulatory developments that can shape the open."},
+                {"label": "Sector Watch", "value": 4, "copy": "A phase-1 pre-market page should group macro cues into tradeable sector buckets instead of only listing headlines."},
+                {"label": "Gap Watch", "value": 3, "copy": "Users care about probable gap-up and gap-down candidates before the bell because it helps them build their opening watchlist."},
+                {"label": "Global Cues", "value": 3, "copy": "Pre-market context is stronger when global risk appetite and overnight cues are surfaced in one clean digest."},
+            ],
+            "lead_stories": [
+                {"title": "Banks stay in focus after strong treasury commentary", "meta": "Pre-market | Financials", "copy": "Watch private banks and large PSU banks if bond-yield easing and treasury commentary continue to support risk appetite at the open."},
+                {"title": "FMCG names on watch after commodity-input cooling", "meta": "Pre-market | FMCG", "copy": "Input-cost softness can keep margin-discussion names active. A clean page should translate this into the few symbols most likely to matter at the open."},
+                {"title": "Auto pack may react to mixed monthly volume expectations", "meta": "Pre-market | Auto", "copy": "Use the pre-market board to separate broad news from names with actual setup potential instead of flooding users with every sector headline."},
+            ],
+            "watch_sections": [
+                {"title": "Stocks In News", "items": ["HDFC Bank - treasury commentary focus", "ITC - FMCG margin watch", "Tata Motors - auto-volume expectation", "ONGC - crude sensitivity", "Infosys - overnight tech cues"]},
+                {"title": "Sector Watch", "items": ["Banks", "FMCG", "Auto", "Oil & Gas"]},
+                {"title": "Likely Gap Stories", "items": ["Private banks if yields stay soft", "Oil marketing names on crude swing", "Defensive FMCG if broad market opens weak"]},
+                {"title": "Today's Prep", "items": ["Review market breadth at open", "Track sector leaders first 15 minutes", "Avoid chasing thin-gap names without volume"]},
+            ],
+            "side_box_title": "Phase 1 Rule",
+            "side_box_copy": "Keep pre-market news curated and market-moving. The page should help users build a watchlist, not overwhelm them with every available headline.",
+            "why_page_works": "Pre-market pages create repeat daily traffic and can later support sponsor placement, broker leads, and newsletter signup without changing the public structure.",
+        },
+        "post_market": {
+            "hero_title": "Post-Market Wrap",
+            "hero_subtitle": "A public end-of-day market wrap focused on what actually mattered: leading sectors, major stock moves, earnings reaction, and tomorrow's watchlist cues.",
+            "hero_metric_primary": "03:45 PM",
+            "hero_metric_secondary": "best reading window after cash-market close",
+            "summary_cards": [
+                {"label": "Top Market Stories", "value": 5, "copy": "The post-market page should compress the day into a handful of stories users can act on tomorrow."},
+                {"label": "Sector Moves", "value": 4, "copy": "Strong and weak sectors deserve visible treatment because they guide the next day's scan and stock selection process."},
+                {"label": "Tomorrow Watchlist", "value": 5, "copy": "The wrap works best when it ends with a practical watchlist instead of a passive recap."},
+                {"label": "Earnings Movers", "value": 3, "copy": "Earnings and management commentary often drive the highest next-day follow-through, so they need their own place in the wrap."},
+            ],
+            "lead_stories": [
+                {"title": "Financials support the index into the close", "meta": "Post-market | Financials", "copy": "Banks and large lenders held the tape firm into the close, which keeps the sector on the radar for follow-through setups tomorrow."},
+                {"title": "FMCG remains defensive but stock selection mattered", "meta": "Post-market | FMCG", "copy": "The day rewarded selective defensive positioning rather than broad sector chasing, which is exactly the kind of nuance a clean wrap should surface."},
+                {"title": "Energy names stayed mixed despite crude sensitivity", "meta": "Post-market | Oil & Gas", "copy": "The wrap should highlight whether a headline theme actually translated into leadership or simply created noise across the sector."},
+            ],
+            "watch_sections": [
+                {"title": "Best Sectors", "items": ["Financials", "FMCG", "Select Industrials"]},
+                {"title": "Weak Spots", "items": ["Metals", "High-beta auto pockets", "Mid-cap laggards"]},
+                {"title": "Tomorrow Watchlist", "items": ["HDFCBANK", "ITC", "SBIN", "ONGC", "INFY"]},
+                {"title": "What To Review", "items": ["Sector breadth carryover", "Earnings reaction follow-through", "Gap setups vs closing strength"]},
+            ],
+            "side_box_title": "Wrap Goal",
+            "side_box_copy": "The post-market page should help a user understand the day quickly and walk away with a better next-day watchlist.",
+            "why_page_works": "Post-market recap pages create repeat traffic and naturally support stock pages, sector pages, and future sponsor slots or alert signups.",
+        },
+    }
+
+
+def load_market_news_phase1_feed():
+    if MARKET_NEWS_PHASE1_FEED_PATH.exists():
+        try:
+            payload = json.loads(MARKET_NEWS_PHASE1_FEED_PATH.read_text(encoding="utf-8"))
+            if isinstance(payload, dict) and payload:
+                return payload
+        except Exception:
+            pass
+    return get_default_market_news_phase1_feed()
+
+
 def parse_ipo_iso_date(value):
     try:
         return datetime.date.fromisoformat(str(value or ""))
@@ -16838,6 +16907,150 @@ IPO_NOT_FOUND_TEMPLATE = """
 """
 
 
+MARKET_NEWS_PHASE1_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --bg:#eef1f4; --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.ad-slot,.story-card { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; }
+    .tag-up { background:var(--up-soft); color:var(--up); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy,.story-copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.watch-grid,.story-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .watch-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .story-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .summary-card,.watch-card { border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:13px 14px; }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .story-card { padding:14px; background:var(--panel); } .story-title { font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; } .story-meta { color:var(--muted); font-size:12px; margin-bottom:7px; font-family:Arial,Helvetica,sans-serif; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; } .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .watch-card ul { margin:0; padding-left:18px; } .watch-card li { font-family:Arial,Helvetica,sans-serif; color:#334253; font-size:14px; line-height:1.6; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.watch-grid,.story-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.story-card { border-radius:18px; } .hero-grid,.summary-grid,.watch-grid,.story-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>{{ breadcrumb_text }}</div>
+      <div>{{ breadcrumb_meta_text }}</div>
+    </div>
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card.copy }}</div></div>{% endfor %}</div>
+        </section>
+        <section class="section">
+          <h2>Lead Stories</h2>
+          <div class="section-note">This phase-1 page keeps lead stories short and market-relevant. The goal is to help users understand what matters, not trap them in long article pages immediately.</div>
+          <div class="story-grid">{% for story in lead_stories %}<div class="story-card"><div class="story-title">{{ story.title }}</div><div class="story-meta">{{ story.meta }}</div><div class="story-copy">{{ story.copy }}</div></div>{% endfor %}</div>
+        </section>
+        <section class="section">
+          <h2>Watch Sections</h2>
+          <div class="section-note">This is where the page becomes practical. Each block turns broad news into a more usable list for traders and investors.</div>
+          <div class="watch-grid">{% for block in watch_sections %}<div class="watch-card"><div class="metric-label">{{ block.title }}</div><ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+        </section>
+        <section class="section">
+          <h2>Public Module Note</h2>
+          <div class="section-note">Phase 1 is intentionally clean and editorial. Later phases can add live movers, stock-linked news cards, sector streams, archive pages, and sponsor-led newsletter funnels without changing the public layout.</div>
+          <div class="ad-slot">Inline Sponsor Slot<br>Space for Ads</div>
+        </section>
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def build_market_news_context(host_root, mode):
+    feed = load_market_news_phase1_feed()
+    block = feed["pre_market"] if mode == "pre_market" else feed["post_market"]
+    route_path = "/market/pre-market-news" if mode == "pre_market" else "/market/post-market-wrap"
+    title_label = "Pre-Market News" if mode == "pre_market" else "Post-Market Wrap"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "seo_title": f"{title_label} | TraderHub Market News",
+        "seo_description": f"Read {title_label.lower()} with curated lead stories, watch sections, and market-moving context in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}{route_path}",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{title_label} | TraderHub", "description": f"Public market news page for {title_label.lower()}.", "url": f"{host_root.rstrip('/')}{route_path}"}, indent=2),
+        "breadcrumb_text": f"Market News › {title_label}",
+        "breadcrumb_meta_text": f"Phase 1 public market news | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Market News",
+        "hero_title": block["hero_title"],
+        "hero_subtitle": block["hero_subtitle"],
+        "hero_metric_primary": block["hero_metric_primary"],
+        "hero_metric_secondary": block["hero_metric_secondary"],
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "SEO Ready", "kind": "tag-up"}, {"label": title_label, "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Lead Stories", "value": len(block["lead_stories"])},
+            {"label": "Watch Blocks", "value": len(block["watch_sections"])},
+            {"label": "Theme", "value": "Current Site"},
+            {"label": "Mode", "value": title_label},
+        ],
+        "nav_chips": [
+            {"label": "Pre-Market", "href": "/market/pre-market-news"},
+            {"label": "Post-Market", "href": "/market/post-market-wrap"},
+        ],
+        "section_title": title_label,
+        "section_note": "This page is built for repeat traffic and market habit. It should help a user get oriented quickly without making them work through a noisy stream of generic headlines.",
+        "summary_cards": block["summary_cards"],
+        "lead_stories": block["lead_stories"],
+        "watch_sections": block["watch_sections"],
+        "side_box_title": block["side_box_title"],
+        "side_box_copy": block["side_box_copy"],
+        "why_page_works": block["why_page_works"],
+    }
+
+
 @app.route("/stocks/<stock_slug>")
 def stock_hub_public(stock_slug):
     symbol = resolve_stock_symbol_from_slug(stock_slug)
@@ -16884,6 +17097,18 @@ def ipo_detail(ipo_slug):
         return render_template_string(IPO_NOT_FOUND_TEMPLATE), 404
     context = build_ipo_detail_context(issue, request.url_root.rstrip("/"))
     return render_template_string(IPO_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/market/pre-market-news")
+def market_pre_market_news():
+    context = build_market_news_context(request.url_root.rstrip("/"), "pre_market")
+    return render_template_string(MARKET_NEWS_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/market/post-market-wrap")
+def market_post_market_wrap():
+    context = build_market_news_context(request.url_root.rstrip("/"), "post_market")
+    return render_template_string(MARKET_NEWS_PHASE1_TEMPLATE, **context)
 
 
 @app.route("/api/equity-ohlc")
