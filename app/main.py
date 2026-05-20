@@ -3,10 +3,12 @@ import json
 import math
 import csv
 import io
+import urllib.parse
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import requests
 from flask import Flask, Response, jsonify, redirect, render_template_string, request
 from kiteconnect import KiteConnect
 
@@ -150,6 +152,7 @@ SECTOR_HEATMAP_GROUPS = {
 DEFAULT_START = "09:15"
 DEFAULT_END = "09:30"
 CURRENT_ACCESS_TOKEN = None
+CURRENT_UPSTOX_ACCESS_TOKEN = None
 
 PAGE_TEMPLATE = """
 <!doctype html>
@@ -9702,6 +9705,91 @@ def build_kite_client(with_access_token=True):
     return client
 
 
+def get_active_upstox_credentials():
+    runtime = get_runtime_config()
+    access_token = CURRENT_UPSTOX_ACCESS_TOKEN or runtime["UPSTOX_ACCESS_TOKEN"]
+    return {
+        "client_id": runtime["UPSTOX_CLIENT_ID"],
+        "client_secret": runtime["UPSTOX_CLIENT_SECRET"],
+        "redirect_uri": runtime["UPSTOX_REDIRECT_URI"],
+        "access_token": access_token,
+        "api_base_url": runtime["UPSTOX_API_BASE_URL"] or "https://api.upstox.com/v2",
+    }
+
+
+def persist_env_value(env_key, env_value):
+    if not ENV_PATH.exists():
+        ENV_PATH.write_text(f"{env_key}={env_value}\n", encoding="utf-8")
+        return
+
+    lines = ENV_PATH.read_text(encoding="utf-8").splitlines()
+    replaced = False
+    updated_lines = []
+    for line in lines:
+        if line.startswith(f"{env_key}="):
+            updated_lines.append(f"{env_key}={env_value}")
+            replaced = True
+        else:
+            updated_lines.append(line)
+    if not replaced:
+        updated_lines.append(f"{env_key}={env_value}")
+    ENV_PATH.write_text("\n".join(updated_lines) + "\n", encoding="utf-8")
+
+
+def build_upstox_login_url(state="traderhub-upstox"):
+    creds = get_active_upstox_credentials()
+    query = urllib.parse.urlencode(
+        {
+            "client_id": creds["client_id"],
+            "redirect_uri": creds["redirect_uri"],
+            "response_type": "code",
+            "state": state,
+        }
+    )
+    return f"{creds['api_base_url']}/login/authorization/dialog?{query}"
+
+
+def exchange_upstox_code_for_token(authorization_code):
+    creds = get_active_upstox_credentials()
+    response = requests.post(
+        f"{creds['api_base_url']}/login/authorization/token",
+        headers={
+            "accept": "application/json",
+            "Api-Version": "2.0",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        data={
+            "code": authorization_code,
+            "client_id": creds["client_id"],
+            "client_secret": creds["client_secret"],
+            "redirect_uri": creds["redirect_uri"],
+            "grant_type": "authorization_code",
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def upstox_api_get(path, params=None, access_token=None):
+    creds = get_active_upstox_credentials()
+    token = access_token or creds["access_token"]
+    if not token:
+        raise ValueError("Upstox access token is missing.")
+    response = requests.get(
+        f"{creds['api_base_url'].rstrip('/')}/{path.lstrip('/')}",
+        headers={
+            "accept": "application/json",
+            "Api-Version": "2.0",
+            "Authorization": f"Bearer {token}",
+        },
+        params=params or {},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 @lru_cache(maxsize=1)
 def get_nse_instrument_map():
     client = build_kite_client(with_access_token=True)
@@ -12008,6 +12096,81 @@ def callback():
 
     get_nse_instrument_map.cache_clear()
     return "<h2>Login Successful</h2><p>Token auto updated.</p>"
+
+
+@app.route("/upstox/login")
+def upstox_login():
+    creds = get_active_upstox_credentials()
+    if not creds["client_id"] or not creds["redirect_uri"]:
+        return {"error": "Upstox client ID or redirect URI is missing in .env."}, 500
+    return redirect(build_upstox_login_url())
+
+
+@app.route("/upstox/callback")
+def upstox_callback():
+    global CURRENT_UPSTOX_ACCESS_TOKEN
+
+    authorization_code = request.args.get("code")
+    if not authorization_code:
+        return {"error": "authorization code is missing"}, 400
+
+    creds = get_active_upstox_credentials()
+    if not creds["client_id"] or not creds["client_secret"] or not creds["redirect_uri"]:
+        return {"error": "Upstox client credentials are incomplete in .env."}, 500
+
+    try:
+        data = exchange_upstox_code_for_token(authorization_code)
+    except requests.RequestException as exc:
+        response_text = exc.response.text if exc.response is not None else str(exc)
+        return {"error": "Upstox token exchange failed", "details": response_text}, 502
+
+    access_token = (
+        data.get("access_token")
+        or (data.get("data") or {}).get("access_token")
+        or (data.get("data") or {}).get("accessToken")
+    )
+    if not access_token:
+        return {"error": "Upstox token response did not include an access token.", "payload": data}, 502
+
+    CURRENT_UPSTOX_ACCESS_TOKEN = access_token
+    persist_env_value("UPSTOX_ACCESS_TOKEN", access_token)
+    return "<h2>Upstox Login Successful</h2><p>Access token saved to .env.</p>"
+
+
+@app.route("/upstox/test")
+def upstox_test():
+    creds = get_active_upstox_credentials()
+    if not creds["client_id"]:
+        return jsonify({"status": "missing_config", "message": "UPSTOX_CLIENT_ID is missing in .env."}), 500
+    if not creds["access_token"]:
+        return jsonify(
+            {
+                "status": "missing_token",
+                "message": "Upstox access token is not saved yet.",
+                "login_url": "/upstox/login",
+            }
+        ), 400
+
+    try:
+        profile_payload = upstox_api_get("/user/profile")
+        return jsonify(
+            {
+                "status": "ok",
+                "provider": "upstox",
+                "profile": profile_payload,
+                "message": "Upstox API is connected and responding.",
+            }
+        )
+    except requests.RequestException as exc:
+        response_text = exc.response.text if exc.response is not None else str(exc)
+        return jsonify(
+            {
+                "status": "error",
+                "provider": "upstox",
+                "message": "Upstox API request failed.",
+                "details": response_text,
+            }
+        ), 502
 
 
 @app.route("/ltp")
