@@ -15412,6 +15412,8 @@ def build_stock_page_context(symbol, host_root):
     canonical_url = f"{host_root.rstrip('/')}/stocks/{canonical_slug}"
     today_date = get_today_ist().isoformat()
     page_alert = ""
+    market_live_now = is_market_open()
+    market_mode_label = "Live Market" if market_live_now else "After Market Snapshot"
     stock = {
         "symbol": symbol,
         "company_name": company_name,
@@ -15434,38 +15436,149 @@ def build_stock_page_context(symbol, host_root):
     quick_stats = []
     default_price_points = "0,72 7,68 14,70 21,61 28,56 35,58 42,53 49,46 56,48 63,41 70,36 77,39 84,28 91,32 100,22"
     default_ma_points = "0,78 7,73 14,72 21,65 28,62 35,61 42,59 49,54 56,51 63,49 70,45 77,43 84,39 91,37 100,34"
-    chart_title = f"{symbol} Technical Chart"
+    chart_title = f"{symbol} Price Trend"
     chart_price_points = default_price_points
     chart_ma_points = default_ma_points
-    hero_badges = [{"label": "Phase 1 Hybrid Page", "kind": "tag-info"}]
+    hero_badges = [
+        {"label": market_mode_label, "kind": "tag-info"},
+        {"label": "Phase 1 Hybrid Page", "kind": "tag-info"},
+    ]
     financial_metrics = build_placeholder_financial_metrics(breadcrumb_sector)
     holdings_deals = build_placeholder_holdings_deals(symbol)
     news_items = build_placeholder_news_items(symbol, breadcrumb_sector)
     technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
 
+    def build_row_from_available_data(row_symbol, row_security, row_quote, row_daily_candles, row_intraday_candles):
+        if row_quote:
+            try:
+                return build_manual_watchlist_row(
+                    row_symbol,
+                    {"note_text": "", "alert_rule": "none"},
+                    row_quote,
+                    row_daily_candles,
+                    row_intraday_candles,
+                    row_security,
+                )
+            except Exception:
+                pass
+
+        if not row_daily_candles:
+            return None
+
+        latest_daily = row_daily_candles[-1]
+        previous_daily = row_daily_candles[-2] if len(row_daily_candles) > 1 else latest_daily
+        last_price_numeric = float(latest_daily.get("close") or 0)
+        prev_close_numeric = float(previous_daily.get("close") or last_price_numeric or 0)
+        open_numeric = float(latest_daily.get("open") or last_price_numeric or 0)
+        day_high_numeric = float(latest_daily.get("high") or last_price_numeric or 0)
+        day_low_numeric = float(latest_daily.get("low") or last_price_numeric or 0)
+        volume_numeric = float(latest_daily.get("volume") or 0)
+        pdh_numeric = float(previous_daily.get("high") or day_high_numeric or 0)
+        pdl_numeric = float(previous_daily.get("low") or day_low_numeric or 0)
+        week_window = row_daily_candles[-252:] if len(row_daily_candles) > 252 else row_daily_candles
+        week_high_numeric = max(float(candle.get("high") or 0) for candle in week_window) if week_window else day_high_numeric
+        week_low_numeric = min(float(candle.get("low") or 0) for candle in week_window) if week_window else day_low_numeric
+        change_pct_numeric = ((last_price_numeric - prev_close_numeric) / prev_close_numeric * 100) if prev_close_numeric else 0.0
+        gap_pct_numeric = ((open_numeric - prev_close_numeric) / prev_close_numeric * 100) if prev_close_numeric else 0.0
+        vwap_numeric = None
+        if row_quote and row_quote.get("average_price") is not None:
+            vwap_numeric = float(row_quote.get("average_price") or 0)
+        elif any(candle.get("close") is not None for candle in row_intraday_candles or []):
+            intraday_closes = [float(candle.get("close") or 0) for candle in row_intraday_candles if candle.get("close") is not None]
+            if intraday_closes:
+                vwap_numeric = sum(intraday_closes) / len(intraday_closes)
+        if not vwap_numeric:
+            vwap_numeric = last_price_numeric
+
+        if last_price_numeric > pdh_numeric:
+            status_label = "Above PDH"
+            status_badge = "badge-up"
+        elif last_price_numeric < pdl_numeric:
+            status_label = "Below PDL"
+            status_badge = "badge-down"
+        elif day_high_numeric and last_price_numeric >= day_high_numeric * 0.995:
+            status_label = "Near Day High"
+            status_badge = "badge-warn"
+        else:
+            status_label = "Inside Day"
+            status_badge = "badge-warn"
+
+        if last_price_numeric > vwap_numeric:
+            vwap_status = "Above VWAP"
+            vwap_badge = "badge-up"
+        elif last_price_numeric < vwap_numeric:
+            vwap_status = "Below VWAP"
+            vwap_badge = "badge-down"
+        else:
+            vwap_status = "Near VWAP"
+            vwap_badge = "badge-warn"
+
+        range_span = day_high_numeric - day_low_numeric
+        if range_span > 0:
+            day_range_percent = round(((last_price_numeric - day_low_numeric) / range_span) * 100)
+        else:
+            day_range_percent = 50
+
+        tick_time = latest_daily.get("date")
+        if isinstance(tick_time, datetime.datetime):
+            tick_time = tick_time.astimezone(APP_TZ).strftime("%d %b %Y")
+        elif isinstance(tick_time, datetime.date):
+            tick_time = tick_time.strftime("%d %b %Y")
+        else:
+            tick_time = "Latest close"
+
+        return {
+            "last_price": format_price(last_price_numeric),
+            "last_price_numeric": last_price_numeric,
+            "prev_close": format_price(prev_close_numeric),
+            "prev_close_numeric": prev_close_numeric,
+            "change_pct_display": format_signed_percent(change_pct_numeric),
+            "open_price": format_price(open_numeric),
+            "day_high": format_price(day_high_numeric),
+            "day_low": format_price(day_low_numeric),
+            "volume_display": format_volume(volume_numeric),
+            "tick_time": tick_time,
+            "pdh": format_price(pdh_numeric),
+            "pdl": format_price(pdl_numeric),
+            "week_low": format_price(week_low_numeric),
+            "week_high": format_price(week_high_numeric),
+            "week_low_numeric": week_low_numeric,
+            "week_high_numeric": week_high_numeric,
+            "vwap": format_price(vwap_numeric),
+            "vwap_status": vwap_status,
+            "status_label": status_label,
+            "status_badge": status_badge,
+            "vwap_badge": vwap_badge,
+            "gap_pct_numeric": gap_pct_numeric,
+            "gap_text": format_signed_percent(gap_pct_numeric),
+            "day_range_percent": day_range_percent,
+        }
+
     try:
         creds = get_active_kite_credentials()
         instrument_map = get_nse_instrument_map()
         instrument = instrument_map.get(symbol)
         if not creds["api_key"] or not creds["access_token"] or not instrument:
-            raise ValueError("Live market data is not available right now, so this stock page is showing market-aware placeholders for unavailable sections.")
+            raise ValueError("Broker market data is not available right now, so this stock page is showing phase-1 placeholders where live or daily values cannot yet be recovered.")
 
         client = build_kite_client(with_access_token=True)
-        quote_map = fetch_quote_map(client, [f"NSE:{symbol}"])
-        quote = quote_map.get(f"NSE:{symbol}")
-        if not quote:
-            raise ValueError("Live quote data was unavailable for this stock at the moment.")
-
         selected_date = get_today_ist()
-        intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
         daily_from = datetime.datetime.combine(selected_date - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
         daily_to = datetime.datetime.combine(selected_date, datetime.time(23, 59), tzinfo=APP_TZ)
+        daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+        if not daily_candles:
+            raise ValueError("Neither live quote data nor recent daily history was available for this stock right now.")
+
+        intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
         intraday_from = datetime.datetime.combine(selected_date, datetime.time(9, 15), tzinfo=APP_TZ)
         intraday_to = datetime.datetime.combine(selected_date, intraday_end, tzinfo=APP_TZ)
-        daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
         intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
-        live_row = build_manual_watchlist_row(symbol, {"note_text": "", "alert_rule": "none"}, quote, daily_candles, intraday_candles, security_name)
+        quote_map = fetch_quote_map(client, [f"NSE:{symbol}"])
+        quote = quote_map.get(f"NSE:{symbol}")
+        live_row = build_row_from_available_data(symbol, security_name, quote, daily_candles, intraday_candles)
+        if not live_row:
+            raise ValueError("The stock page could not build a reliable market snapshot for this symbol right now.")
 
         close_values = [float(candle["close"]) for candle in daily_candles if candle.get("close") is not None]
         ma20_series = compute_simple_moving_average(close_values, 20)
@@ -15488,6 +15601,8 @@ def build_stock_page_context(symbol, host_root):
 
         range_52w = f"{live_row['week_low']} - {live_row['week_high']}"
         range_52w_context = describe_52w_context(live_row["last_price_numeric"], live_row["week_high_numeric"], live_row["week_low_numeric"])
+        data_mode_label = "Live quote + intraday context" if quote else "Latest daily session snapshot"
+        chart_title = f"{symbol} Price Trend - {'Live Session' if quote else 'Closing Snapshot'}"
         stock.update(
             {
                 "ltp": live_row["last_price"],
@@ -15500,6 +15615,8 @@ def build_stock_page_context(symbol, host_root):
             }
         )
         hero_badges = [
+            {"label": market_mode_label, "kind": "tag-info"},
+            {"label": data_mode_label, "kind": "tag-info"},
             {"label": live_row["status_label"], "kind": "tag-up" if live_row["status_badge"] == "badge-up" else "tag-down" if live_row["status_badge"] == "badge-down" else "tag-warn"},
             {"label": live_row["vwap_status"], "kind": "tag-up" if live_row["vwap_badge"] == "badge-up" else "tag-down" if live_row["vwap_badge"] == "badge-down" else "tag-info"},
             {"label": ("Gap Up " if live_row["gap_pct_numeric"] >= 0 else "Gap Down ") + live_row["gap_text"], "kind": "tag-up" if live_row["gap_pct_numeric"] >= 0 else "tag-down"},
@@ -15508,12 +15625,12 @@ def build_stock_page_context(symbol, host_root):
         overview_metrics = [
             {"label": "Open", "value": live_row["open_price"], "subtext": f"Gap context: {live_row['gap_text']} from previous close"},
             {"label": "Day Range", "value": f"{live_row['day_low']} - {live_row['day_high']}", "subtext": f"Price is sitting at about {live_row['day_range_percent']}% of today's range"},
-            {"label": "Volume", "value": live_row["volume_display"], "subtext": f"Last depth tick seen: {live_row['tick_time'] or 'N/A'}"},
+            {"label": "Volume", "value": live_row["volume_display"], "subtext": f"Snapshot source time: {live_row['tick_time'] or 'N/A'}"},
             {"label": "Previous Day High / Low", "value": f"{live_row['pdh']} / {live_row['pdl']}", "subtext": f"Current status: {live_row['status_label']}"},
             {"label": "52W High / Low", "value": range_52w, "subtext": range_52w_context},
             {"label": "Average Price", "value": live_row["vwap"], "subtext": f"VWAP view: {live_row['vwap_status']}"},
             {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
-            {"label": "Event Calendar", "value": "Source Pending", "subtext": "Results dates and corporate events will be connected in a later phase."},
+            {"label": "Market Mode", "value": market_mode_label, "subtext": f"Data mode: {data_mode_label}"},
         ]
         ma_view = describe_ma_view(live_row["last_price_numeric"], ma20_value, ma50_value, ma200_value)
         technical_metrics = [
@@ -15539,12 +15656,15 @@ def build_stock_page_context(symbol, host_root):
             peer_company_name = prettify_company_name(peer_security, peer_symbol)
             peer_instrument = instrument_map.get(peer_symbol)
             peer_quote = peer_quote_map.get(f"NSE:{peer_symbol}")
-            if not peer_instrument or not peer_quote:
+            if not peer_instrument:
                 peers.append({"company": peer_company_name, "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "-", "range_52w": "Pending", "status": "Pending"})
                 continue
             peer_daily_candles = client.historical_data(peer_instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
             peer_intraday_candles = client.historical_data(peer_instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
-            peer_row = build_manual_watchlist_row(peer_symbol, {"note_text": "", "alert_rule": "none"}, peer_quote, peer_daily_candles, peer_intraday_candles, peer_security)
+            peer_row = build_row_from_available_data(peer_symbol, peer_security, peer_quote, peer_daily_candles, peer_intraday_candles)
+            if not peer_row:
+                peers.append({"company": peer_company_name, "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "-", "range_52w": "Pending", "status": "Pending"})
+                continue
             peer_closes = [float(candle["close"]) for candle in peer_daily_candles if candle.get("close") is not None]
             peer_one_year_return = None
             if len(peer_closes) >= 2 and peer_closes[0] > 0:
@@ -15561,6 +15681,8 @@ def build_stock_page_context(symbol, host_root):
                 }
             )
         quick_stats = [
+            {"label": "Market Mode", "value": market_mode_label},
+            {"label": "Data Mode", "value": data_mode_label},
             {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
             {"label": "Sector", "value": breadcrumb_sector},
             {"label": "Industry", "value": industry_label},
@@ -15599,6 +15721,7 @@ def build_stock_page_context(symbol, host_root):
             for peer_symbol in get_stock_page_peer_symbols(symbol)[:6]
         ]
         quick_stats = [
+            {"label": "Market Mode", "value": market_mode_label},
             {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
             {"label": "Sector", "value": breadcrumb_sector},
             {"label": "Industry", "value": industry_label},
@@ -15625,13 +15748,13 @@ def build_stock_page_context(symbol, host_root):
         "quick_stats": quick_stats,
         "breadcrumb_sector": breadcrumb_sector,
         "breadcrumb_symbol_label": symbol,
-        "breadcrumb_meta_text": f"Public stock page | Phase 1 dynamic view | Last reviewed {today_date}",
+        "breadcrumb_meta_text": f"Public stock page | {market_mode_label} | Last reviewed {today_date}",
         "page_alert": page_alert,
         "page_purpose_title": "Page Purpose",
-        "page_purpose_text": "This public stock page combines live market context, technical summary, peer comparison, and reserved research sections in an SEO-friendly structure.",
+        "page_purpose_text": "This public stock page combines best-available market context, technical summary, peer comparison, and reserved research sections in an SEO-friendly structure that remains useful during and after market hours.",
         "seo_notes_title": "SEO Notes",
         "seo_notes_text": "Each stock page uses stock-specific title, meta description, canonical path, schema JSON-LD, and a stable slug-based public URL.",
-        "overview_footer_note": f"{company_name} is being rendered from live market context where available, while deeper fundamentals, holdings, and deals remain intentionally placeholder-backed for phase 1.",
+        "overview_footer_note": f"{company_name} is being rendered from live market data where available and falls back to the latest daily market snapshot after hours, while deeper fundamentals, holdings, and deals remain intentionally placeholder-backed for phase 1.",
         "technical_section_note": technical_section_note,
         "chart_title": chart_title,
         "chart_price_points": chart_price_points,
