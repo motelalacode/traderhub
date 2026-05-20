@@ -16981,17 +16981,17 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
         <section class="section">
           <h2>{{ section_title }}</h2>
           <div class="section-note">{{ section_note }}</div>
-          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card.copy }}</div></div>{% endfor %}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
         </section>
         <section class="section">
           <h2>Lead Stories</h2>
           <div class="section-note">This phase-1 page keeps lead stories short and market-relevant. The goal is to help users understand what matters, not trap them in long article pages immediately.</div>
-          <div class="story-grid">{% for story in lead_stories %}<div class="story-card"><div class="story-title">{{ story.title }}</div><div class="story-meta">{{ story.meta }}</div><div class="story-copy">{{ story.copy }}</div></div>{% endfor %}</div>
+          <div class="story-grid">{% for story in lead_stories %}<div class="story-card"><div class="story-title">{{ story.title }}</div><div class="story-meta">{{ story.meta }}</div><div class="story-copy">{{ story["copy"] }}</div></div>{% endfor %}</div>
         </section>
         <section class="section">
           <h2>Watch Sections</h2>
           <div class="section-note">This is where the page becomes practical. Each block turns broad news into a more usable list for traders and investors.</div>
-          <div class="watch-grid">{% for block in watch_sections %}<div class="watch-card"><div class="metric-label">{{ block.title }}</div><ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+          <div class="watch-grid">{% for block in watch_sections %}<div class="watch-card"><div class="metric-label">{{ block.title }}</div><ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
         </section>
         <section class="section">
           <h2>Public Module Note</h2>
