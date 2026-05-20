@@ -8532,6 +8532,138 @@ def get_vwap_value(candles):
     return total_price_volume / total_volume
 
 
+def slugify_stock_text(text):
+    normalized = normalize_lookup_value(text)
+    if not normalized:
+        return ""
+
+    tokens = [token for token in normalized.split() if token not in {"limited", "ltd"}]
+    if not tokens:
+        tokens = normalized.split()
+    return "-".join(tokens)
+
+
+@lru_cache(maxsize=1)
+def get_stock_slug_maps():
+    master = load_symbol_master()
+    slug_to_symbol = {}
+    symbol_to_slug = {}
+
+    for symbol, row in sorted(master.get("by_symbol", {}).items()):
+        security = row.get("security") or symbol
+        base_slug = slugify_stock_text(security) or slugify_stock_text(symbol) or symbol.lower()
+        slug = base_slug
+        if slug in slug_to_symbol and slug_to_symbol[slug] != symbol:
+            slug = f"{base_slug}-{symbol.lower()}"
+        slug_to_symbol[slug] = symbol
+        symbol_to_slug[symbol] = slug
+
+    return {
+        "slug_to_symbol": slug_to_symbol,
+        "symbol_to_slug": symbol_to_slug,
+    }
+
+
+def resolve_stock_symbol_from_slug(stock_slug):
+    cleaned_slug = "-".join(part for part in str(stock_slug or "").strip().lower().split("-") if part)
+    if not cleaned_slug:
+        return None
+
+    slug_maps = get_stock_slug_maps()
+    direct = slug_maps["slug_to_symbol"].get(cleaned_slug)
+    if direct:
+        return direct
+
+    return resolve_symbol(cleaned_slug.replace("-", " "))
+
+
+def get_canonical_stock_slug(symbol):
+    return get_stock_slug_maps()["symbol_to_slug"].get(symbol, symbol.lower())
+
+
+def get_stock_page_peer_symbols(symbol):
+    for sector_config in SECTOR_HEATMAP_GROUPS.values():
+        for sub_symbols in sector_config.get("subsectors", {}).values():
+            if symbol in sub_symbols:
+                return list(dict.fromkeys(sub_symbols))
+
+    for sector_symbols in SECTOR_GROUPS.values():
+        if symbol in sector_symbols:
+            return list(dict.fromkeys(sector_symbols))
+
+    return [symbol]
+
+
+def build_svg_polyline(values):
+    if not values:
+        return ""
+
+    if len(values) == 1:
+        return "0,50 100,50"
+
+    low = min(values)
+    high = max(values)
+    span = high - low
+    if span <= 0:
+        span = 1
+
+    points = []
+    for index, value in enumerate(values):
+        x = (index / (len(values) - 1)) * 100
+        y = 100 - (((value - low) / span) * 78 + 11)
+        points.append(f"{x:.2f},{y:.2f}")
+    return " ".join(points)
+
+
+def compute_simple_moving_average(values, window):
+    if not values or window <= 0:
+        return []
+
+    series = []
+    running_total = 0.0
+    for index, value in enumerate(values):
+        running_total += value
+        if index >= window:
+            running_total -= values[index - window]
+        if index + 1 >= window:
+            series.append(running_total / window)
+        else:
+            series.append(None)
+    return series
+
+
+def compute_rsi(values, period=14):
+    if len(values) <= period:
+        return None
+
+    gains = []
+    losses = []
+    for index in range(1, len(values)):
+        delta = values[index] - values[index - 1]
+        gains.append(max(delta, 0))
+        losses.append(abs(min(delta, 0)))
+
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+
+    if avg_loss == 0:
+        return 100.0
+
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+
+    for index in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[index]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[index]) / period
+        if avg_loss == 0:
+            rsi = 100.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+
+    return round(rsi, 1)
+
+
 def classify_orb_status(last_price, or_high, or_low):
     if last_price > or_high:
         return "Above OR High", "badge-up", 2
@@ -14245,6 +14377,17 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       font-size: 13px;
       margin-bottom: 14px;
     }
+    .page-alert {
+      margin-bottom: 14px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(138, 59, 18, 0.16);
+      background: #f8e2df;
+      color: #8a3b12;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+    }
     .hero {
       display: grid;
       grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
@@ -14685,9 +14828,12 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 <body>
   <div class="page">
     <div class="microbar">
-      <div>Stocks &rsaquo; Telecom &rsaquo; {{ stock.symbol }} Research Page Sample</div>
-      <div>SEO sample | No ads live yet | Last reviewed {{ today_date }}</div>
+      <div>Stocks &rsaquo; {{ breadcrumb_sector }} &rsaquo; {{ breadcrumb_symbol_label }}</div>
+      <div>{{ breadcrumb_meta_text }}</div>
     </div>
+    {% if page_alert %}
+    <div class="page-alert">{{ page_alert }}</div>
+    {% endif %}
 
     <div class="hero">
       <div class="hero-main">
@@ -14719,12 +14865,12 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       <div class="hero-side">
         <div class="ad-slot">Top Banner Sponsor Slot<br>Space for Ads</div>
         <div class="side-card">
-          <div class="side-title">Page Purpose</div>
-          <div class="side-text">This phase-1 sample is designed as a clean stock intelligence page: overview first, then technical, financials, peers, holdings, deals, and news. Layout is ad-ready without feeling ad-heavy on day one.</div>
+          <div class="side-title">{{ page_purpose_title }}</div>
+          <div class="side-text">{{ page_purpose_text }}</div>
         </div>
         <div class="side-card">
-          <div class="side-title">SEO Notes</div>
-          <div class="side-text">Single clear H1, stock-specific title, stock-specific description, canonical URL, schema JSON-LD, strong section headings, and readable structured content for future search visibility.</div>
+          <div class="side-title">{{ seo_notes_title }}</div>
+          <div class="side-text">{{ seo_notes_text }}</div>
         </div>
       </div>
     </div>
@@ -14752,24 +14898,22 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
             </div>
             {% endfor %}
           </div>
-          <div class="footer-note">
-            {{ stock.company_name }} is shown here as a sample profile. In the real version, this overview will be populated dynamically from live market data, reference data, and company master data.
-          </div>
+          <div class="footer-note">{{ overview_footer_note }}</div>
         </section>
 
         <section class="section" id="technical">
           <h2>Technical Snapshot</h2>
-          <div class="section-note">Use this section to combine your current TraderHub strength: price context, levels, studies, and live chart-driven decision support. The chart is a sample visual placeholder in phase 1.</div>
+          <div class="section-note">{{ technical_section_note }}</div>
           <div class="tech-grid">
             <div class="chart-shell">
               <div class="chart-head">
-                <div class="chart-title">{{ stock.symbol }} Technical Chart Sample</div>
+                <div class="chart-title">{{ chart_title }}</div>
                 <span class="tag tag-info">1D | Candles | VWAP + RSI later</span>
               </div>
               <div class="chart-box">
                 <svg class="chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-                  <polyline fill="none" stroke="#f8b84b" stroke-width="1.3" points="0,72 7,68 14,70 21,61 28,56 35,58 42,53 49,46 56,48 63,41 70,36 77,39 84,28 91,32 100,22"></polyline>
-                  <polyline fill="none" stroke="#7ad7a7" stroke-width="1.1" points="0,78 7,73 14,72 21,65 28,62 35,61 42,59 49,54 56,51 63,49 70,45 77,43 84,39 91,37 100,34"></polyline>
+                  <polyline fill="none" stroke="#f8b84b" stroke-width="1.3" points="{{ chart_price_points }}"></polyline>
+                  <polyline fill="none" stroke="#7ad7a7" stroke-width="1.1" points="{{ chart_ma_points }}"></polyline>
                   <line x1="0" y1="40" x2="100" y2="40" stroke="#eb6b6b" stroke-width="0.7" stroke-dasharray="3 3"></line>
                   <line x1="0" y1="58" x2="100" y2="58" stroke="#5db0ff" stroke-width="0.7" stroke-dasharray="3 3"></line>
                   <line x1="0" y1="66" x2="100" y2="66" stroke="#9df1d4" stroke-width="0.7" stroke-dasharray="3 3"></line>
@@ -14798,7 +14942,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 
         <section class="section">
           <h2>Technical Studies</h2>
-          <div class="section-note">This is where phase-1 can already look rich without overbuilding: short summaries, indicator values, moving-average view, and support/resistance levels.</div>
+          <div class="section-note">{{ studies_section_note }}</div>
           <div class="insight-grid">
             {% for card in study_cards %}
             <div>
@@ -14813,7 +14957,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 
         <section class="section" id="financials">
           <h2>Financial Snapshot</h2>
-          <div class="section-note">For phase 1, this should be summary-first rather than every line item. Users want quick quality clues first, then deeper balance-sheet and P&amp;L detail later.</div>
+          <div class="section-note">{{ financial_section_note }}</div>
           <div class="financial-grid">
             {% for row in financial_metrics %}
             <div class="financial-row">
@@ -14827,28 +14971,30 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 
         <section class="section" id="peers">
           <h2>Peer Group Comparison</h2>
-          <div class="section-note">This comparison section is one of the biggest practical wins. It helps users understand whether the stock is expensive, stronger, or weaker than close competitors without leaving the page.</div>
+          <div class="section-note">{{ peers_section_note }}</div>
           <div class="peer-table-wrap">
             <table class="peer-table">
               <thead>
                 <tr>
                   <th>Company</th>
-                  <th>Market Cap</th>
-                  <th>P/E</th>
-                  <th>ROE</th>
-                  <th>Debt/Equity</th>
+                  <th>Current Price</th>
+                  <th>Day Change</th>
                   <th>1Y Return</th>
+                  <th>VWAP</th>
+                  <th>52W Context</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {% for peer in peers %}
                 <tr>
                   <td>{{ peer.company }}</td>
-                  <td>{{ peer.market_cap }}</td>
-                  <td>{{ peer.pe }}</td>
-                  <td>{{ peer.roe }}</td>
-                  <td>{{ peer.de_ratio }}</td>
+                  <td>{{ peer.current_price }}</td>
+                  <td>{{ peer.day_change }}</td>
                   <td>{{ peer.return_1y }}</td>
+                  <td>{{ peer.vwap }}</td>
+                  <td>{{ peer.range_52w }}</td>
+                  <td>{{ peer.status }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -14858,7 +15004,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 
         <section class="section" id="ownership">
           <h2>Holdings, FII/DII, Deals</h2>
-          <div class="section-note">This section combines ownership quality and market activity. It is inspired by India-focused stock pages, but presented in a cleaner layout.</div>
+          <div class="section-note">{{ holdings_section_note }}</div>
           <table class="list-table">
             <thead>
               <tr>
@@ -14881,7 +15027,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
 
         <section class="section" id="news">
           <h2>News & Events</h2>
-          <div class="section-note">This is where earnings, management commentary, block deals, and major business updates should live. For the sample, it shows the intended card structure.</div>
+          <div class="section-note">{{ news_section_note }}</div>
           {% for story in news_items %}
           <div class="story-card">
             <div class="story-title">{{ story.title }}</div>
@@ -14906,9 +15052,9 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
         </div>
         <div class="ad-slot tall">Right Rail Sponsor Slot<br>Space for Ads</div>
         <div class="quick-box">
-          <h3>Why This Page Works</h3>
+          <h3>{{ why_page_works_title }}</h3>
           <div class="side-text">
-            It blends the breadth expected from Indian stock portals with the cleaner section hierarchy used by research-first platforms. The idea is to make one company page feel useful for both traders and investors.
+            {{ why_page_works_text }}
           </div>
         </div>
       </aside>
@@ -15041,6 +15187,504 @@ def get_stock_hub_sample_context():
             {"label": "Phase-1 Ad Mode", "value": "Placeholders only"},
         ],
     }
+
+def get_stock_hub_sample_context():
+    stock = {
+        "symbol": "BHARTIARTL",
+        "company_name": "Bharti Airtel Limited",
+        "exchange": "NSE",
+        "series": "EQ",
+        "sector": "Telecom",
+        "industry": "Telecommunications Service",
+        "ltp": "1,768.40",
+        "change_rupees": "+18.15",
+        "change_pct": "+1.04%",
+        "market_cap": "Rs 10.6 L Cr",
+        "range_52w": "Rs 1,066 - Rs 1,912",
+        "vwap": "1,754.80",
+        "prev_close": "1,750.25",
+    }
+    seo_title = "Bharti Airtel Share Price, Technicals, Financials, Peers & Deals | TraderHub Sample"
+    seo_description = (
+        "Explore a sample TraderHub stock intelligence page for Bharti Airtel with live-price style summary, "
+        "technical snapshot, financial metrics, peer comparison, holdings, deals, and ad-ready SEO-friendly layout."
+    )
+    return {
+        "seo_title": seo_title,
+        "seo_description": seo_description,
+        "canonical_url": "https://bot.traderhub.in/stock-hub-sample",
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": seo_title,
+                "description": seo_description,
+                "url": "https://bot.traderhub.in/stock-hub-sample",
+                "about": {"@type": "Corporation", "name": stock["company_name"], "tickerSymbol": stock["symbol"]},
+            },
+            indent=2,
+        ),
+        "today_date": get_today_ist().isoformat(),
+        "stock": stock,
+        "hero_badges": [
+            {"label": "Above VWAP", "kind": "tag-up"},
+            {"label": "Near 52W High", "kind": "tag-warn"},
+            {"label": "Telecom Leader", "kind": "tag-info"},
+            {"label": "Strong Delivery Trend", "kind": "tag-up"},
+        ],
+        "overview_metrics": [
+            {"label": "Open", "value": "1,742.00", "subtext": "Gap-up opening above previous close"},
+            {"label": "Day Range", "value": "1,738 - 1,772", "subtext": "Holding near upper range"},
+            {"label": "Volume", "value": "71.3 L", "subtext": "Above recent session average"},
+            {"label": "Previous Day High / Low", "value": "1,756 / 1,718", "subtext": "Trading above prior breakout line"},
+            {"label": "52W High / Low", "value": "1,912 / 1,066", "subtext": "Still within long-term leadership zone"},
+            {"label": "Avg Volume", "value": "54.8 L", "subtext": "Useful for volume-spike interpretation"},
+            {"label": "Business Summary", "value": "Pan-India telecom major", "subtext": "Wireless, broadband, enterprise, digital"},
+            {"label": "Event Calendar", "value": "Results in 12 days", "subtext": "Earnings and telecom tariff watch"},
+        ],
+        "technical_metrics": [
+            {"label": "Daily RSI", "value": "63.4", "subtext": "Positive momentum without extreme overbought pressure"},
+            {"label": "MA View", "value": "Bullish", "subtext": "Price above 20DMA, 50DMA and 200DMA"},
+            {"label": "Pivot Bias", "value": "R1 in focus", "subtext": "Bullish if support band holds intraday"},
+            {"label": "Support / Resistance", "value": "1,742 / 1,781", "subtext": "Key short-term decision zone"},
+        ],
+        "study_cards": [
+            {"label": "RSI (14)", "value": "63.4", "copy": "Momentum is constructive. Not overheated yet, but strong enough to support trend continuation."},
+            {"label": "MACD", "value": "Bullish Crossover", "copy": "The structure suggests improving medium-term momentum and stronger follow-through probability."},
+            {"label": "20 / 50 / 200 DMA", "value": "Above all 3", "copy": "This is the cleanest quick trend filter for investors and swing traders."},
+            {"label": "Intraday Structure", "value": "Above VWAP", "copy": "This aligns well with your current TraderHub intraday logic and trade-plan workflow."},
+            {"label": "PDH / PDL Context", "value": "PDH reclaimed", "copy": "A useful signal for continuation-style setups and market-watch routing."},
+            {"label": "Technical Summary", "value": "Constructive", "copy": "The phase-1 page should compress many indicators into one practical sentence, not force users to decode everything manually."},
+        ],
+        "financial_metrics": [
+            {"label": "Sales Growth", "value": "+10.8%", "subtext": "Recent annual revenue expansion remains healthy"},
+            {"label": "Profit Growth", "value": "+14.2%", "subtext": "Margin discipline supporting earnings"},
+            {"label": "ROE", "value": "17.6%", "subtext": "Comfortable profitability profile"},
+            {"label": "ROCE", "value": "15.9%", "subtext": "Useful for capital efficiency comparison"},
+            {"label": "Debt / Equity", "value": "1.62", "subtext": "Important to compare with telecom peer set"},
+            {"label": "Book Value", "value": "Rs 233.40", "subtext": "Balance sheet anchor"},
+            {"label": "EPS (TTM)", "value": "Rs 31.90", "subtext": "Core profitability metric"},
+            {"label": "Operating Margin", "value": "24.7%", "subtext": "Operational quality snapshot"},
+        ],
+        "peers": [
+            {"company": "Bharti Airtel", "current_price": "1,768.40", "day_change": "+1.04%", "return_1y": "+41.8%", "vwap": "1,754.80", "range_52w": "Near upper zone", "status": "Above VWAP"},
+            {"company": "Reliance Jio proxy", "current_price": "N/A", "day_change": "N/A", "return_1y": "N/A", "vwap": "N/A", "range_52w": "Pending", "status": "Pending"},
+            {"company": "Vodafone Idea", "current_price": "8.70", "day_change": "-0.82%", "return_1y": "-22.4%", "vwap": "8.63", "range_52w": "Mid-range", "status": "Inside Day"},
+            {"company": "Tata Communications", "current_price": "2,012.10", "day_change": "+0.64%", "return_1y": "+12.5%", "vwap": "1,998.30", "range_52w": "Constructive", "status": "Above VWAP"},
+        ],
+        "holdings_deals": [
+            {"label": "Promoter Holding", "value": "53.1%", "note": "Stable promoter control profile"},
+            {"label": "FII Holding", "value": "21.8%", "note": "Useful when foreign ownership trends are available"},
+            {"label": "DII Holding", "value": "16.4%", "note": "Institutional domestic support remains relevant"},
+            {"label": "Block / Bulk Deal Watch", "value": "No major fresh alert in sample", "note": "This zone should surface the newest notable deal first"},
+            {"label": "Pledge", "value": "Nil / low sample", "note": "Important risk flag when real data is connected"},
+        ],
+        "news_items": [
+            {"title": "Tariff and subscriber commentary remain central to sentiment", "meta": "Sample event note | Telecom theme | Research-style summary", "copy": "The real page should convert scattered headlines into a compact event summary. Traders care about immediate reaction; investors care about earnings impact and capital allocation."},
+            {"title": "Institutional flows and large deals deserve visible placement", "meta": "Sample market-activity note | FII/DII | Deal flow", "copy": "If block deals or institutional holding changes are available, they should be shown near the ownership section rather than buried under unrelated content."},
+            {"title": "Peer context can be a decisive user-retention feature", "meta": "Sample product note | Peer comparison | Stickiness", "copy": "One reason users stay on a stock page is that they can compare quality, valuation, and trend with the nearest alternatives without leaving the page."},
+        ],
+        "quick_stats": [
+            {"label": "Exchange / Series", "value": "NSE / EQ"},
+            {"label": "Sector", "value": "Telecom"},
+            {"label": "Industry", "value": "Telecom Services"},
+            {"label": "VWAP Position", "value": "Above VWAP"},
+            {"label": "52W Context", "value": "Near upper zone"},
+            {"label": "Phase-1 Ad Mode", "value": "Placeholders only"},
+        ],
+        "breadcrumb_sector": "Telecom",
+        "breadcrumb_symbol_label": "BHARTIARTL",
+        "breadcrumb_meta_text": "SEO sample | No ads live yet | Last reviewed " + get_today_ist().isoformat(),
+        "page_alert": "",
+        "page_purpose_title": "Page Purpose",
+        "page_purpose_text": "This phase-1 sample is designed as a clean stock intelligence page: overview first, then technical, financials, peers, holdings, deals, and news. Layout is ad-ready without feeling ad-heavy on day one.",
+        "seo_notes_title": "SEO Notes",
+        "seo_notes_text": "Single clear H1, stock-specific title, stock-specific description, canonical URL, schema JSON-LD, strong section headings, and readable structured content for future search visibility.",
+        "overview_footer_note": stock["company_name"] + " is shown here as a sample profile. In the real version, this overview will be populated dynamically from live market data, reference data, and company master data.",
+        "technical_section_note": "Use this section to combine your current TraderHub strength: price context, levels, studies, and live chart-driven decision support. The chart is a sample visual placeholder in phase 1.",
+        "chart_title": stock["symbol"] + " Technical Chart Sample",
+        "chart_price_points": "0,72 7,68 14,70 21,61 28,56 35,58 42,53 49,46 56,48 63,41 70,36 77,39 84,28 91,32 100,22",
+        "chart_ma_points": "0,78 7,73 14,72 21,65 28,62 35,61 42,59 49,54 56,51 63,49 70,45 77,43 84,39 91,37 100,34",
+        "studies_section_note": "This is where phase-1 can already look rich without overbuilding: short summaries, indicator values, moving-average view, and support/resistance levels.",
+        "financial_section_note": "For phase 1, this should be summary-first rather than every line item. Users want quick quality clues first, then deeper balance-sheet and P&L detail later.",
+        "peers_section_note": "This comparison section is one of the biggest practical wins. It helps users understand whether the stock is expensive, stronger, or weaker than close competitors without leaving the page.",
+        "holdings_section_note": "This section combines ownership quality and market activity. It is inspired by India-focused stock pages, but presented in a cleaner layout.",
+        "news_section_note": "This is where earnings, management commentary, block deals, and major business updates should live. For the sample, it shows the intended card structure.",
+        "why_page_works_title": "Why This Page Works",
+        "why_page_works_text": "It blends the breadth expected from Indian stock portals with the cleaner section hierarchy used by research-first platforms. The idea is to make one company page feel useful for both traders and investors.",
+    }
+
+
+def prettify_company_name(security_name, symbol):
+    raw = str(security_name or symbol).strip()
+    if not raw:
+        return symbol
+    words = []
+    for word in raw.split():
+        bare = word.rstrip(".,")
+        suffix = word[len(bare):]
+        upper_bare = bare.upper()
+        if upper_bare == symbol:
+            pretty = symbol
+        elif bare.isupper() and len(bare) <= 4:
+            pretty = bare
+        else:
+            pretty = bare.title()
+        words.append(pretty + suffix)
+    return " ".join(words)
+
+
+def format_signed_percent(value):
+    return f"{value:+.2f}%"
+
+
+def format_signed_price(value):
+    return f"{value:+.2f}"
+
+
+def describe_ma_view(last_price, ma20, ma50, ma200):
+    available = [ma for ma in [ma20, ma50, ma200] if ma]
+    if not available:
+        return "Pending"
+    if all(last_price >= ma for ma in available):
+        return "Bullish"
+    if all(last_price <= ma for ma in available):
+        return "Bearish"
+    return "Mixed"
+
+
+def describe_52w_context(last_price, week_high, week_low):
+    if not week_high or not week_low or week_high <= week_low:
+        return "Pending"
+    band = week_high - week_low
+    if band <= 0:
+        return "Pending"
+    if week_high - last_price <= band * 0.12:
+        return "Near 52W High"
+    if last_price - week_low <= band * 0.12:
+        return "Near 52W Low"
+    return "Mid Range"
+
+
+def build_placeholder_financial_metrics(sector_label):
+    sector_hint = sector_label or "this company"
+    return [
+        {"label": "Sales Growth", "value": "Source Pending", "subtext": f"Revenue trend source will be connected for {sector_hint.lower()} pages in phase 2."},
+        {"label": "Profit Growth", "value": "Source Pending", "subtext": "Profitability trend cards are reserved but intentionally not faked in phase 1."},
+        {"label": "ROE", "value": "Source Pending", "subtext": "Return ratios will be filled once the fundamentals source is finalized."},
+        {"label": "ROCE", "value": "Source Pending", "subtext": "Capital efficiency data is planned for the next source integration."},
+        {"label": "Debt / Equity", "value": "Source Pending", "subtext": "Leverage metrics are held for the fundamentals phase."},
+        {"label": "Book Value", "value": "Source Pending", "subtext": "Balance-sheet snapshot will move here after the fundamentals connector lands."},
+        {"label": "EPS (TTM)", "value": "Source Pending", "subtext": "Earnings-per-share is intentionally marked as pending rather than guessed."},
+        {"label": "Operating Margin", "value": "Source Pending", "subtext": "Margin history will be plugged in with the financials data source."},
+    ]
+
+
+def build_placeholder_holdings_deals(symbol):
+    return [
+        {"label": "Promoter Holding", "value": "Source Pending", "note": f"Ownership feed for {symbol} will be added in the next data-source pass."},
+        {"label": "FII Holding", "value": "Source Pending", "note": "Institutional holding detail is reserved for the holdings integration."},
+        {"label": "DII Holding", "value": "Source Pending", "note": "Domestic institutional data will be surfaced once the source is finalized."},
+        {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Recent deal activity will be added here when the deals source is connected."},
+        {"label": "Pledge", "value": "Source Pending", "note": "Pledge data is intentionally marked pending until a reliable feed is available."},
+    ]
+
+
+def build_placeholder_news_items(symbol, sector_label):
+    sector_copy = sector_label or "the sector"
+    return [
+        {"title": f"{symbol} event feed will appear here", "meta": "Phase 1 placeholder | News and events", "copy": "This section is ready for earnings notes, management commentary, and major business updates once the news/event source is finalized."},
+        {"title": f"{sector_copy} sector context will support this page", "meta": "Phase 1 placeholder | Sector research", "copy": "Future versions will connect this stock page to sector-wide developments so users can move from single-stock analysis to broader industry context."},
+        {"title": "Deals and institutional activity are planned next", "meta": "Phase 1 placeholder | Holdings and flows", "copy": "Bulk deals, block deals, and ownership movements are intentionally reserved for the next data-source integration instead of being guessed."},
+    ]
+
+
+def build_stock_page_context(symbol, host_root):
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    security_name = master_row.get("security") or symbol
+    company_name = prettify_company_name(security_name, symbol)
+    sector_lookup = get_symbol_sector_lookup()
+    sector_label = sector_lookup.get(symbol, "General")
+    breadcrumb_sector = sector_label.split(" / ")[0] if " / " in sector_label else sector_label
+    industry_label = sector_label.split(" / ")[-1] if " / " in sector_label else sector_label
+    canonical_slug = get_canonical_stock_slug(symbol)
+    canonical_url = f"{host_root.rstrip('/')}/stocks/{canonical_slug}"
+    today_date = get_today_ist().isoformat()
+    page_alert = ""
+    stock = {
+        "symbol": symbol,
+        "company_name": company_name,
+        "exchange": "NSE",
+        "series": master_row.get("series", "EQ"),
+        "sector": breadcrumb_sector,
+        "industry": industry_label,
+        "ltp": "-",
+        "change_rupees": "-",
+        "change_pct": "-",
+        "market_cap": "Source Pending",
+        "range_52w": "Source Pending",
+        "vwap": "-",
+        "prev_close": "-",
+    }
+    overview_metrics = []
+    technical_metrics = []
+    study_cards = []
+    peers = []
+    quick_stats = []
+    default_price_points = "0,72 7,68 14,70 21,61 28,56 35,58 42,53 49,46 56,48 63,41 70,36 77,39 84,28 91,32 100,22"
+    default_ma_points = "0,78 7,73 14,72 21,65 28,62 35,61 42,59 49,54 56,51 63,49 70,45 77,43 84,39 91,37 100,34"
+    chart_title = f"{symbol} Technical Chart"
+    chart_price_points = default_price_points
+    chart_ma_points = default_ma_points
+    hero_badges = [{"label": "Phase 1 Hybrid Page", "kind": "tag-info"}]
+    financial_metrics = build_placeholder_financial_metrics(breadcrumb_sector)
+    holdings_deals = build_placeholder_holdings_deals(symbol)
+    news_items = build_placeholder_news_items(symbol, breadcrumb_sector)
+    technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
+    studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
+
+    try:
+        creds = get_active_kite_credentials()
+        instrument_map = get_nse_instrument_map()
+        instrument = instrument_map.get(symbol)
+        if not creds["api_key"] or not creds["access_token"] or not instrument:
+            raise ValueError("Live market data is not available right now, so this stock page is showing market-aware placeholders for unavailable sections.")
+
+        client = build_kite_client(with_access_token=True)
+        quote_map = fetch_quote_map(client, [f"NSE:{symbol}"])
+        quote = quote_map.get(f"NSE:{symbol}")
+        if not quote:
+            raise ValueError("Live quote data was unavailable for this stock at the moment.")
+
+        selected_date = get_today_ist()
+        intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
+        daily_from = datetime.datetime.combine(selected_date - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
+        daily_to = datetime.datetime.combine(selected_date, datetime.time(23, 59), tzinfo=APP_TZ)
+        intraday_from = datetime.datetime.combine(selected_date, datetime.time(9, 15), tzinfo=APP_TZ)
+        intraday_to = datetime.datetime.combine(selected_date, intraday_end, tzinfo=APP_TZ)
+        daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+        intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+        live_row = build_manual_watchlist_row(symbol, {"note_text": "", "alert_rule": "none"}, quote, daily_candles, intraday_candles, security_name)
+
+        close_values = [float(candle["close"]) for candle in daily_candles if candle.get("close") is not None]
+        ma20_series = compute_simple_moving_average(close_values, 20)
+        ma50_series = compute_simple_moving_average(close_values, 50)
+        ma200_series = compute_simple_moving_average(close_values, 200)
+        ma20_value = ma20_series[-1] if ma20_series else None
+        ma50_value = ma50_series[-1] if ma50_series else None
+        ma200_value = ma200_series[-1] if ma200_series else None
+        rsi_value = compute_rsi(close_values, 14)
+        trailing_closes = close_values[-90:] if close_values else []
+        if trailing_closes:
+            chart_price_points = build_svg_polyline(trailing_closes)
+            trailing_ma20 = compute_simple_moving_average(trailing_closes, 20)
+            chart_ma_values = [value if value is not None else trailing_closes[index] for index, value in enumerate(trailing_ma20)]
+            chart_ma_points = build_svg_polyline(chart_ma_values)
+
+        one_year_return_value = None
+        if len(close_values) >= 2 and close_values[0] > 0:
+            one_year_return_value = ((close_values[-1] - close_values[0]) / close_values[0]) * 100
+
+        range_52w = f"{live_row['week_low']} - {live_row['week_high']}"
+        range_52w_context = describe_52w_context(live_row["last_price_numeric"], live_row["week_high_numeric"], live_row["week_low_numeric"])
+        stock.update(
+            {
+                "ltp": live_row["last_price"],
+                "change_rupees": format_signed_price(live_row["last_price_numeric"] - live_row["prev_close_numeric"]),
+                "change_pct": live_row["change_pct_display"],
+                "market_cap": "Source Pending",
+                "range_52w": range_52w,
+                "vwap": live_row["vwap"],
+                "prev_close": live_row["prev_close"],
+            }
+        )
+        hero_badges = [
+            {"label": live_row["status_label"], "kind": "tag-up" if live_row["status_badge"] == "badge-up" else "tag-down" if live_row["status_badge"] == "badge-down" else "tag-warn"},
+            {"label": live_row["vwap_status"], "kind": "tag-up" if live_row["vwap_badge"] == "badge-up" else "tag-down" if live_row["vwap_badge"] == "badge-down" else "tag-info"},
+            {"label": ("Gap Up " if live_row["gap_pct_numeric"] >= 0 else "Gap Down ") + live_row["gap_text"], "kind": "tag-up" if live_row["gap_pct_numeric"] >= 0 else "tag-down"},
+            {"label": range_52w_context, "kind": "tag-warn" if "High" in range_52w_context else "tag-info"},
+        ]
+        overview_metrics = [
+            {"label": "Open", "value": live_row["open_price"], "subtext": f"Gap context: {live_row['gap_text']} from previous close"},
+            {"label": "Day Range", "value": f"{live_row['day_low']} - {live_row['day_high']}", "subtext": f"Price is sitting at about {live_row['day_range_percent']}% of today's range"},
+            {"label": "Volume", "value": live_row["volume_display"], "subtext": f"Last depth tick seen: {live_row['tick_time'] or 'N/A'}"},
+            {"label": "Previous Day High / Low", "value": f"{live_row['pdh']} / {live_row['pdl']}", "subtext": f"Current status: {live_row['status_label']}"},
+            {"label": "52W High / Low", "value": range_52w, "subtext": range_52w_context},
+            {"label": "Average Price", "value": live_row["vwap"], "subtext": f"VWAP view: {live_row['vwap_status']}"},
+            {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
+            {"label": "Event Calendar", "value": "Source Pending", "subtext": "Results dates and corporate events will be connected in a later phase."},
+        ]
+        ma_view = describe_ma_view(live_row["last_price_numeric"], ma20_value, ma50_value, ma200_value)
+        technical_metrics = [
+            {"label": "Daily RSI", "value": f"{rsi_value}" if rsi_value is not None else "Pending", "subtext": "Light momentum read from daily closes."},
+            {"label": "MA View", "value": ma_view, "subtext": "Based on 20DMA, 50DMA, and 200DMA where available."},
+            {"label": "Pivot Bias", "value": live_row["status_label"], "subtext": "Phase-1 proxy using previous-day breakout context."},
+            {"label": "Support / Resistance", "value": f"{live_row['pdl']} / {live_row['pdh']}", "subtext": "Using previous-day low/high as the first decision zone."},
+        ]
+        study_cards = [
+            {"label": "RSI (14)", "value": f"{rsi_value}" if rsi_value is not None else "Pending", "copy": "Momentum is derived from current daily closes and kept intentionally lightweight in phase 1."},
+            {"label": "20 / 50 / 200 DMA", "value": ma_view, "copy": f"20DMA: {format_price(ma20_value) if ma20_value else '-'} | 50DMA: {format_price(ma50_value) if ma50_value else '-'} | 200DMA: {format_price(ma200_value) if ma200_value else '-'}."},
+            {"label": "Intraday Structure", "value": live_row["vwap_status"], "copy": f"Current price is {live_row['change_pct_display']} versus previous close, with VWAP reading kept visible for traders."},
+            {"label": "PDH / PDL Context", "value": live_row["status_label"], "copy": "This is the phase-1 breakout/rejection anchor and maps directly to your existing TraderHub logic."},
+            {"label": "1Y Return", "value": format_signed_percent(one_year_return_value) if one_year_return_value is not None else "Pending", "copy": "Uses available daily history to give a simple long-range price context."},
+            {"label": "Technical Summary", "value": ma_view if ma_view != "Pending" else live_row["status_label"], "copy": f"Price is trading with {live_row['vwap_status'].lower()} and {live_row['status_label'].lower()} structure right now."},
+        ]
+        peer_symbols = [peer_symbol for peer_symbol in get_stock_page_peer_symbols(symbol) if peer_symbol != symbol]
+        peer_symbols = [symbol] + peer_symbols[:5]
+        peer_quote_map = fetch_quote_map(client, [f"NSE:{peer_symbol}" for peer_symbol in peer_symbols])
+        for peer_symbol in peer_symbols:
+            peer_master = master.get("by_symbol", {}).get(peer_symbol) or {}
+            peer_security = peer_master.get("security") or peer_symbol
+            peer_company_name = prettify_company_name(peer_security, peer_symbol)
+            peer_instrument = instrument_map.get(peer_symbol)
+            peer_quote = peer_quote_map.get(f"NSE:{peer_symbol}")
+            if not peer_instrument or not peer_quote:
+                peers.append({"company": peer_company_name, "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "-", "range_52w": "Pending", "status": "Pending"})
+                continue
+            peer_daily_candles = client.historical_data(peer_instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+            peer_intraday_candles = client.historical_data(peer_instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+            peer_row = build_manual_watchlist_row(peer_symbol, {"note_text": "", "alert_rule": "none"}, peer_quote, peer_daily_candles, peer_intraday_candles, peer_security)
+            peer_closes = [float(candle["close"]) for candle in peer_daily_candles if candle.get("close") is not None]
+            peer_one_year_return = None
+            if len(peer_closes) >= 2 and peer_closes[0] > 0:
+                peer_one_year_return = ((peer_closes[-1] - peer_closes[0]) / peer_closes[0]) * 100
+            peers.append(
+                {
+                    "company": peer_company_name,
+                    "current_price": peer_row["last_price"],
+                    "day_change": peer_row["change_pct_display"],
+                    "return_1y": format_signed_percent(peer_one_year_return) if peer_one_year_return is not None else "Pending",
+                    "vwap": peer_row["vwap"],
+                    "range_52w": describe_52w_context(peer_row["last_price_numeric"], peer_row["week_high_numeric"], peer_row["week_low_numeric"]),
+                    "status": peer_row["status_label"],
+                }
+            )
+        quick_stats = [
+            {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
+            {"label": "Sector", "value": breadcrumb_sector},
+            {"label": "Industry", "value": industry_label},
+            {"label": "VWAP Position", "value": live_row["vwap_status"]},
+            {"label": "52W Context", "value": range_52w_context},
+            {"label": "Peer Set", "value": f"{max(len(peers) - 1, 0)} mapped peers"},
+        ]
+    except Exception as exc:
+        page_alert = str(exc)
+        overview_metrics = [
+            {"label": "Open", "value": "-", "subtext": "Live quote unavailable right now."},
+            {"label": "Day Range", "value": "-", "subtext": "Will populate when quote and intraday data are available."},
+            {"label": "Volume", "value": "-", "subtext": "Volume needs the current market data source."},
+            {"label": "Previous Day High / Low", "value": "-", "subtext": "This will be restored automatically once history loads."},
+            {"label": "52W High / Low", "value": "-", "subtext": "Long-range price context is waiting for price history."},
+            {"label": "Average Price", "value": "-", "subtext": "VWAP will appear after intraday candles load."},
+            {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
+            {"label": "Event Calendar", "value": "Source Pending", "subtext": "Results dates and corporate events are still a later-phase source."},
+        ]
+        technical_metrics = [
+            {"label": "Daily RSI", "value": "Pending", "subtext": "Waiting on daily candle data."},
+            {"label": "MA View", "value": "Pending", "subtext": "Moving-average signals need candle history."},
+            {"label": "Pivot Bias", "value": "Pending", "subtext": "Breakout context will restore with previous-day levels."},
+            {"label": "Support / Resistance", "value": "Pending", "subtext": "Levels are temporarily unavailable without history."},
+        ]
+        study_cards = [
+            {"label": "RSI (14)", "value": "Pending", "copy": "Momentum calculations will appear as soon as daily candles are available."},
+            {"label": "20 / 50 / 200 DMA", "value": "Pending", "copy": "The moving-average view is reserved for the real data path."},
+            {"label": "Intraday Structure", "value": "Pending", "copy": "Current intraday positioning is temporarily unavailable."},
+            {"label": "PDH / PDL Context", "value": "Pending", "copy": "Previous-day breakout context will return when history is accessible."},
+            {"label": "1Y Return", "value": "Pending", "copy": "One-year return needs the historical daily series."},
+            {"label": "Technical Summary", "value": "Pending", "copy": "The page still renders cleanly even if live/technical data is temporarily unavailable."},
+        ]
+        peers = [
+            {"company": prettify_company_name((master.get('by_symbol', {}).get(peer_symbol) or {}).get('security') or peer_symbol, peer_symbol), "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "Pending", "range_52w": "Pending", "status": "Pending"}
+            for peer_symbol in get_stock_page_peer_symbols(symbol)[:6]
+        ]
+        quick_stats = [
+            {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
+            {"label": "Sector", "value": breadcrumb_sector},
+            {"label": "Industry", "value": industry_label},
+            {"label": "VWAP Position", "value": "Pending"},
+            {"label": "52W Context", "value": "Pending"},
+            {"label": "Peer Set", "value": f"{max(len(peers) - 1, 0)} mapped peers"},
+        ]
+
+    return {
+        "seo_title": f"{company_name} Share Price, Technicals, Financials, Peers & Deals | TraderHub",
+        "seo_description": f"Track {company_name} share price, live market context, technical snapshot, peer comparison, holdings placeholders, and TraderHub stock research structure in one page.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{company_name} Share Price, Technicals, Financials, Peers & Deals | TraderHub", "description": f"Public stock intelligence page for {company_name}.", "url": canonical_url, "about": {"@type": "Corporation", "name": company_name, "tickerSymbol": symbol}}, indent=2),
+        "today_date": today_date,
+        "stock": stock,
+        "hero_badges": hero_badges,
+        "overview_metrics": overview_metrics,
+        "technical_metrics": technical_metrics,
+        "study_cards": study_cards,
+        "financial_metrics": financial_metrics,
+        "peers": peers,
+        "holdings_deals": holdings_deals,
+        "news_items": news_items,
+        "quick_stats": quick_stats,
+        "breadcrumb_sector": breadcrumb_sector,
+        "breadcrumb_symbol_label": symbol,
+        "breadcrumb_meta_text": f"Public stock page | Phase 1 dynamic view | Last reviewed {today_date}",
+        "page_alert": page_alert,
+        "page_purpose_title": "Page Purpose",
+        "page_purpose_text": "This public stock page combines live market context, technical summary, peer comparison, and reserved research sections in an SEO-friendly structure.",
+        "seo_notes_title": "SEO Notes",
+        "seo_notes_text": "Each stock page uses stock-specific title, meta description, canonical path, schema JSON-LD, and a stable slug-based public URL.",
+        "overview_footer_note": f"{company_name} is being rendered from live market context where available, while deeper fundamentals, holdings, and deals remain intentionally placeholder-backed for phase 1.",
+        "technical_section_note": technical_section_note,
+        "chart_title": chart_title,
+        "chart_price_points": chart_price_points,
+        "chart_ma_points": chart_ma_points,
+        "studies_section_note": studies_section_note,
+        "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
+        "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
+        "holdings_section_note": "Ownership, FII/DII, pledge, and deal tracking are structurally ready here and are intentionally marked pending until the next source integration.",
+        "news_section_note": "This section is ready for events, earnings notes, and company-specific updates. Phase 1 keeps the structure visible even before the final feed is connected.",
+        "why_page_works_title": "Why This Page Works",
+        "why_page_works_text": "It gives one company page both trading relevance and future SEO depth: live price context today, expandable research blocks tomorrow.",
+    }
+
+
+STOCK_HUB_NOT_FOUND_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock Not Found | TraderHub</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef1f4; color: #1f2b38; }
+    .shell { max-width: 760px; margin: 60px auto; background: #fff; border: 1px solid #c9d3dd; border-radius: 22px; padding: 28px; box-shadow: 0 12px 32px rgba(23,33,43,0.08); }
+    h1 { margin: 0 0 10px; font-size: 34px; font-family: Georgia, "Times New Roman", serif; }
+    p { color: #627385; line-height: 1.65; }
+    a { color: #176f62; font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Stock Page Not Found</h1>
+    <p>The requested stock slug could not be matched to the TraderHub stock master right now.</p>
+    <p><a href="/market-watch">Open Market Watch</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
+@app.route("/stocks/<stock_slug>")
+def stock_hub_public(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    master = load_symbol_master()
+    if not symbol or symbol not in master.get("by_symbol", {}):
+        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+
+    canonical_slug = get_canonical_stock_slug(symbol)
+    if stock_slug.strip().lower() != canonical_slug:
+        return redirect(f"/stocks/{canonical_slug}")
+
+    context = build_stock_page_context(symbol, request.url_root.rstrip("/"))
+    return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **context)
 
 
 @app.route("/stock-hub-sample")
