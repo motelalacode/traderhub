@@ -10201,8 +10201,15 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         {"label": "Mutual Fund Holding", "value": mutual_fund_details["value"], "note": mutual_fund_details["period"]},
         {"label": "Retail & Other", "value": retail_other_details["value"], "note": retail_other_details["period"]},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Deals feed is still reserved for the next source integration."},
-        {"label": "Pledge", "value": pledge_details["value"], "note": pledge_details["period"] if pledge_details["value"] != "Source Pending" else "Pledge data still needs a separate ownership/deal source."},
     ]
+    if pledge_details["value"] != "Source Pending":
+        holdings_deals.append(
+            {
+                "label": "Pledge",
+                "value": pledge_details["value"],
+                "note": pledge_details["period"],
+            }
+        )
 
     ownership_watch_rows = [
         {
@@ -16457,7 +16464,6 @@ def build_placeholder_holdings_deals(symbol):
         {"label": "Mutual Fund Holding", "value": "Source Pending", "note": "Mutual fund shareholding will be shown once the ownership source is available."},
         {"label": "Retail & Other", "value": "Source Pending", "note": "Public-shareholding detail will be surfaced with the broader ownership layer."},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Recent deal activity will be added here when the deals source is connected."},
-        {"label": "Pledge", "value": "Source Pending", "note": "Pledge data is intentionally marked pending until a reliable feed is available."},
     ]
 
 
@@ -17211,7 +17217,7 @@ def build_stock_page_context(symbol, host_root):
         "studies_section_note": studies_section_note,
         "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
         "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
-        "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and only deals and pledge stay reserved for the next integration pass.",
+        "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and deal activity stays reserved for the next integration pass.",
         "news_section_note": news_section_note,
         "why_page_works_title": "Why This Page Works",
         "why_page_works_text": "It gives one company page both trading relevance and future SEO depth: live price context today, expandable research blocks tomorrow.",
