@@ -10151,6 +10151,16 @@ def get_live_index_future_snapshot(index_name, underlying_names=None):
     }
 
 
+def get_pcr_interpretation(pcr_numeric):
+    if pcr_numeric is None:
+        return "Pending"
+    if pcr_numeric >= 1.10:
+        return "Defensive put-heavy structure"
+    if pcr_numeric <= 0.85:
+        return "Call-heavy resistance structure"
+    return "Balanced structure"
+
+
 def get_option_oi_change_for_instrument(client, instrument_token):
     today = get_today_ist()
     from_dt = datetime.datetime.combine(today - datetime.timedelta(days=10), datetime.time(0, 0), tzinfo=APP_TZ)
@@ -18398,6 +18408,150 @@ def build_index_oi_change_context(host_root):
     }
 
 
+def build_index_oi_change_context_v2(host_root):
+    today_iso = get_today_ist().isoformat()
+    cards = []
+    combined_rows = []
+    focus_cards = []
+    market_errors = []
+
+    for index_slug in ("nifty-options", "banknifty-options"):
+        config = DERIVATIVES_INDEX_CONFIG[index_slug]
+        creds = get_active_kite_credentials()
+        client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+        spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+        ohlc = (spot_quote or {}).get("ohlc") or {}
+        spot_value = float((spot_quote or {}).get("last_price") or 0)
+        prev_close = float(ohlc.get("close") or 0)
+        spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
+
+        chain = build_real_index_option_chain(
+            config["index_name"],
+            spot_value,
+            config["strike_step"],
+            underlying_names=config.get("underlying_names"),
+        )
+        if not chain.get("available", False):
+            market_errors.append(f"{config['index_name']}: {chain.get('error', 'Chain unavailable right now.')}")
+            continue
+
+        pcr_display = chain.get("pcr_display", "Pending")
+        pcr_read = get_pcr_interpretation(chain.get("pcr_numeric"))
+
+        cards.extend(
+            [
+                {
+                    "label": f"{config['index_name']} PCR",
+                    "value": pcr_display,
+                    "copy": f"{pcr_read}. Spot is {spot_change_pct:+.2f}% and max pain is near {chain.get('max_pain')}.",
+                },
+                {
+                    "label": f"{config['index_name']} OI",
+                    "value": f"C {chain.get('total_call_oi')} / P {chain.get('total_put_oi')}",
+                    "copy": f"Displayed-window OI with strongest call wall at {chain.get('strongest_call_wall')} and strongest put wall at {chain.get('strongest_put_wall')}.",
+                },
+            ]
+        )
+        focus_cards.extend(
+            [
+                {
+                    "title": f"{config['index_name']} PCR Read",
+                    "meta": "Real index chain",
+                    "copy": f"PCR is {pcr_display}. {pcr_read}. Support is around {chain.get('support_zone')} and resistance is around {chain.get('resistance_zone')}.",
+                },
+                {
+                    "title": f"{config['index_name']} Walls",
+                    "meta": "Real index chain",
+                    "copy": f"Strongest call wall: {chain.get('strongest_call_wall')} | Strongest put wall: {chain.get('strongest_put_wall')} | Max pain: {chain.get('max_pain')}.",
+                },
+            ]
+        )
+
+        for row in chain.get("rows") or []:
+            combined_rows.append(
+                {
+                    "index_name": config["index_name"],
+                    "symbol": row["strike"],
+                    "stock_url": None,
+                    "spot": format_price(spot_value) if spot_value > 0 else "Pending",
+                    "day_change": f"{spot_change_pct:+.2f}%" if prev_close > 0 and spot_value > 0 else "Pending",
+                    "volume": "Displayed Window",
+                    "oi_bias": row.get("read", "Pending"),
+                    "proxy_oi_shift": f"C {row.get('call_oi_change', 'Pending')} | P {row.get('put_oi_change', 'Pending')}",
+                    "oi": f"C {row.get('call_oi', 'Pending')} | P {row.get('put_oi', 'Pending')}",
+                    "oi_change": f"C {row.get('call_oi_change', 'Pending')} | P {row.get('put_oi_change', 'Pending')}",
+                    "pressure_score": row.get("combined_oi", 0),
+                }
+            )
+
+    combined_rows = sorted(combined_rows, key=lambda row: row["pressure_score"], reverse=True)
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/index/oi-change"
+
+    return {
+        "page_mode": "index_oi_change",
+        "seo_title": "Index OI Change Dashboard, Nifty & Bank Nifty Pressure Map | TraderHub",
+        "seo_description": "Track TraderHub index OI change dashboard for Nifty and Bank Nifty with live displayed-chain OI, PCR, and public F&O discovery.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Index OI Change Dashboard | TraderHub", "description": "Public index OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Derivatives â€º Index Derivatives â€º OI Change Dashboard",
+        "breadcrumb_meta_text": f"Phase 1 index OI page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Index OI Change",
+        "hero_title": "Index OI Change Dashboard",
+        "hero_subtitle": "This page now prefers the live displayed option-chain window for Nifty and Bank Nifty. It is built for traffic, scan speed, and trader trust, while still leaving room for deeper expiry and full-chain upgrades later.",
+        "hero_metric_primary": str(len(combined_rows)),
+        "hero_metric_secondary": "live chain rows across Nifty and Bank Nifty" if combined_rows else "waiting on live index chain rows",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Index OI Intent", "kind": "tag-up"}, {"label": "Real OI Live", "kind": "tag-up"}],
+        "hero_stats": [
+            {"label": "Indexes", "value": 2},
+            {"label": "Chain Rows", "value": len(combined_rows)},
+            {"label": "Real OI", "value": "Live"},
+            {"label": "PCR", "value": "Live"},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Index OI", "href": "/derivatives/index/oi-change"},
+            {"label": "Stock OI", "href": "/derivatives/stocks/oi-change"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Index OI Snapshot",
+        "section_note": "The public index OI page now prefers the live displayed chain window whenever it is available. It still stays disciplined by showing only the visible strike band instead of pretending to be a full option terminal.",
+        "summary_cards": cards + [
+            {"label": "Real OI Fields", "value": "Live", "copy": "The page is now using live displayed-chain OI and OI-change values wherever the broker chain is available."},
+            {"label": "Use Case", "value": "Traffic + Habit", "copy": "This page is built to attract high-intent F&O users and give them a clean repeat-use surface."},
+        ],
+        "focus_title": "Chain Reads",
+        "focus_note": "These blocks now describe real displayed-chain behavior, which makes the page much more consistent with the Nifty and Bank Nifty options dashboards.",
+        "focus_cards": focus_cards,
+        "table_title": "Index OI Change Table",
+        "table_note": "This table now uses real displayed-chain strikes, live OI, and OI-change values where available. It stays light enough for a public page while already being much more useful to traders.",
+        "table_columns": [
+            {"label": "Index", "key": "index_name", "link_key": None},
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
+            {"label": "Spot", "key": "spot", "link_key": None},
+            {"label": "Day Change", "key": "day_change", "link_key": None},
+            {"label": "Volume", "key": "volume", "link_key": None},
+            {"label": "OI Bias", "key": "oi_bias", "link_key": None},
+            {"label": "Proxy OI Shift", "key": "proxy_oi_shift", "link_key": None},
+            {"label": "Real OI", "key": "oi", "link_key": None},
+            {"label": "Real OI Change", "key": "oi_change", "link_key": None},
+        ],
+        "table_rows": combined_rows,
+        "group_title": "What This Page Solves",
+        "group_note": "These notes are here because a public derivatives page must explain its value quickly while still staying trustworthy and readable.",
+        "group_blocks": [
+            {"title": "Why It Helps Traders", "count": 4, "copy": "Even as a public page, it already answers useful index OI questions.", "items": ["Where the displayed index OI clusters are sitting", "Whether PCR looks balanced or skewed", "Which index deserves attention first", "Where to drill down next in the derivatives module"]},
+            {"title": "What Gets Better Next", "count": 4, "copy": "The same layout is ready for a stronger derivatives feed later.", "items": ["Wider strike window", "Deeper expiry structure", "Cleaner chain ranking logic", "More reliable call/put participation read"]},
+        ],
+        "public_note": "This page now turns index-side OI intent into a real public route with live displayed-chain data where available. It is useful for both traffic and trader orientation today, and still has room to deepen later.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Treat this as an index OI read page first. It now uses live displayed-chain values when the chain is available, which makes it much closer to the real index options dashboards.",
+        "why_page_works": "It rounds out the public derivatives story, gives index users a clean OI entry point, and strengthens both TraderHub's search footprint and trader habit potential.",
+        "market_error": " | ".join(market_errors) if market_errors else None,
+    }
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -18561,7 +18715,7 @@ def derivatives_banknifty_options():
 
 @app.route("/derivatives/index/oi-change")
 def derivatives_index_oi_change():
-    context = build_index_oi_change_context(request.url_root.rstrip("/"))
+    context = build_index_oi_change_context_v2(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
