@@ -167,6 +167,7 @@ DERIVATIVES_INDEX_CONFIG = {
         "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"],
         "proxy_symbols": ["RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "ITC", "LT", "SBIN", "BHARTIARTL", "AXISBANK"],
         "strike_step": 50,
+        "strike_span": 4,
         "expiry_label": "Weekly",
         "market_read_copy": "Phase 1 keeps the structure ready for a full option-chain source while still surfacing a real broad-market proxy from liquid Nifty names.",
     },
@@ -177,6 +178,7 @@ DERIVATIVES_INDEX_CONFIG = {
         "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"],
         "proxy_symbols": ["HDFCBANK", "ICICIBANK", "AXISBANK", "KOTAKBANK", "SBIN", "BANKBARODA", "INDUSINDBK", "PNB"],
         "strike_step": 100,
+        "strike_span": 4,
         "expiry_label": "Weekly",
         "market_read_copy": "Phase 1 uses a banking breadth proxy to keep the page useful now, while the true option-chain layer can plug in later without a redesign.",
     },
@@ -10180,7 +10182,7 @@ def get_option_oi_change_for_instrument(client, instrument_token):
     return float(latest_oi) - float(previous_oi)
 
 
-def build_real_index_option_chain(index_name, spot_value, strike_step, underlying_names=None):
+def build_real_index_option_chain(index_name, spot_value, strike_step, underlying_names=None, strike_span=4):
     creds = get_active_kite_credentials()
     if not creds["api_key"] or not creds["access_token"]:
         return {"available": False, "error": "Kite API key or access token is missing in .env."}
@@ -10194,8 +10196,9 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         return {"available": False, "error": f"{index_name} spot quote is unavailable, so the option chain window could not be framed."}
 
     anchor = int(round(spot_value / strike_step) * strike_step)
-    window_min = anchor - (2 * strike_step)
-    window_max = anchor + (2 * strike_step)
+    span = max(2, int(strike_span or 4))
+    window_min = anchor - (span * strike_step)
+    window_max = anchor + (span * strike_step)
     selected_rows = [row for row in option_rows if window_min <= row["strike_value"] <= window_max]
     if not selected_rows:
         return {"available": False, "error": f"No {index_name} option strikes were available around the current spot window."}
@@ -17984,6 +17987,7 @@ def build_index_derivatives_context(index_slug, host_root):
         spot_value,
         config["strike_step"],
         underlying_names=config.get("underlying_names"),
+        strike_span=config.get("strike_span", 4),
     )
     future_snapshot = get_live_index_future_snapshot(
         config["index_name"],
@@ -18065,7 +18069,7 @@ def build_index_derivatives_context(index_slug, host_root):
             {"title": "PCR Read", "meta": "Displayed chain window", "copy": (f"Put-Call Ratio across the displayed strike window is {real_chain.get('pcr_display')}." if chain_available else "PCR will appear once the live option-chain window is available.")},
         ],
         "table_title": "Options Structure Table",
-        "table_note": "The strike table is now using live OI where the broker chain window is available. When the full chain source gets connected later, this same layout can simply deepen instead of being redesigned." if chain_available else "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
+        "table_note": f"The strike table is now using live OI across a wider displayed window of roughly {config.get('strike_span', 4)} strikes on each side of spot when the broker chain is available. When the full chain source gets connected later, this same layout can simply deepen instead of being redesigned." if chain_available else "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
         "table_columns": [
             {"label": "Strike", "key": "strike", "link_key": None},
             {"label": "Call OI", "key": "call_oi", "link_key": None},
