@@ -17929,6 +17929,48 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
             {% endfor %}
           </div>
         </section>
+        {% elif page_mode == "trend_hub" %}
+        <section class="section">
+          <h2>Trend Groups</h2>
+          <div class="section-note">These grouped pages help users revisit the market by theme instead of only by chronology or one-off movers.</div>
+          <div class="story-grid">
+            {% for item in rows %}
+            <div class="story-card">
+              <div class="story-title"><a href="{{ item.href }}">{{ item.title }}</a></div>
+              <div class="story-meta">{{ item.meta }}</div>
+              {% if item.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in item.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
+              <div class="story-copy">{{ item.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% elif page_mode == "trend_group" %}
+        <section class="section">
+          <h2>Grouped View</h2>
+          <div class="section-note">This grouped table keeps the page practical: one theme, the strongest rows first, and the right next click.</div>
+          {% if rows %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Primary</th><th>Context</th><th>Metric 1</th><th>Metric 2</th><th>Metric 3</th><th>Read</th><th>Next</th></tr></thead>
+              <tbody>
+                {% for item in rows %}
+                <tr>
+                  <td>{{ item.primary }}</td>
+                  <td>{{ item.secondary }}</td>
+                  <td>{{ item.metric_1 }}</td>
+                  <td>{{ item.metric_2 }}</td>
+                  <td>{{ item.metric_3 }}</td>
+                  <td>{{ item.note }}</td>
+                  <td><a href="{{ item.link }}">Open</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="notice"><div class="copy">No rows matched this grouped trend view right now.</div></div>
+          {% endif %}
+        </section>
         {% else %}
         <section class="section">
           <h2>News & Event Links</h2>
@@ -18278,6 +18320,297 @@ def build_why_moving_reason_cards(row):
         {"label": "VWAP", "value": row["vwap_status"], "copy": f"Average-price position is using VWAP {row['vwap']} as the intraday anchor."},
         {"label": "Status", "value": row["status_label"], "copy": f"Public status read based on PDH/PDL and intraday location. Current day range fill is {row['day_range_percent']}%."},
     ]
+
+
+def get_trend_group_definitions():
+    return {
+        "bullish": {
+            "label": "Bullish Trends",
+            "description": "Names showing strong constructive public tape behavior right now.",
+        },
+        "bearish": {
+            "label": "Bearish Trends",
+            "description": "Names showing pressured public tape behavior right now.",
+        },
+        "earnings": {
+            "label": "Earnings Trends",
+            "description": "Stories and names where result-style or quarterly commentary language is showing up first.",
+        },
+        "sector-rotation": {
+            "label": "Sector Rotation",
+            "description": "Broad sectors where leadership and weakness are clustering clearly enough to matter.",
+        },
+    }
+
+
+def get_phase2_live_market_rows(limit=20):
+    symbols = get_phase2_market_symbols(limit=limit)
+    return get_public_sector_rows(symbols, get_today_ist())
+
+
+def build_sector_cards_from_live_rows(rows):
+    lookup = get_symbol_sector_lookup()
+    grouped = {}
+    for row in rows:
+        broad_sector = (lookup.get(row["symbol"], "General").split(" / ")[0]).strip()
+        grouped.setdefault(broad_sector, []).append(row)
+
+    sector_cards = []
+    for sector_label, sector_rows in grouped.items():
+        sector_rows = sorted(sector_rows, key=lambda item: item["change_pct_numeric"], reverse=True)
+        avg_change = sum(row["change_pct_numeric"] for row in sector_rows) / len(sector_rows)
+        strongest = sector_rows[0]
+        weakest = min(sector_rows, key=lambda item: item["change_pct_numeric"])
+        sector_cards.append(
+            {
+                "sector": sector_label,
+                "sector_slug": get_public_sector_slug(next((key for key in SECTOR_GROUPS.keys() if sector_label.lower() == key.replace("_", " ").title().lower()), "")) if any(sector_label.lower() == key.replace("_", " ").title().lower() for key in SECTOR_GROUPS.keys()) else "",
+                "avg_change": f"{avg_change:+.2f}%",
+                "avg_change_numeric": avg_change,
+                "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
+                "story": build_sector_strip_story(sector_label, sector_rows),
+                "strongest": strongest,
+                "weakest": weakest,
+                "rows": sector_rows,
+            }
+        )
+    return sorted(sector_cards, key=lambda item: abs(item["avg_change_numeric"]), reverse=True)
+
+
+def get_earnings_keyword_story_rows(rows, per_symbol_limit=2):
+    keywords = ("earnings", "result", "results", "quarter", "q4", "q1", "q2", "q3", "guidance", "board meeting")
+    stories = []
+    for row in rows[:8]:
+        sector_label = get_broad_sector_label(row["symbol"])
+        stock_isin = resolve_stock_isin(row["symbol"])
+        try:
+            stock_stories = get_upstox_stock_news_items(stock_isin, page_size=per_symbol_limit)
+        except Exception:
+            stock_stories = []
+        for story in stock_stories:
+            haystack = f"{story.get('title', '')} {story.get('copy', '')}".lower()
+            if any(keyword in haystack for keyword in keywords):
+                stories.append(
+                    {
+                        "symbol": row["symbol"],
+                        "company_name": prettify_company_name(((load_symbol_master().get("by_symbol", {}).get(row["symbol"]) or {}).get("security") or row["symbol"]), row["symbol"]),
+                        "last_price": row["last_price"],
+                        "change_pct_display": row["change_pct_display"],
+                        "status_label": row["status_label"],
+                        "story_title": story["title"],
+                        "story_meta": story["meta"],
+                        "story_copy": story["copy"],
+                        "stock_url": f"/stocks/{get_canonical_stock_slug(row['symbol'])}",
+                        "why_moving_url": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+                        "sector": sector_label,
+                    }
+                )
+    return stories[:10]
+
+
+def build_market_trends_hub_context(host_root):
+    trend_defs = get_trend_group_definitions()
+    rows, missing, market_error = get_phase2_live_market_rows(limit=20)
+    sector_cards = build_sector_cards_from_live_rows(rows)
+    bullish_rows = [row for row in rows if row["change_pct_numeric"] >= 0.75 and row["vwap_status"] == "Above VWAP" and row["status_label"] != "Below PDL"]
+    bearish_rows = [row for row in rows if row["change_pct_numeric"] <= -0.75 and row["vwap_status"] == "Below VWAP" and row["status_label"] != "Above PDH"]
+    earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=1)
+    today_iso = get_today_ist().isoformat()
+    trend_cards = [
+        {
+            "title": trend_defs["bullish"]["label"],
+            "meta": f"Trend Group | {len(bullish_rows)} names",
+            "copy": trend_defs["bullish"]["description"],
+            "href": "/market/trends/bullish",
+            "tags": [{"label": "Constructive", "kind": "tag-up"}],
+        },
+        {
+            "title": trend_defs["bearish"]["label"],
+            "meta": f"Trend Group | {len(bearish_rows)} names",
+            "copy": trend_defs["bearish"]["description"],
+            "href": "/market/trends/bearish",
+            "tags": [{"label": "Pressured", "kind": "tag-down"}],
+        },
+        {
+            "title": trend_defs["earnings"]["label"],
+            "meta": f"Trend Group | {len(earnings_rows)} tagged stories",
+            "copy": trend_defs["earnings"]["description"],
+            "href": "/market/trends/earnings",
+            "tags": [{"label": "Event Driven", "kind": "tag-warn"}],
+        },
+        {
+            "title": trend_defs["sector-rotation"]["label"],
+            "meta": f"Trend Group | {len(sector_cards)} sectors",
+            "copy": trend_defs["sector-rotation"]["description"],
+            "href": "/market/trends/sector-rotation",
+            "tags": [{"label": "Theme Scan", "kind": "tag-info"}],
+        },
+    ]
+    return {
+        "page_mode": "trend_hub",
+        "seo_title": "Market Trends, Bullish, Bearish, Earnings & Sector Rotation | TraderHub",
+        "seo_description": "Explore TraderHub market trends grouped into bullish, bearish, earnings, and sector-rotation views for faster market reading.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/trends",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Trends | TraderHub", "description": "Public grouped market trends page for TraderHub.", "url": f"{host_root.rstrip('/')}/market/trends"}, indent=2),
+        "breadcrumb_text": "Market News â€º Trends",
+        "breadcrumb_meta_text": f"Phase 3 trend layer | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Market Trends",
+        "hero_title": "Trend Groups",
+        "hero_subtitle": "A grouped public layer that helps users move from raw movers into clearer market themes.",
+        "hero_metric_primary": str(len(trend_cards)),
+        "hero_metric_secondary": "public trend groups live right now",
+        "hero_badges": [{"label": "Phase 3 Grouping", "kind": "tag-info"}, {"label": "Trend Layer", "kind": "tag-up"}, {"label": "SEO Depth", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Bullish", "value": len(bullish_rows)},
+            {"label": "Bearish", "value": len(bearish_rows)},
+            {"label": "Earnings", "value": len(earnings_rows)},
+            {"label": "Sectors", "value": len(sector_cards)},
+        ],
+        "nav_chips": [
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+            {"label": "Trend Hub", "href": "/market/trends"},
+            {"label": "Bullish", "href": "/market/trends/bullish"},
+            {"label": "Bearish", "href": "/market/trends/bearish"},
+        ],
+        "section_title": "Trend Group Hub",
+        "section_note": "This page is the grouped doorway into the public market layer. It turns one-dimensional mover pages into clearer buckets that users can revisit daily.",
+        "summary_cards": [
+            {"label": "Bullish Group", "value": len(bullish_rows), "copy": "Names with stronger constructive public tape behavior."},
+            {"label": "Bearish Group", "value": len(bearish_rows), "copy": "Names with clearer negative public tape behavior."},
+            {"label": "Earnings Stories", "value": len(earnings_rows), "copy": "Tagged event-driven stories in the current tracked universe."},
+            {"label": "Rotation Use", "value": "Theme First", "copy": "Helps users think in themes instead of only single-symbol moves."},
+        ],
+        "lead_stories": trend_cards,
+        "watch_sections": [
+            {"title": "Use This Hub", "items": ["Start with bullish or bearish if you want directional clusters", "Use earnings for event-driven names", "Use sector rotation when one theme is driving multiple stocks"]},
+            {"title": "Best Next Clicks", "items": ["Bullish trends", "Bearish trends", "Earnings trends", "Sector rotation"]},
+        ],
+        "rows": trend_cards,
+        "market_error": market_error,
+        "side_box_title": "Phase 3 Rule",
+        "side_box_copy": "Group what matters. The value of this layer is not more headlines, but better organization of the same market signal flow.",
+        "why_page_works": "Trend grouping adds SEO depth, stronger repeat-use navigation, and a cleaner public research structure before alerts and personalization arrive.",
+    }
+
+
+def build_market_trend_group_context(host_root, trend_slug):
+    trend_defs = get_trend_group_definitions()
+    config = trend_defs.get(trend_slug)
+    if not config:
+        return None
+    rows, missing, market_error = get_phase2_live_market_rows(limit=22)
+    sector_cards = build_sector_cards_from_live_rows(rows)
+    today_iso = get_today_ist().isoformat()
+
+    page_rows = []
+    if trend_slug == "bullish":
+        ranked_rows = sorted(
+            [row for row in rows if row["change_pct_numeric"] >= 0.5 and row["vwap_status"] == "Above VWAP"],
+            key=lambda item: (item["change_pct_numeric"], item["day_range_percent"]),
+            reverse=True,
+        )
+        for row in ranked_rows[:12]:
+            page_rows.append(
+                {
+                    "primary": row["symbol"],
+                    "secondary": prettify_company_name(((load_symbol_master().get("by_symbol", {}).get(row["symbol"]) or {}).get("security") or row["symbol"]), row["symbol"]),
+                    "metric_1": row["last_price"],
+                    "metric_2": row["change_pct_display"],
+                    "metric_3": row["status_label"],
+                    "note": build_live_mover_story(row, get_broad_sector_label(row["symbol"])),
+                    "link": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+                }
+            )
+    elif trend_slug == "bearish":
+        ranked_rows = sorted(
+            [row for row in rows if row["change_pct_numeric"] <= -0.5 and row["vwap_status"] == "Below VWAP"],
+            key=lambda item: (item["change_pct_numeric"], -item["day_range_percent"]),
+        )
+        for row in ranked_rows[:12]:
+            page_rows.append(
+                {
+                    "primary": row["symbol"],
+                    "secondary": prettify_company_name(((load_symbol_master().get("by_symbol", {}).get(row["symbol"]) or {}).get("security") or row["symbol"]), row["symbol"]),
+                    "metric_1": row["last_price"],
+                    "metric_2": row["change_pct_display"],
+                    "metric_3": row["status_label"],
+                    "note": build_live_mover_story(row, get_broad_sector_label(row["symbol"])),
+                    "link": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+                }
+            )
+    elif trend_slug == "earnings":
+        for item in get_earnings_keyword_story_rows(rows, per_symbol_limit=2):
+            page_rows.append(
+                {
+                    "primary": item["symbol"],
+                    "secondary": item["story_title"],
+                    "metric_1": item["last_price"],
+                    "metric_2": item["change_pct_display"],
+                    "metric_3": item["sector"],
+                    "note": item["story_copy"],
+                    "link": item["why_moving_url"],
+                }
+            )
+    else:
+        for item in sector_cards[:10]:
+            page_rows.append(
+                {
+                    "primary": item["sector"],
+                    "secondary": item["leaders"],
+                    "metric_1": item["avg_change"],
+                    "metric_2": item["strongest"]["symbol"],
+                    "metric_3": item["weakest"]["symbol"],
+                    "note": item["story"],
+                    "link": f"/sectors/{item['sector_slug']}" if item["sector_slug"] else "/market/sector-news",
+                }
+            )
+
+    return {
+        "page_mode": "trend_group",
+        "seo_title": f"{config['label']} | TraderHub Market Trends",
+        "seo_description": f"Track {config['label'].lower()} in TraderHub with grouped public market context and follow-through links.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": config["description"], "url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}"}, indent=2),
+        "breadcrumb_text": f"Market News â€º Trends â€º {config['label']}",
+        "breadcrumb_meta_text": f"Phase 3 grouped trend page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Trend Group",
+        "hero_title": config["label"],
+        "hero_subtitle": config["description"],
+        "hero_metric_primary": str(len(page_rows)),
+        "hero_metric_secondary": "rows in this grouped public view",
+        "hero_badges": [{"label": "Phase 3 Grouping", "kind": "tag-info"}, {"label": config["label"], "kind": "tag-up" if trend_slug in {'bullish','sector-rotation'} else 'tag-down' if trend_slug == 'bearish' else 'tag-warn'}],
+        "hero_stats": [
+            {"label": "Rows", "value": len(page_rows)},
+            {"label": "Universe", "value": len(rows)},
+            {"label": "Missing Rows", "value": len(missing)},
+            {"label": "Mode", "value": config["label"]},
+        ],
+        "nav_chips": [
+            {"label": "Trend Hub", "href": "/market/trends"},
+            {"label": "Bullish", "href": "/market/trends/bullish"},
+            {"label": "Bearish", "href": "/market/trends/bearish"},
+            {"label": "Earnings", "href": "/market/trends/earnings"},
+            {"label": "Sector Rotation", "href": "/market/trends/sector-rotation"},
+        ],
+        "section_title": config["label"],
+        "section_note": "Grouped trend pages help users come back for a cleaner read of the same market data. They are about pattern recognition, not just chronology.",
+        "summary_cards": [
+            {"label": "Group Size", "value": len(page_rows), "copy": "Rows currently matching this grouped view."},
+            {"label": "Universe", "value": len(rows), "copy": "Tracked names scanned for this grouping pass."},
+            {"label": "Use Case", "value": "Theme Scan", "copy": "Best used when the user wants to filter the market by a cleaner idea, not only by one symbol."},
+            {"label": "Next Layer", "value": "AI Summary", "copy": "Phase 3 can add a concise AI read on top of this grouped structure next."},
+        ],
+        "lead_stories": [],
+        "watch_sections": [
+            {"title": "How To Use This Group", "items": ["Open the strongest row first", "Cross-check the stock or sector page", "Use why-moving pages for single-name verification"]},
+        ],
+        "rows": page_rows,
+        "market_error": market_error,
+        "side_box_title": "Grouped View",
+        "side_box_copy": "This page exists to simplify scanning. One clean grouping is often more useful than ten disconnected headlines.",
+        "why_page_works": "Grouped trend pages increase discoverability, help users build habits around recurring market themes, and prepare the site for deeper archive and AI layers.",
+    }
 
 
 def build_live_movers_context(host_root):
@@ -19813,6 +20146,20 @@ def market_live_movers():
 @app.route("/market/sector-news")
 def market_sector_news():
     context = build_sector_news_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/trends")
+def market_trends_hub():
+    context = build_market_trends_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/trends/<trend_slug>")
+def market_trend_group(trend_slug):
+    context = build_market_trend_group_context(request.url_root.rstrip("/"), str(trend_slug or "").strip().lower())
+    if not context:
+        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
