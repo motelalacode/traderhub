@@ -163,6 +163,7 @@ DERIVATIVES_INDEX_CONFIG = {
     "nifty-options": {
         "label": "Nifty Options Dashboard",
         "index_name": "Nifty 50",
+        "underlying_names": ["NIFTY", "NIFTY 50"],
         "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"],
         "proxy_symbols": ["RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "ITC", "LT", "SBIN", "BHARTIARTL", "AXISBANK"],
         "strike_step": 50,
@@ -172,6 +173,7 @@ DERIVATIVES_INDEX_CONFIG = {
     "banknifty-options": {
         "label": "Bank Nifty Options Dashboard",
         "index_name": "Bank Nifty",
+        "underlying_names": ["BANKNIFTY", "NIFTY BANK", "BANK NIFTY"],
         "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"],
         "proxy_symbols": ["HDFCBANK", "ICICIBANK", "AXISBANK", "KOTAKBANK", "SBIN", "BANKBARODA", "INDUSINDBK", "PNB"],
         "strike_step": 100,
@@ -10073,11 +10075,14 @@ def normalize_expiry_date(value):
         return None
 
 
-def get_nearest_index_option_instruments(index_name):
+def get_nearest_index_option_instruments(index_name, underlying_names=None):
     today = get_today_ist()
     option_rows = []
+    allowed_names = {str(item).strip().upper() for item in (underlying_names or []) if str(item).strip()}
+    allowed_names.add(str(index_name or "").strip().upper())
     for row in get_nfo_instruments():
-        if str(row.get("name") or "").upper() != index_name.upper():
+        row_name = str(row.get("name") or "").strip().upper()
+        if row_name not in allowed_names:
             continue
         instrument_type = str(row.get("instrument_type") or "").upper()
         if instrument_type not in {"CE", "PE"}:
@@ -10116,13 +10121,13 @@ def get_option_oi_change_for_instrument(client, instrument_token):
     return float(latest_oi) - float(previous_oi)
 
 
-def build_real_index_option_chain(index_name, spot_value, strike_step):
+def build_real_index_option_chain(index_name, spot_value, strike_step, underlying_names=None):
     creds = get_active_kite_credentials()
     if not creds["api_key"] or not creds["access_token"]:
         return {"available": False, "error": "Kite API key or access token is missing in .env."}
 
     client = build_kite_client(with_access_token=True)
-    option_rows = get_nearest_index_option_instruments(index_name)
+    option_rows = get_nearest_index_option_instruments(index_name, underlying_names=underlying_names)
     if not option_rows:
         return {"available": False, "error": f"No {index_name} option instruments were available for the nearest expiry."}
 
@@ -17912,7 +17917,12 @@ def build_index_derivatives_context(index_slug, host_root):
     prev_close = float(ohlc.get("close") or 0)
     spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
     support_zone, resistance_zone, max_pain = get_index_reference_levels(spot_value, config["strike_step"])
-    real_chain = build_real_index_option_chain(config["index_name"], spot_value, config["strike_step"])
+    real_chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+    )
     chain_available = real_chain.get("available", False)
     if chain_available:
         support_zone = real_chain.get("support_zone") or support_zone
