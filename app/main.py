@@ -16510,6 +16510,28 @@ def format_market_story_timestamp(value):
         return str(value)
 
 
+def parse_market_story_date(value):
+    if value in (None, ""):
+        return None
+    try:
+        numeric_value = float(value)
+        if numeric_value > 100000000000:
+            story_dt = datetime.datetime.fromtimestamp(numeric_value / 1000, tz=APP_TZ)
+        else:
+            story_dt = datetime.datetime.fromtimestamp(numeric_value, tz=APP_TZ)
+        return story_dt.date()
+    except Exception:
+        pass
+    try:
+        text = str(value).strip().replace("Z", "+00:00")
+        story_dt = datetime.datetime.fromisoformat(text)
+        if story_dt.tzinfo is None:
+            story_dt = story_dt.replace(tzinfo=APP_TZ)
+        return story_dt.astimezone(APP_TZ).date()
+    except Exception:
+        return None
+
+
 def get_upstox_stock_news_items(isin, page_size=3):
     if not isin:
         return []
@@ -16557,6 +16579,15 @@ def get_upstox_stock_news_items(isin, page_size=3):
                 "meta": " | ".join(meta_parts),
                 "copy": summary or "Story summary is not available in the current news payload.",
                 "url": item.get("article_link") or item.get("article_url") or item.get("link") or "",
+                "published_date": published_label,
+                "published_day": parse_market_story_date(
+                    item.get("published_at")
+                    or item.get("published_at_ms")
+                    or item.get("published_on")
+                    or item.get("published")
+                    or item.get("timestamp")
+                ),
+                "source": source_label,
             }
         )
         if len(news_items) >= page_size:
@@ -17978,6 +18009,21 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
           <div class="notice"><div class="copy">No rows matched this grouped trend view right now.</div></div>
           {% endif %}
         </section>
+        {% elif page_mode in ["archive_hub", "archive_day", "stock_archive", "sector_archive"] %}
+        <section class="section">
+          <h2>{{ archive_section_heading }}</h2>
+          <div class="section-note">{{ archive_section_note }}</div>
+          <div class="story-grid">
+            {% for story in rows %}
+            <div class="story-card">
+              {% if story.href %}<div class="story-title"><a href="{{ story.href }}">{{ story.title }}</a></div>{% else %}<div class="story-title">{{ story.title }}</div>{% endif %}
+              <div class="story-meta">{{ story.meta }}</div>
+              {% if story.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in story.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
+              <div class="story-copy">{{ story["copy"] }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
         {% else %}
         <section class="section">
           <h2>News & Event Links</h2>
@@ -18420,6 +18466,393 @@ def build_market_editor_summary(title, intro, points):
         "editor_summary_title": title,
         "editor_summary_intro": intro,
         "editor_summary_points": points[:4],
+    }
+
+
+def build_archive_recent_days(total_days=7):
+    today = get_today_ist()
+    recent_days = []
+    for offset in range(total_days):
+        archive_day = today - datetime.timedelta(days=offset)
+        recent_days.append(
+            {
+                "date": archive_day,
+                "iso": archive_day.isoformat(),
+                "label": archive_day.strftime("%d %b %Y"),
+                "weekday": archive_day.strftime("%A"),
+                "is_today": offset == 0,
+            }
+        )
+    return recent_days
+
+
+def build_market_archive_editor_summary(archive_day, is_live_day, real_story_count):
+    return build_market_editor_summary(
+        "Market Editor Summary",
+        "The archive layer should help users move backward through the same market system without losing the clean public structure they already use during the day.",
+        [
+            {
+                "label": "Archive Day",
+                "copy": f"{archive_day.strftime('%d %b %Y')} is {'a live archive day with real current-session context' if is_live_day else 'shown as a structured archive shell while TraderHub expands its stored dated snapshots'}."
+            },
+            {
+                "label": "Story Load",
+                "copy": f"{real_story_count} linked archive cards are available on this page right now."
+            },
+            {
+                "label": "Best Use",
+                "copy": "Use archive day pages to revisit themes, then open stock or sector archives when one name keeps appearing across multiple public layers."
+            },
+            {
+                "label": "Why It Matters",
+                "copy": "Archive depth improves research value, SEO coverage, and user trust because the market layer no longer disappears once the session moves on."
+            },
+        ],
+    )
+
+
+def build_stock_archive_editor_summary(symbol, company_name, story_count):
+    return build_market_editor_summary(
+        "Stock Editor Summary",
+        "A stock archive page should feel like a compact research trail: recent stories, official links, and enough context to reconnect the move to the bigger company narrative.",
+        [
+            {"label": "Archive Scope", "copy": f"{company_name} currently has {story_count} archive cards or official research links in this public view."},
+            {"label": "Best Use", "copy": f"Use this page when {symbol} keeps showing up in live movers, trend groups, or sector news and you want the company-specific trail in one place."},
+            {"label": "Verification", "copy": "Official NSE announcement and action links stay in the archive because they remain the fastest way to verify company-specific disclosures."},
+            {"label": "Next Click", "copy": "Move back to the full stock page or why-moving page once the archive story looks relevant to the current tape."},
+        ],
+    )
+
+
+def build_sector_archive_editor_summary(sector_label, story_count, covered_symbols):
+    return build_market_editor_summary(
+        "Sector Editor Summary",
+        "Sector archive pages should help users read a whole theme over time instead of checking one active name at a time.",
+        [
+            {"label": "Coverage", "copy": f"{story_count} archive cards are currently pulled across {covered_symbols} tracked names inside {sector_label}."},
+            {"label": "Best Use", "copy": "Use this page when the same sector keeps leading the live market layer and you want to see which names are repeatedly contributing to that theme."},
+            {"label": "Research Flow", "copy": "Sector archives work best as a bridge between live sector strips, grouped trends, and individual stock archives."},
+            {"label": "Why It Matters", "copy": "This makes public research feel layered: market first, sector second, company third."},
+        ],
+    )
+
+
+def build_market_archive_hub_context(host_root):
+    recent_days = build_archive_recent_days(total_days=7)
+    archive_cards = []
+    for item in recent_days:
+        archive_cards.append(
+            {
+                "title": item["label"],
+                "meta": f"Archive Day | {item['weekday']}",
+                "copy": "Open the current archive day for the fullest live-linked version." if item["is_today"] else "This archive day is structurally ready and becomes richer as TraderHub stores more dated market snapshots.",
+                "href": f"/market/archive/{item['iso']}",
+                "tags": [{"label": "Today", "kind": "tag-up"}] if item["is_today"] else [{"label": "Archive", "kind": "tag-info"}],
+            }
+        )
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "archive_hub",
+        "seo_title": "Market Archive Hub | TraderHub",
+        "seo_description": "Open TraderHub market archive days, stock archives, and sector archives from one public research hub.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/archive",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Archive Hub | TraderHub", "description": "Public market archive hub for TraderHub.", "url": f"{host_root.rstrip('/')}/market/archive"}, indent=2),
+        "breadcrumb_text": "Market News › Archive",
+        "breadcrumb_meta_text": f"Phase 3 archive layer | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Market Archive",
+        "hero_title": "Archive Hub",
+        "hero_subtitle": "A public archive layer for revisiting market context by day, by stock, and by sector without losing the clean TraderHub structure.",
+        "hero_metric_primary": str(len(recent_days)),
+        "hero_metric_secondary": "recent archive days visible right now",
+        "hero_badges": [{"label": "Phase 3 Archive", "kind": "tag-info"}, {"label": "SEO Depth", "kind": "tag-up"}, {"label": "Research Trail", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Archive Days", "value": len(recent_days)},
+            {"label": "Stock Archives", "value": "Live"},
+            {"label": "Sector Archives", "value": "Live"},
+            {"label": "Mode", "value": "Public"},
+        ],
+        "nav_chips": [
+            {"label": "Archive Hub", "href": "/market/archive"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+            {"label": "Trend Hub", "href": "/market/trends"},
+        ],
+        "section_title": "Archive Hub",
+        "section_note": "This hub is the doorway into dated research. It helps users move backward through market structure instead of treating every session as disposable.",
+        "summary_cards": [
+            {"label": "Recent Days", "value": len(recent_days), "copy": "Quick archive entries for the most recent public market days."},
+            {"label": "Depth Goal", "value": "Day + Stock + Sector", "copy": "The archive system is designed to support chronological, company, and theme-first research."},
+            {"label": "Public Value", "value": "Persistent", "copy": "Archive pages increase repeat usefulness even after the session moves on."},
+            {"label": "Next Layer", "value": "Trend Memory", "copy": "Archive and trend pages together create a much stronger public research surface."},
+        ],
+        "lead_stories": archive_cards[:4],
+        "watch_sections": [
+            {"title": "Use This Hub", "items": ["Open today first for the fullest live-linked archive", "Use stock archives when one name repeats", "Use sector archives when one theme keeps leading"]},
+            {"title": "Best Next Clicks", "items": ["Today archive", "Trend hub", "Stock why-moving pages", "Sector news strips"]},
+        ],
+        **build_market_editor_summary(
+            "Market Editor Summary",
+            "The archive hub gives the public site memory. It helps users return to a day, a stock, or a sector without restarting from scratch every session.",
+            [
+                {"label": "Why It Matters", "copy": "Archive pages make the site more useful after hours because the research trail stays visible even when the live tape has moved on."},
+                {"label": "Best Use", "copy": "Start with a day page, then move into stock or sector archives only when a theme looks strong enough to deserve a second look."},
+                {"label": "SEO Value", "copy": "Archive depth helps search visibility because the market layer becomes a persistent content system instead of a short-lived feed."},
+                {"label": "Public Tone", "copy": "This should feel like a research archive, not a cluttered news dump."},
+            ],
+        ),
+        "archive_section_heading": "Recent Archive Days",
+        "archive_section_note": "These archive entries are the easiest way to move into dated market context without losing the rest of the TraderHub navigation system.",
+        "rows": archive_cards,
+        "market_error": "",
+        "side_box_title": "Archive Rule",
+        "side_box_copy": "Keep archive pages useful even when historical storage is still growing. Honest structure beats fake depth.",
+        "why_page_works": "Archive hubs create the memory layer that turns a live market site into a longer-lasting public research system.",
+    }
+
+
+def build_market_archive_day_context(host_root, archive_day):
+    today = get_today_ist()
+    is_live_day = archive_day == today
+    feed = load_market_news_phase1_feed()
+    rows = []
+    market_error = ""
+    live_rows = []
+    sector_cards = []
+    earnings_rows = []
+    if is_live_day:
+        live_rows, _, market_error = get_phase2_live_market_rows(limit=16)
+        sector_cards = build_sector_cards_from_live_rows(live_rows)
+        earnings_rows = get_earnings_keyword_story_rows(live_rows, per_symbol_limit=1)
+
+    for story in (feed.get("pre_market", {}).get("lead_stories") or [])[:2]:
+        rows.append({"title": story["title"], "meta": f"Pre-Market | {archive_day.strftime('%d %b %Y')}", "copy": story["copy"], "href": "/market/pre-market-news", "tags": [{"label": "Pre-Market", "kind": "tag-info"}]})
+    for story in (feed.get("post_market", {}).get("lead_stories") or [])[:2]:
+        rows.append({"title": story["title"], "meta": f"Post-Market | {archive_day.strftime('%d %b %Y')}", "copy": story["copy"], "href": "/market/post-market-wrap", "tags": [{"label": "Post-Market", "kind": "tag-warn"}]})
+
+    if is_live_day:
+        for row in live_rows[:3]:
+            rows.append(
+                {
+                    "title": f"{row['symbol']} archive mover",
+                    "meta": f"Live Movers | {row['change_pct_display']}",
+                    "copy": build_live_mover_story(row, get_broad_sector_label(row["symbol"])),
+                    "href": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+                    "tags": build_reason_tags(row, get_broad_sector_label(row["symbol"])),
+                }
+            )
+        for item in earnings_rows[:2]:
+            rows.append(
+                {
+                    "title": item["story_title"],
+                    "meta": f"Earnings Archive | {item['symbol']}",
+                    "copy": item["story_copy"],
+                    "href": item["why_moving_url"],
+                    "tags": [{"label": "Earnings", "kind": "tag-warn"}, {"label": item["symbol"], "kind": "tag-info"}],
+                }
+            )
+    else:
+        rows.append(
+            {
+                "title": f"{archive_day.strftime('%d %b %Y')} archive shell",
+                "meta": "Archive structure | Historical expansion in progress",
+                "copy": "This dated page is already part of the public archive structure. Richer day-specific market snapshots will deepen as TraderHub stores more session-level records.",
+                "href": "",
+                "tags": [{"label": "Archive Shell", "kind": "tag-info"}],
+            }
+        )
+
+    real_story_count = len(rows)
+    archive_day_label = archive_day.strftime("%d %b %Y")
+    return {
+        "page_mode": "archive_day",
+        "seo_title": f"Market Archive for {archive_day_label} | TraderHub",
+        "seo_description": f"Review TraderHub's market archive for {archive_day_label} with editorial market notes, linked movers, and dated public context.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/archive/{archive_day.isoformat()}",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"Market Archive for {archive_day_label} | TraderHub", "description": f"Public market archive page for {archive_day_label}.", "url": f"{host_root.rstrip('/')}/market/archive/{archive_day.isoformat()}"}, indent=2),
+        "breadcrumb_text": f"Market News › Archive › {archive_day_label}",
+        "breadcrumb_meta_text": f"Phase 3 archive day | Last reviewed {today.isoformat()}",
+        "hero_kicker": "TraderHub Market Archive",
+        "hero_title": archive_day_label,
+        "hero_subtitle": "A dated market page that keeps the public research trail visible beyond the immediate session.",
+        "hero_metric_primary": str(real_story_count),
+        "hero_metric_secondary": "archive cards on this page right now",
+        "hero_badges": [{"label": "Phase 3 Archive", "kind": "tag-info"}, {"label": "Today" if is_live_day else "Historical Day", "kind": "tag-up" if is_live_day else "tag-warn"}, {"label": "Research Trail", "kind": "tag-info"}],
+        "hero_stats": [
+            {"label": "Live Rows", "value": len(live_rows)},
+            {"label": "Sectors", "value": len(sector_cards)},
+            {"label": "Earnings", "value": len(earnings_rows)},
+            {"label": "Mode", "value": "Live-linked" if is_live_day else "Archive shell"},
+        ],
+        "nav_chips": [
+            {"label": "Archive Hub", "href": "/market/archive"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+            {"label": "Trend Hub", "href": "/market/trends"},
+        ],
+        "section_title": "Archive Day Summary",
+        "section_note": "Archive day pages pull the public market system into a dated format. Today is the fullest version; older days stay structurally ready while stored market history expands.",
+        "summary_cards": [
+            {"label": "Archive Day", "value": archive_day_label, "copy": "The dated anchor for this public market page."},
+            {"label": "Live-linked", "value": "Yes" if is_live_day else "Partial", "copy": "Today uses the richest live-linked market layer. Older days remain honest archive shells until stored session history deepens."},
+            {"label": "Story Cards", "value": real_story_count, "copy": "Cards linking market notes, movers, and event-led context."},
+            {"label": "Best Use", "value": "Revisit", "copy": "Best used when you want to reconnect one session with a later stock or sector question."},
+        ],
+        "lead_stories": rows[:4],
+        "watch_sections": [
+            {"title": "How To Use This Day", "items": ["Start with the lead cards first", "Open why-moving pages when a symbol repeats", "Use the archive hub to jump to other dates"]},
+            {"title": "What To Expect", "items": ["Today carries the fullest live-linked version", "Older pages stay honest about archive depth", "Stock and sector archives add the deeper follow-up layer"]},
+        ],
+        **build_market_archive_editor_summary(archive_day, is_live_day, real_story_count),
+        "archive_section_heading": "Archive Day Board",
+        "archive_section_note": "These archive cards preserve the public reading flow of the site while allowing day-by-day revisit behavior to grow over time.",
+        "rows": rows,
+        "market_error": market_error,
+        "side_box_title": "Archive Day Rule",
+        "side_box_copy": "A day page should stay useful even before full historical storage exists. Honest context first, richer replay later.",
+        "why_page_works": "Day archives turn the public market layer into a reusable research trail instead of a one-session feed.",
+    }
+
+
+def build_stock_news_archive_context(symbol, host_root):
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    company_name = prettify_company_name((master_row.get("security") or symbol), symbol)
+    sector_label = get_symbol_sector_lookup().get(symbol, "General")
+    stock_isin = resolve_stock_isin(symbol, master_row.get("security") or symbol)
+    rows = build_stock_news_items(symbol, sector_label.split(" / ")[0], stock_isin)
+    for story in rows:
+        story["href"] = story.get("url") or ""
+        story["tags"] = [{"label": "Official" if "NSE" in story.get("meta", "") else "News", "kind": "tag-info" if "NSE" in story.get("meta", "") else "tag-up"}]
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "stock_archive",
+        "seo_title": f"{company_name} News Archive | TraderHub",
+        "seo_description": f"Review the public news archive for {company_name} with linked stories, filings, and official event boards in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/news-archive",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{company_name} News Archive | TraderHub", "description": f"Public stock news archive for {company_name}.", "url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/news-archive"}, indent=2),
+        "breadcrumb_text": f"Stocks › {sector_label.split(' / ')[0]} › {symbol} › News Archive",
+        "breadcrumb_meta_text": f"Phase 3 stock archive | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Stock Archive",
+        "hero_title": f"{symbol} News Archive",
+        "hero_subtitle": company_name,
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "archive cards in the current stock trail",
+        "hero_badges": [{"label": "Phase 3 Archive", "kind": "tag-info"}, {"label": sector_label.split(' / ')[0], "kind": "tag-up"}, {"label": "Company Trail", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Stories", "value": len([row for row in rows if "Upstox" in row.get("meta", "")])},
+            {"label": "Official Links", "value": len([row for row in rows if "NSE" in row.get("meta", "")])},
+            {"label": "Stock", "value": symbol},
+            {"label": "Mode", "value": "Public"},
+        ],
+        "nav_chips": [
+            {"label": "Stock Page", "href": f"/stocks/{get_canonical_stock_slug(symbol)}"},
+            {"label": "Why Moving", "href": f"/stocks/{get_canonical_stock_slug(symbol)}/why-moving"},
+            {"label": "News Archive", "href": f"/stocks/{get_canonical_stock_slug(symbol)}/news-archive"},
+            {"label": "Archive Hub", "href": "/market/archive"},
+        ],
+        "section_title": "Stock Archive",
+        "section_note": "This page keeps the company-specific story trail in one place so users can reconnect live moves, official filings, and public stock research without starting over.",
+        "summary_cards": [
+            {"label": "Archive Cards", "value": len(rows), "copy": "Recent news cards plus official market links."},
+            {"label": "Official Boards", "value": "Connected", "copy": "NSE announcements and corporate-actions links remain part of the archive trail."},
+            {"label": "Sector", "value": sector_label.split(' / ')[0], "copy": "This archive sits inside the same stock and sector research system."},
+            {"label": "Best Use", "value": "Follow-up", "copy": "Best used after live movers, trends, or why-moving pages raise a company-specific question."},
+        ],
+        "lead_stories": rows[:4],
+        "watch_sections": [
+            {"title": "How To Use This Archive", "items": ["Open official links when you need confirmation", "Use why-moving for current tape context", "Return to the stock page for financial and peer depth"]},
+        ],
+        **build_stock_archive_editor_summary(symbol, company_name, len(rows)),
+        "archive_section_heading": "Archive Cards",
+        "archive_section_note": "These cards preserve the current company trail: recent stories first, official verification links always visible.",
+        "rows": rows,
+        "market_error": "",
+        "side_box_title": "Stock Archive Rule",
+        "side_box_copy": "A stock archive should stay compact. It is a research trail, not a cluttered feed.",
+        "why_page_works": "Stock archives keep company-specific context persistent across market sessions and improve the bridge from live tape to longer research.",
+    }
+
+
+def build_sector_news_archive_context(sector_key, host_root):
+    sector_slug = get_public_sector_slug(sector_key)
+    sector_label = sector_key.replace("_", " ").title()
+    symbols = get_public_sector_members(sector_key)[:6]
+    rows = []
+    master = load_symbol_master()
+    for symbol in symbols:
+        master_row = master.get("by_symbol", {}).get(symbol) or {}
+        stock_isin = resolve_stock_isin(symbol, master_row.get("security") or symbol)
+        for item in get_upstox_stock_news_items(stock_isin, page_size=2):
+            rows.append(
+                {
+                    "title": f"{symbol}: {item['title']}",
+                    "meta": item["meta"],
+                    "copy": item["copy"],
+                    "href": item.get("url") or f"/stocks/{get_canonical_stock_slug(symbol)}/news-archive",
+                    "tags": [{"label": symbol, "kind": "tag-info"}, {"label": "Sector Archive", "kind": "tag-up"}],
+                    "_published_day": item.get("published_day"),
+                }
+            )
+    rows = sorted(rows, key=lambda item: item.get("_published_day") or datetime.date.min, reverse=True)[:12]
+    for row in rows:
+        row.pop("_published_day", None)
+    if not rows:
+        rows.append(
+            {
+                "title": f"{sector_label} archive shell",
+                "meta": "Sector archive | Research structure live",
+                "copy": "This sector archive is ready and will deepen as more company-level dated stories and theme storage accumulate across the TraderHub public system.",
+                "href": f"/sectors/{sector_slug}",
+                "tags": [{"label": "Archive Shell", "kind": "tag-info"}],
+            }
+        )
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "sector_archive",
+        "seo_title": f"{sector_label} News Archive | TraderHub",
+        "seo_description": f"Review the public sector news archive for {sector_label} with linked company stories and theme-follow-up paths in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/sectors/{sector_slug}/news-archive",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{sector_label} News Archive | TraderHub", "description": f"Public sector archive for {sector_label}.", "url": f"{host_root.rstrip('/')}/sectors/{sector_slug}/news-archive"}, indent=2),
+        "breadcrumb_text": f"Sectors › {sector_label} › News Archive",
+        "breadcrumb_meta_text": f"Phase 3 sector archive | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Archive",
+        "hero_title": f"{sector_label} Archive",
+        "hero_subtitle": "A sector-first archive trail that keeps theme-follow-up visible beyond a single market session.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "archive cards in this sector view",
+        "hero_badges": [{"label": "Phase 3 Archive", "kind": "tag-info"}, {"label": sector_label, "kind": "tag-up"}, {"label": "Theme Trail", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Tracked Symbols", "value": len(symbols)},
+            {"label": "Archive Cards", "value": len(rows)},
+            {"label": "Sector Page", "value": "Linked"},
+            {"label": "Mode", "value": "Public"},
+        ],
+        "nav_chips": [
+            {"label": "Sector Page", "href": f"/sectors/{sector_slug}"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+            {"label": "Trend Hub", "href": "/market/trends"},
+            {"label": "Archive Hub", "href": "/market/archive"},
+        ],
+        "section_title": "Sector Archive",
+        "section_note": "Sector archives help users stay theme-first. They are especially useful when one leadership group keeps reappearing across live movers, trends, and stock pages.",
+        "summary_cards": [
+            {"label": "Sector", "value": sector_label, "copy": "The archive stays tied to the public sector research map."},
+            {"label": "Tracked Symbols", "value": len(symbols), "copy": "Names scanned for sector-level story carryover."},
+            {"label": "Archive Cards", "value": len(rows), "copy": "Stories and links currently visible in this sector trail."},
+            {"label": "Best Use", "value": "Theme Follow-up", "copy": "Best used after a live sector strip or trend page keeps pointing back to the same group."},
+        ],
+        "lead_stories": rows[:4],
+        "watch_sections": [
+            {"title": "How To Use This Archive", "items": ["Open the sector page for live stock rows", "Use stock archives when one company keeps repeating", "Cross-check trend pages when a theme broadens out"]},
+        ],
+        **build_sector_archive_editor_summary(sector_label, len(rows), len(symbols)),
+        "archive_section_heading": "Sector Archive Cards",
+        "archive_section_note": "These cards keep the theme trail visible across multiple symbols instead of forcing the user to reconstruct it from scratch later.",
+        "rows": rows,
+        "market_error": "",
+        "side_box_title": "Sector Archive Rule",
+        "side_box_copy": "Sector archives should show theme memory, not just another list of disconnected articles.",
+        "why_page_works": "Sector archives make the public site better at showing repeated leadership, repeated weakness, and recurring story clusters over time.",
     }
 
 
@@ -20355,6 +20788,21 @@ def market_trend_group(trend_slug):
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
+@app.route("/market/archive")
+def market_archive_hub():
+    context = build_market_archive_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/archive/<archive_day>")
+def market_archive_day(archive_day):
+    parsed_day = parse_ipo_iso_date(archive_day)
+    if not parsed_day:
+        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
+    context = build_market_archive_day_context(request.url_root.rstrip("/"), parsed_day)
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
 @app.route("/stocks/<stock_slug>/why-moving")
 def stock_why_moving(stock_slug):
     symbol = resolve_stock_symbol_from_slug(stock_slug)
@@ -20365,6 +20813,19 @@ def stock_why_moving(stock_slug):
     if stock_slug.strip().lower() != canonical_slug:
         return redirect(f"/stocks/{canonical_slug}/why-moving")
     context = build_why_moving_context(symbol, request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/stocks/<stock_slug>/news-archive")
+def stock_news_archive(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    master = load_symbol_master()
+    if not symbol or symbol not in master.get("by_symbol", {}):
+        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+    canonical_slug = get_canonical_stock_slug(symbol)
+    if stock_slug.strip().lower() != canonical_slug:
+        return redirect(f"/stocks/{canonical_slug}/news-archive")
+    context = build_stock_news_archive_context(symbol, request.url_root.rstrip("/"))
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
@@ -20381,6 +20842,15 @@ def sector_detail(sector_slug):
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
     return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/sectors/<sector_slug>/news-archive")
+def sector_news_archive(sector_slug):
+    sector_key = resolve_public_sector_slug(sector_slug)
+    if not sector_key:
+        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
+    context = build_sector_news_archive_context(sector_key, request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/derivatives")
