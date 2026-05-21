@@ -26,6 +26,7 @@ MANUAL_WATCHLISTS_PATH = DATA_DIR / "manual_watchlists.json"
 STOCK_ISIN_CACHE_PATH = DATA_DIR / "stock_isin_map.json"
 IPO_PHASE1_FEED_PATH = DATA_DIR / "ipo_phase1_feed.json"
 MARKET_NEWS_PHASE1_FEED_PATH = DATA_DIR / "market_news_phase1_feed.json"
+DERIVATIVES_PHASE1_FEED_PATH = DATA_DIR / "derivatives_phase1_feed.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -151,6 +152,31 @@ SECTOR_HEATMAP_GROUPS = {
             "realty": ["DLF", "GODREJPROP", "OBEROIRLTY", "PRESTIGE"],
             "chemicals": ["PIDILITIND", "DEEPAKNTR", "AARTIIND", "TATACHEM"],
         },
+    },
+}
+FNO_PHASE1_STOCK_SYMBOLS = [
+    "RELIANCE", "HDFCBANK", "ICICIBANK", "SBIN", "INFY", "TCS", "ITC", "TATAMOTORS",
+    "AXISBANK", "KOTAKBANK", "BHARTIARTL", "MARUTI", "M&M", "BAJFINANCE", "LT",
+    "ONGC", "HCLTECH", "WIPRO", "TATASTEEL", "SUNPHARMA",
+]
+DERIVATIVES_INDEX_CONFIG = {
+    "nifty-options": {
+        "label": "Nifty Options Dashboard",
+        "index_name": "Nifty 50",
+        "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"],
+        "proxy_symbols": ["RELIANCE", "HDFCBANK", "ICICIBANK", "INFY", "TCS", "ITC", "LT", "SBIN", "BHARTIARTL", "AXISBANK"],
+        "strike_step": 50,
+        "expiry_label": "Weekly",
+        "market_read_copy": "Phase 1 keeps the structure ready for a full option-chain source while still surfacing a real broad-market proxy from liquid Nifty names.",
+    },
+    "banknifty-options": {
+        "label": "Bank Nifty Options Dashboard",
+        "index_name": "Bank Nifty",
+        "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"],
+        "proxy_symbols": ["HDFCBANK", "ICICIBANK", "AXISBANK", "KOTAKBANK", "SBIN", "BANKBARODA", "INDUSINDBK", "PNB"],
+        "strike_step": 100,
+        "expiry_label": "Weekly",
+        "market_read_copy": "Phase 1 uses a banking breadth proxy to keep the page useful now, while the true option-chain layer can plug in later without a redesign.",
     },
 }
 DEFAULT_START = "09:15"
@@ -17371,6 +17397,591 @@ def build_sector_detail_context(sector_key, host_root):
     }
 
 
+DERIVATIVES_PHASE1_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --bg:#eef1f4; --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.ad-slot,.table-wrap,.story-card,.notice,.group-shell { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; } .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.focus-grid,.group-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .focus-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .summary-card,.story-card,.group-shell { border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:14px; }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .story-title { font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; }
+    .story-meta { color:var(--muted); font-size:12px; margin-bottom:7px; font-family:Arial,Helvetica,sans-serif; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(215,203,180,0.72); font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; }
+    .notice { padding:14px; background:var(--panel); }
+    .group-shell ul { margin:0; padding-left:18px; } .group-shell li { font-family:Arial,Helvetica,sans-serif; color:#334253; font-size:14px; line-height:1.55; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.focus-grid,.group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.table-wrap,.story-card,.notice,.group-shell { border-radius:18px; } .hero-grid,.summary-grid,.focus-grid,.group-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% if focus_cards %}
+        <section class="section">
+          <h2>{{ focus_title }}</h2>
+          <div class="section-note">{{ focus_note }}</div>
+          <div class="focus-grid">{% for card in focus_cards %}<div class="story-card"><div class="story-title">{{ card.title }}</div><div class="story-meta">{{ card.meta }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+        {% if table_rows %}
+        <section class="section">
+          <h2>{{ table_title }}</h2>
+          <div class="section-note">{{ table_note }}</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>{% for column in table_columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in table_rows %}
+                <tr>
+                  {% for column in table_columns %}
+                  <td>{% if column.link_key %}<a href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>{% else %}{{ row[column.key] }}{% endif %}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+        {% if group_blocks %}
+        <section class="section">
+          <h2>{{ group_title }}</h2>
+          <div class="section-note">{{ group_note }}</div>
+          <div class="group-grid">
+            {% for block in group_blocks %}
+            <div class="group-shell">
+              <div class="metric-label">{{ block.title }}</div>
+              <div class="metric-value">{{ block.count }}</div>
+              <div class="copy" style="margin-bottom:10px;">{{ block["copy"] }}</div>
+              <ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+        <section class="section">
+          <h2>Public Module Note</h2>
+          <div class="section-note">{{ public_note }}</div>
+          <div class="ad-slot">Inline Sponsor Slot<br>Space for Ads</div>
+        </section>
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def format_pending_number(value):
+    if value in (None, "", "-", "Pending"):
+        return "Pending"
+    return str(value)
+
+
+def fetch_quote_map_safe(client, quote_symbols):
+    try:
+        return fetch_quote_map(client, quote_symbols)
+    except Exception:
+        return {}
+
+
+def build_derivatives_live_row(symbol, quote, security_name):
+    ohlc = (quote or {}).get("ohlc") or {}
+    last_price = float((quote or {}).get("last_price") or 0)
+    open_price = float(ohlc.get("open") or 0)
+    prev_close = float(ohlc.get("close") or 0)
+    volume_value = float((quote or {}).get("volume") or 0)
+    change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+    gap_pct = ((open_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+
+    if change_pct >= 0:
+        buildup_label = "Short Covering" if gap_pct < 0 else "Long Buildup"
+    else:
+        buildup_label = "Long Unwinding" if gap_pct > 0 else "Short Buildup"
+
+    return {
+        "symbol": symbol,
+        "company_name": prettify_company_name(security_name, symbol),
+        "spot": format_price(last_price),
+        "spot_numeric": round(last_price, 2),
+        "day_change": f"{change_pct:+.2f}%",
+        "day_change_numeric": round(change_pct, 2),
+        "open_price": format_price(open_price),
+        "prev_close": format_price(prev_close),
+        "volume": format_volume(volume_value),
+        "volume_numeric": round(volume_value, 2),
+        "futures_price": "Source Pending",
+        "premium_discount": "Pending",
+        "oi": "Source Pending",
+        "oi_change": "Pending",
+        "buildup_label": buildup_label,
+        "status": "Above Open" if last_price > open_price > 0 else "Below Open" if last_price < open_price else "Flat Open",
+        "proxy_note": f"Gap {gap_pct:+.2f}% | Spot-led proxy until the dedicated F&O feed is connected.",
+        "stock_url": f"/stocks/{get_canonical_stock_slug(symbol)}",
+    }
+
+
+def get_derivatives_stock_rows(symbols):
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return [], symbols[:], "Kite API key or access token is missing in .env."
+
+    client = build_kite_client(with_access_token=True)
+    master = load_symbol_master()
+    quote_data = fetch_quote_map_safe(client, [f"NSE:{symbol}" for symbol in symbols])
+    rows = []
+    missing = []
+
+    for symbol in symbols:
+        quote = quote_data.get(f"NSE:{symbol}")
+        security_name = (master.get("by_symbol", {}).get(symbol) or {}).get("security") or symbol
+        if not quote:
+            missing.append(symbol)
+            continue
+        rows.append(build_derivatives_live_row(symbol, quote, security_name))
+
+    return rows, missing, None
+
+
+def fetch_index_quote_snapshot(client, quote_candidates):
+    if not client:
+        return None
+    quote_map = fetch_quote_map_safe(client, quote_candidates)
+    for key in quote_candidates:
+        if quote_map.get(key):
+            return quote_map[key]
+    return None
+
+
+def build_index_proxy_snapshot(symbols):
+    rows, missing, error = get_derivatives_stock_rows(symbols)
+    avg_change = sum(row["day_change_numeric"] for row in rows) / len(rows) if rows else 0.0
+    up_count = sum(1 for row in rows if row["day_change_numeric"] > 0)
+    down_count = sum(1 for row in rows if row["day_change_numeric"] < 0)
+    strongest = max(rows, key=lambda row: row["day_change_numeric"], default=None)
+    weakest = min(rows, key=lambda row: row["day_change_numeric"], default=None)
+    return {
+        "rows": rows,
+        "missing": missing,
+        "error": error,
+        "avg_change": avg_change,
+        "up_count": up_count,
+        "down_count": down_count,
+        "strongest": strongest,
+        "weakest": weakest,
+    }
+
+
+def get_index_reference_levels(spot_price, step):
+    if not spot_price or spot_price <= 0:
+        return "-", "-", "Pending"
+    rounded = int(round(spot_price / step) * step)
+    support = rounded - step
+    resistance = rounded + step
+    return f"{support}", f"{resistance}", f"{rounded}"
+
+
+def build_derivatives_hub_context(host_root):
+    stock_rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+    buildup_counts = {
+        "Long Buildup": sum(1 for row in stock_rows if row["buildup_label"] == "Long Buildup"),
+        "Short Buildup": sum(1 for row in stock_rows if row["buildup_label"] == "Short Buildup"),
+        "Short Covering": sum(1 for row in stock_rows if row["buildup_label"] == "Short Covering"),
+        "Long Unwinding": sum(1 for row in stock_rows if row["buildup_label"] == "Long Unwinding"),
+    }
+    strongest = max(stock_rows, key=lambda row: row["day_change_numeric"], default=None)
+    weakest = min(stock_rows, key=lambda row: row["day_change_numeric"], default=None)
+    avg_change = sum(row["day_change_numeric"] for row in stock_rows) / len(stock_rows) if stock_rows else 0.0
+    today_iso = get_today_ist().isoformat()
+    canonical_url = f"{host_root.rstrip('/')}/derivatives"
+    focus_cards = [
+        {"title": "Nifty Options Dashboard", "meta": "Index Derivatives | Phase 1", "copy": "Start with the Nifty structure page to see the public layout for spot tone, PCR/max-pain placeholders, and broad-market proxy reading in one screen."},
+        {"title": "Bank Nifty Options Dashboard", "meta": "Index Derivatives | Phase 1", "copy": "This page mirrors the Nifty dashboard but stays tuned to banking leadership, which is often the sharper intraday F&O signal for Indian traders."},
+        {"title": "Stock F&O Hub", "meta": "Stock Derivatives | Phase 1", "copy": "Use the stock hub to scan liquid names, spot-led proxy buildup labels, and pending F&O fields without pretending we already have the full futures/OI stack connected."},
+        {"title": "Futures Buildup", "meta": "Classification View | Phase 1", "copy": "The buildup page groups names into long buildup, short buildup, short covering, and long unwinding using a transparent phase-1 proxy model."},
+    ]
+    return {
+        "page_mode": "hub",
+        "seo_title": "Derivatives Hub, Nifty Options, Bank Nifty & Stock F&O | TraderHub",
+        "seo_description": "Explore TraderHub derivatives pages for Nifty options, Bank Nifty options, stock F&O, and futures buildup in a clean public phase-1 structure.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Derivatives Hub | TraderHub", "description": "Public derivatives hub for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Derivatives › Public F&O Hub",
+        "breadcrumb_meta_text": f"Phase 1 derivatives module | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Derivatives",
+        "hero_title": "F&O Phase 1",
+        "hero_subtitle": "This module starts with public structure and honest proxy context first. It is meant to grow into a deeper F&O surface without forcing a fake option-chain terminal on day one.",
+        "hero_metric_primary": str(len(stock_rows)),
+        "hero_metric_secondary": "live stock F&O proxy rows available right now",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Stock F&O Proxy Live", "kind": "tag-up"}, {"label": "Index Options Structure", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS)},
+            {"label": "Long Buildup", "value": buildup_counts["Long Buildup"]},
+            {"label": "Short Buildup", "value": buildup_counts["Short Buildup"]},
+            {"label": "Avg Move", "value": f"{avg_change:+.2f}%"},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Stock F&O", "href": "/derivatives/stocks"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Derivatives Dashboard",
+        "section_note": "Phase 1 is intentionally focused. It gives users a public entry into F&O pages, live stock-derivatives proxy context, and SEO-friendly derivative routes before the deeper option-chain or OI engine is connected.",
+        "summary_cards": [
+            {"label": "Nifty Options", "value": "Ready", "copy": "Public structure is live for spot tone, max-pain placeholder, strike framing, and support/resistance style reading."},
+            {"label": "Bank Nifty", "value": "Ready", "copy": "The banking index view is positioned as a repeat-use public page with the same cleaner TraderHub design system."},
+            {"label": "Strongest Proxy", "value": strongest["symbol"] if strongest else "-", "copy": f"{strongest['day_change']} spot move in the current stock F&O universe." if strongest else "Waiting on current quote data."},
+            {"label": "Weakest Proxy", "value": weakest["symbol"] if weakest else "-", "copy": f"{weakest['day_change']} spot move in the current stock F&O universe." if weakest else "Waiting on current quote data."},
+        ],
+        "focus_title": "Phase 1 F&O Pages",
+        "focus_note": "These pages are designed to be useful immediately while staying honest about what is real live data and what still needs a dedicated option-chain or futures source.",
+        "focus_cards": focus_cards,
+        "table_title": "Today’s Focus List",
+        "table_note": "This compact table gives the public derivatives hub a real market layer. It uses live stock rows, then classifies them into a phase-1 buildup proxy instead of pretending we already have OI-driven futures analytics in place.",
+        "table_columns": [
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
+            {"label": "Spot", "key": "spot", "link_key": None},
+            {"label": "Day Change", "key": "day_change", "link_key": None},
+            {"label": "Volume", "key": "volume", "link_key": None},
+            {"label": "Proxy Buildup", "key": "buildup_label", "link_key": None},
+            {"label": "Status", "key": "status", "link_key": None},
+        ],
+        "table_rows": sorted(stock_rows, key=lambda row: abs(row["day_change_numeric"]), reverse=True)[:10],
+        "group_title": "Classification Snapshot",
+        "group_note": "These counts are already useful for a public surface. They can later be upgraded into a real futures/OI engine without changing the overall page design.",
+        "group_blocks": [
+            {"title": "Long Buildup", "count": buildup_counts["Long Buildup"], "copy": "Price strength with a favorable opening structure lands here in the phase-1 model.", "items": [f"{row['symbol']} {row['day_change']}" for row in stock_rows if row["buildup_label"] == "Long Buildup"][:5] or ["Waiting on matching live rows."]},
+            {"title": "Short Buildup", "count": buildup_counts["Short Buildup"], "copy": "Price weakness with a negative opening structure lands here in the phase-1 model.", "items": [f"{row['symbol']} {row['day_change']}" for row in stock_rows if row["buildup_label"] == "Short Buildup"][:5] or ["Waiting on matching live rows."]},
+            {"title": "Short Covering", "count": buildup_counts["Short Covering"], "copy": "Positive recovery after a softer opening is classified here for now.", "items": [f"{row['symbol']} {row['day_change']}" for row in stock_rows if row["buildup_label"] == "Short Covering"][:5] or ["Waiting on matching live rows."]},
+            {"title": "Long Unwinding", "count": buildup_counts["Long Unwinding"], "copy": "Negative trade after a stronger opening is grouped here for now.", "items": [f"{row['symbol']} {row['day_change']}" for row in stock_rows if row["buildup_label"] == "Long Unwinding"][:5] or ["Waiting on matching live rows."]},
+        ],
+        "public_note": "Phase 1 is not trying to be a full option-chain terminal yet. It establishes the route structure, theme system, and first live stock-derivatives layer so the public module can expand cleanly.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Index pages are structure-first for now, while stock F&O pages use live spot-led proxy context. This keeps the experience honest and useful until a dedicated F&O source is integrated.",
+        "why_page_works": "It creates a public derivatives entry point now, supports SEO-friendly derivative routes, and gives TraderHub a clean place to grow into a much richer F&O stack later.",
+        "market_error": error,
+    }
+
+
+def build_index_derivatives_context(index_slug, host_root):
+    config = DERIVATIVES_INDEX_CONFIG[index_slug]
+    proxy = build_index_proxy_snapshot(config["proxy_symbols"])
+    rows = sorted(proxy["rows"], key=lambda row: row["day_change_numeric"], reverse=True)
+    creds = get_active_kite_credentials()
+    client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+    spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+    ohlc = (spot_quote or {}).get("ohlc") or {}
+    spot_value = float((spot_quote or {}).get("last_price") or 0)
+    prev_close = float(ohlc.get("close") or 0)
+    spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
+    support_zone, resistance_zone, max_pain = get_index_reference_levels(spot_value, config["strike_step"])
+    avg_change = proxy["avg_change"]
+    tone = "Constructive" if avg_change > 0.25 else "Pressured" if avg_change < -0.25 else "Mixed"
+    strongest = proxy["strongest"]
+    weakest = proxy["weakest"]
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/index/{index_slug}"
+    today_iso = get_today_ist().isoformat()
+    option_rows = []
+    if spot_value > 0:
+        anchor = int(round(spot_value / config["strike_step"]) * config["strike_step"])
+        for offset in (-2, -1, 0, 1, 2):
+            strike = anchor + (offset * config["strike_step"])
+            option_rows.append(
+                {
+                    "strike": f"{strike}",
+                    "call_oi": "Pending",
+                    "call_oi_change": "Pending",
+                    "put_oi": "Pending",
+                    "put_oi_change": "Pending",
+                    "read": "Near max pain" if strike == anchor else "Support zone candidate" if strike < anchor else "Resistance zone candidate",
+                }
+            )
+    return {
+        "page_mode": "index",
+        "seo_title": f"{config['index_name']} Options Dashboard, Support, Resistance & Tone | TraderHub",
+        "seo_description": f"Track the TraderHub phase-1 {config['index_name'].lower()} options dashboard with spot context, strike framing, support/resistance zones, and broad index tone.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": f"Public derivatives page for {config['index_name']}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"Derivatives › Index Derivatives › {config['index_name']}",
+        "breadcrumb_meta_text": f"Phase 1 public dashboard | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Index Derivatives",
+        "hero_title": config["label"],
+        "hero_subtitle": config["market_read_copy"],
+        "hero_metric_primary": format_price(spot_value) if spot_value > 0 else "Pending",
+        "hero_metric_secondary": f"{spot_change_pct:+.2f}% spot move" if spot_value > 0 and prev_close > 0 else "spot quote pending right now",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": config["expiry_label"], "kind": "tag-warn"}, {"label": f"{tone} Tone", "kind": "tag-up" if tone == 'Constructive' else 'tag-down' if tone == 'Pressured' else 'tag-info'}],
+        "hero_stats": [
+            {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
+            {"label": "Futures", "value": "Source Pending"},
+            {"label": "PCR", "value": "Pending"},
+            {"label": "Max Pain", "value": max_pain},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Stock F&O", "href": "/derivatives/stocks"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Index Snapshot",
+        "section_note": "This page is built to become a serious options dashboard, but phase 1 stays disciplined: real spot and breadth proxy where available, with chain metrics held as clear placeholders until the dedicated source is connected.",
+        "summary_cards": [
+            {"label": "Total Call OI", "value": "Pending", "copy": "The option-chain source for total call open interest is intentionally reserved for the next data pass."},
+            {"label": "Total Put OI", "value": "Pending", "copy": "The option-chain source for total put open interest is intentionally reserved for the next data pass."},
+            {"label": "Broad Tone", "value": tone, "copy": f"Proxy breadth is {proxy['up_count']} up / {proxy['down_count']} down across the tracked {config['index_name']} universe."},
+            {"label": "Max Pain", "value": max_pain, "copy": "Until the real chain source is connected, max pain is shown as the nearest rounded strike anchor around spot."},
+        ],
+        "focus_title": "Market Read",
+        "focus_note": "These notes keep the page practical even before a full chain engine arrives. They summarize what the public user should watch first instead of dumping a noisy options grid.",
+        "focus_cards": [
+            {"title": "Support Zone", "meta": "Phase 1 strike framing", "copy": f"Nearest support zone is framed around {support_zone}. This is a rounded-strike proxy, not a chain-confirmed put wall yet."},
+            {"title": "Resistance Zone", "meta": "Phase 1 strike framing", "copy": f"Nearest resistance zone is framed around {resistance_zone}. This is a rounded-strike proxy, not a chain-confirmed call wall yet."},
+            {"title": "Strongest Proxy Name", "meta": "Breadth proxy", "copy": f"{strongest['symbol']} is the strongest live proxy name right now at {strongest['day_change']}." if strongest else "Waiting on live proxy rows."},
+            {"title": "Weakest Proxy Name", "meta": "Breadth proxy", "copy": f"{weakest['symbol']} is the weakest live proxy name right now at {weakest['day_change']}." if weakest else "Waiting on live proxy rows."},
+        ],
+        "table_title": "Options Structure Table",
+        "table_note": "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
+        "table_columns": [
+            {"label": "Strike", "key": "strike", "link_key": None},
+            {"label": "Call OI", "key": "call_oi", "link_key": None},
+            {"label": "Call OI Change", "key": "call_oi_change", "link_key": None},
+            {"label": "Put OI", "key": "put_oi", "link_key": None},
+            {"label": "Put OI Change", "key": "put_oi_change", "link_key": None},
+            {"label": "Read", "key": "read", "link_key": None},
+        ],
+        "table_rows": option_rows,
+        "group_title": "Watch Notes",
+        "group_note": "The public page stays concise: each block explains what is real now and what gets upgraded in the next derivatives pass.",
+        "group_blocks": [
+            {"title": "What Is Live Now", "count": proxy["up_count"] + proxy["down_count"], "copy": "Spot context and breadth proxy are already being used to stop the page from feeling empty.", "items": [f"{config['index_name']} spot quote when available", "Broad proxy tone from liquid underlying names", "Support/resistance strike framing", "SEO-ready route and page structure"]},
+            {"title": "What Comes Next", "count": 4, "copy": "The next source layer upgrades this from a public dashboard into a much stronger options page.", "items": ["Real call and put OI", "OI change by strike", "Actual max pain", "Full expiry structure reading"]},
+        ],
+        "public_note": "Phase 1 deliberately avoids pretending that rounded-strike framing is the same as a live option chain. The page is useful now and upgrade-ready later.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": config["market_read_copy"],
+        "why_page_works": "It gives TraderHub a public index-options footprint immediately, while making the eventual chain integration an upgrade rather than a redesign.",
+        "market_error": proxy["error"],
+    }
+
+
+def build_stock_fno_context(host_root):
+    rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+    sorted_rows = sorted(rows, key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+    buildup_counts = {
+        "Long Buildup": sum(1 for row in rows if row["buildup_label"] == "Long Buildup"),
+        "Short Buildup": sum(1 for row in rows if row["buildup_label"] == "Short Buildup"),
+        "Short Covering": sum(1 for row in rows if row["buildup_label"] == "Short Covering"),
+        "Long Unwinding": sum(1 for row in rows if row["buildup_label"] == "Long Unwinding"),
+    }
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "stocks",
+        "seo_title": "Stock F&O Hub, Proxy Buildup & Futures Watch | TraderHub",
+        "seo_description": "Browse TraderHub stock F&O phase-1 pages with spot-led proxy buildup labels, pending futures/OI slots, and public stock-derivatives discovery.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Stock F&O Hub | TraderHub", "description": "Public stock F&O hub for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Derivatives › Stock Derivatives › Stock F&O Hub",
+        "breadcrumb_meta_text": f"Phase 1 stock derivatives | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Stock Derivatives",
+        "hero_title": "Stock F&O Hub",
+        "hero_subtitle": "This page is your discovery layer for stock derivatives. Phase 1 keeps the stock list live and readable, while futures price, OI, and OI-change fields stay clearly marked until the proper source is wired in.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "live proxy rows available right now",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Proxy Buildup Live", "kind": "tag-up"}, {"label": "Futures/OI Pending", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Long Buildup", "value": buildup_counts["Long Buildup"]},
+            {"label": "Short Buildup", "value": buildup_counts["Short Buildup"]},
+            {"label": "Short Covering", "value": buildup_counts["Short Covering"]},
+            {"label": "Long Unwinding", "value": buildup_counts["Long Unwinding"]},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Stock F&O", "href": "/derivatives/stocks"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Stock F&O Snapshot",
+        "section_note": "This table is compact on purpose. It keeps the public page readable while showing which fields are already real and which ones still wait for a true F&O feed.",
+        "summary_cards": [
+            {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS), "copy": "The stock F&O hub starts with liquid names so the page stays useful and fast."},
+            {"label": "Live Rows", "value": len(rows), "copy": "These rows are sourced from the live market layer and then classified into a phase-1 buildup proxy."},
+            {"label": "Missing Rows", "value": len(missing), "copy": "Symbols skipped because live quote data was not available in the current pass."},
+            {"label": "Theme", "value": "Current Site", "copy": "The page follows the same public design system as stocks, IPO, news, and sector pages."},
+        ],
+        "focus_title": "How To Read Phase 1",
+        "focus_note": "This public stock-F&O page is intentionally honest. It gives the user something practical now, while clearly reserving the real futures/OI layer for the next integration.",
+        "focus_cards": [
+            {"title": "Long Buildup", "meta": "Phase 1 proxy", "copy": "Positive spot move with a favorable opening structure is grouped here first."},
+            {"title": "Short Buildup", "meta": "Phase 1 proxy", "copy": "Negative spot move with a weaker opening structure is grouped here first."},
+            {"title": "Short Covering", "meta": "Phase 1 proxy", "copy": "Recovery after a softer opening is grouped here so users can still spot reversal-style names."},
+            {"title": "Long Unwinding", "meta": "Phase 1 proxy", "copy": "Pressure after a stronger opening is grouped here so users can still spot fading names."},
+        ],
+        "table_title": "F&O Stock Table",
+        "table_note": "Spot and day change are live. Futures price, premium/discount, OI, and OI change are intentionally shown as pending until the right source is connected.",
+        "table_columns": [
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
+            {"label": "Spot", "key": "spot", "link_key": None},
+            {"label": "Day Change", "key": "day_change", "link_key": None},
+            {"label": "Futures", "key": "futures_price", "link_key": None},
+            {"label": "Premium/Discount", "key": "premium_discount", "link_key": None},
+            {"label": "OI", "key": "oi", "link_key": None},
+            {"label": "OI Change", "key": "oi_change", "link_key": None},
+            {"label": "Proxy Buildup", "key": "buildup_label", "link_key": None},
+            {"label": "Volume", "key": "volume", "link_key": None},
+        ],
+        "table_rows": sorted_rows,
+        "group_title": "Page Notes",
+        "group_note": "These notes keep the page practical for the public while setting the right expectation for the deeper F&O layer.",
+        "group_blocks": [
+            {"title": "What Is Real", "count": len(rows), "copy": "These are the fields already coming from the live market layer.", "items": ["Spot price", "Day move", "Volume", "Proxy buildup classification", "Links back to public stock pages"]},
+            {"title": "What Is Pending", "count": 4, "copy": "These fields need a dedicated futures/OI source and should not be guessed.", "items": ["Futures price", "Premium/discount", "Open interest", "OI change"]},
+        ],
+        "public_note": "This is a public stock-F&O discovery page first, not a cloned dealing terminal. It gets much stronger when the real futures/OI layer is added, but it is already useful now.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Use this page to discover which liquid names deserve a closer look. Treat the buildup labels as a phase-1 proxy until the dedicated F&O feed lands.",
+        "why_page_works": "It gives TraderHub a real stock-derivatives page now, establishes the public route structure, and creates a clean on-ramp to future F&O upgrades.",
+        "market_error": error,
+    }
+
+
+def build_futures_buildup_context(host_root):
+    rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+    groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
+    for row in rows:
+        groups[row["buildup_label"]].append(row)
+    for label in groups:
+        groups[label] = sorted(groups[label], key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks/futures-buildup"
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "buildup",
+        "seo_title": "Futures Buildup Page, Long Build-up & Short Covering | TraderHub",
+        "seo_description": "Track TraderHub phase-1 futures buildup categories with long buildup, short buildup, short covering, and long unwinding in a clean public format.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Futures Buildup | TraderHub", "description": "Public futures buildup page for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Derivatives › Stock Derivatives › Futures Buildup",
+        "breadcrumb_meta_text": f"Phase 1 buildup page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Futures Buildup",
+        "hero_title": "Futures Buildup",
+        "hero_subtitle": "This classification page is designed to be fast to read. It groups names by long buildup, short buildup, short covering, and long unwinding using an honest phase-1 proxy model.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "total rows classified right now",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Classification First", "kind": "tag-up"}, {"label": "Proxy Model", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Long Buildup", "value": len(groups["Long Buildup"])},
+            {"label": "Short Buildup", "value": len(groups["Short Buildup"])},
+            {"label": "Short Covering", "value": len(groups["Short Covering"])},
+            {"label": "Long Unwinding", "value": len(groups["Long Unwinding"])},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Stock F&O", "href": "/derivatives/stocks"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Buildup Summary",
+        "section_note": "This page is classification-first on purpose. It is meant to help users spot buckets of names quickly before they go deeper into a full derivatives workflow later.",
+        "summary_cards": [
+            {"label": "Long Buildup", "value": len(groups["Long Buildup"]), "copy": "Positive phase-1 buildup bucket."},
+            {"label": "Short Buildup", "value": len(groups["Short Buildup"]), "copy": "Negative phase-1 buildup bucket."},
+            {"label": "Short Covering", "value": len(groups["Short Covering"]), "copy": "Recovery bucket in the phase-1 model."},
+            {"label": "Long Unwinding", "value": len(groups["Long Unwinding"]), "copy": "Fading bucket in the phase-1 model."},
+        ],
+        "focus_title": None,
+        "focus_note": None,
+        "focus_cards": [],
+        "table_title": None,
+        "table_note": None,
+        "table_columns": [],
+        "table_rows": [],
+        "group_title": "Buildup Groups",
+        "group_note": "Each group below keeps only the most important names in view first. The public page is designed for scan speed, not raw density.",
+        "group_blocks": [
+            {"title": "Long Buildup", "count": len(groups["Long Buildup"]), "copy": "Names showing constructive phase-1 structure.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Buildup"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Short Buildup", "count": len(groups["Short Buildup"]), "copy": "Names showing pressured phase-1 structure.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Buildup"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Short Covering", "count": len(groups["Short Covering"]), "copy": "Recovery-style names in the phase-1 model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Covering"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Long Unwinding", "count": len(groups["Long Unwinding"]), "copy": "Fading names in the phase-1 model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Unwinding"][:6]] or ["No live rows matched this bucket right now."]},
+        ],
+        "public_note": "This page is intentionally simple and transparent. It gives users a first buildup map now, then leaves room for real futures/OI classification later.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "These buildup buckets are a public phase-1 proxy based on spot behavior. They are not a substitute for true futures price and open-interest analytics yet.",
+        "why_page_works": "It turns the derivatives module into something scannable and habit-forming immediately, while preserving room for a deeper F&O engine later.",
+        "market_error": error,
+    }
+
+
 @app.route("/stocks/<stock_slug>")
 def stock_hub_public(stock_slug):
     symbol = resolve_stock_symbol_from_slug(stock_slug)
@@ -17444,6 +18055,36 @@ def sector_detail(sector_slug):
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
     return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/derivatives")
+def derivatives_hub():
+    context = build_derivatives_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/index/nifty-options")
+def derivatives_nifty_options():
+    context = build_index_derivatives_context("nifty-options", request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/index/banknifty-options")
+def derivatives_banknifty_options():
+    context = build_index_derivatives_context("banknifty-options", request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/stocks")
+def derivatives_stock_hub():
+    context = build_stock_fno_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/stocks/futures-buildup")
+def derivatives_futures_buildup():
+    context = build_futures_buildup_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
 @app.route("/api/equity-ohlc")
