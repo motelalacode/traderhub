@@ -17872,6 +17872,13 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
           <div class="section-note">{{ section_note }}</div>
           <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
         </section>
+        {% if editor_summary_points %}
+        <section class="section">
+          <h2>{{ editor_summary_title }}</h2>
+          <div class="section-note">{{ editor_summary_intro }}</div>
+          <div class="watch-grid">{% for item in editor_summary_points %}<div class="watch-card"><div class="metric-label">{{ item.label }}</div><div class="copy">{{ item["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% endif %}
         <section class="section">
           <h2>Lead Stories</h2>
           <div class="section-note">These cards keep the page practical. They should answer what is moving, what the tape is saying, and where the user should click next.</div>
@@ -18013,7 +18020,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
         {% endif %}
         <section class="section">
           <h2>Phase 2 Note</h2>
-          <div class="section-note">Phase 2 turns the public news layer from editorial-only into a live market habit surface. Phase 3 can still add archive, grouping, AI summary, and alerts without redesigning the page family.</div>
+          <div class="section-note">Phase 2 turns the public news layer from editorial-only into a live market habit surface. Phase 3 now layers grouped trend reading and editor summaries on top without redesigning the page family.</div>
           <div class="ad-slot">Inline Sponsor Slot<br>Space for Ads</div>
         </section>
       </div>
@@ -18408,6 +18415,178 @@ def get_earnings_keyword_story_rows(rows, per_symbol_limit=2):
     return stories[:10]
 
 
+def build_market_editor_summary(title, intro, points):
+    return {
+        "editor_summary_title": title,
+        "editor_summary_intro": intro,
+        "editor_summary_points": points[:4],
+    }
+
+
+def build_live_movers_editor_summary(rows, gainers, losers, top_volume):
+    strongest = gainers[0] if gainers else (rows[0] if rows else None)
+    weakest = losers[0] if losers else None
+    volume_name = top_volume[0] if top_volume else None
+    strongest_sector = get_broad_sector_label(strongest["symbol"]) if strongest else "the tracked universe"
+    return build_market_editor_summary(
+        "Market Editor Summary",
+        "This layer turns the raw movers list into a short editor-style read so traders can decide whether the tape is broad, narrow, or driven by only one pocket of activity.",
+        [
+            {
+                "label": "Tape Lead",
+                "copy": f"{strongest['symbol']} is setting the pace right now at {strongest['change_pct_display']} inside {strongest_sector}."
+                if strongest
+                else "No lead mover is available right now.",
+            },
+            {
+                "label": "Pressure Check",
+                "copy": f"{weakest['symbol']} is the clearest weak name at {weakest['change_pct_display']}, which helps define how much downside pressure is still visible."
+                if weakest
+                else "Downside pressure is limited in the current tracked set.",
+            },
+            {
+                "label": "Participation",
+                "copy": f"{volume_name['symbol']} is drawing the heaviest visible activity at {volume_name['volume_display']}, which is often the best place to verify whether the move has real follow-through."
+                if volume_name
+                else "Volume participation is waiting on a stronger live snapshot.",
+            },
+            {
+                "label": "Best Use",
+                "copy": "Use this page first for fast scanning, then open the stock-specific why-moving page when a name still looks actionable after the first pass.",
+            },
+        ],
+    )
+
+
+def build_sector_news_editor_summary(sector_cards):
+    strongest = sector_cards[0] if sector_cards else None
+    weakest = min(sector_cards, key=lambda item: item["avg_change_numeric"]) if sector_cards else None
+    constructive_count = sum(1 for item in sector_cards if item["avg_change_numeric"] > 0.25)
+    weak_count = sum(1 for item in sector_cards if item["avg_change_numeric"] < -0.25)
+    return build_market_editor_summary(
+        "Sector Editor Summary",
+        "This summary compresses the sector strips into a cleaner research read so users can tell whether leadership is concentrated in one group or spreading across the board.",
+        [
+            {
+                "label": "Lead Theme",
+                "copy": f"{strongest['sector']} is the clearest leading pocket at {strongest['avg_change']}, with {strongest['strongest']['symbol']} doing the heaviest lifting."
+                if strongest
+                else "No leading sector theme is available right now.",
+            },
+            {
+                "label": "Weak Theme",
+                "copy": f"{weakest['sector']} is the softest strip right now at {weakest['avg_change']}, which makes it the first place to check for persistent rotation out."
+                if weakest
+                else "No clearly weak sector strip is available right now.",
+            },
+            {
+                "label": "Breadth Read",
+                "copy": f"{constructive_count} sectors are leaning constructive while {weak_count} are clearly weak, which helps frame whether the market move is broad or selective.",
+            },
+            {
+                "label": "Best Use",
+                "copy": "Open the sector page when one strip keeps leading, then use stock pages and why-moving links to see whether the leadership is concentrated in only one or two names.",
+            },
+        ],
+    )
+
+
+def build_trend_hub_editor_summary(bullish_rows, bearish_rows, earnings_rows, sector_cards):
+    if len(earnings_rows) >= max(len(bullish_rows), len(bearish_rows)) and earnings_rows:
+        lead_theme = "earnings"
+    elif len(bullish_rows) >= len(bearish_rows):
+        lead_theme = "bullish"
+    else:
+        lead_theme = "bearish"
+    direction = "constructive" if len(bullish_rows) > len(bearish_rows) else "balanced" if len(bullish_rows) == len(bearish_rows) else "defensive"
+    return build_market_editor_summary(
+        "Market Editor Summary",
+        "The trend hub works best when it helps users move from raw movement into clearer recurring themes: direction, event flow, and rotation.",
+        [
+            {
+                "label": "Directional Read",
+                "copy": f"Bullish group count is {len(bullish_rows)} versus {len(bearish_rows)} bearish names, which makes the public tape feel {direction} right now.",
+            },
+            {
+                "label": "Event Read",
+                "copy": f"{len(earnings_rows)} earnings-linked stories are already surfacing, so event-driven follow-through is part of the current market story."
+                if earnings_rows
+                else "Earnings language is still light, so direction is being driven more by tape and sector rotation than by explicit result headlines.",
+            },
+            {
+                "label": "Theme Lead",
+                "copy": f"{lead_theme.title()} is the clearest trend doorway right now, while sector rotation is giving {len(sector_cards)} broad groups a usable public read.",
+            },
+            {
+                "label": "Best Use",
+                "copy": "Start with the strongest group, then click into why-moving pages or sector pages only after the theme looks persistent enough to deserve a deeper check.",
+            },
+        ],
+    )
+
+
+def build_trend_group_editor_summary(trend_slug, config, page_rows, rows):
+    if trend_slug == "bullish":
+        intro = "Bullish group pages should feel like a shortlist of constructive public tape behavior instead of a noisy gainers table."
+        points = [
+            {"label": "Lead Name", "copy": f"{page_rows[0]['primary']} is at the top of the grouped view, which makes it the first symbol to verify for follow-through." if page_rows else "No bullish names matched strongly enough right now."},
+            {"label": "Group Tone", "copy": f"{len(page_rows)} names are holding the current constructive filter out of {len(rows)} tracked rows."},
+            {"label": "Best Use", "copy": "Use this group when you want a cleaner long-side scan, then confirm the move on the stock page and why-moving page before acting."},
+        ]
+    elif trend_slug == "bearish":
+        intro = "Bearish group pages should isolate pressure names fast so the user can tell whether the weakness is real or only temporary intraday noise."
+        points = [
+            {"label": "Lead Pressure", "copy": f"{page_rows[0]['primary']} is the clearest weak row in the current grouped view." if page_rows else "No bearish names matched strongly enough right now."},
+            {"label": "Group Tone", "copy": f"{len(page_rows)} names are inside the current weak-tape filter out of {len(rows)} tracked rows."},
+            {"label": "Best Use", "copy": "Use this page to find the cleanest pressure pockets, then open the single-stock why-moving page to verify whether the weakness still has structure behind it."},
+        ]
+    elif trend_slug == "earnings":
+        intro = "Earnings trend pages should answer whether event-driven language is actually changing the tape or just adding noise."
+        points = [
+            {"label": "Lead Story", "copy": f"{page_rows[0]['primary']} is the first tagged earnings row, making it the quickest event-driven follow-up candidate." if page_rows else "No earnings-tagged stories were strong enough to group right now."},
+            {"label": "Event Load", "copy": f"{len(page_rows)} rows are currently tagged by earnings-style language or quarterly commentary."},
+            {"label": "Best Use", "copy": "Use this page when the market feels headline-driven and you want to separate genuine result reactions from ordinary intraday movement."},
+        ]
+    else:
+        intro = "Sector-rotation pages should show whether the market is broadening out or hiding inside a few recurring groups."
+        points = [
+            {"label": "Lead Rotation", "copy": f"{page_rows[0]['primary']} is the most active rotation theme in the grouped board right now." if page_rows else "No sector rotation cluster is standing out clearly right now."},
+            {"label": "Theme Count", "copy": f"{len(page_rows)} sector rows are strong enough to keep this grouped view useful."},
+            {"label": "Best Use", "copy": "Open the leading sector page when the same theme keeps reappearing across movers, news strips, and why-moving pages."},
+        ]
+    points.append({"label": "Editor Lens", "copy": f"This grouped page is meant to simplify scanning {config['label'].lower()}, not to replace the deeper stock or sector pages."})
+    return build_market_editor_summary("Editor Summary", intro, points)
+
+
+def build_why_moving_editor_summary(symbol, company_name, sector_label, row):
+    return build_market_editor_summary(
+        "Stock Editor Summary",
+        "This summary gives one practical trader-style read before the user moves into longer explanations, linked news, or peer comparisons.",
+        [
+            {
+                "label": "Move Read",
+                "copy": f"{company_name} is trading at {row['last_price']} with a {row['change_pct_display']} move, which makes the current tape read {row['status_label'].lower()}."
+                if row
+                else f"{company_name} is waiting for a stronger live snapshot before the move can be framed properly.",
+            },
+            {
+                "label": "Structure",
+                "copy": f"The stock is currently {row['vwap_status'].lower()} with a {row['gap_text']} opening context, so the structure is best judged through VWAP and PDH/PDL behavior."
+                if row
+                else "VWAP and opening-gap structure are still pending.",
+            },
+            {
+                "label": "Sector Context",
+                "copy": f"{symbol} is being read inside the {sector_label} space, so the move should be compared with peers before treating it as a standalone signal.",
+            },
+            {
+                "label": "Best Use",
+                "copy": "Use this page first for a quick editorial read, then verify with the full stock page, official filings, and related peers if the move still looks important.",
+            },
+        ],
+    )
+
+
 def build_market_trends_hub_context(host_root):
     trend_defs = get_trend_group_definitions()
     rows, missing, market_error = get_phase2_live_market_rows(limit=20)
@@ -18490,6 +18669,7 @@ def build_market_trends_hub_context(host_root):
             {"title": "Use This Hub", "items": ["Start with bullish or bearish if you want directional clusters", "Use earnings for event-driven names", "Use sector rotation when one theme is driving multiple stocks"]},
             {"title": "Best Next Clicks", "items": ["Bullish trends", "Bearish trends", "Earnings trends", "Sector rotation"]},
         ],
+        **build_trend_hub_editor_summary(bullish_rows, bearish_rows, earnings_rows, sector_cards),
         "rows": trend_cards,
         "market_error": market_error,
         "side_box_title": "Phase 3 Rule",
@@ -18607,17 +18787,18 @@ def build_market_trend_group_context(host_root, trend_slug):
             {"label": "Group Size", "value": len(page_rows), "copy": "Rows currently matching this grouped view."},
             {"label": "Universe", "value": len(rows), "copy": "Tracked names scanned for this grouping pass."},
             {"label": "Use Case", "value": "Theme Scan", "copy": "Best used when the user wants to filter the market by a cleaner idea, not only by one symbol."},
-            {"label": "Next Layer", "value": "AI Summary", "copy": "Phase 3 can add a concise AI read on top of this grouped structure next."},
+            {"label": "Next Layer", "value": "Editor Summary", "copy": "Phase 3 now adds a concise editor-style read on top of this grouped structure."},
         ],
         "lead_stories": [],
         "watch_sections": [
             {"title": "How To Use This Group", "items": ["Open the strongest row first", "Cross-check the stock or sector page", "Use why-moving pages for single-name verification"]},
         ],
+        **build_trend_group_editor_summary(trend_slug, config, page_rows, rows),
         "rows": page_rows,
         "market_error": market_error,
         "side_box_title": "Grouped View",
         "side_box_copy": "This page exists to simplify scanning. One clean grouping is often more useful than ten disconnected headlines.",
-        "why_page_works": "Grouped trend pages increase discoverability, help users build habits around recurring market themes, and prepare the site for deeper archive and AI layers.",
+        "why_page_works": "Grouped trend pages increase discoverability, help users build habits around recurring market themes, and prepare the site for deeper archive and editor-summary layers.",
     }
 
 
@@ -18687,6 +18868,7 @@ def build_live_movers_context(host_root):
         ],
         "lead_stories": lead_stories,
         "watch_sections": watch_sections,
+        **build_live_movers_editor_summary(rows, gainers, losers, top_volume),
         "rows": rows[:12],
         "market_error": market_error,
         "side_box_title": "Phase 2 Rule",
@@ -18779,6 +18961,7 @@ def build_sector_news_context(host_root):
         ],
         "lead_stories": lead_stories,
         "watch_sections": watch_sections,
+        **build_sector_news_editor_summary(sector_cards),
         "rows": sector_cards,
         "market_error": market_error,
         "side_box_title": "Why Sector Strips",
@@ -18848,6 +19031,7 @@ def build_why_moving_context(symbol, host_root):
             {"title": "Market Structure", "items": [f"Last price: {row['last_price']}" if row else "Last price pending", f"VWAP: {row['vwap_status']}" if row else "VWAP pending", f"Gap: {row['gap_text']}" if row else "Gap pending", f"Status: {row['status_label']}" if row else "Status pending"]},
             {"title": "Next Clicks", "items": ["Open the full stock page", "Review official NSE announcements", "Check corporate actions board", "Compare with sector-news strip"]},
         ],
+        **build_why_moving_editor_summary(symbol, company_name, sector_label, row),
         "rows": news_items,
         "related_peer_rows": related_peer_rows,
         "market_error": market_error,
