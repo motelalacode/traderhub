@@ -18009,7 +18009,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
           <div class="notice"><div class="copy">No rows matched this grouped trend view right now.</div></div>
           {% endif %}
         </section>
-        {% elif page_mode in ["archive_hub", "archive_day", "stock_archive", "sector_archive"] %}
+        {% elif page_mode in ["archive_hub", "archive_day", "stock_archive", "sector_archive", "alerts_hub", "alert_track"] %}
         <section class="section">
           <h2>{{ archive_section_heading }}</h2>
           <div class="section-note">{{ archive_section_note }}</div>
@@ -18535,6 +18535,300 @@ def build_sector_archive_editor_summary(sector_label, story_count, covered_symbo
             {"label": "Why It Matters", "copy": "This makes public research feel layered: market first, sector second, company third."},
         ],
     )
+
+
+def get_alert_track_definitions():
+    return {
+        "pre-market": {
+            "label": "Pre-Market Alert Track",
+            "description": "A public alert-prep page for the market setup before the open.",
+        },
+        "post-market": {
+            "label": "Post-Market Alert Track",
+            "description": "A public alert-prep page for closing recap, key reactions, and next-session carryover.",
+        },
+        "sector-watch": {
+            "label": "Sector Watch Alert Track",
+            "description": "A sector-first alert-prep page for themes that keep leading or weakening across the session.",
+        },
+        "stock-movers": {
+            "label": "Stock Movers Alert Track",
+            "description": "A mover-first alert-prep page for the names most likely to deserve a why-moving follow-up.",
+        },
+        "earnings-watch": {
+            "label": "Earnings Watch Alert Track",
+            "description": "An event-led alert-prep page for earnings-linked names and commentary-driven setups.",
+        },
+    }
+
+
+def build_alerts_hub_context(host_root):
+    alert_defs = get_alert_track_definitions()
+    rows, _, market_error = get_phase2_live_market_rows(limit=18)
+    sector_cards = build_sector_cards_from_live_rows(rows)
+    earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=1)
+    feed = load_market_news_phase1_feed()
+    track_cards = [
+        {
+            "title": alert_defs["pre-market"]["label"],
+            "meta": "Alert Prep | Before the open",
+            "copy": "Use this track when you want the clearest market setup, key stories, and watchlist framing before the session begins.",
+            "href": "/market/alerts/pre-market",
+            "tags": [{"label": "Pre-Market", "kind": "tag-info"}],
+        },
+        {
+            "title": alert_defs["post-market"]["label"],
+            "meta": "Alert Prep | After the close",
+            "copy": "Use this track to compress the closing session into carry-forward ideas, event reactions, and tomorrow watch points.",
+            "href": "/market/alerts/post-market",
+            "tags": [{"label": "Post-Market", "kind": "tag-warn"}],
+        },
+        {
+            "title": alert_defs["sector-watch"]["label"],
+            "meta": f"Alert Prep | {len(sector_cards)} active sectors",
+            "copy": "Sector watch helps users follow recurring leadership and weakness before turning that theme into a deeper watchlist habit.",
+            "href": "/market/alerts/sector-watch",
+            "tags": [{"label": "Sector Watch", "kind": "tag-up"}],
+        },
+        {
+            "title": alert_defs["stock-movers"]["label"],
+            "meta": f"Alert Prep | {min(len(rows), 8)} live mover rows",
+            "copy": "Stock-mover alerts are the best bridge between live tape and a future personalized alert layer.",
+            "href": "/market/alerts/stock-movers",
+            "tags": [{"label": "Mover Watch", "kind": "tag-info"}],
+        },
+        {
+            "title": alert_defs["earnings-watch"]["label"],
+            "meta": f"Alert Prep | {len(earnings_rows)} event-led rows",
+            "copy": "Earnings watch is where event-driven traders can start building a repeatable follow-up routine without waiting for full automation.",
+            "href": "/market/alerts/earnings-watch",
+            "tags": [{"label": "Earnings", "kind": "tag-warn"}],
+        },
+    ]
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "alerts_hub",
+        "seo_title": "Market Alerts Hub | TraderHub",
+        "seo_description": "Explore TraderHub's public alert-prep tracks for pre-market, post-market, sector watch, stock movers, and earnings watch.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/alerts",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Alerts Hub | TraderHub", "description": "Public market alerts preparation hub for TraderHub.", "url": f"{host_root.rstrip('/')}/market/alerts"}, indent=2),
+        "breadcrumb_text": "Market News › Alerts",
+        "breadcrumb_meta_text": f"Phase 3 alert-prep layer | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Market Alerts",
+        "hero_title": "Alerts Hub",
+        "hero_subtitle": "A public alert-prep layer that turns your live market system into repeatable watch tracks before full personalization arrives.",
+        "hero_metric_primary": str(len(track_cards)),
+        "hero_metric_secondary": "public alert tracks live right now",
+        "hero_badges": [{"label": "Phase 3 Prep", "kind": "tag-info"}, {"label": "Alerts Layer", "kind": "tag-up"}, {"label": "Habit Builder", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Tracks", "value": len(track_cards)},
+            {"label": "Sectors", "value": len(sector_cards)},
+            {"label": "Earnings", "value": len(earnings_rows)},
+            {"label": "Mode", "value": "Public"},
+        ],
+        "nav_chips": [
+            {"label": "Alerts Hub", "href": "/market/alerts"},
+            {"label": "Archive Hub", "href": "/market/archive"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Trend Hub", "href": "/market/trends"},
+        ],
+        "section_title": "Alert Track Hub",
+        "section_note": "This hub organizes repeatable market alert patterns before they become personalized products. The goal is structure first, delivery later.",
+        "summary_cards": [
+            {"label": "Pre/Post Tracks", "value": "2", "copy": "Daily market open and close habits."},
+            {"label": "Theme Tracks", "value": "2", "copy": "Sector and mover-first alert structures."},
+            {"label": "Event Track", "value": "1", "copy": "Earnings-led follow-up path."},
+            {"label": "Public Goal", "value": "Routine", "copy": "These pages help the user build repeat behavior before account-level delivery exists."},
+        ],
+        "lead_stories": track_cards[:4],
+        "watch_sections": [
+            {"title": "How To Use Alerts Hub", "items": ["Start with one track, not all of them", "Use pre/post tracks for routine", "Use movers or earnings when the tape gets noisy"]},
+            {"title": "Next Phase", "items": ["Real delivery later", "Watchlist targeting later", "Sector and stock follow-up already visible in the page structure"]},
+        ],
+        **build_market_editor_summary(
+            "Market Editor Summary",
+            "This layer is about shaping habits before full personalization. It helps users understand what an alert should feel like before it becomes a delivered product.",
+            [
+                {"label": "Why It Matters", "copy": "Alert pages create repeat behavior even before email, push, or watchlist delivery is turned on."},
+                {"label": "Best Use", "copy": "Treat these tracks as repeat routines: before the open, after the close, by sector, by movers, or by earnings."},
+                {"label": "Product Value", "copy": "This is the cleanest bridge from public market pages into future user-specific products."},
+                {"label": "Public Tone", "copy": "Keep the alert layer practical and structured, not over-automated or noisy."},
+            ],
+        ),
+        "archive_section_heading": "Alert Tracks",
+        "archive_section_note": "These tracks are public alert-prep pages. They show what a future alert system will monitor without pretending the delivery engine is already live.",
+        "rows": track_cards,
+        "market_error": market_error,
+        "side_box_title": "Alert Rule",
+        "side_box_copy": "Good alert products start with repeatable structure, not just notification delivery.",
+        "why_page_works": "This layer turns market pages into routines and gives TraderHub a clean path toward watchlists, emails, and user-specific alert delivery later.",
+    }
+
+
+def build_alert_track_context(host_root, alert_slug):
+    alert_defs = get_alert_track_definitions()
+    config = alert_defs.get(alert_slug)
+    if not config:
+        return None
+    today_iso = get_today_ist().isoformat()
+    rows, _, market_error = get_phase2_live_market_rows(limit=18)
+    sector_cards = build_sector_cards_from_live_rows(rows)
+    earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=2)
+    feed = load_market_news_phase1_feed()
+    page_rows = []
+    summary_cards = []
+    watch_sections = []
+    hero_metric_primary = "0"
+    hero_metric_secondary = "signals in this alert track right now"
+    hero_badges = [{"label": "Phase 3 Prep", "kind": "tag-info"}, {"label": "Alert Track", "kind": "tag-up"}]
+    editor_summary = None
+
+    if alert_slug == "pre-market":
+        source_rows = (feed.get("pre_market", {}).get("lead_stories") or [])[:6]
+        page_rows = [{"title": item["title"], "meta": item["meta"], "copy": item["copy"], "href": "/market/pre-market-news", "tags": [{"label": "Pre-Market", "kind": "tag-info"}]} for item in source_rows]
+        summary_cards = [
+            {"label": "Lead Stories", "value": len(source_rows), "copy": "Core setup cards before the open."},
+            {"label": "Best Use", "value": "Prepare", "copy": "Best used before the market opens."},
+            {"label": "Follow-up", "value": "Live Movers", "copy": "Moves naturally into the intraday public layer."},
+            {"label": "Tone", "value": "Setup First", "copy": "Pre-market alerts are about framing, not reacting."},
+        ]
+        watch_sections = [{"title": "Pre-Market Routine", "items": ["Open the setup page first", "Save 2-3 names for why-moving follow-up", "Cross-check sectors before the bell"]}]
+        hero_metric_primary = str(len(source_rows))
+        hero_metric_secondary = "setup cards in this track right now"
+        hero_badges.append({"label": "Before The Open", "kind": "tag-warn"})
+        editor_summary = build_market_editor_summary(
+            "Market Editor Summary",
+            "Pre-market alerts should reduce noise before the bell and leave the user with a smaller, cleaner watch list.",
+            [
+                {"label": "Best Use", "copy": "Use this track before the open to narrow the market to a few names or one sector theme worth carrying into the live session."},
+                {"label": "Why It Matters", "copy": "Good pre-market routines create better live-market decisions because the trader is not building the watchlist from zero after the open."},
+                {"label": "Follow-through", "copy": "The right next step after this page is live movers or a stock-specific why-moving page, not another generic news wall."},
+                {"label": "Product Direction", "copy": "This track is the natural base for future email or watchlist alerts."},
+            ],
+        )
+    elif alert_slug == "post-market":
+        source_rows = (feed.get("post_market", {}).get("lead_stories") or [])[:6]
+        page_rows = [{"title": item["title"], "meta": item["meta"], "copy": item["copy"], "href": "/market/post-market-wrap", "tags": [{"label": "Post-Market", "kind": "tag-warn"}]} for item in source_rows]
+        summary_cards = [
+            {"label": "Lead Stories", "value": len(source_rows), "copy": "Closing recap cards for carry-forward thinking."},
+            {"label": "Best Use", "value": "Review", "copy": "Best used after the close."},
+            {"label": "Carryover", "value": "Tomorrow", "copy": "Built to frame next-session follow-up."},
+            {"label": "Tone", "value": "Close Read", "copy": "This track is for synthesis, not first discovery."},
+        ]
+        watch_sections = [{"title": "Post-Market Routine", "items": ["Review closing stories first", "Save recurring names for archive or stock pages", "Note which sectors still carry the move into tomorrow"]}]
+        hero_metric_primary = str(len(source_rows))
+        hero_metric_secondary = "closing cards in this track right now"
+        hero_badges.append({"label": "After The Close", "kind": "tag-warn"})
+        editor_summary = build_market_editor_summary(
+            "Market Editor Summary",
+            "Post-market alerts should explain what deserves a second look tomorrow instead of simply repeating everything that happened before the close.",
+            [
+                {"label": "Best Use", "copy": "Use this track after the close when you want tomorrow's best follow-up ideas rather than another full market recap."},
+                {"label": "Why It Matters", "copy": "Good closing routines reduce the amount of overnight noise that gets carried into the next morning."},
+                {"label": "Follow-through", "copy": "The best next clicks are archive pages, sector pages, and stock news archives for names that kept reappearing."},
+                {"label": "Product Direction", "copy": "This is the natural foundation for a later post-market email or closing alert product."},
+            ],
+        )
+    elif alert_slug == "sector-watch":
+        for item in sector_cards[:8]:
+            page_rows.append({"title": f"{item['sector']} sector watch", "meta": f"Average move {item['avg_change']}", "copy": item["story"], "href": f"/sectors/{item['sector_slug']}" if item["sector_slug"] else "/market/sector-news", "tags": [{"label": item["sector"], "kind": "tag-info"}]})
+        summary_cards = [
+            {"label": "Active Sectors", "value": len(sector_cards[:8]), "copy": "Sector groups currently worth tracking."},
+            {"label": "Best Use", "value": "Theme First", "copy": "Best used when the same market theme keeps repeating."},
+            {"label": "Leader Count", "value": sum(1 for item in sector_cards if item["avg_change_numeric"] > 0.25), "copy": "Constructive sector strips."},
+            {"label": "Weak Count", "value": sum(1 for item in sector_cards if item["avg_change_numeric"] < -0.25), "copy": "Weak sector strips."},
+        ]
+        watch_sections = [{"title": "Sector Watch Routine", "items": ["Open the lead sector first", "Check whether one or two names are carrying the whole theme", "Use sector archive if the same group keeps repeating"]}]
+        hero_metric_primary = str(len(page_rows))
+        hero_metric_secondary = "sector alert rows in this track right now"
+        hero_badges.append({"label": "Theme Watch", "kind": "tag-up"})
+        editor_summary = build_sector_news_editor_summary(sector_cards)
+    elif alert_slug == "stock-movers":
+        mover_rows = sorted(rows, key=lambda item: abs(item["change_pct_numeric"]), reverse=True)[:8]
+        for row in mover_rows:
+            page_rows.append({"title": f"{row['symbol']} mover watch", "meta": f"{row['change_pct_display']} | {row['status_label']}", "copy": build_live_mover_story(row, get_broad_sector_label(row["symbol"])), "href": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving", "tags": build_reason_tags(row, get_broad_sector_label(row["symbol"]))})
+        summary_cards = [
+            {"label": "Mover Rows", "value": len(mover_rows), "copy": "Active mover names in the current tracked universe."},
+            {"label": "Best Use", "value": "Scan Fast", "copy": "Best used when the tape is moving too quickly for long-form reading."},
+            {"label": "Top Sector", "value": get_broad_sector_label(mover_rows[0]["symbol"]) if mover_rows else "-", "copy": "Sector attached to the current lead mover."},
+            {"label": "Follow-up", "value": "Why Moving", "copy": "Best next click after the first scan."},
+        ]
+        watch_sections = [{"title": "Mover Watch Routine", "items": ["Start with the strongest move", "Open why-moving if the structure still looks clean", "Use stock archive when the same name keeps returning"]}]
+        hero_metric_primary = str(len(mover_rows))
+        hero_metric_secondary = "mover alerts in this track right now"
+        hero_badges.append({"label": "Mover Watch", "kind": "tag-info"})
+        gainers = [row for row in mover_rows if row["change_pct_numeric"] > 0]
+        losers = [row for row in mover_rows if row["change_pct_numeric"] < 0]
+        top_volume = sorted(mover_rows, key=lambda item: item["volume_numeric"], reverse=True)
+        editor_summary = build_live_movers_editor_summary(mover_rows, gainers, losers, top_volume)
+    else:
+        page_rows = [
+            {"title": item["story_title"], "meta": f"{item['symbol']} | {item['story_meta']}", "copy": item["story_copy"], "href": item["why_moving_url"], "tags": [{"label": "Earnings", "kind": "tag-warn"}, {"label": item["symbol"], "kind": "tag-info"}]}
+            for item in earnings_rows[:8]
+        ]
+        summary_cards = [
+            {"label": "Event Rows", "value": len(page_rows), "copy": "Earnings or quarterly-commentary led rows."},
+            {"label": "Best Use", "value": "Event Follow-up", "copy": "Best used when the tape feels headline-driven."},
+            {"label": "Universe", "value": len(rows), "copy": "Tracked names scanned for event language."},
+            {"label": "Follow-up", "value": "Why Moving", "copy": "Use single-stock pages to verify reaction quality."},
+        ]
+        watch_sections = [{"title": "Earnings Watch Routine", "items": ["Start with the lead earnings story", "Check whether the tape confirms the story", "Use archive pages when the same event-driven theme repeats"]}]
+        hero_metric_primary = str(len(page_rows))
+        hero_metric_secondary = "event rows in this track right now"
+        hero_badges.append({"label": "Event Watch", "kind": "tag-warn"})
+        editor_summary = build_market_editor_summary(
+            "Market Editor Summary",
+            "Earnings-watch alerts should separate real event-led follow-through from ordinary intraday movement.",
+            [
+                {"label": "Best Use", "copy": "Use this page when headlines feel important enough to change the tape, but you still need a cleaner list before deeper research."},
+                {"label": "Why It Matters", "copy": "Event-led moves can create stronger follow-through, but only if the price structure confirms the story."},
+                {"label": "Follow-through", "copy": "The right next click is a why-moving page or stock archive, not another undifferentiated feed."},
+                {"label": "Product Direction", "copy": "This track gives TraderHub a natural path toward future earnings alerts and watchlist-based reminders."},
+            ],
+        )
+
+    return {
+        "page_mode": "alert_track",
+        "seo_title": f"{config['label']} | TraderHub",
+        "seo_description": config["description"],
+        "canonical_url": f"{host_root.rstrip('/')}/market/alerts/{alert_slug}",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": config["description"], "url": f"{host_root.rstrip('/')}/market/alerts/{alert_slug}"}, indent=2),
+        "breadcrumb_text": f"Market News › Alerts › {config['label']}",
+        "breadcrumb_meta_text": f"Phase 3 alert track | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Alert Track",
+        "hero_title": config["label"],
+        "hero_subtitle": config["description"],
+        "hero_metric_primary": hero_metric_primary,
+        "hero_metric_secondary": hero_metric_secondary,
+        "hero_badges": hero_badges,
+        "hero_stats": [
+            {"label": "Rows", "value": len(page_rows)},
+            {"label": "Universe", "value": len(rows)},
+            {"label": "Mode", "value": "Public"},
+            {"label": "Delivery", "value": "Prep"},
+        ],
+        "nav_chips": [
+            {"label": "Alerts Hub", "href": "/market/alerts"},
+            {"label": "Pre-Market", "href": "/market/alerts/pre-market"},
+            {"label": "Post-Market", "href": "/market/alerts/post-market"},
+            {"label": "Sector Watch", "href": "/market/alerts/sector-watch"},
+            {"label": "Stock Movers", "href": "/market/alerts/stock-movers"},
+            {"label": "Earnings Watch", "href": "/market/alerts/earnings-watch"},
+        ],
+        "section_title": config["label"],
+        "section_note": "Alert tracks are designed to become future delivered products. Right now they help users build repeat routines on top of the live public market system.",
+        "summary_cards": summary_cards,
+        "lead_stories": page_rows[:4],
+        "watch_sections": watch_sections,
+        **editor_summary,
+        "archive_section_heading": "Alert Track Board",
+        "archive_section_note": "These cards show the public structure of the alert track today. Later the same logic can feed watchlists, emails, and personalized delivery.",
+        "rows": page_rows,
+        "market_error": market_error,
+        "side_box_title": "Alert Track Rule",
+        "side_box_copy": "A good alert track should be repeatable enough that users would want it delivered later.",
+        "why_page_works": "This prepares the public site for future personalization without forcing premature account-only complexity into the current product.",
+    }
 
 
 def build_market_archive_hub_context(host_root):
@@ -20783,6 +21077,20 @@ def market_trends_hub():
 @app.route("/market/trends/<trend_slug>")
 def market_trend_group(trend_slug):
     context = build_market_trend_group_context(request.url_root.rstrip("/"), str(trend_slug or "").strip().lower())
+    if not context:
+        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/alerts")
+def market_alerts_hub():
+    context = build_alerts_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/alerts/<alert_slug>")
+def market_alert_track(alert_slug):
+    context = build_alert_track_context(request.url_root.rstrip("/"), str(alert_slug or "").strip().lower())
     if not context:
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
