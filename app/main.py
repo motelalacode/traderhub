@@ -10102,6 +10102,55 @@ def get_nearest_index_option_instruments(index_name, underlying_names=None):
     return [row for row in option_rows if row["expiry_date"] == nearest_expiry]
 
 
+def get_nearest_index_future_instrument(index_name, underlying_names=None):
+    today = get_today_ist()
+    allowed_names = {str(item).strip().upper() for item in (underlying_names or []) if str(item).strip()}
+    allowed_names.add(str(index_name or "").strip().upper())
+    future_rows = []
+
+    for row in get_nfo_instruments():
+        row_name = str(row.get("name") or "").strip().upper()
+        if row_name not in allowed_names:
+            continue
+        instrument_type = str(row.get("instrument_type") or "").upper()
+        if instrument_type not in {"FUT", "FUTIDX"}:
+            continue
+        expiry = normalize_expiry_date(row.get("expiry"))
+        if not expiry or expiry < today:
+            continue
+        future_rows.append({**row, "expiry_date": expiry})
+
+    if not future_rows:
+        return None
+    return min(future_rows, key=lambda row: row["expiry_date"])
+
+
+def get_live_index_future_snapshot(index_name, underlying_names=None):
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return {"available": False, "error": "Kite API key or access token is missing in .env."}
+
+    future_row = get_nearest_index_future_instrument(index_name, underlying_names=underlying_names)
+    if not future_row:
+        return {"available": False, "error": f"No nearest {index_name} futures contract was available in NFO instruments."}
+
+    client = build_kite_client(with_access_token=True)
+    quote_key = f"NFO:{future_row['tradingsymbol']}"
+    quote_data = fetch_quote_map_safe(client, [quote_key])
+    quote = quote_data.get(quote_key) or {}
+    last_price = quote.get("last_price")
+    if last_price in (None, ""):
+        return {"available": False, "error": f"{index_name} nearest futures quote was unavailable right now."}
+
+    return {
+        "available": True,
+        "price_numeric": float(last_price),
+        "price_display": format_price(float(last_price)),
+        "expiry_date": future_row["expiry_date"].isoformat(),
+        "tradingsymbol": str(future_row.get("tradingsymbol") or ""),
+    }
+
+
 def get_option_oi_change_for_instrument(client, instrument_token):
     today = get_today_ist()
     from_dt = datetime.datetime.combine(today - datetime.timedelta(days=10), datetime.time(0, 0), tzinfo=APP_TZ)
@@ -10211,6 +10260,7 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         )
 
     chain_pivot = max(rows, key=lambda row: row["combined_oi"], default=None)
+    pcr_numeric = (total_put_oi / total_call_oi) if total_call_oi > 0 else None
     return {
         "available": True,
         "rows": rows,
@@ -10218,6 +10268,8 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         "total_put_oi": format_volume(total_put_oi),
         "total_call_change": f"{total_call_change:+,.0f}",
         "total_put_change": f"{total_put_change:+,.0f}",
+        "pcr_numeric": pcr_numeric,
+        "pcr_display": f"{pcr_numeric:.2f}" if pcr_numeric is not None else "Pending",
         "support_zone": f"{strongest_put['strike']}" if strongest_put else "-",
         "resistance_zone": f"{strongest_call['strike']}" if strongest_call else "-",
         "max_pain": chain_pivot["strike"] if chain_pivot else "-",
@@ -17923,6 +17975,10 @@ def build_index_derivatives_context(index_slug, host_root):
         config["strike_step"],
         underlying_names=config.get("underlying_names"),
     )
+    future_snapshot = get_live_index_future_snapshot(
+        config["index_name"],
+        underlying_names=config.get("underlying_names"),
+    )
     chain_available = real_chain.get("available", False)
     if chain_available:
         support_zone = real_chain.get("support_zone") or support_zone
@@ -17949,7 +18005,11 @@ def build_index_derivatives_context(index_slug, host_root):
                     "read": "Near max pain" if strike == anchor else "Support zone candidate" if strike < anchor else "Resistance zone candidate",
                 }
             )
-    page_error = proxy["error"] or (None if chain_available else real_chain.get("error"))
+    future_available = future_snapshot.get("available", False)
+    premium_discount = None
+    if future_available and spot_value > 0:
+        premium_discount = future_snapshot["price_numeric"] - spot_value
+    page_error = proxy["error"] or (None if chain_available else real_chain.get("error")) or (None if future_available else future_snapshot.get("error"))
     return {
         "page_mode": "index",
         "seo_title": f"{config['index_name']} Options Dashboard, Support, Resistance & Tone | TraderHub",
@@ -17960,14 +18020,14 @@ def build_index_derivatives_context(index_slug, host_root):
         "breadcrumb_meta_text": f"Phase 1 public dashboard | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Index Derivatives",
         "hero_title": config["label"],
-        "hero_subtitle": config["market_read_copy"],
+        "hero_subtitle": config["market_read_copy"] + (f" Nearest futures expiry: {future_snapshot.get('expiry_date')}." if future_available and future_snapshot.get("expiry_date") else ""),
         "hero_metric_primary": format_price(spot_value) if spot_value > 0 else "Pending",
         "hero_metric_secondary": f"{spot_change_pct:+.2f}% spot move" if spot_value > 0 and prev_close > 0 else "spot quote pending right now",
         "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": config["expiry_label"], "kind": "tag-warn"}, {"label": f"{tone} Tone", "kind": "tag-up" if tone == 'Constructive' else 'tag-down' if tone == 'Pressured' else 'tag-info'}, {"label": "Real OI Live" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-info"}],
         "hero_stats": [
             {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
-            {"label": "Futures", "value": "Source Pending"},
-            {"label": "PCR", "value": "Pending"},
+            {"label": "Futures", "value": future_snapshot.get("price_display", "Pending")},
+            {"label": "PCR", "value": real_chain.get("pcr_display", "Pending")},
             {"label": "Max Pain", "value": max_pain},
         ],
         "nav_chips": [
@@ -17991,8 +18051,8 @@ def build_index_derivatives_context(index_slug, host_root):
         "focus_cards": [
             {"title": "Support Zone", "meta": "Option structure", "copy": f"Nearest support zone is framed around {support_zone}. This is {'derived from the strongest displayed put OI wall' if chain_available else 'a rounded-strike proxy, not a chain-confirmed put wall yet'}."},
             {"title": "Resistance Zone", "meta": "Option structure", "copy": f"Nearest resistance zone is framed around {resistance_zone}. This is {'derived from the strongest displayed call OI wall' if chain_available else 'a rounded-strike proxy, not a chain-confirmed call wall yet'}."},
-            {"title": "Strongest Proxy Name", "meta": "Breadth proxy", "copy": f"{strongest['symbol']} is the strongest live proxy name right now at {strongest['day_change']}." if strongest else "Waiting on live proxy rows."},
-            {"title": "Weakest Proxy Name", "meta": "Breadth proxy", "copy": f"{weakest['symbol']} is the weakest live proxy name right now at {weakest['day_change']}." if weakest else "Waiting on live proxy rows."},
+            {"title": "Futures Premium / Discount", "meta": "Nearest futures contract", "copy": (f"{premium_discount:+.2f} points versus spot right now." if premium_discount is not None else "Nearest futures quote is not available right now.")},
+            {"title": "PCR Read", "meta": "Displayed chain window", "copy": (f"Put-Call Ratio across the displayed strike window is {real_chain.get('pcr_display')}." if chain_available else "PCR will appear once the live option-chain window is available.")},
         ],
         "table_title": "Options Structure Table",
         "table_note": "The strike table is now using live OI where the broker chain window is available. When the full chain source gets connected later, this same layout can simply deepen instead of being redesigned." if chain_available else "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
