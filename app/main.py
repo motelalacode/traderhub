@@ -17943,6 +17943,31 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
             {% endfor %}
           </div>
         </section>
+        <section class="section">
+          <h2>Related Peers</h2>
+          <div class="section-note">This block helps users move from one active stock to the nearest comparable names without backing out into a separate screener.</div>
+          {% if related_peer_rows %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Symbol</th><th>Company</th><th>Last Price</th><th>Day Change</th><th>Status</th><th>Next</th></tr></thead>
+              <tbody>
+                {% for item in related_peer_rows %}
+                <tr>
+                  <td><a href="{{ item.stock_url }}">{{ item.symbol }}</a></td>
+                  <td>{{ item.company_name }}</td>
+                  <td>{{ item.last_price }}</td>
+                  <td>{{ item.change_pct_display }}</td>
+                  <td>{{ item.status_label }}</td>
+                  <td><a href="{{ item.why_moving_url }}">Why Moving</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="notice"><div class="copy">No mapped peer rows are available for this symbol right now.</div></div>
+          {% endif %}
+        </section>
         {% endif %}
         <section class="section">
           <h2>Phase 2 Note</h2>
@@ -18432,6 +18457,21 @@ def build_why_moving_context(symbol, host_root):
     news_items = build_stock_news_items(symbol, sector_label.split(" / ")[0], stock_isin)
     reason_cards = build_why_moving_reason_cards(row)
     move_story = build_live_mover_story(row, sector_label.split(" / ")[0]) if row else f"{company_name} is waiting for a stronger live market snapshot right now."
+    peer_symbols = [peer_symbol for peer_symbol in get_stock_page_peer_symbols(symbol) if peer_symbol != symbol][:4]
+    related_peer_rows = []
+    peer_rows, _, _ = get_public_sector_rows(peer_symbols, get_today_ist()) if peer_symbols else ([], [], None)
+    for peer_row in peer_rows:
+        related_peer_rows.append(
+            {
+                "symbol": peer_row["symbol"],
+                "company_name": prettify_company_name(((master.get("by_symbol", {}).get(peer_row["symbol"]) or {}).get("security") or peer_row["symbol"]), peer_row["symbol"]),
+                "last_price": peer_row["last_price"],
+                "change_pct_display": peer_row["change_pct_display"],
+                "status_label": peer_row["status_label"],
+                "stock_url": f"/stocks/{get_canonical_stock_slug(peer_row['symbol'])}",
+                "why_moving_url": f"/stocks/{get_canonical_stock_slug(peer_row['symbol'])}/why-moving",
+            }
+        )
     today_iso = get_today_ist().isoformat()
     return {
         "page_mode": "why_moving",
@@ -18468,6 +18508,7 @@ def build_why_moving_context(symbol, host_root):
             {"title": "Next Clicks", "items": ["Open the full stock page", "Review official NSE announcements", "Check corporate actions board", "Compare with sector-news strip"]},
         ],
         "rows": news_items,
+        "related_peer_rows": related_peer_rows,
         "market_error": market_error,
         "side_box_title": "Why This Page",
         "side_box_copy": "This page works when the user wants one stock-specific answer quickly: what is the move, how is it structured, and where should they verify the story next?",
