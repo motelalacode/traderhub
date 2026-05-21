@@ -17920,6 +17920,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
               <div class="story-meta">{{ story.meta }}</div>
               {% if story.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in story.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
               <div class="story-copy">{{ story["copy"] }}</div>
+              {% if story.href and story.cta_label %}<div style="margin-top:10px;"><a class="nav-chip" href="{{ story.href }}">{{ story.cta_label }}</a></div>{% endif %}
             </div>
             {% endfor %}
           </div>
@@ -17960,9 +17961,10 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
           <div class="story-grid">
             {% for item in rows %}
             <div class="story-card">
-              {% if item.sector_slug %}<div class="story-title"><a href="/sectors/{{ item.sector_slug }}">{{ item.sector }}</a></div>{% else %}<div class="story-title">{{ item.sector }}</div>{% endif %}
+              {% if item.sector_href %}<div class="story-title"><a href="{{ item.sector_href }}">{{ item.sector }}</a></div>{% else %}<div class="story-title">{{ item.sector }}</div>{% endif %}
               <div class="story-meta">Average move {{ item.avg_change }} | Leaders {{ item.leaders }}</div>
               <div class="story-copy">{{ item.story }}</div>
+              {% if item.sector_href %}<div style="margin-top:10px;"><a class="nav-chip" href="{{ item.sector_href }}">{{ item.cta_label or 'Open Sector View' }}</a></div>{% endif %}
             </div>
             {% endfor %}
           </div>
@@ -18020,6 +18022,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
               <div class="story-meta">{{ story.meta }}</div>
               {% if story.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in story.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
               <div class="story-copy">{{ story["copy"] }}</div>
+              {% if story.href and story.cta_label %}<div style="margin-top:10px;"><a class="nav-chip" href="{{ story.href }}">{{ story.cta_label }}</a></div>{% endif %}
             </div>
             {% endfor %}
           </div>
@@ -18315,6 +18318,11 @@ def get_public_sector_route_for_label(sector_label):
     return direct_map.get(cleaned, "/market/sector-news")
 
 
+def get_public_sector_cta_label(sector_label):
+    href = get_public_sector_route_for_label(sector_label)
+    return "Open Sector Page" if href.startswith("/sectors/") else "Open Sector News"
+
+
 def build_live_mover_story(row, sector_label):
     if not row:
         return "This stock is waiting for a stronger live market snapshot."
@@ -18440,6 +18448,7 @@ def build_sector_cards_from_live_rows(rows):
                 "sector": sector_label,
                 "sector_slug": get_public_sector_slug(next((key for key in SECTOR_GROUPS.keys() if sector_label.lower() == key.replace("_", " ").title().lower()), "")) if any(sector_label.lower() == key.replace("_", " ").title().lower() for key in SECTOR_GROUPS.keys()) else "",
                 "sector_href": get_public_sector_route_for_label(sector_label),
+                "cta_label": get_public_sector_cta_label(sector_label),
                 "avg_change": f"{avg_change:+.2f}%",
                 "avg_change_numeric": avg_change,
                 "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
@@ -18753,7 +18762,7 @@ def build_alert_track_context(host_root, alert_slug):
         )
     elif alert_slug == "sector-watch":
         for item in sector_cards[:8]:
-            page_rows.append({"title": f"{item['sector']} sector watch", "meta": f"Average move {item['avg_change']}", "copy": item["story"], "href": item.get("sector_href") or "/market/sector-news", "tags": [{"label": item["sector"], "kind": "tag-info"}]})
+            page_rows.append({"title": f"{item['sector']} sector watch", "meta": f"Average move {item['avg_change']}", "copy": item["story"], "href": item.get("sector_href") or "/market/sector-news", "cta_label": item.get("cta_label") or "Open Sector View", "tags": [{"label": item["sector"], "kind": "tag-info"}]})
         summary_cards = [
             {"label": "Active Sectors", "value": len(sector_cards[:8]), "copy": "Sector groups currently worth tracking."},
             {"label": "Best Use", "value": "Theme First", "copy": "Best used when the same market theme keeps repeating."},
@@ -19663,6 +19672,7 @@ def build_sector_news_context(host_root):
             "meta": f"Sector News | Avg move {item['avg_change']}",
             "copy": item["story"],
             "href": item.get("sector_href") or "",
+            "cta_label": item.get("cta_label") or "Open Sector View",
             "tags": build_reason_tags(item["strongest"], item["sector"]),
         }
         for item in sector_cards[:4]
