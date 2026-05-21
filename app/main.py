@@ -18016,6 +18016,145 @@ def build_stock_oi_change_context(host_root):
     }
 
 
+def build_index_oi_change_context(host_root):
+    today_iso = get_today_ist().isoformat()
+    cards = []
+    combined_rows = []
+    top_positive = []
+    top_negative = []
+    market_errors = []
+
+    for index_slug in ("nifty-options", "banknifty-options"):
+        config = DERIVATIVES_INDEX_CONFIG[index_slug]
+        proxy = build_index_proxy_snapshot(config["proxy_symbols"])
+        if proxy["error"]:
+            market_errors.append(f"{config['index_name']}: {proxy['error']}")
+        rows = sorted(proxy["rows"], key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+        positive_rows = [row for row in rows if row["day_change_numeric"] > 0]
+        negative_rows = [row for row in rows if row["day_change_numeric"] < 0]
+        strongest = max(rows, key=lambda row: row["day_change_numeric"], default=None)
+        weakest = min(rows, key=lambda row: row["day_change_numeric"], default=None)
+
+        cards.append(
+            {
+                "label": config["index_name"],
+                "value": strongest["symbol"] if strongest else "Pending",
+                "copy": (
+                    f"Top positive proxy: {strongest['symbol']} {strongest['day_change']} | "
+                    f"Top negative proxy: {weakest['symbol']} {weakest['day_change']}."
+                    if strongest and weakest
+                    else "Waiting on current proxy rows for this index."
+                ),
+            }
+        )
+
+        for row in rows[:8]:
+            combined_rows.append(
+                {
+                    "index_name": config["index_name"],
+                    "symbol": row["symbol"],
+                    "stock_url": row["stock_url"],
+                    "spot": row["spot"],
+                    "day_change": row["day_change"],
+                    "volume": row["volume"],
+                    "oi_bias": "Positive index pressure proxy" if row["day_change_numeric"] > 0 else "Negative index pressure proxy" if row["day_change_numeric"] < 0 else "Neutral index pressure proxy",
+                    "proxy_oi_shift": f"{row['day_change_numeric']:+.2f}% x {row['volume']}",
+                    "oi": "Source Pending",
+                    "oi_change": "Pending",
+                    "pressure_score": abs(row["day_change_numeric"]) * max(row["volume_numeric"], 0),
+                }
+            )
+        top_positive.append(
+            {
+                "title": f"{config['index_name']} Positive Pressure",
+                "meta": "Phase 1 proxy",
+                "copy": (
+                    ", ".join(f"{row['symbol']} {row['day_change']}" for row in positive_rows[:4])
+                    if positive_rows
+                    else "No positive proxy names are standing out right now."
+                ),
+            }
+        )
+        top_negative.append(
+            {
+                "title": f"{config['index_name']} Negative Pressure",
+                "meta": "Phase 1 proxy",
+                "copy": (
+                    ", ".join(f"{row['symbol']} {row['day_change']}" for row in negative_rows[:4])
+                    if negative_rows
+                    else "No negative proxy names are standing out right now."
+                ),
+            }
+        )
+
+    combined_rows = sorted(combined_rows, key=lambda row: row["pressure_score"], reverse=True)
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/index/oi-change"
+
+    return {
+        "page_mode": "index_oi_change",
+        "seo_title": "Index OI Change Dashboard, Nifty & Bank Nifty Pressure Map | TraderHub",
+        "seo_description": "Track TraderHub index OI change dashboard structure for Nifty and Bank Nifty with live breadth proxy, pressure maps, and public F&O discovery.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Index OI Change Dashboard | TraderHub", "description": "Public index OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": "Derivatives › Index Derivatives › OI Change Dashboard",
+        "breadcrumb_meta_text": f"Phase 1 index OI page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Index OI Change",
+        "hero_title": "Index OI Change Dashboard",
+        "hero_subtitle": "This page completes the phase-1 F&O story by giving Nifty and Bank Nifty their own OI-intent surface. It is built for traffic, scan speed, and future real OI upgrades.",
+        "hero_metric_primary": str(len(combined_rows)),
+        "hero_metric_secondary": "ranked proxy rows across Nifty and Bank Nifty",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Index OI Intent", "kind": "tag-up"}, {"label": "Real OI Feed Next", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Indexes", "value": 2},
+            {"label": "Combined Rows", "value": len(combined_rows)},
+            {"label": "Positive Proxy", "value": sum(1 for row in combined_rows if row["oi_bias"].startswith("Positive"))},
+            {"label": "Negative Proxy", "value": sum(1 for row in combined_rows if row["oi_bias"].startswith("Negative"))},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Index OI", "href": "/derivatives/index/oi-change"},
+            {"label": "Stock OI", "href": "/derivatives/stocks/oi-change"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+        ],
+        "section_title": "Index OI Snapshot",
+        "section_note": "The public index OI page keeps the layout right and the language trader-friendly right now. It uses a proxy model until the true index OI feed is connected, rather than publishing fake chain values.",
+        "summary_cards": cards + [
+            {"label": "Real OI Fields", "value": "Next", "copy": "True index OI and OI-change values are intentionally reserved for the next derivatives data pass."},
+            {"label": "Use Case", "value": "Traffic + Habit", "copy": "This page is built to attract high-intent F&O users and give them a clean repeat-use surface."},
+        ],
+        "focus_title": "Pressure Reads",
+        "focus_note": "These blocks keep the index OI page useful today and make the public story legible without requiring a full option-chain terminal first.",
+        "focus_cards": top_positive + top_negative,
+        "table_title": "Index OI Change Table",
+        "table_note": "Rows are ranked by a transparent phase-1 pressure model across index proxy names. Real OI values and OI changes will replace the pending fields when the dedicated feed arrives.",
+        "table_columns": [
+            {"label": "Index", "key": "index_name", "link_key": None},
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
+            {"label": "Spot", "key": "spot", "link_key": None},
+            {"label": "Day Change", "key": "day_change", "link_key": None},
+            {"label": "Volume", "key": "volume", "link_key": None},
+            {"label": "OI Bias", "key": "oi_bias", "link_key": None},
+            {"label": "Proxy OI Shift", "key": "proxy_oi_shift", "link_key": None},
+            {"label": "Real OI", "key": "oi", "link_key": None},
+            {"label": "Real OI Change", "key": "oi_change", "link_key": None},
+        ],
+        "table_rows": combined_rows,
+        "group_title": "What This Page Solves",
+        "group_note": "These notes are here because a public derivatives page must explain its value quickly, especially before the deeper OI data is connected.",
+        "group_blocks": [
+            {"title": "Why It Helps Traders", "count": 4, "copy": "Even as a phase-1 page, it already answers useful index questions.", "items": ["Which index proxy names are driving pressure", "Whether the tone is skewed positive or negative", "Which index deserves attention first", "Where to drill down next in the derivatives module"]},
+            {"title": "What Gets Better Next", "count": 4, "copy": "The same layout is ready for a stronger derivatives feed later.", "items": ["True index OI", "Index OI change by structure", "Cleaner expiry pressure framing", "More reliable call/put participation read"]},
+        ],
+        "public_note": "This page turns index-side OI intent into a real public route today. It is already useful for traffic and trader orientation, and it is positioned cleanly for a real OI feed later.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Treat this as an index pressure map in phase 1. The route, SEO value, and layout are real now; the final OI depth arrives with the next derivatives source pass.",
+        "why_page_works": "It rounds out the public derivatives story, gives index users a clean OI entry point, and strengthens both TraderHub’s search footprint and trader habit potential.",
+        "market_error": " | ".join(market_errors) if market_errors else None,
+    }
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -18174,6 +18313,12 @@ def derivatives_nifty_options():
 @app.route("/derivatives/index/banknifty-options")
 def derivatives_banknifty_options():
     context = build_index_derivatives_context("banknifty-options", request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/index/oi-change")
+def derivatives_index_oi_change():
+    context = build_index_oi_change_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
