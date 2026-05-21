@@ -9871,19 +9871,20 @@ def get_upstox_fundamentals_bundle(isin):
 def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     financial_metrics = build_placeholder_financial_metrics("General")
     holdings_deals = build_placeholder_holdings_deals(symbol)
+    ownership_watch_rows = build_placeholder_ownership_watch()
     sector_override = None
     note = ""
 
     if not isin:
-        return financial_metrics, holdings_deals, sector_override, "ISIN is not available yet for fundamentals mapping."
+        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, "ISIN is not available yet for fundamentals mapping."
 
     try:
         fundamentals_bundle = get_upstox_fundamentals_bundle(isin)
     except requests.RequestException as exc:
         response_text = exc.response.text if exc.response is not None else str(exc)
-        return financial_metrics, holdings_deals, sector_override, f"Upstox fundamentals request failed: {response_text}"
+        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, f"Upstox fundamentals request failed: {response_text}"
     except Exception as exc:
-        return financial_metrics, holdings_deals, sector_override, f"Upstox fundamentals mapping failed: {exc}"
+        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, f"Upstox fundamentals mapping failed: {exc}"
 
     profile_data = fundamentals_bundle.get("profile") or {}
     ratio_rows = fundamentals_bundle.get("key_ratios") or []
@@ -9960,29 +9961,88 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         },
     ]
 
-    def latest_holding_value(category_names):
+    def latest_holding_details(category_names):
         for category_name in category_names:
-            entry = find_upstox_history_entry((holdings_map.get(category_name) or {}).get("history"))
+            history = (holdings_map.get(category_name) or {}).get("history") or []
+            entry = find_upstox_history_entry(history)
             if entry and entry.get("value") is not None:
-                return f"{entry.get('value')}%", entry.get("period") or "Latest quarter"
-        return "Source Pending", "Quarterly holding source pending."
+                previous_entry = history[1] if len(history) >= 2 and history[1].get("value") is not None else None
+                current_numeric = parse_numeric_text(entry.get("value"))
+                previous_numeric = parse_numeric_text((previous_entry or {}).get("value"))
+                delta_display = "Pending"
+                if current_numeric is not None and previous_numeric is not None:
+                    delta_display = f"{current_numeric - previous_numeric:+.2f} pp"
+                return {
+                    "value": f"{entry.get('value')}%",
+                    "period": entry.get("period") or "Latest quarter",
+                    "previous_value": (f"{previous_entry.get('value')}%" if previous_entry and previous_entry.get("value") is not None else "Pending"),
+                    "previous_period": (previous_entry.get("period") or "Previous quarter") if previous_entry else "Previous quarter pending",
+                    "delta": delta_display,
+                }
+        return {
+            "value": "Source Pending",
+            "period": "Quarterly holding source pending.",
+            "previous_value": "Pending",
+            "previous_period": "Previous quarter pending",
+            "delta": "Pending",
+        }
 
-    promoter_value, promoter_period = latest_holding_value(["promoters", "promoter"])
-    fii_value, fii_period = latest_holding_value(["fii", "foreign_institutional_investors"])
-    dii_value, dii_period = latest_holding_value(["dii", "other_dii", "domestic_institutional_investors"])
-    mutual_fund_value, mutual_fund_period = latest_holding_value(["mutual_funds", "mutual fund"])
+    promoter_details = latest_holding_details(["promoters", "promoter"])
+    fii_details = latest_holding_details(["fii", "foreign_institutional_investors"])
+    dii_details = latest_holding_details(["dii", "other_dii", "domestic_institutional_investors"])
+    mutual_fund_details = latest_holding_details(["mutual_funds", "mutual fund"])
+    retail_other_details = latest_holding_details(["retail_and_other", "retail", "public"])
 
     holdings_deals = [
-        {"label": "Promoter Holding", "value": promoter_value, "note": promoter_period},
-        {"label": "FII Holding", "value": fii_value, "note": fii_period},
-        {"label": "DII Holding", "value": dii_value, "note": dii_period},
-        {"label": "Mutual Fund Holding", "value": mutual_fund_value, "note": mutual_fund_period},
+        {"label": "Promoter Holding", "value": promoter_details["value"], "note": promoter_details["period"]},
+        {"label": "FII Holding", "value": fii_details["value"], "note": fii_details["period"]},
+        {"label": "DII Holding", "value": dii_details["value"], "note": dii_details["period"]},
+        {"label": "Mutual Fund Holding", "value": mutual_fund_details["value"], "note": mutual_fund_details["period"]},
+        {"label": "Retail & Other", "value": retail_other_details["value"], "note": retail_other_details["period"]},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Deals feed is still reserved for the next source integration."},
         {"label": "Pledge", "value": "Source Pending", "note": "Pledge data still needs a separate ownership/deal source."},
     ]
 
+    ownership_watch_rows = [
+        {
+            "category": "Promoter",
+            "current": promoter_details["value"],
+            "previous": promoter_details["previous_value"],
+            "change": promoter_details["delta"],
+            "note": f"{promoter_details['period']} vs {promoter_details['previous_period']}",
+        },
+        {
+            "category": "FII",
+            "current": fii_details["value"],
+            "previous": fii_details["previous_value"],
+            "change": fii_details["delta"],
+            "note": f"{fii_details['period']} vs {fii_details['previous_period']}",
+        },
+        {
+            "category": "DII",
+            "current": dii_details["value"],
+            "previous": dii_details["previous_value"],
+            "change": dii_details["delta"],
+            "note": f"{dii_details['period']} vs {dii_details['previous_period']}",
+        },
+        {
+            "category": "Mutual Funds",
+            "current": mutual_fund_details["value"],
+            "previous": mutual_fund_details["previous_value"],
+            "change": mutual_fund_details["delta"],
+            "note": f"{mutual_fund_details['period']} vs {mutual_fund_details['previous_period']}",
+        },
+        {
+            "category": "Retail & Other",
+            "current": retail_other_details["value"],
+            "previous": retail_other_details["previous_value"],
+            "change": retail_other_details["delta"],
+            "note": f"{retail_other_details['period']} vs {retail_other_details['previous_period']}",
+        },
+    ]
+
     sector_override = profile_data.get("sector")
-    return financial_metrics, holdings_deals, sector_override, note
+    return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, note
 
 
 def load_stock_isin_cache():
@@ -15797,6 +15857,30 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% endfor %}
             </tbody>
           </table>
+          <div style="height:14px;"></div>
+          <h3 style="margin:0 0 8px; font-size:18px;">Quarterly Ownership Watch</h3>
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th>Current</th>
+                <th>Previous</th>
+                <th>Change</th>
+                <th>Quarter Read</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in ownership_watch_rows %}
+              <tr>
+                <td>{{ item.category }}</td>
+                <td>{{ item.current }}</td>
+                <td>{{ item.previous }}</td>
+                <td>{{ item.change }}</td>
+                <td>{{ item.note }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
         </section>
 
         <section class="section" id="news">
@@ -16159,8 +16243,18 @@ def build_placeholder_holdings_deals(symbol):
         {"label": "Promoter Holding", "value": "Source Pending", "note": f"Ownership feed for {symbol} will be added in the next data-source pass."},
         {"label": "FII Holding", "value": "Source Pending", "note": "Institutional holding detail is reserved for the holdings integration."},
         {"label": "DII Holding", "value": "Source Pending", "note": "Domestic institutional data will be surfaced once the source is finalized."},
+        {"label": "Mutual Fund Holding", "value": "Source Pending", "note": "Mutual fund shareholding will be shown once the ownership source is available."},
+        {"label": "Retail & Other", "value": "Source Pending", "note": "Public-shareholding detail will be surfaced with the broader ownership layer."},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Recent deal activity will be added here when the deals source is connected."},
         {"label": "Pledge", "value": "Source Pending", "note": "Pledge data is intentionally marked pending until a reliable feed is available."},
+    ]
+
+
+def build_placeholder_ownership_watch():
+    return [
+        {"category": "Promoter", "current": "Source Pending", "previous": "Pending", "change": "Pending", "note": "Quarter-on-quarter ownership trend will appear once the holdings source is available."},
+        {"category": "FII", "current": "Source Pending", "previous": "Pending", "change": "Pending", "note": "Foreign ownership trend is reserved for the richer ownership layer."},
+        {"category": "DII", "current": "Source Pending", "previous": "Pending", "change": "Pending", "note": "Domestic institutional trend will be shown when the historical ownership source is finalized."},
     ]
 
 
@@ -16455,6 +16549,7 @@ def build_stock_page_context(symbol, host_root):
     ]
     financial_metrics = build_placeholder_financial_metrics(breadcrumb_sector)
     holdings_deals = build_placeholder_holdings_deals(symbol)
+    ownership_watch_rows = build_placeholder_ownership_watch()
     news_items = build_placeholder_news_items(symbol, breadcrumb_sector)
     technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
@@ -16703,7 +16798,7 @@ def build_stock_page_context(symbol, host_root):
         ]
 
         if stock_isin:
-            financial_metrics, holdings_deals, sector_override, fundamentals_note = build_upstox_financial_sections(
+            financial_metrics, holdings_deals, ownership_watch_rows, sector_override, fundamentals_note = build_upstox_financial_sections(
                 stock_isin,
                 symbol,
                 live_row["last_price_numeric"],
@@ -16766,6 +16861,7 @@ def build_stock_page_context(symbol, host_root):
         "financial_metrics": financial_metrics,
         "peers": peers,
         "holdings_deals": holdings_deals,
+        "ownership_watch_rows": ownership_watch_rows,
         "news_items": news_items,
         "quick_stats": quick_stats,
         "breadcrumb_sector": breadcrumb_sector,
@@ -16784,7 +16880,7 @@ def build_stock_page_context(symbol, host_root):
         "studies_section_note": studies_section_note,
         "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
         "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
-        "holdings_section_note": "This block now mixes real ownership snapshot data with clearly marked pending fields. Holdings available from the current source are shown directly, while deals, pledge, and deeper ownership layers remain reserved for the next integration pass.",
+        "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and only deals and pledge stay reserved for the next integration pass.",
         "news_section_note": "This section is ready for events, earnings notes, and company-specific updates. Phase 1 keeps the structure visible even before the final feed is connected.",
         "why_page_works_title": "Why This Page Works",
         "why_page_works_text": "It gives one company page both trading relevance and future SEO depth: live price context today, expandable research blocks tomorrow.",
