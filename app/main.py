@@ -17939,7 +17939,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
               <div class="story-title"><a href="{{ item.href }}">{{ item.title }}</a></div>
               <div class="story-meta">{{ item.meta }}</div>
               {% if item.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in item.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
-              <div class="story-copy">{{ item.copy }}</div>
+              <div class="story-copy">{{ item["copy"] }}</div>
             </div>
             {% endfor %}
           </div>
@@ -18412,8 +18412,12 @@ def build_market_trends_hub_context(host_root):
     trend_defs = get_trend_group_definitions()
     rows, missing, market_error = get_phase2_live_market_rows(limit=20)
     sector_cards = build_sector_cards_from_live_rows(rows)
-    bullish_rows = [row for row in rows if row["change_pct_numeric"] >= 0.75 and row["vwap_status"] == "Above VWAP" and row["status_label"] != "Below PDL"]
-    bearish_rows = [row for row in rows if row["change_pct_numeric"] <= -0.75 and row["vwap_status"] == "Below VWAP" and row["status_label"] != "Above PDH"]
+    bullish_rows = [row for row in rows if row["change_pct_numeric"] >= 0.4 and row["vwap_status"] == "Above VWAP" and row["status_label"] != "Below PDL"]
+    bearish_rows = [row for row in rows if row["change_pct_numeric"] <= -0.4 and row["vwap_status"] == "Below VWAP" and row["status_label"] != "Above PDH"]
+    if not bullish_rows:
+        bullish_rows = sorted([row for row in rows if row["change_pct_numeric"] > 0], key=lambda item: item["change_pct_numeric"], reverse=True)[:3]
+    if not bearish_rows:
+        bearish_rows = sorted([row for row in rows if row["change_pct_numeric"] < 0], key=lambda item: item["change_pct_numeric"])[:3]
     earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=1)
     today_iso = get_today_ist().isoformat()
     trend_cards = [
@@ -18452,7 +18456,7 @@ def build_market_trends_hub_context(host_root):
         "seo_description": "Explore TraderHub market trends grouped into bullish, bearish, earnings, and sector-rotation views for faster market reading.",
         "canonical_url": f"{host_root.rstrip('/')}/market/trends",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Trends | TraderHub", "description": "Public grouped market trends page for TraderHub.", "url": f"{host_root.rstrip('/')}/market/trends"}, indent=2),
-        "breadcrumb_text": "Market News â€º Trends",
+        "breadcrumb_text": "Market News › Trends",
         "breadcrumb_meta_text": f"Phase 3 trend layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market Trends",
         "hero_title": "Trend Groups",
@@ -18506,10 +18510,12 @@ def build_market_trend_group_context(host_root, trend_slug):
     page_rows = []
     if trend_slug == "bullish":
         ranked_rows = sorted(
-            [row for row in rows if row["change_pct_numeric"] >= 0.5 and row["vwap_status"] == "Above VWAP"],
+            [row for row in rows if row["change_pct_numeric"] >= 0.3 and row["vwap_status"] == "Above VWAP"],
             key=lambda item: (item["change_pct_numeric"], item["day_range_percent"]),
             reverse=True,
         )
+        if not ranked_rows:
+            ranked_rows = sorted([row for row in rows if row["change_pct_numeric"] > 0], key=lambda item: item["change_pct_numeric"], reverse=True)[:8]
         for row in ranked_rows[:12]:
             page_rows.append(
                 {
@@ -18524,9 +18530,11 @@ def build_market_trend_group_context(host_root, trend_slug):
             )
     elif trend_slug == "bearish":
         ranked_rows = sorted(
-            [row for row in rows if row["change_pct_numeric"] <= -0.5 and row["vwap_status"] == "Below VWAP"],
+            [row for row in rows if row["change_pct_numeric"] <= -0.3 and row["vwap_status"] == "Below VWAP"],
             key=lambda item: (item["change_pct_numeric"], -item["day_range_percent"]),
         )
+        if not ranked_rows:
+            ranked_rows = sorted([row for row in rows if row["change_pct_numeric"] < 0], key=lambda item: item["change_pct_numeric"])[:8]
         for row in ranked_rows[:12]:
             page_rows.append(
                 {
@@ -18572,7 +18580,7 @@ def build_market_trend_group_context(host_root, trend_slug):
         "seo_description": f"Track {config['label'].lower()} in TraderHub with grouped public market context and follow-through links.",
         "canonical_url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": config["description"], "url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}"}, indent=2),
-        "breadcrumb_text": f"Market News â€º Trends â€º {config['label']}",
+        "breadcrumb_text": f"Market News › Trends › {config['label']}",
         "breadcrumb_meta_text": f"Phase 3 grouped trend page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Trend Group",
         "hero_title": config["label"],
