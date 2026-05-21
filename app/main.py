@@ -10056,6 +10056,172 @@ def get_nse_instrument_map():
     return instrument_map
 
 
+@lru_cache(maxsize=1)
+def get_nfo_instruments():
+    client = build_kite_client(with_access_token=True)
+    return client.instruments("NFO")
+
+
+def normalize_expiry_date(value):
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    try:
+        return datetime.date.fromisoformat(str(value))
+    except Exception:
+        return None
+
+
+def get_nearest_index_option_instruments(index_name):
+    today = get_today_ist()
+    option_rows = []
+    for row in get_nfo_instruments():
+        if str(row.get("name") or "").upper() != index_name.upper():
+            continue
+        instrument_type = str(row.get("instrument_type") or "").upper()
+        if instrument_type not in {"CE", "PE"}:
+            continue
+        expiry = normalize_expiry_date(row.get("expiry"))
+        if not expiry or expiry < today:
+            continue
+        strike = float(row.get("strike") or 0)
+        if strike <= 0:
+            continue
+        option_rows.append({**row, "expiry_date": expiry, "strike_value": strike})
+
+    if not option_rows:
+        return []
+
+    nearest_expiry = min(row["expiry_date"] for row in option_rows)
+    return [row for row in option_rows if row["expiry_date"] == nearest_expiry]
+
+
+def get_option_oi_change_for_instrument(client, instrument_token):
+    today = get_today_ist()
+    from_dt = datetime.datetime.combine(today - datetime.timedelta(days=10), datetime.time(0, 0), tzinfo=APP_TZ)
+    to_dt = datetime.datetime.combine(today, datetime.time(23, 59), tzinfo=APP_TZ)
+    try:
+        candles = client.historical_data(instrument_token, from_dt, to_dt, "day", continuous=False, oi=True)
+    except Exception:
+        return None
+    if not candles:
+        return None
+    latest_oi = candles[-1].get("oi")
+    previous_oi = candles[-2].get("oi") if len(candles) >= 2 else None
+    if latest_oi is None:
+        return None
+    if previous_oi in (None, 0):
+        return float(latest_oi)
+    return float(latest_oi) - float(previous_oi)
+
+
+def build_real_index_option_chain(index_name, spot_value, strike_step):
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return {"available": False, "error": "Kite API key or access token is missing in .env."}
+
+    client = build_kite_client(with_access_token=True)
+    option_rows = get_nearest_index_option_instruments(index_name)
+    if not option_rows:
+        return {"available": False, "error": f"No {index_name} option instruments were available for the nearest expiry."}
+
+    if not spot_value or spot_value <= 0:
+        return {"available": False, "error": f"{index_name} spot quote is unavailable, so the option chain window could not be framed."}
+
+    anchor = int(round(spot_value / strike_step) * strike_step)
+    window_min = anchor - (2 * strike_step)
+    window_max = anchor + (2 * strike_step)
+    selected_rows = [row for row in option_rows if window_min <= row["strike_value"] <= window_max]
+    if not selected_rows:
+        return {"available": False, "error": f"No {index_name} option strikes were available around the current spot window."}
+
+    quote_symbols = [f"NFO:{row['tradingsymbol']}" for row in selected_rows]
+    quote_data = fetch_quote_map_safe(client, quote_symbols)
+    strike_map = {}
+
+    for row in selected_rows:
+        strike = int(row["strike_value"])
+        side = str(row.get("instrument_type") or "").upper()
+        quote_key = f"NFO:{row['tradingsymbol']}"
+        quote = quote_data.get(quote_key) or {}
+        oi_value = quote.get("oi")
+        last_price = quote.get("last_price")
+        oi_change_value = get_option_oi_change_for_instrument(client, row["instrument_token"])
+        bucket = strike_map.setdefault(
+            strike,
+            {
+                "strike": f"{strike}",
+                "call_oi_numeric": 0.0,
+                "call_oi_change_numeric": 0.0,
+                "put_oi_numeric": 0.0,
+                "put_oi_change_numeric": 0.0,
+                "call_ltp_numeric": None,
+                "put_ltp_numeric": None,
+            },
+        )
+        if side == "CE":
+            bucket["call_oi_numeric"] = float(oi_value or 0)
+            bucket["call_oi_change_numeric"] = float(oi_change_value or 0)
+            bucket["call_ltp_numeric"] = float(last_price) if last_price not in (None, "") else None
+        elif side == "PE":
+            bucket["put_oi_numeric"] = float(oi_value or 0)
+            bucket["put_oi_change_numeric"] = float(oi_change_value or 0)
+            bucket["put_ltp_numeric"] = float(last_price) if last_price not in (None, "") else None
+
+    rows = []
+    total_call_oi = 0.0
+    total_put_oi = 0.0
+    total_call_change = 0.0
+    total_put_change = 0.0
+    strongest_call = None
+    strongest_put = None
+
+    for strike in sorted(strike_map.keys()):
+        bucket = strike_map[strike]
+        total_call_oi += bucket["call_oi_numeric"]
+        total_put_oi += bucket["put_oi_numeric"]
+        total_call_change += bucket["call_oi_change_numeric"]
+        total_put_change += bucket["put_oi_change_numeric"]
+        if strongest_call is None or bucket["call_oi_numeric"] > strongest_call["oi"]:
+            strongest_call = {"strike": strike, "oi": bucket["call_oi_numeric"]}
+        if strongest_put is None or bucket["put_oi_numeric"] > strongest_put["oi"]:
+            strongest_put = {"strike": strike, "oi": bucket["put_oi_numeric"]}
+        combined = bucket["call_oi_numeric"] + bucket["put_oi_numeric"]
+        read_label = "Balanced"
+        if bucket["put_oi_numeric"] > bucket["call_oi_numeric"]:
+            read_label = "Put support bias"
+        elif bucket["call_oi_numeric"] > bucket["put_oi_numeric"]:
+            read_label = "Call resistance bias"
+        rows.append(
+            {
+                "strike": bucket["strike"],
+                "call_oi": format_volume(bucket["call_oi_numeric"]),
+                "call_oi_change": f"{bucket['call_oi_change_numeric']:+,.0f}",
+                "put_oi": format_volume(bucket["put_oi_numeric"]),
+                "put_oi_change": f"{bucket['put_oi_change_numeric']:+,.0f}",
+                "read": read_label if combined > 0 else "Thin activity",
+                "combined_oi": combined,
+            }
+        )
+
+    chain_pivot = max(rows, key=lambda row: row["combined_oi"], default=None)
+    return {
+        "available": True,
+        "rows": rows,
+        "total_call_oi": format_volume(total_call_oi),
+        "total_put_oi": format_volume(total_put_oi),
+        "total_call_change": f"{total_call_change:+,.0f}",
+        "total_put_change": f"{total_put_change:+,.0f}",
+        "support_zone": f"{strongest_put['strike']}" if strongest_put else "-",
+        "resistance_zone": f"{strongest_call['strike']}" if strongest_call else "-",
+        "max_pain": chain_pivot["strike"] if chain_pivot else "-",
+        "strongest_call_wall": f"{strongest_call['strike']}" if strongest_call else "-",
+        "strongest_put_wall": f"{strongest_put['strike']}" if strongest_put else "-",
+        "expiry_date": selected_rows[0]["expiry_date"].isoformat() if selected_rows else "",
+    }
+
+
 def get_equity_ohlc(symbols, selected_date, start_time, end_time):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
@@ -17746,14 +17912,20 @@ def build_index_derivatives_context(index_slug, host_root):
     prev_close = float(ohlc.get("close") or 0)
     spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
     support_zone, resistance_zone, max_pain = get_index_reference_levels(spot_value, config["strike_step"])
+    real_chain = build_real_index_option_chain(config["index_name"], spot_value, config["strike_step"])
+    chain_available = real_chain.get("available", False)
+    if chain_available:
+        support_zone = real_chain.get("support_zone") or support_zone
+        resistance_zone = real_chain.get("resistance_zone") or resistance_zone
+        max_pain = real_chain.get("max_pain") or max_pain
     avg_change = proxy["avg_change"]
     tone = "Constructive" if avg_change > 0.25 else "Pressured" if avg_change < -0.25 else "Mixed"
     strongest = proxy["strongest"]
     weakest = proxy["weakest"]
     canonical_url = f"{host_root.rstrip('/')}/derivatives/index/{index_slug}"
     today_iso = get_today_ist().isoformat()
-    option_rows = []
-    if spot_value > 0:
+    option_rows = real_chain.get("rows", [])
+    if not option_rows and spot_value > 0:
         anchor = int(round(spot_value / config["strike_step"]) * config["strike_step"])
         for offset in (-2, -1, 0, 1, 2):
             strike = anchor + (offset * config["strike_step"])
@@ -17767,6 +17939,7 @@ def build_index_derivatives_context(index_slug, host_root):
                     "read": "Near max pain" if strike == anchor else "Support zone candidate" if strike < anchor else "Resistance zone candidate",
                 }
             )
+    page_error = proxy["error"] or (None if chain_available else real_chain.get("error"))
     return {
         "page_mode": "index",
         "seo_title": f"{config['index_name']} Options Dashboard, Support, Resistance & Tone | TraderHub",
@@ -17780,7 +17953,7 @@ def build_index_derivatives_context(index_slug, host_root):
         "hero_subtitle": config["market_read_copy"],
         "hero_metric_primary": format_price(spot_value) if spot_value > 0 else "Pending",
         "hero_metric_secondary": f"{spot_change_pct:+.2f}% spot move" if spot_value > 0 and prev_close > 0 else "spot quote pending right now",
-        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": config["expiry_label"], "kind": "tag-warn"}, {"label": f"{tone} Tone", "kind": "tag-up" if tone == 'Constructive' else 'tag-down' if tone == 'Pressured' else 'tag-info'}],
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": config["expiry_label"], "kind": "tag-warn"}, {"label": f"{tone} Tone", "kind": "tag-up" if tone == 'Constructive' else 'tag-down' if tone == 'Pressured' else 'tag-info'}, {"label": "Real OI Live" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-info"}],
         "hero_stats": [
             {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
             {"label": "Futures", "value": "Source Pending"},
@@ -17798,21 +17971,21 @@ def build_index_derivatives_context(index_slug, host_root):
         "section_title": "Index Snapshot",
         "section_note": "This page is built to become a serious options dashboard, but phase 1 stays disciplined: real spot and breadth proxy where available, with chain metrics held as clear placeholders until the dedicated source is connected.",
         "summary_cards": [
-            {"label": "Total Call OI", "value": "Pending", "copy": "The option-chain source for total call open interest is intentionally reserved for the next data pass."},
-            {"label": "Total Put OI", "value": "Pending", "copy": "The option-chain source for total put open interest is intentionally reserved for the next data pass."},
+            {"label": "Total Call OI", "value": real_chain.get("total_call_oi", "Pending"), "copy": "Live option-chain aggregation across the displayed strike window." if chain_available else "The option-chain source for total call open interest is intentionally reserved for the next data pass."},
+            {"label": "Total Put OI", "value": real_chain.get("total_put_oi", "Pending"), "copy": "Live option-chain aggregation across the displayed strike window." if chain_available else "The option-chain source for total put open interest is intentionally reserved for the next data pass."},
             {"label": "Broad Tone", "value": tone, "copy": f"Proxy breadth is {proxy['up_count']} up / {proxy['down_count']} down across the tracked {config['index_name']} universe."},
-            {"label": "Max Pain", "value": max_pain, "copy": "Until the real chain source is connected, max pain is shown as the nearest rounded strike anchor around spot."},
+            {"label": "Max Pain", "value": max_pain, "copy": "Computed from the strongest combined OI cluster in the displayed strike window." if chain_available else "Until the real chain source is connected, max pain is shown as the nearest rounded strike anchor around spot."},
         ],
         "focus_title": "Market Read",
         "focus_note": "These notes keep the page practical even before a full chain engine arrives. They summarize what the public user should watch first instead of dumping a noisy options grid.",
         "focus_cards": [
-            {"title": "Support Zone", "meta": "Phase 1 strike framing", "copy": f"Nearest support zone is framed around {support_zone}. This is a rounded-strike proxy, not a chain-confirmed put wall yet."},
-            {"title": "Resistance Zone", "meta": "Phase 1 strike framing", "copy": f"Nearest resistance zone is framed around {resistance_zone}. This is a rounded-strike proxy, not a chain-confirmed call wall yet."},
+            {"title": "Support Zone", "meta": "Option structure", "copy": f"Nearest support zone is framed around {support_zone}. This is {'derived from the strongest displayed put OI wall' if chain_available else 'a rounded-strike proxy, not a chain-confirmed put wall yet'}."},
+            {"title": "Resistance Zone", "meta": "Option structure", "copy": f"Nearest resistance zone is framed around {resistance_zone}. This is {'derived from the strongest displayed call OI wall' if chain_available else 'a rounded-strike proxy, not a chain-confirmed call wall yet'}."},
             {"title": "Strongest Proxy Name", "meta": "Breadth proxy", "copy": f"{strongest['symbol']} is the strongest live proxy name right now at {strongest['day_change']}." if strongest else "Waiting on live proxy rows."},
             {"title": "Weakest Proxy Name", "meta": "Breadth proxy", "copy": f"{weakest['symbol']} is the weakest live proxy name right now at {weakest['day_change']}." if weakest else "Waiting on live proxy rows."},
         ],
         "table_title": "Options Structure Table",
-        "table_note": "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
+        "table_note": "The strike table is now using live OI where the broker chain window is available. When the full chain source gets connected later, this same layout can simply deepen instead of being redesigned." if chain_available else "The strike table is already in the correct public layout. Live OI and OI change values will drop in once the dedicated option-chain feed is integrated, so the page does not need a visual redesign later.",
         "table_columns": [
             {"label": "Strike", "key": "strike", "link_key": None},
             {"label": "Call OI", "key": "call_oi", "link_key": None},
@@ -17825,15 +17998,15 @@ def build_index_derivatives_context(index_slug, host_root):
         "group_title": "Watch Notes",
         "group_note": "The public page stays concise: each block explains what is real now and what gets upgraded in the next derivatives pass.",
         "group_blocks": [
-            {"title": "What Is Live Now", "count": proxy["up_count"] + proxy["down_count"], "copy": "Spot context and breadth proxy are already being used to stop the page from feeling empty.", "items": [f"{config['index_name']} spot quote when available", "Broad proxy tone from liquid underlying names", "Support/resistance strike framing", "SEO-ready route and page structure"]},
+            {"title": "What Is Live Now", "count": proxy["up_count"] + proxy["down_count"], "copy": "Spot context and breadth proxy are already being used to stop the page from feeling empty.", "items": [f"{config['index_name']} spot quote when available", "Broad proxy tone from liquid underlying names", "Support/resistance strike framing", "Real OI across the displayed strike window" if chain_available else "SEO-ready route and page structure"]},
             {"title": "Expiry Usefulness", "count": 4, "copy": "Even before the full chain feed arrives, the page should still help traders think in expiry terms.", "items": [f"{config['expiry_label']} expiry framing is already visible", "Nearest support and resistance are strike-readable", "Max pain placeholder keeps the page structurally familiar", "Expiry tone stays clear instead of hidden in long text"]},
-            {"title": "What Comes Next", "count": 4, "copy": "The next source layer upgrades this from a public dashboard into a much stronger options page.", "items": ["Real call and put OI", "OI change by strike", "Actual max pain", "Full expiry structure reading"]},
+            {"title": "What Comes Next", "count": 4, "copy": "The next source layer upgrades this from a public dashboard into a much stronger options page.", "items": ["Full option-chain depth beyond the display window", "Better PCR calculation", "Full expiry structure reading", "Deeper strike clustering and alerts"]},
         ],
-        "public_note": "Phase 1 deliberately avoids pretending that rounded-strike framing is the same as a live option chain. The page is useful now and upgrade-ready later.",
+        "public_note": "This page now mixes real spot, breadth, and live displayed-strike OI where available. It stays honest about what is still missing, while already being much more useful than a placeholder-only options page.",
         "side_box_title": "Current Rule",
-        "side_box_copy": config["market_read_copy"],
+        "side_box_copy": (config["market_read_copy"] + (f" Nearest expiry in view: {real_chain.get('expiry_date')}." if chain_available and real_chain.get('expiry_date') else "")),
         "why_page_works": "It gives TraderHub a public index-options footprint immediately, while making the eventual chain integration an upgrade rather than a redesign.",
-        "market_error": proxy["error"],
+        "market_error": page_error,
     }
 
 
