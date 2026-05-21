@@ -8491,6 +8491,23 @@ def format_price(value):
     return f"{value:.2f}"
 
 
+def format_crore_display(value):
+    if value in (None, ""):
+        return "Source Pending"
+    try:
+        numeric_value = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+    absolute_value = abs(numeric_value)
+    prefix = "-" if numeric_value < 0 else ""
+    if absolute_value >= 100000:
+        return f"{prefix}₹{absolute_value / 100000:.2f} L Cr"
+    if absolute_value >= 1000:
+        return f"{prefix}₹{absolute_value / 1000:.2f} K Cr"
+    return f"{prefix}₹{absolute_value:,.2f} Cr"
+
+
 def get_market_close_time():
     return datetime.time(15, 30)
 
@@ -9872,6 +9889,44 @@ def get_upstox_profile_metric_display(profile_data, candidate_keys):
     return None
 
 
+def get_upstox_nested_metric_display(payload, candidate_keys):
+    normalized_candidates = {str(item or "").strip().lower() for item in candidate_keys}
+    seen_objects = set()
+
+    def walk(node):
+        node_id = id(node)
+        if node_id in seen_objects:
+            return None
+        seen_objects.add(node_id)
+
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if str(key or "").strip().lower() in normalized_candidates:
+                    if isinstance(value, dict):
+                        formatted = value.get("formatted")
+                        if formatted not in (None, ""):
+                            return str(formatted)
+                        inner_value = value.get("value")
+                        unit = value.get("unit")
+                        if inner_value not in (None, "") and unit:
+                            return f"{inner_value} {unit}"
+                        if inner_value not in (None, ""):
+                            return str(inner_value)
+                    elif value not in (None, ""):
+                        return str(value)
+                nested_match = walk(value)
+                if nested_match not in (None, ""):
+                    return nested_match
+        elif isinstance(node, list):
+            for item in node:
+                nested_match = walk(item)
+                if nested_match not in (None, ""):
+                    return nested_match
+        return None
+
+    return walk(payload)
+
+
 def get_upstox_ratio_row(ratio_map, candidate_names):
     ratio_map = ratio_map or {}
     for candidate in candidate_names:
@@ -9885,6 +9940,29 @@ def get_upstox_ratio_row(ratio_map, candidate_names):
     return {}
 
 
+def get_upstox_balance_sheet_bundle(isin):
+    balance_payload = upstox_api_get(
+        f"/fundamentals/{isin}/balance-sheet",
+        params={"type": "consolidated", "fs": "true"},
+    )
+    return (balance_payload or {}).get("data") or {}
+
+
+def get_upstox_statement_value(statement_map, candidate_labels):
+    if not statement_map:
+        return None, ""
+    normalized_map = {str(key or "").strip().upper(): value for key, value in statement_map.items()}
+    for label in candidate_labels:
+        row = normalized_map.get(str(label or "").strip().upper())
+        if not row:
+            continue
+        entry = find_upstox_history_entry((row or {}).get("history"))
+        numeric_value = parse_numeric_text((entry or {}).get("value"))
+        if numeric_value is not None:
+            return numeric_value, (entry or {}).get("period") or ""
+    return None, ""
+
+
 def get_upstox_fundamentals_bundle(isin):
     profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
     key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
@@ -9893,11 +9971,17 @@ def get_upstox_fundamentals_bundle(isin):
         params={"type": "consolidated", "time_period": "yearly"},
     )
     holdings_payload = upstox_api_get(f"/fundamentals/{isin}/share-holdings")
+    balance_sheet_data = {}
+    try:
+        balance_sheet_data = get_upstox_balance_sheet_bundle(isin)
+    except Exception:
+        balance_sheet_data = {}
     return {
         "profile": (profile_payload or {}).get("data") or {},
         "key_ratios": (key_ratios_payload or {}).get("data") or [],
         "income_statement": ((income_payload or {}).get("data") or {}).get("income_statement") or [],
         "share_holdings": (holdings_payload or {}).get("data") or [],
+        "balance_sheet": balance_sheet_data,
     }
 
 
@@ -9924,15 +10008,70 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     ratio_rows = fundamentals_bundle.get("key_ratios") or []
     income_rows = fundamentals_bundle.get("income_statement") or []
     holdings_rows = fundamentals_bundle.get("share_holdings") or []
+    balance_sheet_data = fundamentals_bundle.get("balance_sheet") or {}
 
     ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
     income_map = {str(row.get("category") or "").strip().lower(): row for row in income_rows}
     holdings_map = {str(row.get("category") or "").strip().lower(): row for row in holdings_rows}
     debt_equity_row = get_upstox_ratio_row(ratio_map, ["DEBT/EQUITY", "DEBT / EQUITY", "DEBT TO EQUITY"])
     debt_equity_value = (debt_equity_row or {}).get("company_value")
+    balance_history = (balance_sheet_data or {}).get("history") or []
+    balance_entry = find_upstox_history_entry(balance_history)
+    total_assets_value = parse_numeric_text((balance_entry or {}).get("total_asset"))
+    total_liabilities_value = parse_numeric_text((balance_entry or {}).get("total_liability"))
+    shareholder_equity_value = None
+    if total_assets_value is not None and total_liabilities_value is not None:
+        shareholder_equity_value = total_assets_value - total_liabilities_value
+
+    full_statement_rows = (balance_sheet_data or {}).get("full_statement") or []
+    statement_map = {str(row.get("particular") or "").strip().upper(): row for row in full_statement_rows}
+    total_borrowings_value, total_borrowings_period = get_upstox_statement_value(
+        statement_map,
+        [
+            "TOTAL BORROWINGS",
+            "BORROWINGS",
+            "TOTAL DEBT",
+            "FINANCIAL LIABILITIES - BORROWINGS",
+        ],
+    )
+    if total_borrowings_value is None:
+        current_borrowings_value, current_borrowings_period = get_upstox_statement_value(
+            statement_map,
+            [
+                "CURRENT BORROWINGS",
+                "SHORT TERM BORROWINGS",
+                "SHORT-TERM BORROWINGS",
+                "CURRENT FINANCIAL LIABILITIES - BORROWINGS",
+            ],
+        )
+        non_current_borrowings_value, non_current_borrowings_period = get_upstox_statement_value(
+            statement_map,
+            [
+                "NON-CURRENT BORROWINGS",
+                "LONG TERM BORROWINGS",
+                "LONG-TERM BORROWINGS",
+                "NON CURRENT BORROWINGS",
+                "NON-CURRENT FINANCIAL LIABILITIES - BORROWINGS",
+            ],
+        )
+        if current_borrowings_value is not None or non_current_borrowings_value is not None:
+            total_borrowings_value = (current_borrowings_value or 0.0) + (non_current_borrowings_value or 0.0)
+            total_borrowings_period = current_borrowings_period or non_current_borrowings_period
+    if debt_equity_value in (None, "") and total_borrowings_value is not None and shareholder_equity_value not in (None, 0):
+        debt_equity_value = f"{(total_borrowings_value / shareholder_equity_value):.2f}"
 
     market_cap_display = (
         get_upstox_profile_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+        or get_upstox_nested_metric_display(
             profile_data,
             [
                 "company_market_cap_inr",
@@ -9968,6 +10107,9 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     if pe_numeric and pe_numeric > 0 and last_price_numeric and last_price_numeric > 0:
         eps_value = last_price_numeric / pe_numeric
 
+    if market_cap_display == "Source Pending" and pb_numeric and pb_numeric > 0 and shareholder_equity_value and shareholder_equity_value > 0:
+        market_cap_display = format_crore_display(shareholder_equity_value * pb_numeric)
+
     financial_metrics = [
         {
             "label": "Sales Growth",
@@ -9995,7 +10137,11 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
             "subtext": (
                 f"Sector benchmark: {(debt_equity_row or {}).get('sector_value') or 'Pending'}."
                 if debt_equity_value
-                else "Debt / equity is not present in the current fundamentals payload for this stock right now."
+                else (
+                    f"Derived from detailed borrowings and equity for {total_borrowings_period}."
+                    if total_borrowings_value is not None and shareholder_equity_value not in (None, 0)
+                    else "Debt / equity is not present in the current fundamentals payload for this stock right now."
+                )
             ),
         },
         {
@@ -12885,6 +13031,7 @@ def upstox_fundamentals_test(symbol):
         payload["key_ratios"] = fundamentals_bundle.get("key_ratios")
         payload["income_statement"] = fundamentals_bundle.get("income_statement")
         payload["share_holdings"] = fundamentals_bundle.get("share_holdings")
+        payload["balance_sheet"] = fundamentals_bundle.get("balance_sheet")
         return jsonify(payload)
     except requests.RequestException as exc:
         response_text = exc.response.text if exc.response is not None else str(exc)
