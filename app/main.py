@@ -15667,6 +15667,11 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       font-weight: 700;
       margin-bottom: 4px;
     }
+    .story-title a {
+      color: inherit;
+      text-decoration: none;
+    }
+    .story-title a:hover { text-decoration: underline; }
     .story-meta {
       color: var(--muted);
       font-size: 12px;
@@ -15943,7 +15948,11 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
           <div class="section-note">{{ news_section_note }}</div>
           {% for story in news_items %}
           <div class="story-card">
+            {% if story.url %}
+            <div class="story-title"><a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">{{ story.title }}</a></div>
+            {% else %}
             <div class="story-title">{{ story.title }}</div>
+            {% endif %}
             <div class="story-meta">{{ story.meta }}</div>
             <div class="story-copy">{{ story["copy"] }}</div>
           </div>
@@ -16322,6 +16331,123 @@ def build_placeholder_news_items(symbol, sector_label):
     ]
 
 
+def format_market_story_timestamp(value):
+    if value in (None, ""):
+        return ""
+    try:
+        numeric_value = float(value)
+        if numeric_value > 100000000000:
+            story_dt = datetime.datetime.fromtimestamp(numeric_value / 1000, tz=APP_TZ)
+        else:
+            story_dt = datetime.datetime.fromtimestamp(numeric_value, tz=APP_TZ)
+        return story_dt.strftime("%d %b %Y %I:%M %p")
+    except Exception:
+        pass
+    try:
+        text = str(value).strip().replace("Z", "+00:00")
+        story_dt = datetime.datetime.fromisoformat(text)
+        if story_dt.tzinfo is None:
+            story_dt = story_dt.replace(tzinfo=APP_TZ)
+        return story_dt.astimezone(APP_TZ).strftime("%d %b %Y %I:%M %p")
+    except Exception:
+        return str(value)
+
+
+def get_upstox_stock_news_items(isin, page_size=3):
+    if not isin:
+        return []
+    payload = upstox_api_get(
+        "/news",
+        params={
+            "category": "instrument_keys",
+            "instrument_keys": f"NSE_EQ|{isin}",
+            "page_number": 1,
+            "page_size": page_size,
+        },
+    )
+    payload_data = (payload or {}).get("data") or {}
+    raw_items = []
+    if isinstance(payload_data, dict):
+        for item_list in payload_data.values():
+            if isinstance(item_list, list):
+                raw_items.extend(item_list)
+    elif isinstance(payload_data, list):
+        raw_items.extend(payload_data)
+
+    news_items = []
+    seen_titles = set()
+    for item in raw_items:
+        title = str(item.get("heading") or item.get("title") or "").strip()
+        if not title or title in seen_titles:
+            continue
+        seen_titles.add(title)
+        summary = str(item.get("summary") or item.get("description") or "").strip()
+        summary = re.sub(r"\s+", " ", summary)
+        published_label = format_market_story_timestamp(
+            item.get("published_at")
+            or item.get("published_at_ms")
+            or item.get("published_on")
+            or item.get("published")
+            or item.get("timestamp")
+        )
+        source_label = str(item.get("source") or item.get("provider") or "Upstox News").strip()
+        meta_parts = [source_label]
+        if published_label:
+            meta_parts.append(published_label)
+        news_items.append(
+            {
+                "title": title,
+                "meta": " | ".join(meta_parts),
+                "copy": summary or "Story summary is not available in the current news payload.",
+                "url": item.get("article_link") or item.get("article_url") or item.get("link") or "",
+            }
+        )
+        if len(news_items) >= page_size:
+            break
+    return news_items
+
+
+def build_stock_news_items(symbol, sector_label, isin):
+    stories = []
+    try:
+        stories.extend(get_upstox_stock_news_items(isin, page_size=3))
+    except Exception:
+        pass
+
+    encoded_symbol = urllib.parse.quote(str(symbol or "").strip().upper())
+    announcements_url = f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={encoded_symbol}&tabIndex=equity"
+    actions_url = f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={encoded_symbol}&tabIndex=equity"
+    sector_copy = sector_label or "the sector"
+
+    stories.append(
+        {
+            "title": f"Official NSE announcements for {symbol}",
+            "meta": "NSE filings | Official disclosure board",
+            "copy": "Open the NSE announcements board to review exchange-filed updates, results notes, board-meeting outcomes, and official disclosures for this company.",
+            "url": announcements_url,
+        }
+    )
+    stories.append(
+        {
+            "title": f"Official NSE corporate actions for {symbol}",
+            "meta": "NSE actions | Dividend, split, bonus, rights",
+            "copy": "Use the NSE corporate-actions board for dividend, bonus, split, rights, and record-date updates when they are available for this stock.",
+            "url": actions_url,
+        }
+    )
+
+    if len(stories) < 4:
+        stories.append(
+            {
+                "title": f"{sector_copy} sector context will support this page",
+                "meta": "Phase 1 linked context | Sector research",
+                "copy": "Future versions will connect this stock page to sector-wide developments so users can move from single-stock analysis to broader industry context.",
+                "url": "",
+            }
+        )
+    return stories[:4]
+
+
 def slugify_ipo_text(text):
     text = str(text or "").strip().lower()
     text = re.sub(r"[^a-z0-9]+", "-", text)
@@ -16605,9 +16731,10 @@ def build_stock_page_context(symbol, host_root):
     financial_metrics = build_placeholder_financial_metrics(breadcrumb_sector)
     holdings_deals = build_placeholder_holdings_deals(symbol)
     ownership_watch_rows = build_placeholder_ownership_watch()
-    news_items = build_placeholder_news_items(symbol, breadcrumb_sector)
+    news_items = build_stock_news_items(symbol, breadcrumb_sector, stock_isin)
     technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
+    news_section_note = "This section now mixes stock-specific market stories with direct official filing boards, so the page stays useful even before the full events pipeline is expanded."
 
     def build_row_from_available_data(row_symbol, row_security, row_quote, row_daily_candles, row_intraday_candles):
         if row_quote:
@@ -16938,7 +17065,7 @@ def build_stock_page_context(symbol, host_root):
         "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
         "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
         "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and only deals and pledge stay reserved for the next integration pass.",
-        "news_section_note": "This section is ready for events, earnings notes, and company-specific updates. Phase 1 keeps the structure visible even before the final feed is connected.",
+        "news_section_note": news_section_note,
         "why_page_works_title": "Why This Page Works",
         "why_page_works_text": "It gives one company page both trading relevance and future SEO depth: live price context today, expandable research blocks tomorrow.",
     }
