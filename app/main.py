@@ -9852,6 +9852,39 @@ def find_upstox_history_entry(history_rows):
     return history_rows[0] if history_rows else None
 
 
+def get_upstox_profile_metric_display(profile_data, candidate_keys):
+    profile_data = profile_data or {}
+    for key in candidate_keys:
+        value = profile_data.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, dict):
+            formatted = value.get("formatted")
+            if formatted not in (None, ""):
+                return str(formatted)
+            inner_value = value.get("value")
+            unit = value.get("unit")
+            if inner_value not in (None, "") and unit:
+                return f"{inner_value} {unit}"
+            if inner_value not in (None, ""):
+                return str(inner_value)
+        return str(value)
+    return None
+
+
+def get_upstox_ratio_row(ratio_map, candidate_names):
+    ratio_map = ratio_map or {}
+    for candidate in candidate_names:
+        row = ratio_map.get(str(candidate or "").strip().upper())
+        if row:
+            return row
+    for key, row in ratio_map.items():
+        upper_key = str(key or "").strip().upper()
+        if "DEBT" in upper_key and "EQUITY" in upper_key:
+            return row
+    return {}
+
+
 def get_upstox_fundamentals_bundle(isin):
     profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
     key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
@@ -9872,19 +9905,20 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     financial_metrics = build_placeholder_financial_metrics("General")
     holdings_deals = build_placeholder_holdings_deals(symbol)
     ownership_watch_rows = build_placeholder_ownership_watch()
+    market_cap_display = "Source Pending"
     sector_override = None
     note = ""
 
     if not isin:
-        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, "ISIN is not available yet for fundamentals mapping."
+        return financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, "ISIN is not available yet for fundamentals mapping."
 
     try:
         fundamentals_bundle = get_upstox_fundamentals_bundle(isin)
     except requests.RequestException as exc:
         response_text = exc.response.text if exc.response is not None else str(exc)
-        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, f"Upstox fundamentals request failed: {response_text}"
+        return financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, f"Upstox fundamentals request failed: {response_text}"
     except Exception as exc:
-        return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, f"Upstox fundamentals mapping failed: {exc}"
+        return financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, f"Upstox fundamentals mapping failed: {exc}"
 
     profile_data = fundamentals_bundle.get("profile") or {}
     ratio_rows = fundamentals_bundle.get("key_ratios") or []
@@ -9894,6 +9928,22 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
     income_map = {str(row.get("category") or "").strip().lower(): row for row in income_rows}
     holdings_map = {str(row.get("category") or "").strip().lower(): row for row in holdings_rows}
+    debt_equity_row = get_upstox_ratio_row(ratio_map, ["DEBT/EQUITY", "DEBT / EQUITY", "DEBT TO EQUITY"])
+    debt_equity_value = (debt_equity_row or {}).get("company_value")
+
+    market_cap_display = (
+        get_upstox_profile_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+        or "Source Pending"
+    )
 
     revenue_entry = find_upstox_history_entry((income_map.get("revenue") or {}).get("history"))
     operating_profit_entry = find_upstox_history_entry((income_map.get("operating_profit") or {}).get("history"))
@@ -9941,8 +9991,12 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         },
         {
             "label": "Debt / Equity",
-            "value": "Source Pending",
-            "subtext": "Debt / equity needs a deeper balance-sheet line-item mapping and is reserved for the next refinement pass.",
+            "value": debt_equity_value or "Source Pending",
+            "subtext": (
+                f"Sector benchmark: {(debt_equity_row or {}).get('sector_value') or 'Pending'}."
+                if debt_equity_value
+                else "Debt / equity is not present in the current fundamentals payload for this stock right now."
+            ),
         },
         {
             "label": "Book Value",
@@ -9992,6 +10046,7 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     dii_details = latest_holding_details(["dii", "other_dii", "domestic_institutional_investors"])
     mutual_fund_details = latest_holding_details(["mutual_funds", "mutual fund"])
     retail_other_details = latest_holding_details(["retail_and_other", "retail", "public"])
+    pledge_details = latest_holding_details(["pledged", "pledge", "promoter_pledge", "pledged_shares"])
 
     holdings_deals = [
         {"label": "Promoter Holding", "value": promoter_details["value"], "note": promoter_details["period"]},
@@ -10000,7 +10055,7 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         {"label": "Mutual Fund Holding", "value": mutual_fund_details["value"], "note": mutual_fund_details["period"]},
         {"label": "Retail & Other", "value": retail_other_details["value"], "note": retail_other_details["period"]},
         {"label": "Block / Bulk Deal Watch", "value": "Source Pending", "note": "Deals feed is still reserved for the next source integration."},
-        {"label": "Pledge", "value": "Source Pending", "note": "Pledge data still needs a separate ownership/deal source."},
+        {"label": "Pledge", "value": pledge_details["value"], "note": pledge_details["period"] if pledge_details["value"] != "Source Pending" else "Pledge data still needs a separate ownership/deal source."},
     ]
 
     ownership_watch_rows = [
@@ -10042,7 +10097,7 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     ]
 
     sector_override = profile_data.get("sector")
-    return financial_metrics, holdings_deals, ownership_watch_rows, sector_override, note
+    return financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, note
 
 
 def load_stock_isin_cache():
@@ -16798,11 +16853,13 @@ def build_stock_page_context(symbol, host_root):
         ]
 
         if stock_isin:
-            financial_metrics, holdings_deals, ownership_watch_rows, sector_override, fundamentals_note = build_upstox_financial_sections(
+            financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, fundamentals_note = build_upstox_financial_sections(
                 stock_isin,
                 symbol,
                 live_row["last_price_numeric"],
             )
+            if market_cap_display and market_cap_display != "Source Pending":
+                stock["market_cap"] = market_cap_display
             if sector_override:
                 quick_stats[3] = {"label": "Sector", "value": sector_override}
             if fundamentals_note:
