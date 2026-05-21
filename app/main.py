@@ -17788,6 +17788,177 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
 """
 
 
+MARKET_NEWS_PHASE2_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --bg:#eef1f4; --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.ad-slot,.story-card,.table-wrap,.notice,.watch-card,.summary-card { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; }
+    .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy,.story-copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.watch-grid,.story-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .watch-grid,.story-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .summary-card,.watch-card { padding:13px 14px; background:var(--panel); }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .story-card { padding:14px; background:var(--panel); } .story-title { font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; }
+    .story-title a { color:inherit; text-decoration:none; } .story-title a:hover { text-decoration:underline; }
+    .story-meta { color:var(--muted); font-size:12px; margin-bottom:7px; font-family:Arial,Helvetica,sans-serif; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(201,211,221,0.86); font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .notice { padding:14px; background:var(--panel); border-style:dashed; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; } .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .watch-card ul { margin:0; padding-left:18px; } .watch-card li { font-family:Arial,Helvetica,sans-serif; color:#334253; font-size:14px; line-height:1.6; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.watch-grid,.story-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.story-card,.table-wrap,.notice,.watch-card,.summary-card { border-radius:18px; } .hero-grid,.summary-grid,.watch-grid,.story-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        <section class="section">
+          <h2>Lead Stories</h2>
+          <div class="section-note">These cards keep the page practical. They should answer what is moving, what the tape is saying, and where the user should click next.</div>
+          <div class="story-grid">
+            {% for story in lead_stories %}
+            <div class="story-card">
+              {% if story.href %}<div class="story-title"><a href="{{ story.href }}">{{ story.title }}</a></div>{% else %}<div class="story-title">{{ story.title }}</div>{% endif %}
+              <div class="story-meta">{{ story.meta }}</div>
+              <div class="story-copy">{{ story["copy"] }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section">
+          <h2>Watch Sections</h2>
+          <div class="section-note">This turns the live layer into a usable routine instead of just a list of changing prices.</div>
+          <div class="watch-grid">{% for block in watch_sections %}<div class="watch-card"><div class="metric-label">{{ block.title }}</div><ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+        </section>
+        {% if page_mode == "live_movers" %}
+        <section class="section">
+          <h2>Live Movers Table</h2>
+          <div class="section-note">The table is intentionally compact. It is meant to support the story cards, not replace the deeper stock page.</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Symbol</th><th>Last Price</th><th>Day Change</th><th>Gap</th><th>VWAP</th><th>Status</th><th>Volume</th><th>Next</th></tr></thead>
+              <tbody>
+                {% for row in rows %}
+                <tr>
+                  <td>{{ row.symbol }}</td>
+                  <td>{{ row.last_price }}</td>
+                  <td>{{ row.change_pct_display }}</td>
+                  <td>{{ row.gap_text }}</td>
+                  <td>{{ row.vwap_status }}</td>
+                  <td>{{ row.status_label }}</td>
+                  <td>{{ row.volume_display }}</td>
+                  <td><a href="/stocks/{{ get_canonical_stock_slug(row.symbol) }}/why-moving">Why Moving</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% elif page_mode == "sector_news" %}
+        <section class="section">
+          <h2>Sector Strips</h2>
+          <div class="section-note">Each strip compresses a sector into one practical read: tone, leader, laggard, and the names worth opening next.</div>
+          <div class="story-grid">
+            {% for item in rows %}
+            <div class="story-card">
+              <div class="story-title">{{ item.sector }}</div>
+              <div class="story-meta">Average move {{ item.avg_change }} | Leaders {{ item.leaders }}</div>
+              <div class="story-copy">{{ item.story }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% else %}
+        <section class="section">
+          <h2>News & Event Links</h2>
+          <div class="section-note">Stock-specific why-moving pages work best when they combine market structure with the fastest useful verification links.</div>
+          <div class="story-grid">
+            {% for story in rows %}
+            <div class="story-card">
+              {% if story.url %}<div class="story-title"><a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">{{ story.title }}</a></div>{% else %}<div class="story-title">{{ story.title }}</div>{% endif %}
+              <div class="story-meta">{{ story.meta }}</div>
+              <div class="story-copy">{{ story["copy"] }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+        <section class="section">
+          <h2>Phase 2 Note</h2>
+          <div class="section-note">Phase 2 turns the public news layer from editorial-only into a live market habit surface. Phase 3 can still add archive, grouping, AI summary, and alerts without redesigning the page family.</div>
+          <div class="ad-slot">Inline Sponsor Slot<br>Space for Ads</div>
+        </section>
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 SECTOR_PHASE1_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -17976,6 +18147,292 @@ def build_market_news_context(host_root, mode):
         "side_box_title": block["side_box_title"],
         "side_box_copy": block["side_box_copy"],
         "why_page_works": block["why_page_works"],
+    }
+
+
+def get_phase2_market_symbols(limit=18):
+    symbols = []
+    seen = set()
+
+    def add_symbol(symbol):
+        if symbol and symbol not in seen:
+            seen.add(symbol)
+            symbols.append(symbol)
+
+    for symbol in NIFTY_50_SYMBOLS:
+        add_symbol(symbol)
+    for symbol in get_liquid_equity_symbols():
+        add_symbol(symbol)
+    return symbols[:limit]
+
+
+def get_broad_sector_label(symbol):
+    sector_label = get_symbol_sector_lookup().get(symbol, "General")
+    return sector_label.split(" / ")[0] if " / " in sector_label else sector_label
+
+
+def build_live_mover_story(row, sector_label):
+    if not row:
+        return "This stock is waiting for a stronger live market snapshot."
+    direction = "higher" if row["change_pct_numeric"] > 0 else "lower" if row["change_pct_numeric"] < 0 else "flat"
+    move_text = row["change_pct_display"]
+    gap_text = row["gap_text"]
+    status_label = row["status_label"]
+    vwap_status = row["vwap_status"]
+    return (
+        f"{row['symbol']} is trading {direction} by {move_text} inside the {sector_label} space. "
+        f"It opened with a {gap_text} gap, is currently {vwap_status.lower()}, and the tape is reading as {status_label.lower()}."
+    )
+
+
+def build_sector_strip_story(sector_label, rows):
+    if not rows:
+        return f"{sector_label} is staged for the news stream, but live rows are unavailable right now."
+    avg_change = sum(row["change_pct_numeric"] for row in rows) / len(rows)
+    strongest = max(rows, key=lambda item: item["change_pct_numeric"])
+    weakest = min(rows, key=lambda item: item["change_pct_numeric"])
+    if avg_change > 0.35:
+        tone = "constructive"
+    elif avg_change < -0.35:
+        tone = "defensive"
+    else:
+        tone = "mixed"
+    return (
+        f"{sector_label} is trading with a {tone} tone right now. "
+        f"{strongest['symbol']} is leading at {strongest['change_pct_display']}, while {weakest['symbol']} is lagging at {weakest['change_pct_display']}."
+    )
+
+
+def build_why_moving_reason_cards(row):
+    if not row:
+        return [
+            {"label": "Move", "value": "Pending", "copy": "Live price context is unavailable right now."},
+            {"label": "Gap", "value": "Pending", "copy": "Opening context will appear when a valid quote snapshot is available."},
+            {"label": "VWAP", "value": "Pending", "copy": "Intraday average-price positioning is reserved for the live market path."},
+            {"label": "Status", "value": "Pending", "copy": "Breakout or rejection context will appear with live row data."},
+        ]
+    return [
+        {"label": "Move", "value": row["change_pct_display"], "copy": f"Current move versus previous close with last price at {row['last_price']}."},
+        {"label": "Gap", "value": row["gap_text"], "copy": f"Opening gap context versus the previous close. Open was {row['open_price']}."},
+        {"label": "VWAP", "value": row["vwap_status"], "copy": f"Average-price position is using VWAP {row['vwap']} as the intraday anchor."},
+        {"label": "Status", "value": row["status_label"], "copy": f"Public status read based on PDH/PDL and intraday location. Current day range fill is {row['day_range_percent']}%."},
+    ]
+
+
+def build_live_movers_context(host_root):
+    selected_date = get_today_ist()
+    symbols = get_phase2_market_symbols(limit=18)
+    rows, missing, market_error = get_public_sector_rows(symbols, selected_date)
+    rows = sorted(rows, key=lambda item: abs(item["change_pct_numeric"]), reverse=True)
+    gainers = sorted([row for row in rows if row["change_pct_numeric"] > 0], key=lambda item: item["change_pct_numeric"], reverse=True)[:5]
+    losers = sorted([row for row in rows if row["change_pct_numeric"] < 0], key=lambda item: item["change_pct_numeric"])[:5]
+    top_volume = sorted(rows, key=lambda item: item["volume_numeric"], reverse=True)[:5]
+
+    lead_stories = []
+    for row in rows[:4]:
+        broad_sector = get_broad_sector_label(row["symbol"])
+        lead_stories.append(
+            {
+                "title": f"Why {row['symbol']} is moving now",
+                "meta": f"Live Movers | {broad_sector} | {row['change_pct_display']}",
+                "copy": build_live_mover_story(row, broad_sector),
+                "href": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+            }
+        )
+
+    watch_sections = [
+        {"title": "Top Gainers", "items": [f"{row['symbol']} - {row['change_pct_display']} | {row['status_label']}" for row in gainers] or ["No gainers available in the current tracked universe."]},
+        {"title": "Top Losers", "items": [f"{row['symbol']} - {row['change_pct_display']} | {row['status_label']}" for row in losers] or ["No losers available in the current tracked universe."]},
+        {"title": "Volume Focus", "items": [f"{row['symbol']} - {row['volume_display']} | {row['vwap_status']}" for row in top_volume] or ["Volume focus rows are pending."]},
+        {"title": "What To Check Next", "items": ["Open the stock-specific why-moving page", "Compare move strength with sector tone", "Check whether the stock is above PDH or below PDL"]},
+    ]
+
+    today_iso = selected_date.isoformat()
+    return {
+        "page_mode": "live_movers",
+        "seo_title": "Live Movers News, Gainers, Losers & Why Moving | TraderHub",
+        "seo_description": "Track live movers news with top gainers, top losers, volume focus names, and why-moving links in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/live-movers",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Live Movers News | TraderHub", "description": "Public live movers page with gainers, losers, and why-moving context.", "url": f"{host_root.rstrip('/')}/market/live-movers"}, indent=2),
+        "breadcrumb_text": "Market News â€º Live Movers",
+        "breadcrumb_meta_text": f"Phase 2 live market layer | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Live Movers",
+        "hero_title": "Live Movers News",
+        "hero_subtitle": "A public market-hours page that connects price move, context, and next-click analysis instead of dumping a generic headline stream.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "tracked live mover rows right now",
+        "hero_badges": [{"label": "Phase 2 Live Layer", "kind": "tag-info"}, {"label": "Market Movers", "kind": "tag-up"}, {"label": "Why Moving Links", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Gainers", "value": len(gainers)},
+            {"label": "Losers", "value": len(losers)},
+            {"label": "Volume Focus", "value": len(top_volume)},
+            {"label": "Missing Rows", "value": len(missing)},
+        ],
+        "nav_chips": [
+            {"label": "Pre-Market", "href": "/market/pre-market-news"},
+            {"label": "Post-Market", "href": "/market/post-market-wrap"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+        ],
+        "section_title": "Live Movers Snapshot",
+        "section_note": "This page is built for intraday repeat traffic. It keeps the list public, readable, and linked back into deeper stock pages instead of pretending to be a full terminal.",
+        "summary_cards": [
+            {"label": "Strongest Move", "value": rows[0]["symbol"] if rows else "-", "copy": rows[0]["change_pct_display"] if rows else "Pending"},
+            {"label": "Weakest Move", "value": losers[0]["symbol"] if losers else "-", "copy": losers[0]["change_pct_display"] if losers else "Pending"},
+            {"label": "Top Volume Name", "value": top_volume[0]["symbol"] if top_volume else "-", "copy": top_volume[0]["volume_display"] if top_volume else "Pending"},
+            {"label": "Market Use", "value": "Intraday", "copy": "Best used when a trader wants a quick reason-led scan of active names."},
+        ],
+        "lead_stories": lead_stories,
+        "watch_sections": watch_sections,
+        "rows": rows[:12],
+        "market_error": market_error,
+        "side_box_title": "Phase 2 Rule",
+        "side_box_copy": "Keep the page focused on what is moving and why. The win here is fast context plus the next useful click, not a giant news wall.",
+        "why_page_works": "It creates real market-hours habit: users can scan movers, understand the move context, and then drill into a single-stock why-moving page without leaving the TraderHub system.",
+    }
+
+
+def build_sector_news_context(host_root):
+    selected_date = get_today_ist()
+    symbols = get_phase2_market_symbols(limit=20)
+    rows, missing, market_error = get_public_sector_rows(symbols, selected_date)
+    lookup = get_symbol_sector_lookup()
+    grouped = {}
+    for row in rows:
+        broad_sector = (lookup.get(row["symbol"], "General").split(" / ")[0]).strip()
+        grouped.setdefault(broad_sector, []).append(row)
+
+    sector_cards = []
+    for sector_label, sector_rows in grouped.items():
+        sector_rows = sorted(sector_rows, key=lambda item: item["change_pct_numeric"], reverse=True)
+        avg_change = sum(row["change_pct_numeric"] for row in sector_rows) / len(sector_rows)
+        strongest = sector_rows[0]
+        weakest = min(sector_rows, key=lambda item: item["change_pct_numeric"])
+        sector_cards.append(
+            {
+                "sector": sector_label,
+                "avg_change": f"{avg_change:+.2f}%",
+                "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
+                "story": build_sector_strip_story(sector_label, sector_rows),
+                "strongest": strongest,
+                "weakest": weakest,
+                "rows": sector_rows,
+            }
+        )
+    sector_cards = sorted(sector_cards, key=lambda item: abs(parse_numeric_text(item["avg_change"]) or 0), reverse=True)[:8]
+
+    lead_stories = [
+        {
+            "title": f"{item['sector']} sector strip",
+            "meta": f"Sector News | Avg move {item['avg_change']}",
+            "copy": item["story"],
+            "href": "",
+        }
+        for item in sector_cards[:4]
+    ]
+    watch_sections = [
+        {"title": item["sector"], "items": [f"{row['symbol']} - {row['change_pct_display']} | {row['status_label']}" for row in item["rows"][:4]]}
+        for item in sector_cards[:4]
+    ]
+
+    today_iso = selected_date.isoformat()
+    constructive_count = sum(1 for item in sector_cards if (parse_numeric_text(item["avg_change"]) or 0) > 0.25)
+    weak_count = sum(1 for item in sector_cards if (parse_numeric_text(item["avg_change"]) or 0) < -0.25)
+    return {
+        "page_mode": "sector_news",
+        "seo_title": "Sector News Strips, Leaders, Laggards & Themes | TraderHub",
+        "seo_description": "Scan sector news strips with live leaders, laggards, and theme summaries across the TraderHub public market layer.",
+        "canonical_url": f"{host_root.rstrip('/')}/market/sector-news",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Sector News | TraderHub", "description": "Public sector-news strips page with live leaders, laggards, and theme summaries.", "url": f"{host_root.rstrip('/')}/market/sector-news"}, indent=2),
+        "breadcrumb_text": "Market News â€º Sector News",
+        "breadcrumb_meta_text": f"Phase 2 sector-news layer | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector News",
+        "hero_title": "Sector News Strips",
+        "hero_subtitle": "A cleaner way to read sector leadership: not endless headlines, but compact sector strips with live leaders, laggards, and a practical story.",
+        "hero_metric_primary": str(len(sector_cards)),
+        "hero_metric_secondary": "active sector strips in the current tracked universe",
+        "hero_badges": [{"label": "Phase 2 Live Layer", "kind": "tag-info"}, {"label": "Sector Themes", "kind": "tag-up"}, {"label": "Linked Research", "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Constructive", "value": constructive_count},
+            {"label": "Weak", "value": weak_count},
+            {"label": "Tracked Sectors", "value": len(sector_cards)},
+            {"label": "Missing Rows", "value": len(missing)},
+        ],
+        "nav_chips": [
+            {"label": "Pre-Market", "href": "/market/pre-market-news"},
+            {"label": "Post-Market", "href": "/market/post-market-wrap"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+        ],
+        "section_title": "Sector Theme Board",
+        "section_note": "This page turns live stock movement into sector context. It should help users answer a practical question fast: which sector matters, and which names are really carrying the move?",
+        "summary_cards": [
+            {"label": "Active Sectors", "value": len(sector_cards), "copy": "Broad sectors with at least one usable live row in the current tracked universe."},
+            {"label": "Constructive Tone", "value": constructive_count, "copy": "Sectors with clearly positive average move in this live strip."},
+            {"label": "Weak Tone", "value": weak_count, "copy": "Sectors with clearly negative average move in this live strip."},
+            {"label": "Public Use", "value": "Theme Scan", "copy": "Best used when a trader wants to move from single-stock noise to a broader sector read."},
+        ],
+        "lead_stories": lead_stories,
+        "watch_sections": watch_sections,
+        "rows": sector_cards,
+        "market_error": market_error,
+        "side_box_title": "Why Sector Strips",
+        "side_box_copy": "Sector strips create a bridge between single-stock pages and broader market themes. They are especially useful when one or two leaders are dragging a whole sector story with them.",
+        "why_page_works": "It adds a stronger mid-layer to the public site: stock pages give depth, sector pages give structure, and sector-news strips explain which themes are actually active today.",
+    }
+
+
+def build_why_moving_context(symbol, host_root):
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    company_name = prettify_company_name((master_row.get("security") or symbol), symbol)
+    sector_label = get_symbol_sector_lookup().get(symbol, "General")
+    rows, missing, market_error = get_public_sector_rows([symbol], get_today_ist())
+    row = rows[0] if rows else None
+    stock_isin = resolve_stock_isin(symbol, master_row.get("security") or symbol)
+    news_items = build_stock_news_items(symbol, sector_label.split(" / ")[0], stock_isin)
+    reason_cards = build_why_moving_reason_cards(row)
+    move_story = build_live_mover_story(row, sector_label.split(" / ")[0]) if row else f"{company_name} is waiting for a stronger live market snapshot right now."
+    today_iso = get_today_ist().isoformat()
+    return {
+        "page_mode": "why_moving",
+        "seo_title": f"Why {company_name} Is Moving Today | TraderHub",
+        "seo_description": f"Understand why {company_name} is moving today with live price context, VWAP/PDH-PDL framing, and linked news/events in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/why-moving",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"Why {company_name} Is Moving Today | TraderHub", "description": f"Public why-moving page for {company_name}.", "url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/why-moving"}, indent=2),
+        "breadcrumb_text": f"Stocks â€º {sector_label.split(' / ')[0]} â€º {symbol} Why Moving",
+        "breadcrumb_meta_text": f"Phase 2 why-moving page | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Why Moving",
+        "hero_title": f"Why {symbol} Is Moving",
+        "hero_subtitle": company_name,
+        "hero_metric_primary": row["last_price"] if row else "-",
+        "hero_metric_secondary": row["change_pct_display"] + " live move" if row else "Live move pending",
+        "hero_badges": [{"label": "Phase 2 Live Layer", "kind": "tag-info"}, {"label": sector_label.split(' / ')[0], "kind": "tag-up"}, {"label": row['status_label'] if row else 'Pending', "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "VWAP", "value": row["vwap_status"] if row else "Pending"},
+            {"label": "Gap", "value": row["gap_text"] if row else "Pending"},
+            {"label": "PDH / PDL", "value": row["status_label"] if row else "Pending"},
+            {"label": "Sector", "value": sector_label},
+        ],
+        "nav_chips": [
+            {"label": "Stock Page", "href": f"/stocks/{get_canonical_stock_slug(symbol)}"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+            {"label": "Pre-Market", "href": "/market/pre-market-news"},
+        ],
+        "section_title": "Move Breakdown",
+        "section_note": "The point of this page is not to promise one perfect reason. It is to combine price behavior, intraday structure, and linked news context so a trader can judge the move faster.",
+        "summary_cards": reason_cards,
+        "lead_stories": [{"title": f"{symbol} move summary", "meta": f"Why Moving | {sector_label}", "copy": move_story, "href": ""}],
+        "watch_sections": [
+            {"title": "Market Structure", "items": [f"Last price: {row['last_price']}" if row else "Last price pending", f"VWAP: {row['vwap_status']}" if row else "VWAP pending", f"Gap: {row['gap_text']}" if row else "Gap pending", f"Status: {row['status_label']}" if row else "Status pending"]},
+            {"title": "Next Clicks", "items": ["Open the full stock page", "Review official NSE announcements", "Check corporate actions board", "Compare with sector-news strip"]},
+        ],
+        "rows": news_items,
+        "market_error": market_error,
+        "side_box_title": "Why This Page",
+        "side_box_copy": "This page works when the user wants one stock-specific answer quickly: what is the move, how is it structured, and where should they verify the story next?",
+        "why_page_works": "It turns general market noise into a stock-specific explanation layer and naturally feeds users into the deeper stock page, news cards, and sector pages.",
     }
 
 
@@ -19265,6 +19722,31 @@ def market_pre_market_news():
 def market_post_market_wrap():
     context = build_market_news_context(request.url_root.rstrip("/"), "post_market")
     return render_template_string(MARKET_NEWS_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/market/live-movers")
+def market_live_movers():
+    context = build_live_movers_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/market/sector-news")
+def market_sector_news():
+    context = build_sector_news_context(request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/stocks/<stock_slug>/why-moving")
+def stock_why_moving(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    master = load_symbol_master()
+    if not symbol or symbol not in master.get("by_symbol", {}):
+        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+    canonical_slug = get_canonical_stock_slug(symbol)
+    if stock_slug.strip().lower() != canonical_slug:
+        return redirect(f"/stocks/{canonical_slug}/why-moving")
+    context = build_why_moving_context(symbol, request.url_root.rstrip("/"))
+    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/sectors")
