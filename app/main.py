@@ -18294,6 +18294,27 @@ def get_broad_sector_label(symbol):
     return sector_label.split(" / ")[0] if " / " in sector_label else sector_label
 
 
+def get_public_sector_route_for_label(sector_label):
+    cleaned = str(sector_label or "").strip().lower()
+    direct_map = {
+        "fmcg": "/sectors/fmcg",
+        "it": "/sectors/it",
+        "technology": "/sectors/it",
+        "auto": "/sectors/auto",
+        "auto & mobility": "/sectors/auto",
+        "oil gas": "/sectors/oil-gas",
+        "oil & gas": "/sectors/oil-gas",
+        "oil and gas": "/sectors/oil-gas",
+        "private banks": "/sectors/private-banks",
+        "psu banks": "/sectors/psu-banks",
+        "financials": "/sectors/private-banks",
+        "healthcare": "/market/sector-news",
+        "industrials": "/market/sector-news",
+        "general": "/market/sector-news",
+    }
+    return direct_map.get(cleaned, "/market/sector-news")
+
+
 def build_live_mover_story(row, sector_label):
     if not row:
         return "This stock is waiting for a stronger live market snapshot."
@@ -18418,6 +18439,7 @@ def build_sector_cards_from_live_rows(rows):
             {
                 "sector": sector_label,
                 "sector_slug": get_public_sector_slug(next((key for key in SECTOR_GROUPS.keys() if sector_label.lower() == key.replace("_", " ").title().lower()), "")) if any(sector_label.lower() == key.replace("_", " ").title().lower() for key in SECTOR_GROUPS.keys()) else "",
+                "sector_href": get_public_sector_route_for_label(sector_label),
                 "avg_change": f"{avg_change:+.2f}%",
                 "avg_change_numeric": avg_change,
                 "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
@@ -18731,7 +18753,7 @@ def build_alert_track_context(host_root, alert_slug):
         )
     elif alert_slug == "sector-watch":
         for item in sector_cards[:8]:
-            page_rows.append({"title": f"{item['sector']} sector watch", "meta": f"Average move {item['avg_change']}", "copy": item["story"], "href": f"/sectors/{item['sector_slug']}" if item["sector_slug"] else "/market/sector-news", "tags": [{"label": item["sector"], "kind": "tag-info"}]})
+            page_rows.append({"title": f"{item['sector']} sector watch", "meta": f"Average move {item['avg_change']}", "copy": item["story"], "href": item.get("sector_href") or "/market/sector-news", "tags": [{"label": item["sector"], "kind": "tag-info"}]})
         summary_cards = [
             {"label": "Active Sectors", "value": len(sector_cards[:8]), "copy": "Sector groups currently worth tracking."},
             {"label": "Best Use", "value": "Theme First", "copy": "Best used when the same market theme keeps repeating."},
@@ -19624,6 +19646,7 @@ def build_sector_news_context(host_root):
             {
                 "sector": sector_label,
                 "sector_slug": get_public_sector_slug(next((key for key, symbols in SECTOR_GROUPS.items() if sector_label.lower() == key.replace('_', ' ').title().lower()), "")) if any(sector_label.lower() == key.replace('_', ' ').title().lower() for key in SECTOR_GROUPS.keys()) else "",
+                "sector_href": get_public_sector_route_for_label(sector_label),
                 "avg_change": f"{avg_change:+.2f}%",
                 "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
                 "story": build_sector_strip_story(sector_label, sector_rows),
@@ -19639,7 +19662,7 @@ def build_sector_news_context(host_root):
             "title": f"{item['sector']} sector strip",
             "meta": f"Sector News | Avg move {item['avg_change']}",
             "copy": item["story"],
-            "href": f"/sectors/{item['sector_slug']}" if item["sector_slug"] else "",
+            "href": item.get("sector_href") or "",
             "tags": build_reason_tags(item["strongest"], item["sector"]),
         }
         for item in sector_cards[:4]
