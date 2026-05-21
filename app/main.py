@@ -10132,19 +10132,6 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
             "subtext": f"Sector benchmark: {(ratio_map.get('ROCE') or {}).get('sector_value') or 'Pending'}.",
         },
         {
-            "label": "Debt / Equity",
-            "value": debt_equity_value or "Source Pending",
-            "subtext": (
-                f"Sector benchmark: {(debt_equity_row or {}).get('sector_value') or 'Pending'}."
-                if debt_equity_value
-                else (
-                    f"Derived from detailed borrowings and equity for {total_borrowings_period}."
-                    if total_borrowings_value is not None and shareholder_equity_value not in (None, 0)
-                    else "Debt / equity is not present in the current fundamentals payload for this stock right now."
-                )
-            ),
-        },
-        {
             "label": "Book Value",
             "value": format_price(book_value) if book_value is not None else "Source Pending",
             "subtext": "Approximate per-share book value derived from current price and P/B when available.",
@@ -10160,6 +10147,23 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
             "subtext": "Computed from latest operating profit and revenue history when available.",
         },
     ]
+    if debt_equity_value:
+        financial_metrics.insert(
+            4,
+            {
+                "label": "Debt / Equity",
+                "value": debt_equity_value,
+                "subtext": (
+                    f"Sector benchmark: {(debt_equity_row or {}).get('sector_value') or 'Pending'}."
+                    if (debt_equity_row or {}).get("sector_value")
+                    else (
+                        f"Derived from detailed borrowings and equity for {total_borrowings_period}."
+                        if total_borrowings_value is not None and shareholder_equity_value not in (None, 0)
+                        else "Leverage snapshot from the current fundamentals source."
+                    )
+                ),
+            },
+        )
 
     def latest_holding_details(category_names):
         for category_name in category_names:
@@ -16449,7 +16453,6 @@ def build_placeholder_financial_metrics(sector_label):
         {"label": "Profit Growth", "value": "Source Pending", "subtext": "Profitability trend cards are reserved but intentionally not faked in phase 1."},
         {"label": "ROE", "value": "Source Pending", "subtext": "Return ratios will be filled once the fundamentals source is finalized."},
         {"label": "ROCE", "value": "Source Pending", "subtext": "Capital efficiency data is planned for the next source integration."},
-        {"label": "Debt / Equity", "value": "Source Pending", "subtext": "Leverage metrics are held for the fundamentals phase."},
         {"label": "Book Value", "value": "Source Pending", "subtext": "Balance-sheet snapshot will move here after the fundamentals connector lands."},
         {"label": "EPS (TTM)", "value": "Source Pending", "subtext": "Earnings-per-share is intentionally marked as pending rather than guessed."},
         {"label": "Operating Margin", "value": "Source Pending", "subtext": "Margin history will be plugged in with the financials data source."},
@@ -17215,7 +17218,7 @@ def build_stock_page_context(symbol, host_root):
         "chart_price_points": chart_price_points,
         "chart_ma_points": chart_ma_points,
         "studies_section_note": studies_section_note,
-        "financial_section_note": "This phase-1 page keeps financials compact and honest: section structure is ready, but deeper fundamentals stay placeholder-backed until the source is finalized.",
+        "financial_section_note": "This financial block stays intentionally summary-first: show the strongest usable quality and profitability signals now, and add deeper balance-sheet detail only when the source is trustworthy.",
         "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
         "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and deal activity stays reserved for the next integration pass.",
         "news_section_note": news_section_note,
