@@ -8915,6 +8915,15 @@ def format_volume(value):
     return f"{int(volume)}"
 
 
+def format_signed_volume(value):
+    volume = float(value or 0)
+    if volume > 0:
+        return f"+{format_volume(abs(volume))}"
+    if volume < 0:
+        return f"-{format_volume(abs(volume))}"
+    return format_volume(0)
+
+
 def build_manual_watchlist_summary(rows):
     return {
         "total_count": len(rows),
@@ -10151,6 +10160,76 @@ def get_live_index_future_snapshot(index_name, underlying_names=None):
         "expiry_date": future_row["expiry_date"].isoformat(),
         "tradingsymbol": str(future_row.get("tradingsymbol") or ""),
     }
+
+
+def get_nearest_stock_future_instrument(symbol):
+    today = get_today_ist()
+    exact_symbol = str(symbol or "").strip().upper()
+    if not exact_symbol:
+        return None
+
+    future_rows = []
+    for row in get_nfo_instruments():
+        instrument_type = str(row.get("instrument_type") or "").upper()
+        if instrument_type not in {"FUT", "FUTSTK"}:
+            continue
+        expiry = normalize_expiry_date(row.get("expiry"))
+        if not expiry or expiry < today:
+            continue
+
+        row_name = str(row.get("name") or "").strip().upper()
+        trading_symbol = str(row.get("tradingsymbol") or "").strip().upper()
+        if row_name != exact_symbol and not trading_symbol.startswith(exact_symbol):
+            continue
+
+        future_rows.append({**row, "expiry_date": expiry})
+
+    if not future_rows:
+        return None
+    return min(future_rows, key=lambda row: row["expiry_date"])
+
+
+def get_live_stock_future_snapshot_map(symbols):
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return {}, "Kite API key or access token is missing in .env."
+
+    client = build_kite_client(with_access_token=True)
+    future_rows = {}
+    for symbol in symbols:
+        future_row = get_nearest_stock_future_instrument(symbol)
+        if future_row:
+            future_rows[symbol] = future_row
+
+    if not future_rows:
+        return {}, "No stock futures contracts were available in NFO instruments for the tracked names."
+
+    quote_keys = [f"NFO:{row['tradingsymbol']}" for row in future_rows.values()]
+    quote_map = fetch_quote_map_safe(client, quote_keys)
+    snapshot_map = {}
+
+    for symbol, future_row in future_rows.items():
+        quote_key = f"NFO:{future_row['tradingsymbol']}"
+        quote = quote_map.get(quote_key) or {}
+        last_price = quote.get("last_price")
+        oi_value = quote.get("oi")
+        volume_value = quote.get("volume")
+        oi_change_value = get_option_oi_change_for_instrument(client, future_row["instrument_token"])
+
+        snapshot_map[symbol] = {
+            "available": last_price not in (None, ""),
+            "price_numeric": float(last_price) if last_price not in (None, "") else None,
+            "price_display": format_price(float(last_price)) if last_price not in (None, "") else "Source Pending",
+            "oi_numeric": float(oi_value) if oi_value not in (None, "") else None,
+            "volume_numeric": float(volume_value) if volume_value not in (None, "") else None,
+            "volume_display": format_volume(float(volume_value)) if volume_value not in (None, "") else "Volume N/A",
+            "oi_change_numeric": float(oi_change_value) if oi_change_value is not None else None,
+            "oi_change_display": format_signed_volume(oi_change_value) if oi_change_value is not None else "Pending",
+            "expiry_date": future_row["expiry_date"].isoformat(),
+            "tradingsymbol": str(future_row.get("tradingsymbol") or ""),
+        }
+
+    return snapshot_map, None
 
 
 def get_pcr_interpretation(pcr_numeric):
@@ -17788,19 +17867,59 @@ def fetch_quote_map_safe(client, quote_symbols):
         return {}
 
 
-def build_derivatives_live_row(symbol, quote, security_name):
+def build_derivatives_live_row(symbol, quote, security_name, future_snapshot=None):
     ohlc = (quote or {}).get("ohlc") or {}
     last_price = float((quote or {}).get("last_price") or 0)
     open_price = float(ohlc.get("open") or 0)
     prev_close = float(ohlc.get("close") or 0)
-    volume_value = float((quote or {}).get("volume") or 0)
+    spot_volume_value = float((quote or {}).get("volume") or 0)
     change_pct = ((last_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
     gap_pct = ((open_price - prev_close) / prev_close * 100) if prev_close > 0 else 0.0
+    future_available = bool((future_snapshot or {}).get("available"))
+    oi_change_numeric = (future_snapshot or {}).get("oi_change_numeric")
+    futures_price_numeric = (future_snapshot or {}).get("price_numeric")
 
-    if change_pct >= 0:
+    if oi_change_numeric is not None:
+        if change_pct > 0 and oi_change_numeric > 0:
+            buildup_label = "Long Buildup"
+        elif change_pct < 0 and oi_change_numeric > 0:
+            buildup_label = "Short Buildup"
+        elif change_pct > 0 and oi_change_numeric < 0:
+            buildup_label = "Short Covering"
+        elif change_pct < 0 and oi_change_numeric < 0:
+            buildup_label = "Long Unwinding"
+        elif change_pct >= 0:
+            buildup_label = "Long Buildup"
+        else:
+            buildup_label = "Short Buildup"
+    elif change_pct >= 0:
         buildup_label = "Short Covering" if gap_pct < 0 else "Long Buildup"
     else:
         buildup_label = "Long Unwinding" if gap_pct > 0 else "Short Buildup"
+
+    premium_discount_numeric = None
+    if future_available and futures_price_numeric is not None and last_price > 0:
+        premium_discount_numeric = float(futures_price_numeric) - last_price
+
+    if premium_discount_numeric is not None:
+        status = "Futures Premium" if premium_discount_numeric > 0 else "Futures Discount" if premium_discount_numeric < 0 else "At Par"
+    else:
+        status = "Above Open" if last_price > open_price > 0 else "Below Open" if last_price < open_price else "Flat Open"
+
+    volume_value = (future_snapshot or {}).get("volume_numeric")
+    volume_display = (future_snapshot or {}).get("volume_display")
+    if volume_value is None:
+        volume_value = spot_volume_value
+        volume_display = format_volume(spot_volume_value)
+
+    if future_available:
+        proxy_note = (
+            f"Expiry {future_snapshot.get('expiry_date', '-')}"
+            f" | {future_snapshot.get('tradingsymbol', 'Future')} "
+            f"| OI {format_volume((future_snapshot or {}).get('oi_numeric') or 0) if (future_snapshot or {}).get('oi_numeric') is not None else 'Pending'}"
+        )
+    else:
+        proxy_note = f"Gap {gap_pct:+.2f}% | Spot-led proxy until the dedicated F&O feed is connected."
 
     return {
         "symbol": symbol,
@@ -17811,20 +17930,27 @@ def build_derivatives_live_row(symbol, quote, security_name):
         "day_change_numeric": round(change_pct, 2),
         "open_price": format_price(open_price),
         "prev_close": format_price(prev_close),
-        "volume": format_volume(volume_value),
+        "volume": volume_display,
         "volume_numeric": round(volume_value, 2),
-        "futures_price": "Source Pending",
-        "premium_discount": "Pending",
-        "oi": "Source Pending",
-        "oi_change": "Pending",
+        "futures_price": (future_snapshot or {}).get("price_display", "Source Pending"),
+        "futures_price_numeric": round(futures_price_numeric, 2) if futures_price_numeric is not None else None,
+        "premium_discount": format_signed_price(premium_discount_numeric) if premium_discount_numeric is not None else "Pending",
+        "premium_discount_numeric": round(premium_discount_numeric, 2) if premium_discount_numeric is not None else None,
+        "oi": format_volume((future_snapshot or {}).get("oi_numeric")) if (future_snapshot or {}).get("oi_numeric") is not None else "Source Pending",
+        "oi_numeric": round((future_snapshot or {}).get("oi_numeric"), 2) if (future_snapshot or {}).get("oi_numeric") is not None else None,
+        "oi_change": (future_snapshot or {}).get("oi_change_display", "Pending"),
+        "oi_change_numeric": round(oi_change_numeric, 2) if oi_change_numeric is not None else None,
         "buildup_label": buildup_label,
-        "status": "Above Open" if last_price > open_price > 0 else "Below Open" if last_price < open_price else "Flat Open",
-        "proxy_note": f"Gap {gap_pct:+.2f}% | Spot-led proxy until the dedicated F&O feed is connected.",
+        "status": status,
+        "proxy_note": proxy_note,
+        "expiry_date": (future_snapshot or {}).get("expiry_date") or "",
+        "future_tradingsymbol": (future_snapshot or {}).get("tradingsymbol") or "",
+        "real_fno_available": future_available and oi_change_numeric is not None,
         "stock_url": f"/stocks/{get_canonical_stock_slug(symbol)}",
     }
 
 
-def get_derivatives_stock_rows(symbols):
+def get_derivatives_stock_rows(symbols, include_futures=True):
     creds = get_active_kite_credentials()
     if not creds["api_key"] or not creds["access_token"]:
         return [], symbols[:], "Kite API key or access token is missing in .env."
@@ -17832,6 +17958,10 @@ def get_derivatives_stock_rows(symbols):
     client = build_kite_client(with_access_token=True)
     master = load_symbol_master()
     quote_data = fetch_quote_map_safe(client, [f"NSE:{symbol}" for symbol in symbols])
+    future_map = {}
+    future_error = None
+    if include_futures:
+        future_map, future_error = get_live_stock_future_snapshot_map(symbols)
     rows = []
     missing = []
 
@@ -17841,9 +17971,9 @@ def get_derivatives_stock_rows(symbols):
         if not quote:
             missing.append(symbol)
             continue
-        rows.append(build_derivatives_live_row(symbol, quote, security_name))
+        rows.append(build_derivatives_live_row(symbol, quote, security_name, future_snapshot=future_map.get(symbol)))
 
-    return rows, missing, None
+    return rows, missing, future_error
 
 
 def fetch_index_quote_snapshot(client, quote_candidates):
@@ -17857,7 +17987,7 @@ def fetch_index_quote_snapshot(client, quote_candidates):
 
 
 def build_index_proxy_snapshot(symbols):
-    rows, missing, error = get_derivatives_stock_rows(symbols)
+    rows, missing, error = get_derivatives_stock_rows(symbols, include_futures=False)
     avg_change = sum(row["day_change_numeric"] for row in rows) / len(rows) if rows else 0.0
     up_count = sum(1 for row in rows if row["day_change_numeric"] > 0)
     down_count = sum(1 for row in rows if row["day_change_numeric"] < 0)
@@ -18096,34 +18226,39 @@ def build_index_derivatives_context(index_slug, host_root):
 
 def build_stock_fno_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
-    sorted_rows = sorted(rows, key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+    sorted_rows = sorted(
+        rows,
+        key=lambda row: abs(row["oi_change_numeric"]) if row["oi_change_numeric"] is not None else abs(row["day_change_numeric"]),
+        reverse=True,
+    )
     buildup_counts = {
         "Long Buildup": sum(1 for row in rows if row["buildup_label"] == "Long Buildup"),
         "Short Buildup": sum(1 for row in rows if row["buildup_label"] == "Short Buildup"),
         "Short Covering": sum(1 for row in rows if row["buildup_label"] == "Short Covering"),
         "Long Unwinding": sum(1 for row in rows if row["buildup_label"] == "Long Unwinding"),
     }
+    real_fno_count = sum(1 for row in rows if row["real_fno_available"])
     canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks"
     today_iso = get_today_ist().isoformat()
     return {
         "page_mode": "stocks",
-        "seo_title": "Stock F&O Hub, Proxy Buildup & Futures Watch | TraderHub",
-        "seo_description": "Browse TraderHub stock F&O phase-1 pages with spot-led proxy buildup labels, pending futures/OI slots, and public stock-derivatives discovery.",
+        "seo_title": "Stock F&O Hub, Real Futures OI & Buildup Watch | TraderHub",
+        "seo_description": "Browse TraderHub stock F&O pages with real nearest-futures price, premium or discount, OI, OI change, and buildup classification where available.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Stock F&O Hub | TraderHub", "description": "Public stock F&O hub for TraderHub.", "url": canonical_url}, indent=2),
         "breadcrumb_text": "Derivatives › Stock Derivatives › Stock F&O Hub",
         "breadcrumb_meta_text": f"Phase 1 stock derivatives | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Stock Derivatives",
         "hero_title": "Stock F&O Hub",
-        "hero_subtitle": "This page is your discovery layer for stock derivatives. Phase 1 keeps the stock list live and readable, while futures price, OI, and OI-change fields stay clearly marked until the proper source is wired in.",
+        "hero_subtitle": "This page is your discovery layer for stock derivatives. It now prefers real nearest-futures price, live OI, and OI change where available, while still falling back safely when a contract path is missing.",
         "hero_metric_primary": str(len(rows)),
-        "hero_metric_secondary": "live proxy rows available right now",
-        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Proxy Buildup Live", "kind": "tag-up"}, {"label": "Futures/OI Pending", "kind": "tag-warn"}],
+        "hero_metric_secondary": "live stock-derivatives rows available right now",
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Real Stock F&O Live", "kind": "tag-up"}, {"label": "Hybrid Fallback Safe", "kind": "tag-warn"}],
         "hero_stats": [
             {"label": "Long Buildup", "value": buildup_counts["Long Buildup"]},
             {"label": "Short Buildup", "value": buildup_counts["Short Buildup"]},
             {"label": "Short Covering", "value": buildup_counts["Short Covering"]},
-            {"label": "Long Unwinding", "value": buildup_counts["Long Unwinding"]},
+            {"label": "Real F&O Rows", "value": real_fno_count},
         ],
         "nav_chips": [
             {"label": "Derivatives Hub", "href": "/derivatives"},
@@ -18134,23 +18269,23 @@ def build_stock_fno_context(host_root):
             {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
         ],
         "section_title": "Stock F&O Snapshot",
-        "section_note": "This table is compact on purpose. It keeps the public page readable while showing which fields are already real and which ones still wait for a true F&O feed.",
+        "section_note": "This table is compact on purpose. It now prefers real nearest-futures price, OI, OI change, and buildup classification where available, while still degrading cleanly if a futures path is missing.",
         "summary_cards": [
             {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS), "copy": "The stock F&O hub starts with liquid names so the page stays useful and fast."},
-            {"label": "Live Rows", "value": len(rows), "copy": "These rows are sourced from the live market layer and then classified into a phase-1 buildup proxy."},
+            {"label": "Live Rows", "value": len(rows), "copy": "These rows are sourced from the live market layer and enriched with nearest-futures contracts where available."},
             {"label": "Missing Rows", "value": len(missing), "copy": "Symbols skipped because live quote data was not available in the current pass."},
-            {"label": "Theme", "value": "Current Site", "copy": "The page follows the same public design system as stocks, IPO, news, and sector pages."},
+            {"label": "Real F&O", "value": real_fno_count, "copy": "Rows already carrying real futures price, OI, OI change, and buildup classification."},
         ],
         "focus_title": "How To Read Phase 1",
-        "focus_note": "This public stock-F&O page is intentionally honest. It gives the user something practical now, while clearly reserving the real futures/OI layer for the next integration.",
+        "focus_note": "This public stock-F&O page is intentionally honest. It uses real futures/OI where possible and only falls back to the lighter spot-led model when a contract lookup is unavailable.",
         "focus_cards": [
-            {"title": "Long Buildup", "meta": "Phase 1 proxy", "copy": "Positive spot move with a favorable opening structure is grouped here first."},
-            {"title": "Short Buildup", "meta": "Phase 1 proxy", "copy": "Negative spot move with a weaker opening structure is grouped here first."},
-            {"title": "Short Covering", "meta": "Phase 1 proxy", "copy": "Recovery after a softer opening is grouped here so users can still spot reversal-style names."},
-            {"title": "Long Unwinding", "meta": "Phase 1 proxy", "copy": "Pressure after a stronger opening is grouped here so users can still spot fading names."},
+            {"title": "Long Buildup", "meta": "Real price + OI", "copy": "Price strength with expanding OI is grouped here first when the futures contract is available."},
+            {"title": "Short Buildup", "meta": "Real price + OI", "copy": "Price weakness with expanding OI is grouped here first when the futures contract is available."},
+            {"title": "Short Covering", "meta": "Real price + OI", "copy": "Price recovery with contracting OI is grouped here so users can spot reversal-style names."},
+            {"title": "Long Unwinding", "meta": "Real price + OI", "copy": "Price pressure with contracting OI is grouped here so users can spot fading names."},
         ],
         "table_title": "F&O Stock Table",
-        "table_note": "Spot and day change are live. Futures price, premium/discount, OI, and OI change are intentionally shown as pending until the right source is connected.",
+        "table_note": "Spot and day change are live. Futures price, premium or discount, OI, and OI change now populate from the nearest futures contract where available, and only stay pending for rows that miss the real F&O path.",
         "table_columns": [
             {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
             {"label": "Spot", "key": "spot", "link_key": None},
@@ -18159,19 +18294,19 @@ def build_stock_fno_context(host_root):
             {"label": "Premium/Discount", "key": "premium_discount", "link_key": None},
             {"label": "OI", "key": "oi", "link_key": None},
             {"label": "OI Change", "key": "oi_change", "link_key": None},
-            {"label": "Proxy Buildup", "key": "buildup_label", "link_key": None},
+            {"label": "Buildup", "key": "buildup_label", "link_key": None},
             {"label": "Volume", "key": "volume", "link_key": None},
         ],
         "table_rows": sorted_rows,
         "group_title": "Page Notes",
         "group_note": "These notes keep the page practical for the public while setting the right expectation for the deeper F&O layer.",
         "group_blocks": [
-            {"title": "What Is Real", "count": len(rows), "copy": "These are the fields already coming from the live market layer.", "items": ["Spot price", "Day move", "Volume", "Proxy buildup classification", "Links back to public stock pages"]},
-            {"title": "What Is Pending", "count": 4, "copy": "These fields need a dedicated futures/OI source and should not be guessed.", "items": ["Futures price", "Premium/discount", "Open interest", "OI change"]},
+            {"title": "What Is Real", "count": real_fno_count, "copy": "These rows are already carrying the deeper stock-derivatives layer.", "items": ["Spot price", "Nearest futures price", "Premium or discount", "Open interest", "OI change", "Real buildup classification", "Links back to public stock pages"]},
+            {"title": "What Still Falls Back", "count": max(len(rows) - real_fno_count, 0), "copy": "Only these rows still rely on the lighter market path when the futures lookup is missing.", "items": ["Spot price and day move remain live", "Fallback buildup still stays visible", "Missing futures or OI values are left pending instead of guessed"]},
         ],
-        "public_note": "This is a public stock-F&O discovery page first, not a cloned dealing terminal. It gets much stronger when the real futures/OI layer is added, but it is already useful now.",
+        "public_note": "This is a public stock-F&O discovery page first, not a cloned dealing terminal. It now carries a real futures/OI layer for the tracked universe and still stays readable enough for public use.",
         "side_box_title": "Current Rule",
-        "side_box_copy": "Use this page to discover which liquid names deserve a closer look. Treat the buildup labels as a phase-1 proxy until the dedicated F&O feed lands.",
+        "side_box_copy": "Use this page to discover which liquid names deserve a closer look. When the row has a live futures contract, the buildup label now comes from real price-plus-OI behavior instead of the older proxy path.",
         "why_page_works": "It gives TraderHub a real stock-derivatives page now, establishes the public route structure, and creates a clean on-ramp to future F&O upgrades.",
         "market_error": error,
     }
@@ -18181,46 +18316,53 @@ def build_stock_oi_change_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     ranked_rows = []
     for row in rows:
-        pressure_score = abs(row["day_change_numeric"]) * max(row["volume_numeric"], 0)
-        if row["day_change_numeric"] > 0:
-            oi_bias = "Call-side pressure proxy"
-        elif row["day_change_numeric"] < 0:
-            oi_bias = "Put-side pressure proxy"
+        if row["oi_change_numeric"] is not None:
+            pressure_score = abs(row["oi_change_numeric"])
+            oi_bias = row["buildup_label"]
+            oi_shift_read = row["oi_change"]
         else:
-            oi_bias = "Neutral pressure proxy"
+            pressure_score = abs(row["day_change_numeric"]) * max(row["volume_numeric"], 0)
+            if row["day_change_numeric"] > 0:
+                oi_bias = "Call-side pressure proxy"
+            elif row["day_change_numeric"] < 0:
+                oi_bias = "Put-side pressure proxy"
+            else:
+                oi_bias = "Neutral pressure proxy"
+            oi_shift_read = f"{row['day_change_numeric']:+.2f}% x {row['volume']}"
         ranked_rows.append(
             {
                 **row,
                 "oi_bias": oi_bias,
-                "proxy_oi_shift": f"{row['day_change_numeric']:+.2f}% x {row['volume']}",
+                "proxy_oi_shift": oi_shift_read,
                 "pressure_score": pressure_score,
             }
         )
     ranked_rows = sorted(ranked_rows, key=lambda row: row["pressure_score"], reverse=True)
-    positive_pressure = [row for row in ranked_rows if row["day_change_numeric"] > 0][:6]
-    negative_pressure = [row for row in ranked_rows if row["day_change_numeric"] < 0][:6]
+    positive_pressure = [row for row in ranked_rows if row["buildup_label"] in {"Long Buildup", "Short Covering"}][:6]
+    negative_pressure = [row for row in ranked_rows if row["buildup_label"] in {"Short Buildup", "Long Unwinding"}][:6]
     highest = ranked_rows[0] if ranked_rows else None
+    real_oi_count = sum(1 for row in ranked_rows if row["oi_change_numeric"] is not None)
     canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks/oi-change"
     today_iso = get_today_ist().isoformat()
     return {
         "page_mode": "oi_change",
         "seo_title": "OI Change Dashboard, Stock Open Interest Watch & Pressure Map | TraderHub",
-        "seo_description": "Track TraderHub stock OI change dashboard structure with live spot/volume pressure, proxy OI intent, and public F&O discovery in one clean page.",
+        "seo_description": "Track TraderHub stock OI change dashboard with real OI change, buildup labels, futures price context, and public F&O discovery in one clean page.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "OI Change Dashboard | TraderHub", "description": "Public stock OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
         "breadcrumb_text": "Derivatives › Stock Derivatives › OI Change Dashboard",
         "breadcrumb_meta_text": f"Phase 1 OI page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub OI Change",
         "hero_title": "OI Change Dashboard",
-        "hero_subtitle": "This page is built for one of the strongest organic F&O intents: open-interest change. Phase 1 uses a live spot-and-volume pressure proxy first, then leaves clean slots for the true OI feed.",
+        "hero_subtitle": "This page is built for one of the strongest organic F&O intents: open-interest change. It now prefers real stock-futures OI change where available and only falls back to the lighter pressure model when a contract path is missing.",
         "hero_metric_primary": str(len(ranked_rows)),
         "hero_metric_secondary": "ranked stock derivatives rows right now",
-        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Traffic Intent Page", "kind": "tag-up"}, {"label": "Real OI Feed Next", "kind": "tag-warn"}],
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Traffic Intent Page", "kind": "tag-up"}, {"label": "Real OI Live", "kind": "tag-up"}],
         "hero_stats": [
             {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS)},
             {"label": "Positive Pressure", "value": len([row for row in ranked_rows if row["day_change_numeric"] > 0])},
             {"label": "Negative Pressure", "value": len([row for row in ranked_rows if row["day_change_numeric"] < 0])},
-            {"label": "Top Symbol", "value": highest["symbol"] if highest else "-"},
+            {"label": "Real OI Rows", "value": real_oi_count},
         ],
         "nav_chips": [
             {"label": "Derivatives Hub", "href": "/derivatives"},
@@ -18231,43 +18373,43 @@ def build_stock_oi_change_context(host_root):
             {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
         ],
         "section_title": "OI Change Snapshot",
-        "section_note": "The public version keeps the layout and ranking logic visible right now. Until the dedicated OI feed is connected, the page uses a transparent spot-plus-volume pressure model instead of publishing fake open-interest numbers.",
+        "section_note": "The public version keeps the layout and ranking logic visible right now. It now prefers real stock-futures OI change and only falls back to the lighter pressure model when the derivatives path is unavailable.",
         "summary_cards": [
-            {"label": "Top Pressure Name", "value": highest["symbol"] if highest else "-", "copy": f"{highest['day_change']} with {highest['volume']} volume in the current pass." if highest else "Waiting on live ranked rows."},
-            {"label": "Positive Pressure", "value": len(positive_pressure), "copy": "Names showing positive spot pressure in the phase-1 ranking model."},
-            {"label": "Negative Pressure", "value": len(negative_pressure), "copy": "Names showing negative spot pressure in the phase-1 ranking model."},
-            {"label": "Real OI Fields", "value": "Next", "copy": "True OI and OI-change values are intentionally reserved for the next F&O source integration."},
+            {"label": "Top Pressure Name", "value": highest["symbol"] if highest else "-", "copy": f"{highest['oi_change']} OI change with {highest['day_change']} spot move in the current pass." if highest else "Waiting on live ranked rows."},
+            {"label": "Positive Pressure", "value": len(positive_pressure), "copy": "Names showing constructive price-plus-OI structure in the current ranking model."},
+            {"label": "Negative Pressure", "value": len(negative_pressure), "copy": "Names showing pressured price-plus-OI structure in the current ranking model."},
+            {"label": "Real OI Fields", "value": real_oi_count, "copy": "Rows already carrying true OI and OI-change values from the nearest futures contract."},
         ],
         "focus_title": "How To Use This Page",
-        "focus_note": "This page is meant to be practical even before the final data source lands. It should attract search traffic while still helping a trader understand what to watch.",
+        "focus_note": "This page is meant to be practical first. It now surfaces real stock-futures OI movement where available and still stays readable enough to attract repeat derivatives users.",
         "focus_cards": [
-            {"title": "Positive OI-Type Pressure", "meta": "Phase 1 proxy", "copy": "Start here when you want names where price and activity are pointing upward together in the current pass."},
-            {"title": "Negative OI-Type Pressure", "meta": "Phase 1 proxy", "copy": "Use this side when you want names where weakness and activity are aligned in the current pass."},
-            {"title": "What Gets Upgraded Next", "meta": "Next source pass", "copy": "The visual layout is already ready for real OI, OI change, futures price, premium/discount, and conviction ranking."},
+            {"title": "Positive OI-Type Pressure", "meta": "Real OI when available", "copy": "Start here when price and open interest are pointing in a constructive direction together."},
+            {"title": "Negative OI-Type Pressure", "meta": "Real OI when available", "copy": "Use this side when weakness and open interest are aligning in the current pass."},
+            {"title": "What Gets Upgraded Next", "meta": "Next source pass", "copy": "The layout is already ready for deeper conviction logic, more tracked names, and broader derivatives coverage without redesigning the page."},
             {"title": "Why It Matters For Traffic", "meta": "Public SEO", "copy": "OI change is one of the cleaner high-intent F&O search themes, so this page helps both users and discoverability."},
         ],
         "table_title": "Stock OI Change Table",
-        "table_note": "This layout is already suitable for a real OI feed later. For now, it ranks names by pressure using live day move and volume instead of publishing invented OI values.",
+        "table_note": "This table now ranks names by real stock-futures OI change where available. Rows that miss the futures path fall back to the lighter live pressure model instead of publishing guessed derivatives values.",
         "table_columns": [
             {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
             {"label": "Spot", "key": "spot", "link_key": None},
             {"label": "Day Change", "key": "day_change", "link_key": None},
             {"label": "Volume", "key": "volume", "link_key": None},
             {"label": "OI Bias", "key": "oi_bias", "link_key": None},
-            {"label": "Proxy OI Shift", "key": "proxy_oi_shift", "link_key": None},
+            {"label": "OI Shift Read", "key": "proxy_oi_shift", "link_key": None},
             {"label": "Real OI", "key": "oi", "link_key": None},
             {"label": "Real OI Change", "key": "oi_change", "link_key": None},
         ],
         "table_rows": ranked_rows,
         "group_title": "Pressure Buckets",
-        "group_note": "These buckets keep the page skimmable for public users. They can later evolve into proper OI-based leadership blocks once the real derivatives feed is connected.",
+        "group_note": "These buckets keep the page skimmable for public users and now prefer the real stock-futures layer wherever it is available.",
         "group_blocks": [
-            {"title": "Positive Pressure", "count": len(positive_pressure), "copy": "Names with upward price pressure in the current ranking model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['volume']}" for row in positive_pressure] or ["No positive-pressure rows right now."]},
-            {"title": "Negative Pressure", "count": len(negative_pressure), "copy": "Names with downward price pressure in the current ranking model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['volume']}" for row in negative_pressure] or ["No negative-pressure rows right now."]},
+            {"title": "Positive Pressure", "count": len(positive_pressure), "copy": "Names with constructive price-plus-OI structure in the current ranking model.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in positive_pressure] or ["No positive-pressure rows right now."]},
+            {"title": "Negative Pressure", "count": len(negative_pressure), "copy": "Names with pressured price-plus-OI structure in the current ranking model.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in negative_pressure] or ["No negative-pressure rows right now."]},
         ],
-        "public_note": "This OI page is intentionally honest. It captures a strong public F&O intent now, while keeping the real open-interest layer ready for the next integration instead of faking it.",
+        "public_note": "This OI page is intentionally honest. It now carries real stock-futures OI change where available and still keeps the fallback path visible instead of faking missing derivatives values.",
         "side_box_title": "Current Rule",
-        "side_box_copy": "Treat this as a public OI-pressure map first. The route, wording, and layout are production-ready; the true OI values arrive in the next derivatives data pass.",
+        "side_box_copy": "Treat this as a public OI-pressure map first. When the futures contract is available, the table now prefers true OI and OI-change values instead of the older pressure proxy.",
         "why_page_works": "It gives TraderHub a high-intent derivatives page that is useful now, SEO-friendly, and structurally ready for the next level of F&O depth.",
         "market_error": error,
     }
@@ -18562,7 +18704,12 @@ def build_futures_buildup_context(host_root):
     for row in rows:
         groups[row["buildup_label"]].append(row)
     for label in groups:
-        groups[label] = sorted(groups[label], key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+        groups[label] = sorted(
+            groups[label],
+            key=lambda row: abs(row["oi_change_numeric"]) if row["oi_change_numeric"] is not None else abs(row["day_change_numeric"]),
+            reverse=True,
+        )
+    real_fno_count = sum(1 for row in rows if row["real_fno_available"])
     canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks/futures-buildup"
     today_iso = get_today_ist().isoformat()
     return {
@@ -18575,10 +18722,10 @@ def build_futures_buildup_context(host_root):
         "breadcrumb_meta_text": f"Phase 1 buildup page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Futures Buildup",
         "hero_title": "Futures Buildup",
-        "hero_subtitle": "This classification page is designed to be fast to read. It groups names by long buildup, short buildup, short covering, and long unwinding using an honest phase-1 proxy model.",
+        "hero_subtitle": "This classification page is designed to be fast to read. It now prefers real price-plus-OI futures classification where available and only falls back to the lighter path when the derivatives contract is missing.",
         "hero_metric_primary": str(len(rows)),
         "hero_metric_secondary": "total rows classified right now",
-        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Classification First", "kind": "tag-up"}, {"label": "Proxy Model", "kind": "tag-warn"}],
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Classification First", "kind": "tag-up"}, {"label": "Real F&O Preferred", "kind": "tag-up"}],
         "hero_stats": [
             {"label": "Long Buildup", "value": len(groups["Long Buildup"])},
             {"label": "Short Buildup", "value": len(groups["Short Buildup"])},
@@ -18594,12 +18741,12 @@ def build_futures_buildup_context(host_root):
             {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
         ],
         "section_title": "Buildup Summary",
-        "section_note": "This page is classification-first on purpose. It is meant to help users spot buckets of names quickly before they go deeper into a full derivatives workflow later.",
+        "section_note": "This page is classification-first on purpose. It is meant to help users spot buckets of names quickly, and it now prefers real price-plus-OI classification where the futures path is available.",
         "summary_cards": [
-            {"label": "Long Buildup", "value": len(groups["Long Buildup"]), "copy": "Positive phase-1 buildup bucket."},
-            {"label": "Short Buildup", "value": len(groups["Short Buildup"]), "copy": "Negative phase-1 buildup bucket."},
-            {"label": "Short Covering", "value": len(groups["Short Covering"]), "copy": "Recovery bucket in the phase-1 model."},
-            {"label": "Long Unwinding", "value": len(groups["Long Unwinding"]), "copy": "Fading bucket in the phase-1 model."},
+            {"label": "Long Buildup", "value": len(groups["Long Buildup"]), "copy": "Price strength with rising OI."},
+            {"label": "Short Buildup", "value": len(groups["Short Buildup"]), "copy": "Price weakness with rising OI."},
+            {"label": "Short Covering", "value": len(groups["Short Covering"]), "copy": "Price recovery with falling OI."},
+            {"label": "Real F&O", "value": real_fno_count, "copy": "Rows already backed by real nearest-futures OI behavior."},
         ],
         "focus_title": None,
         "focus_note": None,
@@ -18609,16 +18756,16 @@ def build_futures_buildup_context(host_root):
         "table_columns": [],
         "table_rows": [],
         "group_title": "Buildup Groups",
-        "group_note": "Each group below keeps only the most important names in view first. The public page is designed for scan speed, not raw density.",
+        "group_note": "Each group below keeps only the most important names in view first. The public page is designed for scan speed, and now ranks by real OI change where available.",
         "group_blocks": [
-            {"title": "Long Buildup", "count": len(groups["Long Buildup"]), "copy": "Names showing constructive phase-1 structure.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Buildup"][:6]] or ["No live rows matched this bucket right now."]},
-            {"title": "Short Buildup", "count": len(groups["Short Buildup"]), "copy": "Names showing pressured phase-1 structure.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Buildup"][:6]] or ["No live rows matched this bucket right now."]},
-            {"title": "Short Covering", "count": len(groups["Short Covering"]), "copy": "Recovery-style names in the phase-1 model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Covering"][:6]] or ["No live rows matched this bucket right now."]},
-            {"title": "Long Unwinding", "count": len(groups["Long Unwinding"]), "copy": "Fading names in the phase-1 model.", "items": [f"{row['symbol']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Unwinding"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Long Buildup", "count": len(groups["Long Buildup"]), "copy": "Names showing constructive price-plus-OI structure.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Buildup"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Short Buildup", "count": len(groups["Short Buildup"]), "copy": "Names showing pressured price-plus-OI structure.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Buildup"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Short Covering", "count": len(groups["Short Covering"]), "copy": "Recovery-style names with contracting OI.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Short Covering"][:6]] or ["No live rows matched this bucket right now."]},
+            {"title": "Long Unwinding", "count": len(groups["Long Unwinding"]), "copy": "Fading names with contracting OI.", "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']} | {row['proxy_note']}" for row in groups["Long Unwinding"][:6]] or ["No live rows matched this bucket right now."]},
         ],
-        "public_note": "This page is intentionally simple and transparent. It gives users a first buildup map now, then leaves room for real futures/OI classification later.",
+        "public_note": "This page is intentionally simple and transparent. It now gives users a real price-plus-OI buildup map where possible, while still leaving room for broader F&O depth later.",
         "side_box_title": "Current Rule",
-        "side_box_copy": "These buildup buckets are a public phase-1 proxy based on spot behavior. They are not a substitute for true futures price and open-interest analytics yet.",
+        "side_box_copy": "These buildup buckets now prefer true futures price and open-interest behavior whenever the nearest contract is available, and only fall back to the lighter path when it is not.",
         "why_page_works": "It turns the derivatives module into something scannable and habit-forming immediately, while preserving room for a deeper F&O engine later.",
         "market_error": error,
     }
