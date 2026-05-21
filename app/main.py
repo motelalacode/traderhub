@@ -16121,6 +16121,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       <aside class="section-aside">
         <div class="quick-box">
           <h3>Quick Stats</h3>
+          <div style="margin-bottom:12px;"><a class="nav-chip" href="/stocks/{{ stock_slug }}/why-moving">Why Moving</a></div>
           <div class="quick-list">
             {% for item in quick_stats %}
             <div class="quick-row">
@@ -17206,6 +17207,7 @@ def build_stock_page_context(symbol, host_root):
         "quick_stats": quick_stats,
         "breadcrumb_sector": breadcrumb_sector,
         "breadcrumb_symbol_label": symbol,
+        "stock_slug": canonical_slug,
         "breadcrumb_meta_text": f"Public stock page | {market_mode_label} | Last reviewed {today_date}",
         "page_alert": page_alert,
         "page_purpose_title": "Page Purpose",
@@ -17878,6 +17880,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
             <div class="story-card">
               {% if story.href %}<div class="story-title"><a href="{{ story.href }}">{{ story.title }}</a></div>{% else %}<div class="story-title">{{ story.title }}</div>{% endif %}
               <div class="story-meta">{{ story.meta }}</div>
+              {% if story.tags %}<div class="hero-tags" style="margin-top:0; margin-bottom:8px;">{% for badge in story.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>{% endif %}
               <div class="story-copy">{{ story["copy"] }}</div>
             </div>
             {% endfor %}
@@ -17919,7 +17922,7 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
           <div class="story-grid">
             {% for item in rows %}
             <div class="story-card">
-              <div class="story-title">{{ item.sector }}</div>
+              {% if item.sector_slug %}<div class="story-title"><a href="/sectors/{{ item.sector_slug }}">{{ item.sector }}</a></div>{% else %}<div class="story-title">{{ item.sector }}</div>{% endif %}
               <div class="story-meta">Average move {{ item.avg_change }} | Leaders {{ item.leaders }}</div>
               <div class="story-copy">{{ item.story }}</div>
             </div>
@@ -18185,6 +18188,39 @@ def build_live_mover_story(row, sector_label):
     )
 
 
+def build_reason_tags(row, sector_label=None):
+    if not row:
+        return []
+    tags = []
+    if row["gap_pct_numeric"] > 0:
+        tags.append({"label": f"Gap Up {row['gap_text']}", "kind": "tag-up"})
+    elif row["gap_pct_numeric"] < 0:
+        tags.append({"label": f"Gap Down {row['gap_text']}", "kind": "tag-down"})
+
+    if row["vwap_status"] == "Above VWAP":
+        tags.append({"label": "Above VWAP", "kind": "tag-up"})
+    elif row["vwap_status"] == "Below VWAP":
+        tags.append({"label": "Below VWAP", "kind": "tag-down"})
+    else:
+        tags.append({"label": row["vwap_status"], "kind": "tag-info"})
+
+    if row["status_label"] == "Above PDH":
+        tags.append({"label": "Above PDH", "kind": "tag-up"})
+    elif row["status_label"] == "Below PDL":
+        tags.append({"label": "Below PDL", "kind": "tag-down"})
+    else:
+        tags.append({"label": row["status_label"], "kind": "tag-warn"})
+
+    if row["day_range_percent"] >= 75:
+        tags.append({"label": "Near Day High", "kind": "tag-up"})
+    elif row["day_range_percent"] <= 25:
+        tags.append({"label": "Near Day Low", "kind": "tag-down"})
+
+    if sector_label:
+        tags.append({"label": sector_label, "kind": "tag-info"})
+    return tags[:5]
+
+
 def build_sector_strip_story(sector_label, rows):
     if not rows:
         return f"{sector_label} is staged for the news stream, but live rows are unavailable right now."
@@ -18237,6 +18273,7 @@ def build_live_movers_context(host_root):
                 "meta": f"Live Movers | {broad_sector} | {row['change_pct_display']}",
                 "copy": build_live_mover_story(row, broad_sector),
                 "href": f"/stocks/{get_canonical_stock_slug(row['symbol'])}/why-moving",
+                "tags": build_reason_tags(row, broad_sector),
             }
         )
 
@@ -18311,6 +18348,7 @@ def build_sector_news_context(host_root):
         sector_cards.append(
             {
                 "sector": sector_label,
+                "sector_slug": get_public_sector_slug(next((key for key, symbols in SECTOR_GROUPS.items() if sector_label.lower() == key.replace('_', ' ').title().lower()), "")) if any(sector_label.lower() == key.replace('_', ' ').title().lower() for key in SECTOR_GROUPS.keys()) else "",
                 "avg_change": f"{avg_change:+.2f}%",
                 "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
                 "story": build_sector_strip_story(sector_label, sector_rows),
@@ -18326,7 +18364,8 @@ def build_sector_news_context(host_root):
             "title": f"{item['sector']} sector strip",
             "meta": f"Sector News | Avg move {item['avg_change']}",
             "copy": item["story"],
-            "href": "",
+            "href": f"/sectors/{item['sector_slug']}" if item["sector_slug"] else "",
+            "tags": build_reason_tags(item["strongest"], item["sector"]),
         }
         for item in sector_cards[:4]
     ]
@@ -18407,7 +18446,7 @@ def build_why_moving_context(symbol, host_root):
         "hero_subtitle": company_name,
         "hero_metric_primary": row["last_price"] if row else "-",
         "hero_metric_secondary": row["change_pct_display"] + " live move" if row else "Live move pending",
-        "hero_badges": [{"label": "Phase 2 Live Layer", "kind": "tag-info"}, {"label": sector_label.split(' / ')[0], "kind": "tag-up"}, {"label": row['status_label'] if row else 'Pending', "kind": "tag-warn"}],
+        "hero_badges": [{"label": "Phase 2 Live Layer", "kind": "tag-info"}, {"label": sector_label.split(' / ')[0], "kind": "tag-up"}, {"label": row['status_label'] if row else 'Pending', "kind": "tag-warn"}] + build_reason_tags(row),
         "hero_stats": [
             {"label": "VWAP", "value": row["vwap_status"] if row else "Pending"},
             {"label": "Gap", "value": row["gap_text"] if row else "Pending"},
@@ -18423,7 +18462,7 @@ def build_why_moving_context(symbol, host_root):
         "section_title": "Move Breakdown",
         "section_note": "The point of this page is not to promise one perfect reason. It is to combine price behavior, intraday structure, and linked news context so a trader can judge the move faster.",
         "summary_cards": reason_cards,
-        "lead_stories": [{"title": f"{symbol} move summary", "meta": f"Why Moving | {sector_label}", "copy": move_story, "href": ""}],
+        "lead_stories": [{"title": f"{symbol} move summary", "meta": f"Why Moving | {sector_label}", "copy": move_story, "href": "", "tags": build_reason_tags(row, sector_label.split(' / ')[0])}],
         "watch_sections": [
             {"title": "Market Structure", "items": [f"Last price: {row['last_price']}" if row else "Last price pending", f"VWAP: {row['vwap_status']}" if row else "VWAP pending", f"Gap: {row['gap_text']}" if row else "Gap pending", f"Status: {row['status_label']}" if row else "Status pending"]},
             {"title": "Next Clicks", "items": ["Open the full stock page", "Review official NSE announcements", "Check corporate actions board", "Compare with sector-news strip"]},
