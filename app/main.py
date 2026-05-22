@@ -19583,8 +19583,9 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
 
 def get_news_snapshot_profiles():
     return {
-        "summary-core": ["market_news", "alerts_prep", "trend", "archive", "sector_archive"],
-        "summary-wide": ["market_news", "alerts_prep", "trend", "archive", "sector_archive", "stock_archive", "stock_news"],
+        "summary-core": ["trend", "archive", "sector_archive"],
+        "summary-wide": ["trend", "archive", "sector_archive", "stock_archive", "stock_news"],
+        "summary-live": ["market_news", "alerts_prep"],
         "summary-full": [],
     }
 
@@ -19592,7 +19593,12 @@ def get_news_snapshot_profiles():
 def run_news_snapshot_scan(limit=40, domain=None, profile="summary-core", offset=0, only_missing=True):
     profile_map = get_news_snapshot_profiles()
     requested_limit = int(limit)
-    effective_limit = min(requested_limit, 40)
+    if profile == "summary-live":
+        effective_limit = min(requested_limit, 8)
+    elif profile == "summary-full":
+        effective_limit = min(requested_limit, 12)
+    else:
+        effective_limit = min(requested_limit, 15)
     selected_page_types = profile_map.get(profile, profile_map["summary-core"])
     check_id = start_check(
         "news_snapshot_scan",
@@ -23709,7 +23715,60 @@ def news_manager_archive_screen():
 
 @app.route("/admin/news-manager/editor-summaries")
 def news_manager_editor_summaries_screen():
-    return render_seo_manager_screen(build_news_manager_editor_summaries_context())
+    try:
+        return render_seo_manager_screen(build_news_manager_editor_summaries_context())
+    except BaseException as exc:
+        summary = get_news_snapshot_run_summary()
+        fallback_context = {
+            "page_title": "News Manager Editor Summaries | TraderHub",
+            "page_description": "Editor summary readiness review for TraderHub public news pages.",
+            "breadcrumb_text": "Admin > News Manager > Editor Summaries",
+            "breadcrumb_meta_text": f'Fallback view | Last reviewed {get_today_ist().isoformat()}',
+            "hero_title": "Editor Summaries",
+            "hero_subtitle": "The full Phase 1B summary view hit an internal error, so this fallback is showing snapshot totals instead of failing completely.",
+            "kpis": [
+                {"label": "Snapshot Rows", "value": (summary.get("totals") or {}).get("snapshot_pages", 0)},
+                {"label": "Summary Signals", "value": (summary.get("totals") or {}).get("summary_pages", 0)},
+                {"label": "Fallback Flags", "value": (summary.get("totals") or {}).get("fallback_pages", 0)},
+                {"label": "Shell Flags", "value": (summary.get("totals") or {}).get("shell_pages", 0)},
+                {"label": "Latest Check", "value": ((summary.get("latest_check") or {}).get("status") or "unknown")},
+                {"label": "Error", "value": type(exc).__name__},
+            ],
+            "nav_items": get_news_manager_nav_items(),
+            "active_href": "/admin/news-manager/editor-summaries",
+            "sections": [
+                {
+                    "title": "Fallback Snapshot Totals",
+                    "note": "This fallback keeps the screen usable while the richer summary query is being stabilized.",
+                    "columns": ["Page Type", "Pages", "Summary Signals", "Fallback Flags", "Shell Flags"],
+                    "rows": [
+                        [
+                            row.get("page_type") or "-",
+                            row.get("page_count", 0),
+                            row.get("summary_pages", 0),
+                            row.get("fallback_pages", 0),
+                            row.get("shell_pages", 0),
+                        ]
+                        for row in summary.get("by_type", [])
+                    ],
+                    "filters": [],
+                }
+            ],
+            "side_blocks": [
+                {
+                    "title": "Error Detail",
+                    "items": [html_lib.escape(str(exc))],
+                },
+                {
+                    "title": "Quick Actions",
+                    "items": [
+                        'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-core&only_missing=1</span>',
+                        'View raw totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
+                    ],
+                },
+            ],
+        }
+        return render_seo_manager_screen(fallback_context)
 
 
 @app.route("/admin/news-manager/snapshots/run")
