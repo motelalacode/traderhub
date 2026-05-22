@@ -1740,7 +1740,7 @@ def get_news_manager_summary_overview(limit=120):
                   AND p.domain = 'traderhub.in'
                   AND p.page_type IN ({placeholders})
                 GROUP BY p.page_type
-                ORDER BY page_count DESC, page_type
+                ORDER BY page_count DESC, p.page_type
                 """,
                 summary_page_types,
             ).fetchall()

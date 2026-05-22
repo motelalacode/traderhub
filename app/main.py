@@ -19865,7 +19865,9 @@ SEO_MANAGER_TEMPLATE = """
     .chip { text-decoration:none; border:1px solid var(--line); background:var(--paper); color:#0e554b; border-radius:999px; padding:10px 14px; font-size:13px; font-weight:700; white-space:nowrap; }
     .chip.active { background:#0e554b; color:#fff; border-color:#0e554b; }
     .kpi-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-top:16px; }
-    .card { padding:14px; background:var(--panel); } .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; } .value { font-size:28px; font-weight:700; color:var(--ink); }
+    .card { padding:14px; background:var(--panel); min-width:0; overflow:hidden; }
+    .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; white-space:normal; overflow-wrap:anywhere; }
+    .value { font-size:28px; font-weight:700; color:var(--ink); min-width:0; line-height:1.08; white-space:normal; overflow-wrap:anywhere; word-break:break-word; }
     .layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; margin-top:16px; align-items:start; }
     .stack { display:grid; gap:16px; } .panel { padding:16px; } .panel h2 { margin:0 0 6px; font-size:24px; } .note { color:var(--muted); font-size:14px; line-height:1.55; margin-bottom:12px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
@@ -19877,7 +19879,7 @@ SEO_MANAGER_TEMPLATE = """
     .mini-list { display:grid; gap:10px; } .mini-row { padding-bottom:10px; border-bottom:1px solid rgba(212,219,227,.88); } .mini-row:last-child { padding-bottom:0; border-bottom:none; }
     .filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; } .filter-chip { padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel); font-size:12px; }
     @media (max-width:1160px) { .layout { grid-template-columns:1fr; } .grid-2,.kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-    @media (max-width:680px) { .kpi-grid,.grid-2 { grid-template-columns:1fr; } .hero h1 { font-size:28px; } .page { padding:12px 10px 28px; } }
+    @media (max-width:680px) { .kpi-grid,.grid-2 { grid-template-columns:1fr; } .hero h1 { font-size:28px; } .page { padding:12px 10px 28px; } .card { padding:12px; } .value { font-size:22px; } }
   </style>
 </head>
 <body>
