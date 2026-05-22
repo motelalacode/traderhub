@@ -383,3 +383,119 @@ def get_inventory_summary():
         }
     finally:
         conn.close()
+
+
+def fetch_seo_pages_for_extraction(domain=None, limit=100, offset=0, only_missing=False):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["is_active = 1"]
+        params = []
+        if domain:
+            where_clauses.append("domain = ?")
+            params.append(domain)
+        if only_missing:
+            where_clauses.append("(title IS NULL OR meta_description IS NULL OR h1 IS NULL)")
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT id, url, path, domain, page_type, page_subtype,
+                   canonical_url, robots_directive, index_expected,
+                   index_status, status_code, schema_type, sitemap_group,
+                   last_checked_at
+            FROM seo_pages
+            WHERE {where_sql}
+            ORDER BY domain, path
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [int(limit), int(offset)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def update_seo_page_snapshot(page_id, snapshot):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            UPDATE seo_pages
+            SET title = ?,
+                meta_description = ?,
+                h1 = ?,
+                canonical_url = ?,
+                robots_directive = ?,
+                index_status = ?,
+                status_code = ?,
+                schema_type = ?,
+                last_checked_at = ?
+            WHERE id = ?
+            """,
+            (
+                snapshot.get("title"),
+                snapshot.get("meta_description"),
+                snapshot.get("h1"),
+                snapshot.get("canonical_url"),
+                snapshot.get("robots_directive"),
+                snapshot.get("index_status"),
+                snapshot.get("status_code"),
+                snapshot.get("schema_type"),
+                snapshot.get("last_checked_at"),
+                page_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def get_extraction_summary():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_pages,
+                SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
+                SUM(CASE WHEN last_checked_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_pages
+            FROM seo_pages
+            WHERE is_active = 1
+            """
+        ).fetchone()
+        by_domain = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT domain,
+                       COUNT(*) AS total_pages,
+                       SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                       SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                       SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages
+                FROM seo_pages
+                WHERE is_active = 1
+                GROUP BY domain
+                ORDER BY domain
+                """
+            ).fetchall()
+        ]
+        latest_check = conn.execute(
+            """
+            SELECT id, check_type, started_at, completed_at, status, pages_scanned
+            FROM seo_checks
+            WHERE check_type = 'metadata_extract'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        return {
+            "totals": dict(totals) if totals else {},
+            "by_domain": by_domain,
+            "latest_check": dict(latest_check) if latest_check else None,
+        }
+    finally:
+        conn.close()

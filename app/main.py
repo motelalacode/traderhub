@@ -1,4 +1,5 @@
 import datetime
+import html as html_lib
 import json
 import math
 import csv
@@ -18,12 +19,15 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 from app.seo_manager import (
     bulk_upsert_seo_pages,
     fetch_domain_rules,
+    fetch_seo_pages_for_extraction,
     finish_check,
+    get_extraction_summary,
     get_inventory_summary,
     init_seo_manager_db,
     mark_pages_inactive_except,
     seed_domain_rules,
     start_check,
+    update_seo_page_snapshot,
     upsert_seo_page,
     utcnow_iso,
 )
@@ -18926,6 +18930,144 @@ def run_seo_inventory_diagnostics():
         return diagnostics
 
 
+def _extract_first_match(pattern, text, flags=0, group=1):
+    match = re.search(pattern, text or "", flags)
+    if not match:
+        return ""
+    return (match.group(group) or "").strip()
+
+
+def _clean_extracted_html_text(value):
+    if not value:
+        return ""
+    value = re.sub(r"<[^>]+>", " ", value)
+    value = html_lib.unescape(value)
+    return re.sub(r"\s+", " ", value).strip()
+
+
+def extract_seo_snapshot_from_html(html_text, fallback_url=""):
+    title = _clean_extracted_html_text(
+        _extract_first_match(r"<title[^>]*>(.*?)</title>", html_text, re.IGNORECASE | re.DOTALL)
+    )
+    meta_description = html_lib.unescape(
+        _extract_first_match(
+            r'<meta[^>]+name=["\']description["\'][^>]+content=["\'](.*?)["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        or _extract_first_match(
+            r'<meta[^>]+content=["\'](.*?)["\'][^>]+name=["\']description["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+    ).strip()
+    h1 = _clean_extracted_html_text(
+        _extract_first_match(r"<h1[^>]*>(.*?)</h1>", html_text, re.IGNORECASE | re.DOTALL)
+    )
+    canonical_url = html_lib.unescape(
+        _extract_first_match(
+            r'<link[^>]+rel=["\']canonical["\'][^>]+href=["\'](.*?)["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        or _extract_first_match(
+            r'<link[^>]+href=["\'](.*?)["\'][^>]+rel=["\']canonical["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+    ).strip() or fallback_url
+    robots_directive = html_lib.unescape(
+        _extract_first_match(
+            r'<meta[^>]+name=["\']robots["\'][^>]+content=["\'](.*?)["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        or _extract_first_match(
+            r'<meta[^>]+content=["\'](.*?)["\'][^>]+name=["\']robots["\']',
+            html_text,
+            re.IGNORECASE | re.DOTALL,
+        )
+    ).strip()
+    schema_types = re.findall(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html_text or "",
+        re.IGNORECASE | re.DOTALL,
+    )
+    schema_type = ""
+    for schema_block in schema_types:
+        parsed_type = _extract_first_match(r'"@type"\s*:\s*"(.*?)"', schema_block, re.IGNORECASE | re.DOTALL)
+        if parsed_type:
+            schema_type = parsed_type
+            break
+    index_status = "noindex" if "noindex" in (robots_directive or "").lower() else "index"
+    return {
+        "title": title,
+        "meta_description": meta_description,
+        "h1": h1,
+        "canonical_url": canonical_url,
+        "robots_directive": robots_directive or "index,follow",
+        "index_status": index_status,
+        "schema_type": schema_type or "WebPage",
+    }
+
+
+def fetch_seo_page_snapshot(url):
+    response = requests.get(
+        url,
+        headers={"User-Agent": "TraderHubSeoManager/1.0"},
+        timeout=15,
+    )
+    snapshot = extract_seo_snapshot_from_html(response.text, fallback_url=url)
+    snapshot["status_code"] = response.status_code
+    snapshot["last_checked_at"] = utcnow_iso()
+    return snapshot
+
+
+def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
+    check_id = start_check("metadata_extract", notes=f"Metadata extraction run | domain={domain or 'all'} | limit={limit}")
+    pages_scanned = 0
+    try:
+        page_rows = fetch_seo_pages_for_extraction(domain=domain, limit=limit, only_missing=only_missing)
+        for page_row in page_rows:
+            snapshot = fetch_seo_page_snapshot(page_row["url"])
+            update_seo_page_snapshot(page_row["id"], snapshot)
+            pages_scanned += 1
+        finish_check(
+            check_id,
+            "completed",
+            pages_scanned=pages_scanned,
+            issues_found=0,
+            notes=f"Completed metadata extraction for {pages_scanned} pages.",
+        )
+        summary = get_extraction_summary()
+        summary["pages_scanned"] = pages_scanned
+        summary["domain"] = domain or "all"
+        summary["only_missing"] = bool(only_missing)
+        return summary
+    except BaseException as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=pages_scanned,
+            issues_found=0,
+            notes=f"Metadata extraction failed: {exc}",
+        )
+        raise
+
+
+def run_seo_metadata_debug(url):
+    diagnostics = {"status": "ok", "url": url}
+    try:
+        snapshot = fetch_seo_page_snapshot(url)
+        diagnostics["snapshot"] = snapshot
+        return diagnostics
+    except BaseException as exc:
+        diagnostics["status"] = "error"
+        diagnostics["message"] = str(exc)
+        diagnostics["error_type"] = type(exc).__name__
+        return diagnostics
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -21619,6 +21761,45 @@ def seo_manager_inventory_summary():
 @app.route("/admin/seo-manager/inventory/debug")
 def seo_manager_inventory_debug():
     payload = run_seo_inventory_diagnostics()
+    status_code = 200 if payload.get("status") == "ok" else 500
+    return Response(json.dumps(payload), mimetype="application/json", status=status_code)
+
+
+@app.route("/admin/seo-manager/extractor/run")
+def seo_manager_extractor_run():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 100)), 1000))
+    except Exception:
+        limit = 100
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    only_missing = str(request.args.get("only_missing", "0")).strip().lower() in {"1", "true", "yes"}
+    try:
+        summary = run_seo_metadata_extract(limit=limit, domain=domain, only_missing=only_missing)
+        return jsonify({"status": "ok", "summary": summary})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/extractor/summary")
+def seo_manager_extractor_summary():
+    try:
+        return jsonify({"status": "ok", "summary": get_extraction_summary()})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/extractor/debug")
+def seo_manager_extractor_debug():
+    debug_url = str(request.args.get("url", "") or "").strip()
+    if not debug_url:
+        return Response(
+            json.dumps({"status": "error", "message": "Please provide ?url=https://..."}),
+            mimetype="application/json",
+            status=400,
+        )
+    payload = run_seo_metadata_debug(debug_url)
     status_code = 200 if payload.get("status") == "ok" else 500
     return Response(json.dumps(payload), mimetype="application/json", status=status_code)
 
