@@ -21546,6 +21546,17 @@ def seo_manager_bootstrap():
         return jsonify({"status": "error", "message": str(exc)}), 500
 
 
+@app.route("/admin/seo-manager/ping")
+def seo_manager_ping():
+    return jsonify(
+        {
+            "status": "ok",
+            "component": "seo-manager",
+            "version": "phase1-mvp-2026-05-22-v2",
+        }
+    )
+
+
 @app.route("/admin/seo-manager/inventory/run")
 def seo_manager_inventory_run():
     try:
