@@ -6,6 +6,7 @@ from pathlib import Path
 APP_TZ = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SEO_MANAGER_DB_PATH = DATA_DIR / "seo_manager.db"
+SITEMAP_DIR = DATA_DIR / "sitemaps"
 
 
 SEO_MANAGER_SCHEMA = """
@@ -735,6 +736,64 @@ def fetch_active_issue_pages(issue_type=None, limit=50):
             tuple(params + [int(limit)]),
         ).fetchall()
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def fetch_sitemap_eligible_pages():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            """
+            SELECT url, path, domain, sitemap_group, last_checked_at
+            FROM seo_pages
+            WHERE is_active = 1
+              AND domain = 'traderhub.in'
+              AND sitemap_group IS NOT NULL
+              AND TRIM(sitemap_group) != ''
+              AND index_expected = 'index'
+              AND COALESCE(index_status, 'index') = 'index'
+              AND COALESCE(status_code, 200) = 200
+            ORDER BY sitemap_group, path
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def replace_sitemap_records(sitemap_rows):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM seo_sitemaps")
+        if sitemap_rows:
+            conn.executemany(
+                """
+                INSERT INTO seo_sitemaps (
+                    sitemap_name, domain, sitemap_type, file_path, public_url,
+                    url_count, last_generated_at, status, notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        row["sitemap_name"],
+                        row["domain"],
+                        row["sitemap_type"],
+                        row.get("file_path"),
+                        row.get("public_url"),
+                        int(row.get("url_count", 0)),
+                        row.get("last_generated_at"),
+                        row.get("status", "completed"),
+                        row.get("notes", ""),
+                    )
+                    for row in sitemap_rows
+                ],
+            )
+        conn.commit()
+        return len(sitemap_rows)
     finally:
         conn.close()
 

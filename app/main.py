@@ -23,6 +23,7 @@ from app.seo_manager import (
     fetch_seo_page_by_url,
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
+    fetch_sitemap_eligible_pages,
     finish_check,
     get_dashboard_overview,
     get_extraction_summary,
@@ -36,6 +37,8 @@ from app.seo_manager import (
     mark_pages_inactive_except,
     recompute_health_scores,
     replace_page_issues,
+    replace_sitemap_records,
+    SITEMAP_DIR,
     seed_domain_rules,
     start_check,
     update_seo_page_snapshot,
@@ -19330,6 +19333,110 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
     }
 
 
+def _format_sitemap_lastmod(value):
+    if not value:
+        return get_today_ist().isoformat()
+    try:
+        return datetime.datetime.fromisoformat(str(value)).date().isoformat()
+    except Exception:
+        return get_today_ist().isoformat()
+
+
+def _build_sitemap_xml(url_rows):
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for row in url_rows:
+        lines.append("  <url>")
+        lines.append(f"    <loc>{html_lib.escape(row['url'])}</loc>")
+        lines.append(f"    <lastmod>{_format_sitemap_lastmod(row.get('last_checked_at'))}</lastmod>")
+        lines.append("  </url>")
+    lines.append("</urlset>")
+    return "\n".join(lines)
+
+
+def _build_sitemap_index_xml(sitemap_entries):
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for entry in sitemap_entries:
+        lines.append("  <sitemap>")
+        lines.append(f"    <loc>{html_lib.escape(entry['public_url'])}</loc>")
+        lines.append(f"    <lastmod>{_format_sitemap_lastmod(entry.get('last_generated_at'))}</lastmod>")
+        lines.append("  </sitemap>")
+    lines.append("</sitemapindex>")
+    return "\n".join(lines)
+
+
+def run_seo_sitemap_generation():
+    check_id = start_check("sitemap_build", notes="Generate sitemap XML from eligible public SEO pages")
+    try:
+        eligible_pages = fetch_sitemap_eligible_pages()
+        grouped = {}
+        for row in eligible_pages:
+            grouped.setdefault(row["sitemap_group"], []).append(row)
+
+        SITEMAP_DIR.mkdir(parents=True, exist_ok=True)
+        generated_at = utcnow_iso()
+        sitemap_rows = []
+        for sitemap_group, rows in sorted(grouped.items()):
+            sitemap_name = f"{sitemap_group}.xml"
+            file_path = SITEMAP_DIR / sitemap_name
+            public_url = f"https://traderhub.in/sitemaps/{sitemap_name}"
+            file_path.write_text(_build_sitemap_xml(rows), encoding="utf-8")
+            sitemap_rows.append(
+                {
+                    "sitemap_name": sitemap_name,
+                    "domain": "traderhub.in",
+                    "sitemap_type": sitemap_group,
+                    "file_path": str(file_path),
+                    "public_url": public_url,
+                    "url_count": len(rows),
+                    "last_generated_at": generated_at,
+                    "status": "completed",
+                    "notes": f"Generated from {len(rows)} eligible public URLs.",
+                }
+            )
+
+        index_path = SITEMAP_DIR / "sitemap.xml"
+        index_public_url = "https://traderhub.in/sitemap.xml"
+        index_path.write_text(_build_sitemap_index_xml(sitemap_rows), encoding="utf-8")
+        sitemap_rows.insert(
+            0,
+            {
+                "sitemap_name": "sitemap.xml",
+                "domain": "traderhub.in",
+                "sitemap_type": "index",
+                "file_path": str(index_path),
+                "public_url": index_public_url,
+                "url_count": len(sitemap_rows),
+                "last_generated_at": generated_at,
+                "status": "completed",
+                "notes": "Top-level sitemap index for TraderHub public SEO pages.",
+            },
+        )
+
+        replace_sitemap_records(sitemap_rows)
+        finish_check(
+            check_id,
+            "completed",
+            pages_scanned=len(eligible_pages),
+            issues_found=0,
+            notes=f"Generated {len(sitemap_rows)} sitemap files from {len(eligible_pages)} pages.",
+        )
+        return {
+            "generated_files": len(sitemap_rows),
+            "eligible_pages": len(eligible_pages),
+            "groups": {group: len(rows) for group, rows in sorted(grouped.items())},
+            "records": sitemap_rows,
+        }
+    except BaseException as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=0,
+            issues_found=0,
+            notes=f"Sitemap generation failed: {exc}",
+        )
+        raise
+
+
 SEO_MANAGER_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -22455,9 +22562,36 @@ def seo_manager_sitemaps_screen():
     return render_seo_manager_screen(build_seo_manager_sitemaps_context())
 
 
+@app.route("/admin/seo-manager/sitemaps/run")
+def seo_manager_sitemaps_run():
+    try:
+        summary = run_seo_sitemap_generation()
+        return jsonify({"status": "ok", "summary": summary})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
 @app.route("/admin/seo-manager/metadata")
 def seo_manager_metadata_screen():
     return render_seo_manager_screen(build_seo_manager_metadata_context())
+
+
+@app.route("/sitemap.xml")
+def public_sitemap_index():
+    sitemap_path = SITEMAP_DIR / "sitemap.xml"
+    if not sitemap_path.exists():
+        return Response("Sitemap index has not been generated yet.", mimetype="text/plain", status=404)
+    return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
+
+
+@app.route("/sitemaps/<sitemap_name>")
+def public_sitemap_file(sitemap_name):
+    safe_name = Path(str(sitemap_name)).name
+    sitemap_path = SITEMAP_DIR / safe_name
+    if not sitemap_path.exists():
+        return Response("Sitemap file not found.", mimetype="text/plain", status=404)
+    return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
 
 
 @app.route("/admin/seo-manager/inventory/run")
