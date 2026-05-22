@@ -20,11 +20,15 @@ from app.seo_manager import (
     bulk_upsert_seo_pages,
     fetch_domain_rules,
     fetch_seo_pages_for_extraction,
+    fetch_seo_pages_for_issue_detection,
     finish_check,
     get_extraction_summary,
     get_inventory_summary,
+    get_issue_summary,
     init_seo_manager_db,
     mark_pages_inactive_except,
+    recompute_health_scores,
+    replace_page_issues,
     seed_domain_rules,
     start_check,
     update_seo_page_snapshot,
@@ -19147,6 +19151,149 @@ def run_seo_metadata_debug(url):
         return diagnostics
 
 
+def build_seo_issue_records(page_row):
+    issues = []
+    detected_at = utcnow_iso()
+    page_label = page_row.get("url") or page_row.get("path") or "page"
+    title = str(page_row.get("title") or "").strip()
+    meta_description = str(page_row.get("meta_description") or "").strip()
+    h1 = str(page_row.get("h1") or "").strip()
+    canonical_url = str(page_row.get("canonical_url") or "").strip()
+    status_code = page_row.get("status_code")
+    expected_canonical_domain = "traderhub.in" if page_row.get("domain") == "traderhub.in" else None
+
+    if not title:
+        issues.append(
+            {
+                "issue_type": "missing_title",
+                "severity": "high",
+                "message": f"{page_label} is missing a <title> tag.",
+                "detected_at": detected_at,
+            }
+        )
+    if not meta_description:
+        issues.append(
+            {
+                "issue_type": "missing_meta_description",
+                "severity": "medium",
+                "message": f"{page_label} is missing a meta description.",
+                "detected_at": detected_at,
+            }
+        )
+    if not h1:
+        issues.append(
+            {
+                "issue_type": "missing_h1",
+                "severity": "medium",
+                "message": f"{page_label} is missing an H1 heading.",
+                "detected_at": detected_at,
+            }
+        )
+    if not canonical_url:
+        issues.append(
+            {
+                "issue_type": "missing_canonical",
+                "severity": "medium",
+                "message": f"{page_label} is missing a canonical URL.",
+                "detected_at": detected_at,
+            }
+        )
+    elif expected_canonical_domain and expected_canonical_domain not in canonical_url:
+        issues.append(
+            {
+                "issue_type": "canonical_mismatch",
+                "severity": "high",
+                "message": f"{page_label} should canonicalize to {expected_canonical_domain}, but currently points to {canonical_url}.",
+                "detected_at": detected_at,
+            }
+        )
+    if page_row.get("domain") == "traderhub.in" and status_code not in (200, None):
+        issues.append(
+            {
+                "issue_type": "non_200_public_page",
+                "severity": "high",
+                "message": f"{page_label} returned HTTP {status_code}.",
+                "detected_at": detected_at,
+            }
+        )
+    return issues
+
+
+def run_seo_issue_detection(limit=100, domain=None, only_checked=True, profile="public-core"):
+    profile_map = get_seo_extractor_profiles()
+    selected_page_types = profile_map.get(profile, profile_map["public-core"])
+    check_id = start_check(
+        "issue_detect",
+        notes=f"Issue detection run | domain={domain or 'all'} | limit={limit} | profile={profile}",
+    )
+    try:
+        page_rows = fetch_seo_pages_for_issue_detection(
+            domain=domain,
+            limit=limit,
+            only_checked=only_checked,
+            page_types=selected_page_types or None,
+        )
+        issue_map = {}
+        issue_total = 0
+        pages_with_issues = 0
+        page_ids = []
+        for page_row in page_rows:
+            issues = build_seo_issue_records(page_row)
+            issue_map[page_row["id"]] = issues
+            page_ids.append(page_row["id"])
+            if issues:
+                pages_with_issues += 1
+                issue_total += len(issues)
+
+        replace_page_issues(issue_map)
+        recompute_health_scores(page_ids=page_ids)
+        finish_check(
+            check_id,
+            "completed",
+            pages_scanned=len(page_rows),
+            issues_found=issue_total,
+            notes=f"Issue detection completed for {len(page_rows)} pages with {issue_total} active issues.",
+        )
+        summary = get_issue_summary()
+        summary["pages_scanned"] = len(page_rows)
+        summary["pages_with_issues"] = pages_with_issues
+        summary["domain"] = domain or "all"
+        summary["profile"] = profile
+        summary["page_types"] = selected_page_types
+        return summary
+    except BaseException as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=0,
+            issues_found=0,
+            notes=f"Issue detection failed: {exc}",
+        )
+        raise
+
+
+def run_seo_issue_debug(url):
+    diagnostics = {"status": "ok", "url": url}
+    try:
+        parsed = urllib.parse.urlparse(url)
+        path = parsed.path or "/"
+        page_row = {
+            "url": url,
+            "path": path,
+            "domain": parsed.netloc or "traderhub.in",
+        }
+        snapshot = fetch_internal_seo_page_snapshot(page_row)
+        page_row.update(snapshot)
+        diagnostics["issues"] = build_seo_issue_records(page_row)
+        diagnostics["snapshot"] = snapshot
+        return diagnostics
+    except BaseException as exc:
+        diagnostics["status"] = "error"
+        diagnostics["message"] = str(exc)
+        diagnostics["error_type"] = type(exc).__name__
+        return diagnostics
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -21880,6 +22027,46 @@ def seo_manager_extractor_debug():
             status=400,
         )
     payload = run_seo_metadata_debug(debug_url)
+    status_code = 200 if payload.get("status") == "ok" else 500
+    return Response(json.dumps(payload), mimetype="application/json", status=status_code)
+
+
+@app.route("/admin/seo-manager/issues/run")
+def seo_manager_issues_run():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 25)), 250))
+    except Exception:
+        limit = 25
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    only_checked = str(request.args.get("only_checked", "1")).strip().lower() in {"1", "true", "yes"}
+    profile = str(request.args.get("profile", "public-core") or "public-core").strip().lower()
+    try:
+        summary = run_seo_issue_detection(limit=limit, domain=domain, only_checked=only_checked, profile=profile)
+        return jsonify({"status": "ok", "summary": summary})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/issues/summary")
+def seo_manager_issues_summary():
+    try:
+        return jsonify({"status": "ok", "summary": get_issue_summary()})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/issues/debug")
+def seo_manager_issues_debug():
+    debug_url = str(request.args.get("url", "") or "").strip()
+    if not debug_url:
+        return Response(
+            json.dumps({"status": "error", "message": "Please provide ?url=https://..."}),
+            mimetype="application/json",
+            status=400,
+        )
+    payload = run_seo_issue_debug(debug_url)
     status_code = 200 if payload.get("status") == "ok" else 500
     return Response(json.dumps(payload), mimetype="application/json", status=status_code)
 

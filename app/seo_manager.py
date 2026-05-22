@@ -503,3 +503,186 @@ def get_extraction_summary():
         }
     finally:
         conn.close()
+
+
+def fetch_seo_pages_for_issue_detection(domain=None, limit=100, offset=0, only_checked=True, page_types=None):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["is_active = 1"]
+        params = []
+        if domain:
+            where_clauses.append("domain = ?")
+            params.append(domain)
+        if only_checked:
+            where_clauses.append("last_checked_at IS NOT NULL")
+        if page_types:
+            placeholders = ",".join("?" for _ in page_types)
+            where_clauses.append(f"page_type IN ({placeholders})")
+            params.extend(page_types)
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT id, url, path, domain, page_type, page_subtype,
+                   title, meta_description, h1, canonical_url,
+                   robots_directive, index_expected, index_status,
+                   status_code, schema_type, sitemap_group,
+                   last_checked_at, health_score
+            FROM seo_pages
+            WHERE {where_sql}
+            ORDER BY domain, path
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [int(limit), int(offset)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def replace_page_issues(issue_map):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        page_ids = [int(page_id) for page_id in issue_map.keys()]
+        if page_ids:
+            placeholders = ",".join("?" for _ in page_ids)
+            conn.execute(
+                f"DELETE FROM seo_issues WHERE page_id IN ({placeholders}) AND status = 'active'",
+                tuple(page_ids),
+            )
+        issue_rows = []
+        for page_id, issues in issue_map.items():
+            for issue in issues:
+                issue_rows.append(
+                    (
+                        int(page_id),
+                        issue["issue_type"],
+                        issue["severity"],
+                        "active",
+                        issue["message"],
+                        issue["detected_at"],
+                        None,
+                    )
+                )
+        if issue_rows:
+            conn.executemany(
+                """
+                INSERT INTO seo_issues (
+                    page_id, issue_type, severity, status, message, detected_at, resolved_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                issue_rows,
+            )
+        conn.commit()
+        return len(issue_rows)
+    finally:
+        conn.close()
+
+
+def recompute_health_scores(page_ids=None):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        params = []
+        if page_ids:
+            placeholders = ",".join("?" for _ in page_ids)
+            page_rows = conn.execute(
+                f"SELECT id FROM seo_pages WHERE id IN ({placeholders})",
+                tuple(page_ids),
+            ).fetchall()
+        else:
+            page_rows = conn.execute("SELECT id FROM seo_pages WHERE is_active = 1").fetchall()
+
+        updated = 0
+        for row in page_rows:
+            page_id = int(row["id"])
+            severity_rows = conn.execute(
+                """
+                SELECT severity, COUNT(*) AS issue_count
+                FROM seo_issues
+                WHERE page_id = ? AND status = 'active'
+                GROUP BY severity
+                """,
+                (page_id,),
+            ).fetchall()
+            score = 100
+            for sev_row in severity_rows:
+                severity = sev_row["severity"]
+                count = int(sev_row["issue_count"])
+                if severity == "high":
+                    score -= 20 * count
+                elif severity == "medium":
+                    score -= 10 * count
+                else:
+                    score -= 5 * count
+            score = max(0, score)
+            conn.execute(
+                "UPDATE seo_pages SET health_score = ? WHERE id = ?",
+                (score, page_id),
+            )
+            updated += 1
+        conn.commit()
+        return updated
+    finally:
+        conn.close()
+
+
+def get_issue_summary():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS active_issues,
+                COUNT(DISTINCT page_id) AS issue_pages,
+                SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS high_severity,
+                SUM(CASE WHEN severity = 'medium' THEN 1 ELSE 0 END) AS medium_severity,
+                SUM(CASE WHEN severity = 'low' THEN 1 ELSE 0 END) AS low_severity
+            FROM seo_issues
+            WHERE status = 'active'
+            """
+        ).fetchone()
+        by_type = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT issue_type, severity, COUNT(*) AS issue_count
+                FROM seo_issues
+                WHERE status = 'active'
+                GROUP BY issue_type, severity
+                ORDER BY issue_count DESC, issue_type
+                """
+            ).fetchall()
+        ]
+        latest_check = conn.execute(
+            """
+            SELECT id, check_type, started_at, completed_at, status, pages_scanned, issues_found
+            FROM seo_checks
+            WHERE check_type = 'issue_detect'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        lowest_health = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT url, domain, page_type, health_score
+                FROM seo_pages
+                WHERE is_active = 1
+                ORDER BY health_score ASC, domain, path
+                LIMIT 20
+                """
+            ).fetchall()
+        ]
+        return {
+            "totals": dict(totals) if totals else {},
+            "by_type": by_type,
+            "latest_check": dict(latest_check) if latest_check else None,
+            "lowest_health": lowest_health,
+        }
+    finally:
+        conn.close()
