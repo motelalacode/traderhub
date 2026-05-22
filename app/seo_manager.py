@@ -1354,10 +1354,11 @@ def get_crawlability_overview(limit=100):
                 LEFT JOIN seo_pages tp ON tp.url = cl.to_url AND tp.is_active = 1
                 WHERE sp.is_active = 1
                   AND sp.domain = 'traderhub.in'
-                  AND (
-                    tp.id IS NULL
-                    OR (tp.status_code IS NOT NULL AND tp.status_code != 200)
-                  )
+                  AND tp.id IS NOT NULL
+                  AND tp.domain = 'traderhub.in'
+                  AND tp.index_expected = 'index'
+                  AND tp.status_code IS NOT NULL
+                  AND tp.status_code != 200
                 ORDER BY cl.checked_at DESC, cl.from_url, cl.to_url
                 LIMIT ?
                 """,
@@ -1381,7 +1382,16 @@ def get_crawlability_overview(limit=100):
                   AND p.domain = 'traderhub.in'
                   AND p.index_expected = 'index'
                   AND p.last_checked_at IS NOT NULL
-                  AND p.page_type NOT IN ('ipo_hub', 'sector_hub', 'trend_hub', 'archive_hub', 'derivatives_hub')
+                  AND p.page_type NOT IN (
+                    'ipo_hub',
+                    'sector_hub',
+                    'trend_hub',
+                    'archive_hub',
+                    'derivatives_hub',
+                    'stock',
+                    'stock_archive',
+                    'stock_news'
+                  )
                 GROUP BY p.id
                 HAVING COUNT(sp.id) = 0
                 ORDER BY p.path
