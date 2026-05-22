@@ -19420,7 +19420,7 @@ SEO_MANAGER_TEMPLATE = """
         <div style="margin-bottom:16px;">
           <h3>{{ block.title }}</h3>
           <div class="mini-list">
-            {% for item in block.items %}
+            {% for item in block["items"] %}
             <div class="mini-row">{{ item|safe }}</div>
             {% endfor %}
           </div>
