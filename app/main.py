@@ -18886,6 +18886,47 @@ def run_seo_inventory_scan():
     return summary
 
 
+def run_seo_inventory_diagnostics():
+    diagnostics = {"status": "ok", "steps": []}
+    try:
+        init_seo_manager_db()
+        diagnostics["steps"].append({"step": "init_db", "status": "ok"})
+
+        seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
+        diagnostics["steps"].append(
+            {"step": "seed_domain_rules", "status": "ok", "seeded_rule_count": seeded_rule_count}
+        )
+
+        inventory_rows = build_known_seo_inventory()
+        diagnostics["steps"].append(
+            {
+                "step": "build_inventory",
+                "status": "ok",
+                "row_count": len(inventory_rows),
+                "sample_urls": [row["url"] for row in inventory_rows[:5]],
+            }
+        )
+
+        seen_urls = []
+        for row in inventory_rows[:25]:
+            upsert_seo_page(row)
+            seen_urls.append(row["url"])
+        diagnostics["steps"].append(
+            {"step": "upsert_sample_pages", "status": "ok", "sample_upserts": len(seen_urls)}
+        )
+
+        mark_pages_inactive_except(seen_urls)
+        diagnostics["steps"].append({"step": "mark_pages_inactive_except", "status": "ok"})
+
+        diagnostics["summary"] = get_inventory_summary()
+        return diagnostics
+    except BaseException as exc:
+        diagnostics["status"] = "error"
+        diagnostics["message"] = str(exc)
+        diagnostics["error_type"] = type(exc).__name__
+        return diagnostics
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -21562,16 +21603,25 @@ def seo_manager_inventory_run():
     try:
         summary = run_seo_inventory_scan()
         return jsonify({"status": "ok", "summary": summary})
-    except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
 
 
 @app.route("/admin/seo-manager/inventory/summary")
 def seo_manager_inventory_summary():
     try:
         return jsonify({"status": "ok", "summary": get_inventory_summary()})
-    except Exception as exc:
-        return jsonify({"status": "error", "message": str(exc)}), 500
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/inventory/debug")
+def seo_manager_inventory_debug():
+    payload = run_seo_inventory_diagnostics()
+    status_code = 200 if payload.get("status") == "ok" else 500
+    return Response(json.dumps(payload), mimetype="application/json", status=status_code)
 
 
 @app.route("/api/equity-ohlc")
