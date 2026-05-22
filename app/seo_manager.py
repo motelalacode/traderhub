@@ -385,7 +385,7 @@ def get_inventory_summary():
         conn.close()
 
 
-def fetch_seo_pages_for_extraction(domain=None, limit=100, offset=0, only_missing=False):
+def fetch_seo_pages_for_extraction(domain=None, limit=100, offset=0, only_missing=False, page_types=None):
     init_seo_manager_db()
     conn = get_connection()
     try:
@@ -396,6 +396,10 @@ def fetch_seo_pages_for_extraction(domain=None, limit=100, offset=0, only_missin
             params.append(domain)
         if only_missing:
             where_clauses.append("(title IS NULL OR meta_description IS NULL OR h1 IS NULL)")
+        if page_types:
+            placeholders = ",".join("?" for _ in page_types)
+            where_clauses.append(f"page_type IN ({placeholders})")
+            params.extend(page_types)
         where_sql = " AND ".join(where_clauses)
         rows = conn.execute(
             f"""

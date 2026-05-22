@@ -19023,6 +19023,31 @@ def fetch_seo_page_snapshot(url):
     return snapshot
 
 
+def get_seo_extractor_profiles():
+    return {
+        "safe": [
+            "ipo_hub",
+            "ipo_list",
+            "ipo",
+            "trend_hub",
+            "trend",
+            "sector_hub",
+        ],
+        "public-core": [
+            "ipo_hub",
+            "ipo_list",
+            "ipo",
+            "trend_hub",
+            "trend",
+            "sector_hub",
+            "archive_hub",
+            "archive",
+            "sector_archive",
+        ],
+        "full": [],
+    }
+
+
 def fetch_internal_seo_page_snapshot(page_row):
     with app.test_client() as client:
         response = client.get(
@@ -19040,12 +19065,22 @@ def fetch_internal_seo_page_snapshot(page_row):
     return snapshot
 
 
-def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
-    check_id = start_check("metadata_extract", notes=f"Metadata extraction run | domain={domain or 'all'} | limit={limit}")
+def run_seo_metadata_extract(limit=100, domain=None, only_missing=False, profile="safe"):
+    check_id = start_check(
+        "metadata_extract",
+        notes=f"Metadata extraction run | domain={domain or 'all'} | limit={limit} | profile={profile}",
+    )
     pages_scanned = 0
     failures = 0
     try:
-        page_rows = fetch_seo_pages_for_extraction(domain=domain, limit=limit, only_missing=only_missing)
+        profile_map = get_seo_extractor_profiles()
+        selected_page_types = profile_map.get(profile, profile_map["safe"])
+        page_rows = fetch_seo_pages_for_extraction(
+            domain=domain,
+            limit=limit,
+            only_missing=only_missing,
+            page_types=selected_page_types or None,
+        )
         for page_row in page_rows:
             try:
                 snapshot = fetch_internal_seo_page_snapshot(page_row)
@@ -19076,6 +19111,8 @@ def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
         summary["failures"] = failures
         summary["domain"] = domain or "all"
         summary["only_missing"] = bool(only_missing)
+        summary["profile"] = profile
+        summary["page_types"] = selected_page_types
         return summary
     except BaseException as exc:
         finish_check(
@@ -21810,13 +21847,14 @@ def seo_manager_inventory_debug():
 @app.route("/admin/seo-manager/extractor/run")
 def seo_manager_extractor_run():
     try:
-        limit = max(1, min(int(request.args.get("limit", 100)), 1000))
+        limit = max(1, min(int(request.args.get("limit", 25)), 250))
     except Exception:
-        limit = 100
+        limit = 25
     domain = str(request.args.get("domain", "") or "").strip() or None
     only_missing = str(request.args.get("only_missing", "0")).strip().lower() in {"1", "true", "yes"}
+    profile = str(request.args.get("profile", "safe") or "safe").strip().lower()
     try:
-        summary = run_seo_metadata_extract(limit=limit, domain=domain, only_missing=only_missing)
+        summary = run_seo_metadata_extract(limit=limit, domain=domain, only_missing=only_missing, profile=profile)
         return jsonify({"status": "ok", "summary": summary})
     except BaseException as exc:
         payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
