@@ -21531,27 +21531,36 @@ def derivatives_futures_buildup():
 
 @app.route("/admin/seo-manager/bootstrap")
 def seo_manager_bootstrap():
-    init_seo_manager_db()
-    seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
-    return jsonify(
-        {
-            "status": "ok",
-            "seeded_rule_count": seeded_rule_count,
-            "rules": fetch_domain_rules(),
-            "inventory_summary": get_inventory_summary(),
-        }
-    )
+    try:
+        init_seo_manager_db()
+        seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
+        return jsonify(
+            {
+                "status": "ok",
+                "seeded_rule_count": seeded_rule_count,
+                "rules": fetch_domain_rules(),
+                "inventory_summary": get_inventory_summary(),
+            }
+        )
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/admin/seo-manager/inventory/run")
 def seo_manager_inventory_run():
-    summary = run_seo_inventory_scan()
-    return jsonify({"status": "ok", "summary": summary})
+    try:
+        summary = run_seo_inventory_scan()
+        return jsonify({"status": "ok", "summary": summary})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/admin/seo-manager/inventory/summary")
 def seo_manager_inventory_summary():
-    return jsonify({"status": "ok", "summary": get_inventory_summary()})
+    try:
+        return jsonify({"status": "ok", "summary": get_inventory_summary()})
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 
 @app.route("/api/equity-ohlc")

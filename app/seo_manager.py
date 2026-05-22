@@ -258,11 +258,18 @@ def mark_pages_inactive_except(seen_urls):
             conn.execute("UPDATE seo_pages SET is_active = 0")
             conn.commit()
             return
-        placeholders = ",".join("?" for _ in seen_urls)
-        conn.execute(
-            f"UPDATE seo_pages SET is_active = 0 WHERE url NOT IN ({placeholders})",
-            tuple(seen_urls),
-        )
+
+        # SQLite has a variable limit, so we reset active flags first and then
+        # reactivate current inventory rows in manageable chunks.
+        conn.execute("UPDATE seo_pages SET is_active = 0")
+        chunk_size = 500
+        for start in range(0, len(seen_urls), chunk_size):
+            batch = seen_urls[start : start + chunk_size]
+            placeholders = ",".join("?" for _ in batch)
+            conn.execute(
+                f"UPDATE seo_pages SET is_active = 1 WHERE url IN ({placeholders})",
+                tuple(batch),
+            )
         conn.commit()
     finally:
         conn.close()
