@@ -35,8 +35,10 @@ from app.seo_manager import (
     get_issue_summary,
     list_seo_issues,
     get_metadata_overview,
+    get_news_manager_overview,
     get_sitemaps_overview,
     init_seo_manager_db,
+    list_news_manager_pages,
     list_seo_pages,
     mark_pages_inactive_except,
     recompute_health_scores,
@@ -19799,6 +19801,15 @@ def get_seo_manager_nav_items():
     ]
 
 
+def get_news_manager_nav_items():
+    return [
+        {"label": "Dashboard", "href": "/admin/news-manager"},
+        {"label": "Live", "href": "/admin/news-manager/live"},
+        {"label": "Trends", "href": "/admin/news-manager/trends"},
+        {"label": "Archive", "href": "/admin/news-manager/archive"},
+    ]
+
+
 def _seo_health_badge(score):
     score = int(score or 0)
     if score >= 90:
@@ -20313,6 +20324,231 @@ def build_seo_manager_crawlability_context():
                     'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
                 ],
             },
+        ],
+    }
+
+
+def build_news_manager_dashboard_context():
+    data = get_news_manager_overview(limit=20)
+    totals = data.get("totals", {})
+    latest_check = data.get("latest_check") or {}
+    return {
+        "page_title": "News Manager Dashboard | TraderHub",
+        "page_description": "News Manager dashboard for TraderHub public market and archive pages.",
+        "breadcrumb_text": "Admin > News Manager",
+        "breadcrumb_meta_text": f'Phase 1A | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "News Manager Dashboard",
+        "hero_subtitle": "A lightweight control room for the public live layer, trend pages, and archive system without introducing a second storage model too early.",
+        "kpis": [
+            {"label": "Content Pages", "value": totals.get("total_pages", 0)},
+            {"label": "Live Layer", "value": totals.get("live_pages", 0)},
+            {"label": "Trend Pages", "value": totals.get("trend_pages", 0)},
+            {"label": "Archive Pages", "value": totals.get("archive_pages", 0)},
+            {"label": "Reviewed Pages", "value": totals.get("reviewed_pages", 0)},
+            {"label": "Weak Pages", "value": totals.get("weak_pages", 0)},
+            {"label": "Non-200", "value": totals.get("non_200_pages", 0)},
+            {"label": "Latest Check", "value": latest_check.get("check_type") or "-"},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager",
+        "sections": [
+            {
+                "title": "Needs Review",
+                "note": "These public news-layer pages currently have issues, weak health, or non-200 responses and deserve the fastest editorial or technical review.",
+                "columns": ["URL", "Type", "Status", "Issues", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        row.get("status_code") or "-",
+                        row.get("active_issue_count", 0),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in data.get("needs_review", [])
+                ],
+                "filters": [],
+            },
+            {
+                "title": "Issue Breakdown",
+                "note": "This keeps the manager practical by showing whether weakness is concentrated in response problems, metadata gaps, or a small repeated issue family.",
+                "columns": ["Issue Type", "Severity", "Count"],
+                "rows": [
+                    [row["issue_type"], _seo_severity_badge(row["severity"]), row["issue_count"]]
+                    for row in data.get("issues", [])
+                ],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Page Groups",
+                "items": [
+                    f'{row["page_type"]}: {row["page_count"]} pages | {row["weak_pages"]} weak'
+                    for row in data.get("by_type", [])
+                ] or ["No news-layer page groups recorded yet."],
+            },
+            {
+                "title": "Quick Actions",
+                "items": [
+                    'Review live pages: <span class="mono">/admin/news-manager/live</span>',
+                    'Review trends: <span class="mono">/admin/news-manager/trends</span>',
+                    'Review archive: <span class="mono">/admin/news-manager/archive</span>',
+                ],
+            },
+        ],
+    }
+
+
+def build_news_manager_live_context():
+    rows = list_news_manager_pages(["market_news", "alerts_prep", "stock_news"], limit=120)
+    return {
+        "page_title": "News Manager Live Layer | TraderHub",
+        "page_description": "Live market and alert-track review for TraderHub.",
+        "breadcrumb_text": "Admin > News Manager > Live",
+        "breadcrumb_meta_text": f'Live review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Live Layer Review",
+        "hero_subtitle": "This screen keeps the market-hours surface honest: live movers, sector news, stock why-moving pages, and alert tracks.",
+        "kpis": [
+            {"label": "Rows", "value": len(rows)},
+            {"label": "Market News", "value": len([row for row in rows if row["page_type"] == "market_news"])},
+            {"label": "Alerts Prep", "value": len([row for row in rows if row["page_type"] == "alerts_prep"])},
+            {"label": "Why Moving", "value": len([row for row in rows if row["page_type"] == "stock_news"])},
+            {"label": "Weak Rows", "value": len([row for row in rows if row["health_score"] < 100])},
+            {"label": "Non-200", "value": len([row for row in rows if (row.get("status_code") or 200) != 200])},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager/live",
+        "sections": [
+            {
+                "title": "Live Public Pages",
+                "note": "Use this table to spot weak live pages first, then jump into the underlying public route or the SEO Manager if the problem is structural.",
+                "columns": ["URL", "Type", "Title", "Status", "Issues", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        html_lib.escape(row.get("title") or "-"),
+                        row.get("status_code") or "-",
+                        row.get("active_issue_count", 0),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1A Rule",
+                "items": [
+                    "This screen stays lightweight on purpose: it uses the existing page inventory and issue state before introducing a dedicated content snapshot table.",
+                    "Weak rows here should usually be cross-checked with SEO Manager issues or crawlability before deeper content tooling is added.",
+                ],
+            }
+        ],
+    }
+
+
+def build_news_manager_trends_context():
+    rows = list_news_manager_pages(["trend", "trend_hub"], limit=80)
+    return {
+        "page_title": "News Manager Trends | TraderHub",
+        "page_description": "Trend page review for TraderHub.",
+        "breadcrumb_text": "Admin > News Manager > Trends",
+        "breadcrumb_meta_text": f'Trend review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Trend Manager",
+        "hero_subtitle": "This screen keeps grouped market themes useful instead of hollow by showing the public trend pages and any current technical weakness.",
+        "kpis": [
+            {"label": "Rows", "value": len(rows)},
+            {"label": "Trend Groups", "value": len([row for row in rows if row["page_type"] == "trend"])},
+            {"label": "Trend Hubs", "value": len([row for row in rows if row["page_type"] == "trend_hub"])},
+            {"label": "Weak Rows", "value": len([row for row in rows if row["health_score"] < 100])},
+            {"label": "Non-200", "value": len([row for row in rows if (row.get("status_code") or 200) != 200])},
+            {"label": "Missing Meta", "value": len([row for row in rows if not row.get("meta_description")])},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager/trends",
+        "sections": [
+            {
+                "title": "Trend Pages",
+                "note": "Trend pages should stay compact and revisitable. This table surfaces technical weakness first; deeper trend-quality metrics can come once a dedicated snapshot table exists.",
+                "columns": ["URL", "Subtype", "Title", "Status", "Issues", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        row.get("page_subtype") or row["page_type"],
+                        html_lib.escape(row.get("title") or "-"),
+                        row.get("status_code") or "-",
+                        row.get("active_issue_count", 0),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Review Goal",
+                "items": [
+                    "Empty or broken trend pages should be addressed first.",
+                    "Once the page set is stable, the next layer can add repeated-symbol and weak-group logic.",
+                ],
+            }
+        ],
+    }
+
+
+def build_news_manager_archive_context():
+    rows = list_news_manager_pages(["archive", "archive_hub", "stock_archive", "sector_archive"], limit=140)
+    return {
+        "page_title": "News Manager Archive | TraderHub",
+        "page_description": "Archive page review for TraderHub.",
+        "breadcrumb_text": "Admin > News Manager > Archive",
+        "breadcrumb_meta_text": f'Archive review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Archive Manager",
+        "hero_subtitle": "This screen helps you watch archive depth and stability across market day pages, stock archives, and sector archives.",
+        "kpis": [
+            {"label": "Rows", "value": len(rows)},
+            {"label": "Market Day", "value": len([row for row in rows if row["page_type"] == "archive"])},
+            {"label": "Archive Hubs", "value": len([row for row in rows if row["page_type"] == "archive_hub"])},
+            {"label": "Stock Archives", "value": len([row for row in rows if row["page_type"] == "stock_archive"])},
+            {"label": "Sector Archives", "value": len([row for row in rows if row["page_type"] == "sector_archive"])},
+            {"label": "Weak Rows", "value": len([row for row in rows if row["health_score"] < 100])},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager/archive",
+        "sections": [
+            {
+                "title": "Archive Pages",
+                "note": "Archive management is still technical in Phase 1A: this view tells you which archive pages exist, whether they are reachable, and whether they already carry technical weakness.",
+                "columns": ["URL", "Type", "Title", "Status", "Issues", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        html_lib.escape(row.get("title") or "-"),
+                        row.get("status_code") or "-",
+                        row.get("active_issue_count", 0),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1A Rule",
+                "items": [
+                    "Archive depth is judged by page coverage and stability first.",
+                    "A later snapshot layer can add shell-only detection, story counts, and summary coverage without replacing this screen.",
+                ],
+            }
         ],
     }
 
@@ -23218,6 +23454,26 @@ def seo_manager_issues_screen():
 @app.route("/admin/seo-manager/crawlability")
 def seo_manager_crawlability_screen():
     return render_seo_manager_screen(build_seo_manager_crawlability_context())
+
+
+@app.route("/admin/news-manager")
+def news_manager_dashboard():
+    return render_seo_manager_screen(build_news_manager_dashboard_context())
+
+
+@app.route("/admin/news-manager/live")
+def news_manager_live_screen():
+    return render_seo_manager_screen(build_news_manager_live_context())
+
+
+@app.route("/admin/news-manager/trends")
+def news_manager_trends_screen():
+    return render_seo_manager_screen(build_news_manager_trends_context())
+
+
+@app.route("/admin/news-manager/archive")
+def news_manager_archive_screen():
+    return render_seo_manager_screen(build_news_manager_archive_context())
 
 
 @app.route("/sitemap.xml")

@@ -1430,3 +1430,139 @@ def get_crawlability_overview(limit=100):
         }
     finally:
         conn.close()
+
+
+def get_news_manager_overview(limit=100):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        content_page_types = (
+            "market_news",
+            "alerts_prep",
+            "stock_news",
+            "trend",
+            "trend_hub",
+            "archive",
+            "archive_hub",
+            "stock_archive",
+            "sector_archive",
+        )
+        placeholders = ",".join("?" for _ in content_page_types)
+        totals = conn.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total_pages,
+                SUM(CASE WHEN page_type IN ('market_news', 'alerts_prep', 'stock_news') THEN 1 ELSE 0 END) AS live_pages,
+                SUM(CASE WHEN page_type IN ('trend', 'trend_hub') THEN 1 ELSE 0 END) AS trend_pages,
+                SUM(CASE WHEN page_type IN ('archive', 'archive_hub', 'stock_archive', 'sector_archive') THEN 1 ELSE 0 END) AS archive_pages,
+                SUM(CASE WHEN last_checked_at IS NOT NULL THEN 1 ELSE 0 END) AS reviewed_pages,
+                SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS weak_pages,
+                SUM(CASE WHEN status_code IS NOT NULL AND status_code != 200 THEN 1 ELSE 0 END) AS non_200_pages
+            FROM seo_pages
+            WHERE is_active = 1
+              AND domain = 'traderhub.in'
+              AND page_type IN ({placeholders})
+            """,
+            content_page_types,
+        ).fetchone()
+        by_type = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT page_type, COUNT(*) AS page_count,
+                       SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS weak_pages
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND domain = 'traderhub.in'
+                  AND page_type IN ({placeholders})
+                GROUP BY page_type
+                ORDER BY page_count DESC, page_type
+                """
+                ,
+                content_page_types,
+            ).fetchall()
+        ]
+        issue_rows = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT i.issue_type, i.severity, COUNT(*) AS issue_count
+                FROM seo_issues i
+                JOIN seo_pages p ON p.id = i.page_id
+                WHERE i.status = 'active'
+                  AND p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.page_type IN ({placeholders})
+                GROUP BY i.issue_type, i.severity
+                ORDER BY issue_count DESC, i.issue_type
+                LIMIT 20
+                """,
+                content_page_types,
+            ).fetchall()
+        ]
+        needs_review = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT p.url, p.page_type, p.page_subtype, p.health_score, p.status_code, p.last_checked_at,
+                       COUNT(i.id) AS active_issue_count
+                FROM seo_pages p
+                LEFT JOIN seo_issues i
+                  ON i.page_id = p.id AND i.status = 'active'
+                WHERE p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.page_type IN ({placeholders})
+                GROUP BY p.id
+                HAVING p.health_score < 100
+                    OR COALESCE(p.status_code, 200) != 200
+                ORDER BY p.health_score ASC, p.path
+                LIMIT ?
+                """,
+                tuple(content_page_types) + (int(limit),),
+            ).fetchall()
+        ]
+        latest_check = conn.execute(
+            """
+            SELECT id, check_type, started_at, completed_at, status, pages_scanned, issues_found
+            FROM seo_checks
+            WHERE check_type IN ('metadata_extract', 'issue_detect', 'crawlability_scan')
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        return {
+            "totals": dict(totals) if totals else {},
+            "by_type": by_type,
+            "issues": issue_rows,
+            "needs_review": needs_review,
+            "latest_check": dict(latest_check) if latest_check else None,
+        }
+    finally:
+        conn.close()
+
+
+def list_news_manager_pages(page_types, limit=100):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        placeholders = ",".join("?" for _ in page_types)
+        rows = conn.execute(
+            f"""
+            SELECT p.url, p.page_type, p.page_subtype, p.title, p.meta_description,
+                   p.status_code, p.health_score, p.last_checked_at,
+                   COUNT(i.id) AS active_issue_count
+            FROM seo_pages p
+            LEFT JOIN seo_issues i
+              ON i.page_id = p.id AND i.status = 'active'
+            WHERE p.is_active = 1
+              AND p.domain = 'traderhub.in'
+              AND p.page_type IN ({placeholders})
+            GROUP BY p.id
+            ORDER BY p.health_score ASC, p.path
+            LIMIT ?
+            """,
+            tuple(page_types) + (int(limit),),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
