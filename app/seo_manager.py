@@ -635,7 +635,7 @@ def count_seo_pages_for_link_scan(domain=None, page_types=None, only_checked=Tru
                 """,
                 tuple(params),
             ).fetchone()
-        return int((row or {}).get("page_count") or 0)
+        return int(row["page_count"]) if row else 0
     finally:
         conn.close()
 
