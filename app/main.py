@@ -19,6 +19,7 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 from app.seo_manager import (
     bulk_upsert_seo_pages,
     count_seo_pages_for_link_scan,
+    close_stale_running_checks,
     fetch_active_issue_pages,
     fetch_domain_rules,
     fetch_seo_page_by_url,
@@ -19593,12 +19594,13 @@ def get_news_snapshot_profiles():
 def run_news_snapshot_scan(limit=40, domain=None, profile="summary-core", offset=0, only_missing=True):
     profile_map = get_news_snapshot_profiles()
     requested_limit = int(limit)
+    close_stale_running_checks("news_snapshot_scan", older_than_minutes=3, status="timed_out")
     if profile == "summary-live":
-        effective_limit = min(requested_limit, 8)
+        effective_limit = min(requested_limit, 6)
     elif profile == "summary-full":
-        effective_limit = min(requested_limit, 12)
+        effective_limit = min(requested_limit, 8)
     else:
-        effective_limit = min(requested_limit, 15)
+        effective_limit = min(requested_limit, 10)
     selected_page_types = profile_map.get(profile, profile_map["summary-core"])
     check_id = start_check(
         "news_snapshot_scan",
@@ -20783,8 +20785,9 @@ def build_news_manager_editor_summaries_context():
             {
                 "title": "Quick Actions",
                 "items": [
-                    'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=30&profile=summary-core&only_missing=1</span>',
-                    'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=30&profile=summary-wide&only_missing=1</span>',
+                    'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-core&only_missing=1</span>',
+                    'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-wide&only_missing=1</span>',
+                    'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
                     'View snapshot totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
                 ],
             },
@@ -23764,7 +23767,8 @@ def news_manager_editor_summaries_screen():
                 {
                     "title": "Quick Actions",
                     "items": [
-                        'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-core&only_missing=1</span>',
+                        'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-core&only_missing=1</span>',
+                        'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
                         'View raw totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
                     ],
                 },

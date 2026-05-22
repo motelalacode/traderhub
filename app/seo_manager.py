@@ -226,6 +226,39 @@ def finish_check(check_id, status, pages_scanned=0, issues_found=0, notes=""):
         conn.close()
 
 
+def close_stale_running_checks(check_type, older_than_minutes=5, status="timed_out"):
+    init_seo_manager_db()
+    cutoff = (datetime.datetime.now(tz=APP_TZ) - datetime.timedelta(minutes=int(older_than_minutes))).isoformat()
+    conn = get_connection()
+    try:
+        cur = conn.execute(
+            """
+            UPDATE seo_checks
+            SET completed_at = ?,
+                status = ?,
+                notes = CASE
+                    WHEN notes IS NULL OR notes = '' THEN ?
+                    ELSE notes || ' | ' || ?
+                END
+            WHERE check_type = ?
+              AND status = 'running'
+              AND started_at < ?
+            """,
+            (
+                utcnow_iso(),
+                status,
+                f"Auto-closed stale running check after {older_than_minutes} minutes.",
+                f"Auto-closed stale running check after {older_than_minutes} minutes.",
+                check_type,
+                cutoff,
+            ),
+        )
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
+
 def upsert_seo_page(page_row):
     init_seo_manager_db()
     conn = get_connection()
@@ -1785,6 +1818,7 @@ def get_news_manager_summary_overview(limit=120):
 
 def get_news_snapshot_run_summary():
     init_seo_manager_db()
+    close_stale_running_checks("news_snapshot_scan", older_than_minutes=3, status="timed_out")
     conn = get_connection()
     try:
         totals = conn.execute(
