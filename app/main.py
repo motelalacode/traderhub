@@ -25,6 +25,7 @@ from app.seo_manager import (
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
     fetch_seo_pages_for_link_scan,
+    fetch_news_pages_for_snapshot_scan,
     fetch_sitemap_eligible_pages,
     finish_check,
     get_dashboard_overview,
@@ -36,6 +37,7 @@ from app.seo_manager import (
     list_seo_issues,
     get_metadata_overview,
     get_news_manager_overview,
+    get_news_snapshot_run_summary,
     get_news_manager_summary_overview,
     get_sitemaps_overview,
     init_seo_manager_db,
@@ -49,6 +51,7 @@ from app.seo_manager import (
     SITEMAP_DIR,
     seed_domain_rules,
     start_check,
+    upsert_news_page_snapshot,
     update_seo_page_snapshot,
     upsert_seo_page,
     utcnow_iso,
@@ -19168,6 +19171,86 @@ def fetch_internal_seo_page_render(page_row):
     }
 
 
+def extract_news_page_snapshot_from_html(page_row, html_text):
+    href_matches = re.findall(r'<a[^>]+href=["\'](.*?)["\']', html_text or "", flags=re.IGNORECASE)
+    internal_hrefs = [
+        href
+        for href in href_matches
+        if href.startswith("/")
+        or href.startswith(f"https://{page_row['domain']}/")
+        or href.startswith("https://traderhub.in/")
+    ]
+    stock_links = {
+        href
+        for href in internal_hrefs
+        if "/stocks/" in href
+    }
+    story_links = {
+        href
+        for href in internal_hrefs
+        if any(
+            token in href
+            for token in (
+                "/stocks/",
+                "/market/archive/",
+                "/market/trends/",
+                "/sectors/",
+            )
+        )
+    }
+    section_count = len(re.findall(r"<section\b", html_text or "", flags=re.IGNORECASE))
+    article_count = len(re.findall(r"<article\b", html_text or "", flags=re.IGNORECASE))
+    heading_count = len(re.findall(r"<h2\b", html_text or "", flags=re.IGNORECASE))
+    bullet_count = len(re.findall(r"<li\b", html_text or "", flags=re.IGNORECASE))
+    text_content = _clean_extracted_html_text(html_text or "").lower()
+    summary_present = bool(
+        re.search(
+            r"\b(editor summary|market summary|sector summary|stock summary|trend summary|archive summary|key takeaways|what matters)\b",
+            text_content,
+            flags=re.IGNORECASE,
+        )
+    )
+    fallback_active = bool(
+        re.search(
+            r"\b(source pending|waiting for a stronger|structured archive shell|placeholder|pending\b|fallback)\b",
+            text_content,
+            flags=re.IGNORECASE,
+        )
+    )
+    market_error_present = bool(
+        re.search(
+            r"\b(market error|could not build a reliable market snapshot|unable to complete|source unavailable)\b",
+            text_content,
+            flags=re.IGNORECASE,
+        )
+    )
+    shell_only = bool(
+        len(story_links) == 0
+        and len(stock_links) == 0
+        and (section_count + article_count + heading_count) <= 3
+        and bullet_count <= 2
+    )
+    notes = []
+    if fallback_active:
+        notes.append("fallback-copy")
+    if market_error_present:
+        notes.append("market-error")
+    if shell_only:
+        notes.append("shell-only")
+    return {
+        "story_link_count": len(story_links),
+        "stock_link_count": len(stock_links),
+        "section_count": section_count + article_count + heading_count,
+        "bullet_count": bullet_count,
+        "summary_present": summary_present,
+        "fallback_active": fallback_active,
+        "market_error_present": market_error_present,
+        "shell_only": shell_only,
+        "checked_at": utcnow_iso(),
+        "notes": ", ".join(notes),
+    }
+
+
 def extract_internal_links_from_html(html_text, fallback_url=""):
     if not html_text:
         return []
@@ -19496,6 +19579,76 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
         "refreshed_urls": refreshed,
         "failures": failures,
     }
+
+
+def get_news_snapshot_profiles():
+    return {
+        "summary-core": ["market_news", "alerts_prep", "trend", "archive", "sector_archive"],
+        "summary-wide": ["market_news", "alerts_prep", "trend", "archive", "sector_archive", "stock_archive", "stock_news"],
+        "summary-full": [],
+    }
+
+
+def run_news_snapshot_scan(limit=40, domain=None, profile="summary-core", offset=0, only_missing=True):
+    profile_map = get_news_snapshot_profiles()
+    requested_limit = int(limit)
+    effective_limit = min(requested_limit, 40)
+    selected_page_types = profile_map.get(profile, profile_map["summary-core"])
+    check_id = start_check(
+        "news_snapshot_scan",
+        notes=(
+            f"News snapshot scan | domain={domain or 'all'} | "
+            f"limit={requested_limit} | effective_limit={effective_limit} | "
+            f"offset={offset} | profile={profile} | only_missing={int(bool(only_missing))}"
+        ),
+    )
+    try:
+        page_rows = fetch_news_pages_for_snapshot_scan(
+            domain=domain,
+            limit=effective_limit,
+            offset=offset,
+            page_types=selected_page_types or None,
+            only_missing=only_missing,
+        )
+        failures = []
+        for page_row in page_rows:
+            try:
+                render_payload = fetch_internal_seo_page_render(page_row)
+                snapshot = extract_news_page_snapshot_from_html(page_row, render_payload.get("html_text", ""))
+                upsert_news_page_snapshot(page_row, snapshot)
+            except BaseException as exc:
+                failures.append({"url": page_row["url"], "message": str(exc), "error_type": type(exc).__name__})
+        finish_check(
+            check_id,
+            "completed",
+            pages_scanned=len(page_rows),
+            issues_found=len(failures),
+            notes=f"News snapshot scan completed for {len(page_rows)} pages with {len(failures)} failures.",
+        )
+        summary = get_news_snapshot_run_summary()
+        summary.update(
+            {
+                "status": "ok",
+                "domain": domain or "all",
+                "profile": profile,
+                "requested_limit": requested_limit,
+                "effective_limit": effective_limit,
+                "offset": int(offset),
+                "only_missing": bool(only_missing),
+                "pages_scanned": len(page_rows),
+                "failures": failures,
+            }
+        )
+        return summary
+    except BaseException as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=0,
+            issues_found=0,
+            notes=f"News snapshot scan failed: {exc}",
+        )
+        raise
 
 
 def run_seo_crawlability_scan(limit=100, domain=None, profile="graph-core", offset=0, only_unlinked=True):
@@ -20563,17 +20716,18 @@ def build_news_manager_editor_summaries_context():
         "page_title": "News Manager Editor Summaries | TraderHub",
         "page_description": "Editor summary readiness review for TraderHub public news pages.",
         "breadcrumb_text": "Admin > News Manager > Editor Summaries",
-        "breadcrumb_meta_text": f'Summary readiness | Last reviewed {get_today_ist().isoformat()}',
+        "breadcrumb_meta_text": f'Phase 1B summary readiness | Last reviewed {get_today_ist().isoformat()}',
         "hero_title": "Editor Summaries",
-        "hero_subtitle": "Phase 1A stays honest: this screen does not pretend there is already a dedicated editorial summary database. It shows which public news pages are technically ready for richer summary work and which still need cleanup first.",
+        "hero_subtitle": "Phase 1B adds a lightweight content snapshot layer so this screen can move beyond technical SEO readiness and start showing summary signals, fallback markers, and shell-risk across public news pages.",
         "kpis": [
             {"label": "Summary Pages", "value": totals.get("total_pages", 0)},
+            {"label": "Snapshot Rows", "value": totals.get("snapshot_pages", 0)},
+            {"label": "Summary Signals", "value": totals.get("summary_pages", 0)},
             {"label": "Titles", "value": totals.get("titled_pages", 0)},
             {"label": "Meta Descriptions", "value": totals.get("meta_pages", 0)},
             {"label": "H1 Coverage", "value": totals.get("h1_pages", 0)},
-            {"label": "Canonicals", "value": totals.get("canonical_pages", 0)},
-            {"label": "HTTP 200", "value": totals.get("ok_pages", 0)},
-            {"label": "Clean Pages", "value": totals.get("clean_pages", 0)},
+            {"label": "Fallback Flags", "value": totals.get("fallback_pages", 0)},
+            {"label": "Shell Flags", "value": totals.get("shell_pages", 0)},
             {"label": "Rows", "value": len(rows)},
         ],
         "nav_items": get_news_manager_nav_items(),
@@ -20582,15 +20736,15 @@ def build_news_manager_editor_summaries_context():
             {
                 "title": "Summary Readiness Queue",
                 "note": "Use this queue to find pages that are missing the basics a public summary layer depends on: title, meta description, H1, canonical, and a stable HTTP 200 response.",
-                "columns": ["URL", "Type", "Title", "Meta", "H1", "Canonical", "Status", "Health"],
+                "columns": ["URL", "Type", "Summary", "Stories", "Fallback", "Shell", "Status", "Health"],
                 "rows": [
                     [
                         f'<div class="mono">{row["url"]}</div>',
                         f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
-                        "Yes" if row.get("title") else "No",
-                        "Yes" if row.get("meta_description") else "No",
-                        "Yes" if row.get("h1") else "No",
-                        "Yes" if row.get("canonical_url") else "No",
+                        "Yes" if row.get("summary_present") else "No",
+                        row.get("story_link_count", 0),
+                        "Yes" if row.get("fallback_active") else "No",
+                        "Yes" if row.get("shell_only") else "No",
                         row.get("status_code") or "-",
                         _seo_health_badge(row.get("health_score", 100)),
                     ]
@@ -20605,17 +20759,25 @@ def build_news_manager_editor_summaries_context():
                 "items": [
                     (
                         f'{row["page_type"]}: {row["page_count"]} pages | '
-                        f'{row["meta_pages"]} meta | {row["h1_pages"]} H1 | '
-                        f'{row["weak_pages"]} weak'
+                        f'{row["summary_pages"]} summary | '
+                        f'{row["fallback_pages"]} fallback | {row["weak_pages"]} weak'
                     )
                     for row in data.get("by_type", [])
                 ] or ["No summary-oriented page groups recorded yet."],
             },
             {
-                "title": "Phase 1A Rule",
+                "title": "Phase 1B Rule",
                 "items": [
-                    "This screen is a readiness layer, not a publishing system.",
-                    "Once a dedicated content snapshot table exists, it can be extended with summary presence, point counts, and fallback-copy flags without replacing this view.",
+                    "This screen is now powered by a lightweight news snapshot table, but it is still a readiness layer rather than a publishing system.",
+                    "Use the snapshot scan first, then use this view to decide where richer editorial summaries are worth adding next.",
+                ],
+            },
+            {
+                "title": "Quick Actions",
+                "items": [
+                    'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=30&profile=summary-core&only_missing=1</span>',
+                    'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=30&profile=summary-wide&only_missing=1</span>',
+                    'View snapshot totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
                 ],
             },
         ],
@@ -23548,6 +23710,31 @@ def news_manager_archive_screen():
 @app.route("/admin/news-manager/editor-summaries")
 def news_manager_editor_summaries_screen():
     return render_seo_manager_screen(build_news_manager_editor_summaries_context())
+
+
+@app.route("/admin/news-manager/snapshots/run")
+def news_manager_snapshots_run():
+    limit = int(request.args.get("limit", 30) or 30)
+    offset = int(request.args.get("offset", 0) or 0)
+    domain = str(request.args.get("domain", "traderhub.in") or "traderhub.in").strip() or "traderhub.in"
+    profile = str(request.args.get("profile", "summary-core") or "summary-core").strip() or "summary-core"
+    only_missing = str(request.args.get("only_missing", "1")).strip().lower() in {"1", "true", "yes"}
+    try:
+        payload = run_news_snapshot_scan(
+            limit=limit,
+            domain=domain,
+            profile=profile,
+            offset=offset,
+            only_missing=only_missing,
+        )
+        return jsonify(payload)
+    except BaseException as exc:
+        return jsonify({"status": "error", "message": str(exc), "error_type": type(exc).__name__}), 500
+
+
+@app.route("/admin/news-manager/snapshots/summary")
+def news_manager_snapshots_summary():
+    return jsonify({"status": "ok", "summary": get_news_snapshot_run_summary()})
 
 
 @app.route("/sitemap.xml")

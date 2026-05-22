@@ -93,6 +93,25 @@ CREATE TABLE IF NOT EXISTS seo_crawl_links (
     FOREIGN KEY(from_page_id) REFERENCES seo_pages(id),
     FOREIGN KEY(to_page_id) REFERENCES seo_pages(id)
 );
+
+CREATE TABLE IF NOT EXISTS news_page_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_id INTEGER NOT NULL UNIQUE,
+    url TEXT NOT NULL,
+    page_type TEXT NOT NULL,
+    page_subtype TEXT,
+    story_link_count INTEGER NOT NULL DEFAULT 0,
+    stock_link_count INTEGER NOT NULL DEFAULT 0,
+    section_count INTEGER NOT NULL DEFAULT 0,
+    bullet_count INTEGER NOT NULL DEFAULT 0,
+    summary_present INTEGER NOT NULL DEFAULT 0,
+    fallback_active INTEGER NOT NULL DEFAULT 0,
+    market_error_present INTEGER NOT NULL DEFAULT 0,
+    shell_only INTEGER NOT NULL DEFAULT 0,
+    checked_at TEXT NOT NULL,
+    notes TEXT,
+    FOREIGN KEY(page_id) REFERENCES seo_pages(id)
+);
 """
 
 
@@ -1568,6 +1587,103 @@ def list_news_manager_pages(page_types, limit=100):
         conn.close()
 
 
+def fetch_news_pages_for_snapshot_scan(domain=None, limit=100, offset=0, page_types=None, only_missing=False):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        selected_page_types = tuple(
+            page_types
+            or (
+                "market_news",
+                "alerts_prep",
+                "stock_news",
+                "trend",
+                "archive",
+                "stock_archive",
+                "sector_archive",
+            )
+        )
+        placeholders = ",".join("?" for _ in selected_page_types)
+        joins = [
+            "FROM seo_pages p",
+            "LEFT JOIN news_page_snapshots nps ON nps.page_id = p.id",
+        ]
+        where = [
+            "p.is_active = 1",
+            "p.page_type IN (" + placeholders + ")",
+        ]
+        params = list(selected_page_types)
+        if domain:
+            where.append("p.domain = ?")
+            params.append(domain)
+        if only_missing:
+            where.append("nps.page_id IS NULL")
+        params.extend([int(limit), int(offset)])
+        rows = conn.execute(
+            f"""
+            SELECT p.id, p.url, p.path, p.domain, p.page_type, p.page_subtype,
+                   p.title, p.meta_description, p.h1, p.status_code, p.health_score, p.last_checked_at
+            {' '.join(joins)}
+            WHERE {' AND '.join(where)}
+            ORDER BY p.health_score ASC, p.path
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def upsert_news_page_snapshot(page_row, snapshot):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        conn.execute(
+            """
+            INSERT INTO news_page_snapshots (
+                page_id, url, page_type, page_subtype, story_link_count, stock_link_count,
+                section_count, bullet_count, summary_present, fallback_active,
+                market_error_present, shell_only, checked_at, notes
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(page_id) DO UPDATE SET
+                url = excluded.url,
+                page_type = excluded.page_type,
+                page_subtype = excluded.page_subtype,
+                story_link_count = excluded.story_link_count,
+                stock_link_count = excluded.stock_link_count,
+                section_count = excluded.section_count,
+                bullet_count = excluded.bullet_count,
+                summary_present = excluded.summary_present,
+                fallback_active = excluded.fallback_active,
+                market_error_present = excluded.market_error_present,
+                shell_only = excluded.shell_only,
+                checked_at = excluded.checked_at,
+                notes = excluded.notes
+            """,
+            (
+                int(page_row["id"]),
+                page_row["url"],
+                page_row["page_type"],
+                page_row.get("page_subtype"),
+                int(snapshot.get("story_link_count", 0)),
+                int(snapshot.get("stock_link_count", 0)),
+                int(snapshot.get("section_count", 0)),
+                int(snapshot.get("bullet_count", 0)),
+                int(1 if snapshot.get("summary_present") else 0),
+                int(1 if snapshot.get("fallback_active") else 0),
+                int(1 if snapshot.get("market_error_present") else 0),
+                int(1 if snapshot.get("shell_only") else 0),
+                snapshot.get("checked_at"),
+                snapshot.get("notes", ""),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def get_news_manager_summary_overview(limit=120):
     init_seo_manager_db()
     conn = get_connection()
@@ -1591,8 +1707,14 @@ def get_news_manager_summary_overview(limit=120):
                 SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
                 SUM(CASE WHEN canonical_url IS NOT NULL AND TRIM(canonical_url) != '' THEN 1 ELSE 0 END) AS canonical_pages,
                 SUM(CASE WHEN status_code = 200 THEN 1 ELSE 0 END) AS ok_pages,
-                SUM(CASE WHEN health_score = 100 THEN 1 ELSE 0 END) AS clean_pages
+                SUM(CASE WHEN health_score = 100 THEN 1 ELSE 0 END) AS clean_pages,
+                SUM(CASE WHEN nps.page_id IS NOT NULL THEN 1 ELSE 0 END) AS snapshot_pages,
+                SUM(CASE WHEN nps.summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
+                SUM(CASE WHEN nps.fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
+                SUM(CASE WHEN nps.market_error_present = 1 THEN 1 ELSE 0 END) AS market_error_pages,
+                SUM(CASE WHEN nps.shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
             FROM seo_pages
+            LEFT JOIN news_page_snapshots nps ON nps.page_id = seo_pages.id
             WHERE is_active = 1
               AND domain = 'traderhub.in'
               AND page_type IN ({placeholders})
@@ -1604,17 +1726,20 @@ def get_news_manager_summary_overview(limit=120):
             for row in conn.execute(
                 f"""
                 SELECT
-                    page_type,
+                    p.page_type,
                     COUNT(*) AS page_count,
-                    SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
-                    SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
-                    SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
-                    SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS weak_pages
-                FROM seo_pages
-                WHERE is_active = 1
-                  AND domain = 'traderhub.in'
-                  AND page_type IN ({placeholders})
-                GROUP BY page_type
+                    SUM(CASE WHEN p.title IS NOT NULL AND TRIM(p.title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                    SUM(CASE WHEN p.meta_description IS NOT NULL AND TRIM(p.meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                    SUM(CASE WHEN p.h1 IS NOT NULL AND TRIM(p.h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
+                    SUM(CASE WHEN p.health_score < 100 THEN 1 ELSE 0 END) AS weak_pages,
+                    SUM(CASE WHEN nps.summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
+                    SUM(CASE WHEN nps.fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages
+                FROM seo_pages p
+                LEFT JOIN news_page_snapshots nps ON nps.page_id = p.id
+                WHERE p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.page_type IN ({placeholders})
+                GROUP BY p.page_type
                 ORDER BY page_count DESC, page_type
                 """,
                 summary_page_types,
@@ -1626,8 +1751,12 @@ def get_news_manager_summary_overview(limit=120):
                 f"""
                 SELECT p.url, p.page_type, p.page_subtype, p.title, p.meta_description, p.h1,
                        p.canonical_url, p.status_code, p.health_score, p.last_checked_at,
+                       nps.story_link_count, nps.stock_link_count, nps.section_count, nps.bullet_count,
+                       nps.summary_present, nps.fallback_active, nps.market_error_present,
+                       nps.shell_only, nps.checked_at AS snapshot_checked_at,
                        COUNT(i.id) AS active_issue_count
                 FROM seo_pages p
+                LEFT JOIN news_page_snapshots nps ON nps.page_id = p.id
                 LEFT JOIN seo_issues i
                   ON i.page_id = p.id AND i.status = 'active'
                 WHERE p.is_active = 1
@@ -1636,6 +1765,7 @@ def get_news_manager_summary_overview(limit=120):
                 GROUP BY p.id
                 ORDER BY
                   CASE WHEN p.health_score < 100 THEN 0 ELSE 1 END,
+                  CASE WHEN nps.page_id IS NULL THEN 0 ELSE 1 END,
                   CASE WHEN p.meta_description IS NULL OR TRIM(p.meta_description) = '' THEN 0 ELSE 1 END,
                   CASE WHEN p.h1 IS NULL OR TRIM(p.h1) = '' THEN 0 ELSE 1 END,
                   p.path
@@ -1648,6 +1778,53 @@ def get_news_manager_summary_overview(limit=120):
             "totals": dict(totals) if totals else {},
             "by_type": by_type,
             "rows": rows,
+        }
+    finally:
+        conn.close()
+
+
+def get_news_snapshot_run_summary():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS snapshot_pages,
+                SUM(CASE WHEN summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
+                SUM(CASE WHEN fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
+                SUM(CASE WHEN market_error_present = 1 THEN 1 ELSE 0 END) AS market_error_pages,
+                SUM(CASE WHEN shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
+            FROM news_page_snapshots
+            """
+        ).fetchone()
+        by_type = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT page_type, COUNT(*) AS page_count,
+                       SUM(CASE WHEN summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
+                       SUM(CASE WHEN fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
+                       SUM(CASE WHEN shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
+                FROM news_page_snapshots
+                GROUP BY page_type
+                ORDER BY page_count DESC, page_type
+                """
+            ).fetchall()
+        ]
+        latest_check = conn.execute(
+            """
+            SELECT id, check_type, started_at, completed_at, status, pages_scanned
+            FROM seo_checks
+            WHERE check_type = 'news_snapshot_scan'
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+        return {
+            "totals": dict(totals) if totals else {},
+            "by_type": by_type,
+            "latest_check": dict(latest_check) if latest_check else None,
         }
     finally:
         conn.close()
