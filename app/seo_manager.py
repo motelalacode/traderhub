@@ -1093,3 +1093,76 @@ def get_metadata_overview(limit=100):
         return {"issues": issue_rows, "duplicate_meta_groups": duplicates}
     finally:
         conn.close()
+
+
+def get_crawlability_overview(limit=100):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        non_200_pages = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT url, domain, page_type, page_subtype, status_code, health_score, last_checked_at
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND domain = 'traderhub.in'
+                  AND status_code IS NOT NULL
+                  AND status_code != 200
+                ORDER BY status_code, path
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
+        indexing_conflicts = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT url, domain, page_type, page_subtype, index_expected, index_status, health_score
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND domain = 'traderhub.in'
+                  AND index_expected = 'index'
+                  AND COALESCE(index_status, 'index') != 'index'
+                ORDER BY path
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
+        unchecked_public_pages = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT url, domain, page_type, page_subtype, health_score
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND domain = 'traderhub.in'
+                  AND index_expected = 'index'
+                  AND last_checked_at IS NULL
+                ORDER BY path
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
+        totals = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN domain = 'traderhub.in' AND index_expected = 'index' THEN 1 ELSE 0 END) AS public_pages,
+                SUM(CASE WHEN domain = 'traderhub.in' AND index_expected = 'index' AND last_checked_at IS NOT NULL THEN 1 ELSE 0 END) AS checked_public_pages,
+                SUM(CASE WHEN domain = 'traderhub.in' AND status_code IS NOT NULL AND status_code != 200 THEN 1 ELSE 0 END) AS non_200_count,
+                SUM(CASE WHEN domain = 'traderhub.in' AND index_expected = 'index' AND COALESCE(index_status, 'index') != 'index' THEN 1 ELSE 0 END) AS indexing_conflict_count
+            FROM seo_pages
+            WHERE is_active = 1
+            """
+        ).fetchone()
+        return {
+            "totals": dict(totals) if totals else {},
+            "non_200_pages": non_200_pages,
+            "indexing_conflicts": indexing_conflicts,
+            "unchecked_public_pages": unchecked_public_pages,
+        }
+    finally:
+        conn.close()

@@ -26,6 +26,7 @@ from app.seo_manager import (
     fetch_sitemap_eligible_pages,
     finish_check,
     get_dashboard_overview,
+    get_crawlability_overview,
     get_extraction_summary,
     get_inventory_summary,
     get_indexing_policy_summary,
@@ -19550,6 +19551,7 @@ def get_seo_manager_nav_items():
         {"label": "Sitemaps", "href": "/admin/seo-manager/sitemaps"},
         {"label": "Metadata", "href": "/admin/seo-manager/metadata"},
         {"label": "Issues", "href": "/admin/seo-manager/issues"},
+        {"label": "Crawlability", "href": "/admin/seo-manager/crawlability"},
     ]
 
 
@@ -19937,6 +19939,97 @@ def build_seo_manager_issues_context():
                     'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
                     'Rerun issue scan: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
                     'Inspect one URL: <span class="mono">/admin/seo-manager/issues/debug?url=https://...</span>',
+                ],
+            },
+        ],
+    }
+
+
+def build_seo_manager_crawlability_context():
+    data = get_crawlability_overview(limit=100)
+    totals = data.get("totals", {})
+    public_pages = int(totals.get("public_pages") or 0)
+    checked_public_pages = int(totals.get("checked_public_pages") or 0)
+    coverage = f"{checked_public_pages}/{public_pages}" if public_pages else "0/0"
+    return {
+        "page_title": "SEO Crawlability | TraderHub",
+        "page_description": "Crawlability checks for TraderHub public SEO pages.",
+        "breadcrumb_text": "Admin > SEO Manager > Crawlability",
+        "breadcrumb_meta_text": f'Crawlability review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Crawlability",
+        "hero_subtitle": "Phase 1 crawlability focuses on the signals we already have for real: response codes, public indexing conflicts, and how much of the public surface has actually been checked.",
+        "kpis": [
+            {"label": "Public Pages", "value": public_pages},
+            {"label": "Checked Public", "value": checked_public_pages},
+            {"label": "Coverage", "value": coverage},
+            {"label": "Non-200 Pages", "value": totals.get("non_200_count", 0)},
+            {"label": "Index Conflicts", "value": totals.get("indexing_conflict_count", 0)},
+            {"label": "Unchecked Pages", "value": len(data.get("unchecked_public_pages", []))},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/crawlability",
+        "sections": [
+            {
+                "title": "Non-200 Public Pages",
+                "note": "These public pages have been checked and did not return HTTP 200. They are the clearest current crawl blockers in Phase 1.",
+                "filters": [],
+                "columns": ["URL", "Type", "Status", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        row.get("status_code") or "-",
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in data.get("non_200_pages", [])
+                ],
+            },
+            {
+                "title": "Public Indexing Conflicts",
+                "note": "These pages are expected to index publicly but the current snapshot says otherwise.",
+                "filters": [],
+                "columns": ["URL", "Type", "Expected", "Actual", "Health"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        row.get("index_expected") or "-",
+                        row.get("index_status") or "-",
+                        _seo_health_badge(row.get("health_score", 100)),
+                    ]
+                    for row in data.get("indexing_conflicts", [])
+                ],
+            },
+            {
+                "title": "Unchecked Public Pages",
+                "note": "These pages are expected to be public but have not been through the extractor yet. They are not broken by default, but they are outside current crawl confidence.",
+                "filters": [],
+                "columns": ["URL", "Type", "Health"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        _seo_health_badge(row.get("health_score", 100)),
+                    ]
+                    for row in data.get("unchecked_public_pages", [])
+                ],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1 Note",
+                "items": [
+                    "Internal-link crawl maps and orphan-page detection are still a later step.",
+                    "This screen is intentionally honest: it shows what the current backend can verify right now.",
+                ],
+            },
+            {
+                "title": "Quick Actions",
+                "items": [
+                    'Run extractor: <span class="mono">/admin/seo-manager/extractor/run?limit=25&profile=public-core</span>',
+                    'Run issues: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
+                    'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
                 ],
             },
         ],
@@ -22659,6 +22752,11 @@ def seo_manager_metadata_screen():
 @app.route("/admin/seo-manager/issues")
 def seo_manager_issues_screen():
     return render_seo_manager_screen(build_seo_manager_issues_context())
+
+
+@app.route("/admin/seo-manager/crawlability")
+def seo_manager_crawlability_screen():
+    return render_seo_manager_screen(build_seo_manager_crawlability_context())
 
 
 @app.route("/sitemap.xml")
