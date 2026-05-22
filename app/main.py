@@ -20219,9 +20219,21 @@ def build_alert_track_context(host_root, alert_slug):
     if not config:
         return None
     today_iso = get_today_ist().isoformat()
-    rows, _, market_error = get_phase2_live_market_rows(limit=18)
-    sector_cards = build_sector_cards_from_live_rows(rows)
-    earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=2)
+    try:
+        rows, _, market_error = get_phase2_live_market_rows(limit=18)
+    except Exception as exc:
+        rows = []
+        market_error = f"Live alert-track rows are temporarily unavailable: {exc}"
+    try:
+        sector_cards = build_sector_cards_from_live_rows(rows)
+    except Exception as exc:
+        sector_cards = []
+        market_error = market_error or f"Sector alert summaries are temporarily unavailable: {exc}"
+    try:
+        earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=2)
+    except Exception as exc:
+        earnings_rows = []
+        market_error = market_error or f"Earnings alert summaries are temporarily unavailable: {exc}"
     feed = load_market_news_phase1_feed()
     page_rows = []
     summary_cards = []
@@ -20376,6 +20388,95 @@ def build_alert_track_context(host_root, alert_slug):
         "side_box_title": "Alert Track Rule",
         "side_box_copy": "A good alert track should be repeatable enough that users would want it delivered later.",
         "why_page_works": "This prepares the public site for future personalization without forcing premature account-only complexity into the current product.",
+    }
+
+
+def build_market_phase2_fallback_context(
+    host_root,
+    page_mode,
+    seo_title,
+    seo_description,
+    canonical_path,
+    breadcrumb_text,
+    breadcrumb_meta_text,
+    hero_kicker,
+    hero_title,
+    hero_subtitle,
+    market_error,
+    nav_chips,
+):
+    canonical_url = f"{host_root.rstrip('/')}{canonical_path}"
+    return {
+        "page_mode": page_mode,
+        "seo_title": seo_title,
+        "seo_description": seo_description,
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": seo_title,
+                "description": seo_description,
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": breadcrumb_text,
+        "breadcrumb_meta_text": breadcrumb_meta_text,
+        "hero_kicker": hero_kicker,
+        "hero_title": hero_title,
+        "hero_subtitle": hero_subtitle,
+        "hero_metric_primary": "0",
+        "hero_metric_secondary": "live rows available right now",
+        "hero_badges": [{"label": "Fallback Render", "kind": "tag-warn"}, {"label": "SEO Safe", "kind": "tag-info"}],
+        "hero_stats": [
+            {"label": "Rows", "value": 0},
+            {"label": "Mode", "value": "Public"},
+            {"label": "Status", "value": "Live Retry"},
+            {"label": "Page", "value": hero_title},
+        ],
+        "nav_chips": nav_chips,
+        "section_title": hero_title,
+        "section_note": "This page is temporarily showing a safe fallback so the public route stays reachable while live market inputs recover.",
+        "summary_cards": [
+            {"label": "Public Availability", "value": "Live", "copy": "The route remains reachable even when upstream market data is unstable."},
+            {"label": "SEO Priority", "value": "Protected", "copy": "Title, description, canonical, and H1 stay visible so the page does not collapse into a 500 error."},
+            {"label": "User Expectation", "value": "Retry", "copy": "The page will regain richer rows automatically once the live data path stabilizes."},
+            {"label": "Mode", "value": "Fallback", "copy": "This is a controlled resilience layer, not a separate page family."},
+        ],
+        "lead_stories": [
+            {
+                "title": hero_title,
+                "meta": "Fallback render",
+                "copy": "Live market context is temporarily unavailable, so TraderHub is keeping this page reachable with a safe public fallback instead of an error page.",
+                "href": canonical_path,
+                "cta_label": "Reload This Page",
+                "tags": [{"label": "Fallback", "kind": "tag-warn"}],
+            }
+        ],
+        "watch_sections": [
+            {
+                "title": "Best Next Clicks",
+                "items": ["Reload this route after a short delay", "Open Live Movers for another read", "Use stock or sector pages for deeper context"],
+            }
+        ],
+        **build_market_editor_summary(
+            "Market Editor Summary",
+            "TraderHub keeps key public routes reachable even when one live data call fails, so the page stays usable and index-safe.",
+            [
+                {"label": "Why It Matters", "copy": "Public market pages should fail soft, not disappear behind a server error when one upstream dependency misbehaves."},
+                {"label": "SEO Safety", "copy": "The fallback keeps the title, description, canonical, and H1 intact so the route remains technically healthy."},
+                {"label": "User Value", "copy": "A smaller safe page is better than a broken page because users can still navigate to the next useful layer."},
+                {"label": "Next Step", "copy": "Once the live market path recovers, the richer page body returns without changing the public URL."},
+            ],
+        ),
+        "archive_section_heading": "Fallback Board",
+        "archive_section_note": "This board keeps the route alive while live data is retried.",
+        "rows": [],
+        "market_error": market_error,
+        "side_box_title": "Fallback Rule",
+        "side_box_copy": "Protect the public route first. Richer live rows can return as soon as the market data path is healthy again.",
+        "why_page_works": "This prevents temporary upstream failures from turning an otherwise valuable public research page into a dead end.",
     }
 
 
@@ -21162,7 +21263,12 @@ def build_live_movers_context(host_root):
 def build_sector_news_context(host_root):
     selected_date = get_today_ist()
     symbols = get_phase2_market_symbols(limit=20)
-    rows, missing, market_error = get_public_sector_rows(symbols, selected_date)
+    try:
+        rows, missing, market_error = get_public_sector_rows(symbols, selected_date)
+    except Exception as exc:
+        rows = []
+        missing = symbols[:]
+        market_error = f"Live sector rows are temporarily unavailable: {exc}"
     lookup = get_symbol_sector_lookup()
     grouped = {}
     for row in rows:
@@ -22621,7 +22727,29 @@ def market_live_movers():
 
 @app.route("/market/sector-news")
 def market_sector_news():
-    context = build_sector_news_context(request.url_root.rstrip("/"))
+    try:
+        context = build_sector_news_context(request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render sector news page")
+        context = build_market_phase2_fallback_context(
+            request.url_root.rstrip("/"),
+            "sector_news",
+            "Sector News Strips, Leaders, Laggards & Themes | TraderHub",
+            "Scan sector news strips with live leaders, laggards, and theme summaries across the TraderHub public market layer.",
+            "/market/sector-news",
+            "Market News > Sector News",
+            f"Phase 2 sector-news fallback | Last reviewed {get_today_ist().isoformat()}",
+            "TraderHub Sector News",
+            "Sector News Strips",
+            "A safe fallback view for sector strips while live data recovers.",
+            f"Sector news is temporarily unavailable: {exc}",
+            [
+                {"label": "Pre-Market", "href": "/market/pre-market-news"},
+                {"label": "Post-Market", "href": "/market/post-market-wrap"},
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+            ],
+        )
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
@@ -22647,7 +22775,36 @@ def market_alerts_hub():
 
 @app.route("/market/alerts/<alert_slug>")
 def market_alert_track(alert_slug):
-    context = build_alert_track_context(request.url_root.rstrip("/"), str(alert_slug or "").strip().lower())
+    clean_slug = str(alert_slug or "").strip().lower()
+    try:
+        context = build_alert_track_context(request.url_root.rstrip("/"), clean_slug)
+    except Exception as exc:
+        app.logger.exception("Failed to render alert track page: %s", clean_slug)
+        if clean_slug not in get_alert_track_definitions():
+            context = None
+        else:
+            config = get_alert_track_definitions()[clean_slug]
+            context = build_market_phase2_fallback_context(
+                request.url_root.rstrip("/"),
+                "alert_track",
+                f"{config['label']} | TraderHub",
+                config["description"],
+                f"/market/alerts/{clean_slug}",
+                f"Market News > Alerts > {config['label']}",
+                f"Phase 3 alert fallback | Last reviewed {get_today_ist().isoformat()}",
+                "TraderHub Alert Track",
+                config["label"],
+                config["description"],
+                f"Alert track is temporarily unavailable: {exc}",
+                [
+                    {"label": "Alerts Hub", "href": "/market/alerts"},
+                    {"label": "Pre-Market", "href": "/market/alerts/pre-market"},
+                    {"label": "Post-Market", "href": "/market/alerts/post-market"},
+                    {"label": "Sector Watch", "href": "/market/alerts/sector-watch"},
+                    {"label": "Stock Movers", "href": "/market/alerts/stock-movers"},
+                    {"label": "Earnings Watch", "href": "/market/alerts/earnings-watch"},
+                ],
+            )
     if not context:
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
