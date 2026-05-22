@@ -23,6 +23,7 @@ from app.seo_manager import (
     fetch_seo_page_by_url,
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
+    fetch_seo_pages_for_link_scan,
     fetch_sitemap_eligible_pages,
     finish_check,
     get_dashboard_overview,
@@ -38,6 +39,7 @@ from app.seo_manager import (
     list_seo_pages,
     mark_pages_inactive_except,
     recompute_health_scores,
+    replace_page_crawl_links,
     replace_page_issues,
     replace_sitemap_records,
     SITEMAP_DIR,
@@ -19115,6 +19117,57 @@ def fetch_internal_seo_page_snapshot(page_row):
     return snapshot
 
 
+def fetch_internal_seo_page_render(page_row):
+    with app.test_client() as client:
+        response = client.get(
+            page_row["path"],
+            base_url=f"https://{page_row['domain']}",
+            follow_redirects=True,
+        )
+    return {
+        "status_code": response.status_code,
+        "html_text": response.get_data(as_text=True),
+        "final_path": response.request.path if getattr(response, "request", None) else page_row["path"],
+        "final_url": page_row["url"],
+    }
+
+
+def extract_internal_links_from_html(html_text, fallback_url=""):
+    if not html_text:
+        return []
+    href_matches = re.findall(r'<a[^>]+href=["\'](.*?)["\']', html_text, flags=re.IGNORECASE)
+    allowed_domains = {"traderhub.in", "app.traderhub.in", "bot.traderhub.in"}
+    links = []
+    seen = set()
+    for href in href_matches:
+        raw_href = str(href or "").strip()
+        if (
+            not raw_href
+            or raw_href.startswith("#")
+            or raw_href.lower().startswith(("javascript:", "mailto:", "tel:"))
+        ):
+            continue
+        absolute_url = urllib.parse.urljoin(fallback_url, raw_href)
+        parsed = urllib.parse.urlparse(absolute_url)
+        if parsed.scheme not in ("http", "https") or parsed.netloc.lower() not in allowed_domains:
+            continue
+        normalized_url = urllib.parse.urlunparse(
+            (
+                parsed.scheme,
+                parsed.netloc.lower(),
+                parsed.path or "/",
+                "",
+                parsed.query,
+                "",
+            )
+        )
+        if normalized_url in seen:
+            continue
+        seen.add(normalized_url)
+        links.append({"to_url": normalized_url, "link_type": "internal"})
+    return links
+
+
 def run_seo_metadata_extract(limit=100, domain=None, only_missing=False, profile="safe"):
     check_id = start_check(
         "metadata_extract",
@@ -19407,6 +19460,64 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
         "refreshed_urls": refreshed,
         "failures": failures,
     }
+
+
+def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
+    check_id = start_check(
+        "crawlability_scan",
+        notes=f"Crawlability link scan | domain={domain or 'all'} | limit={limit} | profile={profile}",
+    )
+    pages_scanned = 0
+    failures = 0
+    total_links = 0
+    failure_messages = []
+    try:
+        profile_map = get_seo_extractor_profiles()
+        selected_page_types = profile_map.get(profile, profile_map["public-plus"])
+        page_rows = fetch_seo_pages_for_link_scan(
+            domain=domain,
+            limit=limit,
+            only_checked=True,
+            page_types=selected_page_types or None,
+        )
+        for page_row in page_rows:
+            try:
+                render_data = fetch_internal_seo_page_render(page_row)
+                links = extract_internal_links_from_html(
+                    render_data["html_text"],
+                    fallback_url=page_row["url"],
+                )
+                replace_page_crawl_links(page_row["id"], page_row["url"], links)
+                pages_scanned += 1
+                total_links += len(links)
+            except Exception as exc:
+                failures += 1
+                failure_messages.append(f"{page_row['url']}: {exc}")
+        finish_check(
+            check_id,
+            "completed" if failures == 0 else "completed_with_warnings",
+            pages_scanned=pages_scanned,
+            issues_found=failures,
+            notes="; ".join(failure_messages[:5]),
+        )
+        return {
+            "status": "ok",
+            "domain": domain or "all",
+            "profile": profile,
+            "pages_scanned": pages_scanned,
+            "total_links": total_links,
+            "failures": failures,
+            "summary": get_crawlability_overview(limit=100),
+        }
+    except Exception as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=pages_scanned,
+            issues_found=failures,
+            notes=str(exc),
+        )
+        raise
 
 
 def _format_sitemap_lastmod(value):
@@ -20022,6 +20133,7 @@ def build_seo_manager_issues_context():
 def build_seo_manager_crawlability_context():
     data = get_crawlability_overview(limit=100)
     totals = data.get("totals", {})
+    crawl_totals = data.get("crawl_totals", {})
     public_pages = int(totals.get("public_pages") or 0)
     checked_public_pages = int(totals.get("checked_public_pages") or 0)
     coverage = f"{checked_public_pages}/{public_pages}" if public_pages else "0/0"
@@ -20039,6 +20151,10 @@ def build_seo_manager_crawlability_context():
             {"label": "Non-200 Pages", "value": totals.get("non_200_count", 0)},
             {"label": "Index Conflicts", "value": totals.get("indexing_conflict_count", 0)},
             {"label": "Unchecked Pages", "value": len(data.get("unchecked_public_pages", []))},
+            {"label": "Link Rows", "value": crawl_totals.get("crawl_link_count", 0)},
+            {"label": "Linked Sources", "value": crawl_totals.get("linked_source_pages", 0)},
+            {"label": "Orphan Candidates", "value": len(data.get("orphan_pages", []))},
+            {"label": "Broken Targets", "value": len(data.get("broken_internal_links", []))},
         ],
         "nav_items": get_seo_manager_nav_items(),
         "active_href": "/admin/seo-manager/crawlability",
@@ -20076,6 +20192,36 @@ def build_seo_manager_crawlability_context():
                 ],
             },
             {
+                "title": "Broken Internal Link Targets",
+                "note": "These internal links currently resolve to missing or non-200 destinations in the scanned public set.",
+                "filters": [],
+                "columns": ["From URL", "Target URL", "Target Status", "Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["from_url"]}</div><div class="muted">{row.get("from_page_type") or ""}</div>',
+                        f'<div class="mono">{row["to_url"]}</div><div class="muted">{row.get("target_page_type") or "untracked"}</div>',
+                        row.get("target_status_code") or "missing",
+                        row.get("checked_at") or "-",
+                    ]
+                    for row in data.get("broken_internal_links", [])
+                ],
+            },
+            {
+                "title": "Orphan Page Candidates",
+                "note": "These checked public pages do not currently have any recorded internal inbound links from the scanned public set.",
+                "filters": [],
+                "columns": ["URL", "Type", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in data.get("orphan_pages", [])
+                ],
+            },
+            {
                 "title": "Unchecked Public Pages",
                 "note": "These pages are expected to be public but have not been through the extractor yet. They are not broken by default, but they are outside current crawl confidence.",
                 "filters": [],
@@ -20094,14 +20240,15 @@ def build_seo_manager_crawlability_context():
             {
                 "title": "Phase 1 Note",
                 "items": [
-                    "Internal-link crawl maps and orphan-page detection are still a later step.",
-                    "This screen is intentionally honest: it shows what the current backend can verify right now.",
+                    "Crawlability now includes an early internal-link graph, but orphan and broken-target results only reflect pages that have been through the crawlability runner.",
+                    "This screen is still intentionally honest: it only reports graph relationships the current backend has actually scanned.",
                 ],
             },
             {
                 "title": "Quick Actions",
                 "items": [
                     'Run extractor: <span class="mono">/admin/seo-manager/extractor/run?limit=25&profile=public-core</span>',
+                    'Run crawlability scan: <span class="mono">/admin/seo-manager/crawlability/run?limit=40&domain=traderhub.in&profile=public-plus</span>',
                     'Run issues: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
                     'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
                 ],
@@ -23166,6 +23313,22 @@ def seo_manager_issues_debug():
     payload = run_seo_issue_debug(debug_url)
     status_code = 200 if payload.get("status") == "ok" else 500
     return Response(json.dumps(payload), mimetype="application/json", status=status_code)
+
+
+@app.route("/admin/seo-manager/crawlability/run")
+def seo_manager_crawlability_run():
+    try:
+        limit = max(1, min(int(request.args.get("limit", 40)), 250))
+    except Exception:
+        limit = 40
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    profile = str(request.args.get("profile", "public-plus") or "public-plus").strip().lower()
+    try:
+        summary = run_seo_crawlability_scan(limit=limit, domain=domain, profile=profile)
+        return jsonify(summary)
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
 
 
 @app.route("/api/equity-ohlc")

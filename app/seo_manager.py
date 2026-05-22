@@ -80,6 +80,19 @@ CREATE TABLE IF NOT EXISTS seo_checks (
     issues_found INTEGER NOT NULL DEFAULT 0,
     notes TEXT
 );
+
+CREATE TABLE IF NOT EXISTS seo_crawl_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_page_id INTEGER NOT NULL,
+    to_page_id INTEGER,
+    from_url TEXT NOT NULL,
+    to_url TEXT NOT NULL,
+    link_type TEXT NOT NULL DEFAULT 'internal',
+    is_valid INTEGER NOT NULL DEFAULT 1,
+    checked_at TEXT NOT NULL,
+    FOREIGN KEY(from_page_id) REFERENCES seo_pages(id),
+    FOREIGN KEY(to_page_id) REFERENCES seo_pages(id)
+);
 """
 
 
@@ -456,6 +469,79 @@ def update_seo_page_snapshot(page_id, snapshot):
         conn.close()
 
 
+def replace_page_crawl_links(page_id, from_url, links):
+    init_seo_manager_db()
+    checked_at = utcnow_iso()
+    conn = get_connection()
+    try:
+        conn.execute("DELETE FROM seo_crawl_links WHERE from_page_id = ?", (int(page_id),))
+        if links:
+            normalized_links = []
+            unique_urls = []
+            seen = set()
+            for link in links:
+                to_url = str(link.get("to_url") or "").strip()
+                if not to_url or to_url in seen:
+                    continue
+                seen.add(to_url)
+                unique_urls.append(to_url)
+                normalized_links.append(
+                    {
+                        "to_url": to_url,
+                        "link_type": str(link.get("link_type") or "internal").strip() or "internal",
+                    }
+                )
+
+            target_map = {}
+            if unique_urls:
+                chunk_size = 500
+                for start in range(0, len(unique_urls), chunk_size):
+                    batch = unique_urls[start : start + chunk_size]
+                    placeholders = ",".join("?" for _ in batch)
+                    rows = conn.execute(
+                        f"""
+                        SELECT id, url, status_code
+                        FROM seo_pages
+                        WHERE is_active = 1
+                          AND url IN ({placeholders})
+                        """,
+                        tuple(batch),
+                    ).fetchall()
+                    for row in rows:
+                        target_map[row["url"]] = dict(row)
+
+            conn.executemany(
+                """
+                INSERT INTO seo_crawl_links (
+                    from_page_id, to_page_id, from_url, to_url,
+                    link_type, is_valid, checked_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        int(page_id),
+                        (target_map.get(item["to_url"]) or {}).get("id"),
+                        from_url,
+                        item["to_url"],
+                        item["link_type"],
+                        int(
+                            (
+                                item["to_url"] in target_map
+                                and (target_map[item["to_url"]].get("status_code") in (None, 200))
+                            )
+                        ),
+                        checked_at,
+                    )
+                    for item in normalized_links
+                ],
+            )
+        conn.commit()
+        return len(links)
+    finally:
+        conn.close()
+
+
 def get_extraction_summary():
     init_seo_manager_db()
     conn = get_connection()
@@ -502,6 +588,38 @@ def get_extraction_summary():
             "by_domain": by_domain,
             "latest_check": dict(latest_check) if latest_check else None,
         }
+    finally:
+        conn.close()
+
+
+def fetch_seo_pages_for_link_scan(domain=None, limit=100, offset=0, page_types=None, only_checked=True):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["is_active = 1"]
+        params = []
+        if domain:
+            where_clauses.append("domain = ?")
+            params.append(domain)
+        if only_checked:
+            where_clauses.append("last_checked_at IS NOT NULL")
+        if page_types:
+            placeholders = ",".join("?" for _ in page_types)
+            where_clauses.append(f"page_type IN ({placeholders})")
+            params.extend(page_types)
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT id, url, path, domain, page_type, page_subtype,
+                   last_checked_at, health_score
+            FROM seo_pages
+            WHERE {where_sql}
+            ORDER BY domain, path
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [int(limit), int(offset)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
     finally:
         conn.close()
 
@@ -1147,6 +1265,56 @@ def get_crawlability_overview(limit=100):
                 (int(limit),),
             ).fetchall()
         ]
+        broken_internal_links = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT cl.from_url, cl.to_url, cl.link_type, cl.checked_at,
+                       sp.page_type AS from_page_type, sp.page_subtype AS from_page_subtype,
+                       tp.page_type AS target_page_type, tp.page_subtype AS target_page_subtype,
+                       tp.status_code AS target_status_code,
+                       COALESCE(tp.health_score, 100) AS target_health_score
+                FROM seo_crawl_links cl
+                JOIN seo_pages sp ON sp.id = cl.from_page_id
+                LEFT JOIN seo_pages tp ON tp.url = cl.to_url AND tp.is_active = 1
+                WHERE sp.is_active = 1
+                  AND sp.domain = 'traderhub.in'
+                  AND (
+                    tp.id IS NULL
+                    OR (tp.status_code IS NOT NULL AND tp.status_code != 200)
+                  )
+                ORDER BY cl.checked_at DESC, cl.from_url, cl.to_url
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
+        orphan_pages = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT p.url, p.domain, p.page_type, p.page_subtype,
+                       p.health_score, p.last_checked_at
+                FROM seo_pages p
+                LEFT JOIN seo_crawl_links cl
+                  ON cl.to_url = p.url
+                LEFT JOIN seo_pages sp
+                  ON sp.id = cl.from_page_id
+                 AND sp.is_active = 1
+                 AND sp.domain = 'traderhub.in'
+                WHERE p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.index_expected = 'index'
+                  AND p.last_checked_at IS NOT NULL
+                  AND p.page_type NOT IN ('ipo_hub', 'sector_hub', 'trend_hub', 'archive_hub', 'derivatives_hub')
+                GROUP BY p.id
+                HAVING COUNT(sp.id) = 0
+                ORDER BY p.path
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
         totals = conn.execute(
             """
             SELECT
@@ -1158,11 +1326,22 @@ def get_crawlability_overview(limit=100):
             WHERE is_active = 1
             """
         ).fetchone()
+        linked_totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS crawl_link_count,
+                COUNT(DISTINCT from_page_id) AS linked_source_pages
+            FROM seo_crawl_links
+            """
+        ).fetchone()
         return {
             "totals": dict(totals) if totals else {},
+            "crawl_totals": dict(linked_totals) if linked_totals else {},
             "non_200_pages": non_200_pages,
             "indexing_conflicts": indexing_conflicts,
             "unchecked_public_pages": unchecked_public_pages,
+            "broken_internal_links": broken_internal_links,
+            "orphan_pages": orphan_pages,
         }
     finally:
         conn.close()
