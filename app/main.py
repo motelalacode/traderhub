@@ -19490,9 +19490,9 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
                 replace_page_crawl_links(page_row["id"], page_row["url"], links)
                 pages_scanned += 1
                 total_links += len(links)
-            except Exception as exc:
+            except BaseException as exc:
                 failures += 1
-                failure_messages.append(f"{page_row['url']}: {exc}")
+                failure_messages.append(f"{page_row['url']}: {type(exc).__name__}: {exc}")
         finish_check(
             check_id,
             "completed" if failures == 0 else "completed_with_warnings",
@@ -19509,13 +19509,13 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
             "failures": failures,
             "summary": get_crawlability_overview(limit=100),
         }
-    except Exception as exc:
+    except BaseException as exc:
         finish_check(
             check_id,
             "failed",
             pages_scanned=pages_scanned,
             issues_found=failures,
-            notes=str(exc),
+            notes=f"{type(exc).__name__}: {exc}",
         )
         raise
 
