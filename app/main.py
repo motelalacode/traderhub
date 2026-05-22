@@ -19023,24 +19023,57 @@ def fetch_seo_page_snapshot(url):
     return snapshot
 
 
+def fetch_internal_seo_page_snapshot(page_row):
+    with app.test_client() as client:
+        response = client.get(
+            page_row["path"],
+            base_url=f"https://{page_row['domain']}",
+            follow_redirects=True,
+        )
+    html_text = response.get_data(as_text=True)
+    snapshot = extract_seo_snapshot_from_html(
+        html_text,
+        fallback_url=page_row["url"],
+    )
+    snapshot["status_code"] = response.status_code
+    snapshot["last_checked_at"] = utcnow_iso()
+    return snapshot
+
+
 def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
     check_id = start_check("metadata_extract", notes=f"Metadata extraction run | domain={domain or 'all'} | limit={limit}")
     pages_scanned = 0
+    failures = 0
     try:
         page_rows = fetch_seo_pages_for_extraction(domain=domain, limit=limit, only_missing=only_missing)
         for page_row in page_rows:
-            snapshot = fetch_seo_page_snapshot(page_row["url"])
+            try:
+                snapshot = fetch_internal_seo_page_snapshot(page_row)
+            except BaseException as exc:
+                failures += 1
+                snapshot = {
+                    "title": "",
+                    "meta_description": "",
+                    "h1": "",
+                    "canonical_url": page_row["url"],
+                    "robots_directive": page_row.get("robots_directive") or "",
+                    "index_status": page_row.get("index_status") or page_row.get("index_expected") or "noindex",
+                    "status_code": 500,
+                    "schema_type": page_row.get("schema_type") or "WebPage",
+                    "last_checked_at": utcnow_iso(),
+                }
             update_seo_page_snapshot(page_row["id"], snapshot)
             pages_scanned += 1
         finish_check(
             check_id,
             "completed",
             pages_scanned=pages_scanned,
-            issues_found=0,
-            notes=f"Completed metadata extraction for {pages_scanned} pages.",
+            issues_found=failures,
+            notes=f"Completed metadata extraction for {pages_scanned} pages with {failures} failures.",
         )
         summary = get_extraction_summary()
         summary["pages_scanned"] = pages_scanned
+        summary["failures"] = failures
         summary["domain"] = domain or "all"
         summary["only_missing"] = bool(only_missing)
         return summary
@@ -19049,7 +19082,7 @@ def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
             check_id,
             "failed",
             pages_scanned=pages_scanned,
-            issues_found=0,
+            issues_found=failures,
             notes=f"Metadata extraction failed: {exc}",
         )
         raise
@@ -19058,7 +19091,16 @@ def run_seo_metadata_extract(limit=100, domain=None, only_missing=False):
 def run_seo_metadata_debug(url):
     diagnostics = {"status": "ok", "url": url}
     try:
-        snapshot = fetch_seo_page_snapshot(url)
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme in {"http", "https"} and parsed.path:
+            page_row = {
+                "url": url,
+                "path": parsed.path,
+                "domain": parsed.netloc,
+            }
+            snapshot = fetch_internal_seo_page_snapshot(page_row)
+        else:
+            snapshot = fetch_seo_page_snapshot(url)
         diagnostics["snapshot"] = snapshot
         return diagnostics
     except BaseException as exc:
