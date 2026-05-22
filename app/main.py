@@ -16,6 +16,7 @@ from kiteconnect import KiteConnect
 from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
 from app.seo_manager import (
+    bulk_upsert_seo_pages,
     fetch_domain_rules,
     finish_check,
     get_inventory_summary,
@@ -18856,12 +18857,10 @@ def run_seo_inventory_scan():
     init_seo_manager_db()
     seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
     inventory_rows = build_known_seo_inventory()
-    seen_urls = []
+    seen_urls = [row["url"] for row in inventory_rows]
     check_id = start_check("inventory_scan", notes="Known-route SEO inventory build")
     try:
-        for row in inventory_rows:
-            upsert_seo_page(row)
-            seen_urls.append(row["url"])
+        bulk_upsert_seo_pages(inventory_rows)
         mark_pages_inactive_except(seen_urls)
         finish_check(
             check_id,

@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS seo_checks (
 
 def get_connection():
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(SEO_MANAGER_DB_PATH))
+    conn = sqlite3.connect(str(SEO_MANAGER_DB_PATH), timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -244,6 +244,66 @@ def upsert_seo_page(page_row):
                 page_row.get("last_updated_at"),
                 int(page_row.get("health_score", 100)),
             ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def bulk_upsert_seo_pages(page_rows):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        conn.executemany(
+            """
+            INSERT INTO seo_pages (
+                url, path, domain, page_type, page_subtype,
+                canonical_url, robots_directive, index_expected,
+                index_status, status_code, schema_type,
+                sitemap_group, is_active, last_seen_at,
+                last_checked_at, last_updated_at, health_score
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(url) DO UPDATE SET
+                path = excluded.path,
+                domain = excluded.domain,
+                page_type = excluded.page_type,
+                page_subtype = excluded.page_subtype,
+                canonical_url = excluded.canonical_url,
+                robots_directive = excluded.robots_directive,
+                index_expected = excluded.index_expected,
+                index_status = excluded.index_status,
+                status_code = excluded.status_code,
+                schema_type = excluded.schema_type,
+                sitemap_group = excluded.sitemap_group,
+                is_active = excluded.is_active,
+                last_seen_at = excluded.last_seen_at,
+                last_checked_at = excluded.last_checked_at,
+                last_updated_at = excluded.last_updated_at,
+                health_score = excluded.health_score
+            """,
+            [
+                (
+                    page_row["url"],
+                    page_row["path"],
+                    page_row["domain"],
+                    page_row["page_type"],
+                    page_row.get("page_subtype"),
+                    page_row.get("canonical_url"),
+                    page_row.get("robots_directive"),
+                    page_row["index_expected"],
+                    page_row.get("index_status"),
+                    page_row.get("status_code"),
+                    page_row.get("schema_type"),
+                    page_row.get("sitemap_group"),
+                    int(bool(page_row.get("is_active", True))),
+                    page_row.get("last_seen_at"),
+                    page_row.get("last_checked_at"),
+                    page_row.get("last_updated_at"),
+                    int(page_row.get("health_score", 100)),
+                )
+                for page_row in page_rows
+            ],
         )
         conn.commit()
     finally:
