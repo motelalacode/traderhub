@@ -21858,7 +21858,7 @@ DERIVATIVES_PHASE1_TEMPLATE = """
                 {% for row in table_rows %}
                 <tr>
                   {% for column in table_columns %}
-                  <td>{% if column.link_key %}<a href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>{% else %}{{ row[column.key] }}{% endif %}</td>
+                  <td>{% if column.link_key and row[column.link_key] %}<a href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>{% else %}{{ row[column.key] }}{% endif %}</td>
                   {% endfor %}
                 </tr>
                 {% endfor %}
@@ -22665,7 +22665,7 @@ def build_index_oi_change_context_v2(host_root):
                 {
                     "index_name": config["index_name"],
                     "symbol": row["strike"],
-                    "stock_url": None,
+                    "stock_url": "",
                     "spot": format_price(spot_value) if spot_value > 0 else "Pending",
                     "day_change": f"{spot_change_pct:+.2f}%" if prev_close > 0 and spot_value > 0 else "Pending",
                     "volume": "Displayed Window",
