@@ -19462,10 +19462,18 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
     }
 
 
-def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
+def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus", offset=0):
+    requested_limit = int(limit)
+    effective_limit = requested_limit
+    if profile == "full":
+        effective_limit = min(requested_limit, 30)
+    elif profile == "public-plus":
+        effective_limit = min(requested_limit, 40)
+    else:
+        effective_limit = min(requested_limit, 60)
     check_id = start_check(
         "crawlability_scan",
-        notes=f"Crawlability link scan | domain={domain or 'all'} | limit={limit} | profile={profile}",
+        notes=f"Crawlability link scan | domain={domain or 'all'} | limit={effective_limit} | offset={offset} | profile={profile}",
     )
     pages_scanned = 0
     failures = 0
@@ -19476,7 +19484,8 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
         selected_page_types = profile_map.get(profile, profile_map["public-plus"])
         page_rows = fetch_seo_pages_for_link_scan(
             domain=domain,
-            limit=limit,
+            limit=effective_limit,
+            offset=offset,
             only_checked=True,
             page_types=selected_page_types or None,
         )
@@ -19504,6 +19513,9 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus"):
             "status": "ok",
             "domain": domain or "all",
             "profile": profile,
+            "requested_limit": requested_limit,
+            "effective_limit": effective_limit,
+            "offset": offset,
             "pages_scanned": pages_scanned,
             "total_links": total_links,
             "failures": failures,
@@ -23321,10 +23333,14 @@ def seo_manager_crawlability_run():
         limit = max(1, min(int(request.args.get("limit", 40)), 250))
     except Exception:
         limit = 40
+    try:
+        offset = max(0, int(request.args.get("offset", 0)))
+    except Exception:
+        offset = 0
     domain = str(request.args.get("domain", "") or "").strip() or None
     profile = str(request.args.get("profile", "public-plus") or "public-plus").strip().lower()
     try:
-        summary = run_seo_crawlability_scan(limit=limit, domain=domain, profile=profile)
+        summary = run_seo_crawlability_scan(limit=limit, domain=domain, profile=profile, offset=offset)
         return jsonify(summary)
     except BaseException as exc:
         payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
