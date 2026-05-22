@@ -18,16 +18,21 @@ from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
 from app.seo_manager import (
     bulk_upsert_seo_pages,
-    fetch_domain_rules,
     fetch_active_issue_pages,
+    fetch_domain_rules,
     fetch_seo_page_by_url,
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
     finish_check,
+    get_dashboard_overview,
     get_extraction_summary,
     get_inventory_summary,
+    get_indexing_policy_summary,
     get_issue_summary,
+    get_metadata_overview,
+    get_sitemaps_overview,
     init_seo_manager_db,
+    list_seo_pages,
     mark_pages_inactive_except,
     recompute_health_scores,
     replace_page_issues,
@@ -19325,6 +19330,433 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
     }
 
 
+SEO_MANAGER_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title }}</title>
+  <meta name="description" content="{{ page_description }}">
+  <style>
+    :root { --bg:#eef2f6; --paper:#fff; --panel:#f7fafc; --line:#d4dbe3; --ink:#1f2b38; --muted:#627385; --up:#166b45; --up-soft:#daf0e4; --warn:#9a6c00; --warn-soft:#f6ebc5; --danger:#9a3337; --danger-soft:#f7dddf; --info:#245fa7; --info-soft:#dbe8fb; --shadow:0 10px 28px rgba(23,33,43,0.08); }
+    * { box-sizing:border-box; } body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:linear-gradient(180deg,#f7f7f5 0%,#eef2f6 100%); }
+    .page { max-width:1440px; margin:0 auto; padding:18px 14px 34px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.panel,.card,.table-wrap,.sidebar { background:var(--paper); border:1px solid var(--line); border-radius:20px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; }
+    .hero h1 { margin:0; font-size:34px; line-height:1; } .hero-sub { margin-top:8px; color:rgba(255,255,255,0.84); font-size:16px; }
+    .nav { display:flex; gap:10px; overflow-x:auto; padding:14px 0 4px; }
+    .chip { text-decoration:none; border:1px solid var(--line); background:var(--paper); color:#0e554b; border-radius:999px; padding:10px 14px; font-size:13px; font-weight:700; white-space:nowrap; }
+    .chip.active { background:#0e554b; color:#fff; border-color:#0e554b; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-top:16px; }
+    .card { padding:14px; background:var(--panel); } .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; } .value { font-size:28px; font-weight:700; }
+    .layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; margin-top:16px; align-items:start; }
+    .stack { display:grid; gap:16px; } .panel { padding:16px; } .panel h2 { margin:0 0 6px; font-size:24px; } .note { color:var(--muted); font-size:14px; line-height:1.55; margin-bottom:12px; }
+    .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
+    table { width:100%; border-collapse:collapse; font-size:14px; } th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; } td { padding:10px 8px; border-bottom:1px solid rgba(212,219,227,.88); vertical-align:top; } tr:last-child td { border-bottom:none; }
+    .tag { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .tag-high { background:var(--danger-soft); color:var(--danger); } .tag-medium { background:var(--warn-soft); color:var(--warn); } .tag-low { background:var(--info-soft); color:var(--info); } .tag-good { background:var(--up-soft); color:var(--up); }
+    .mono { font-family:Consolas,Menlo,monospace; font-size:12px; word-break:break-all; } .muted { color:var(--muted); }
+    .sidebar { padding:16px; } .sidebar h3 { margin:0 0 10px; font-size:15px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); }
+    .mini-list { display:grid; gap:10px; } .mini-row { padding-bottom:10px; border-bottom:1px solid rgba(212,219,227,.88); } .mini-row:last-child { padding-bottom:0; border-bottom:none; }
+    .filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px; } .filter-chip { padding:8px 12px; border-radius:999px; border:1px solid var(--line); background:var(--panel); font-size:12px; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } .grid-2,.kpi-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:680px) { .kpi-grid,.grid-2 { grid-template-columns:1fr; } .hero h1 { font-size:28px; } .page { padding:12px 10px 28px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    <section class="hero">
+      <h1>{{ hero_title }}</h1>
+      <div class="hero-sub">{{ hero_subtitle }}</div>
+      <div class="kpi-grid">
+        {% for item in kpis %}
+        <div class="card">
+          <div class="label">{{ item.label }}</div>
+          <div class="value">{{ item.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    <div class="nav">
+      {% for nav in nav_items %}
+      <a class="chip {% if nav.href == active_href %}active{% endif %}" href="{{ nav.href }}">{{ nav.label }}</a>
+      {% endfor %}
+    </div>
+    <div class="layout">
+      <div class="stack">
+        {% for section in sections %}
+        <section class="panel">
+          <h2>{{ section.title }}</h2>
+          {% if section.note %}<div class="note">{{ section.note }}</div>{% endif %}
+          {% if section.filters %}
+          <div class="filters">{% for chip in section.filters %}<span class="filter-chip">{{ chip }}</span>{% endfor %}</div>
+          {% endif %}
+          {% if section.rows %}
+          <div class="table-wrap">
+            <table>
+              <thead><tr>{% for col in section.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in section.rows %}
+                <tr>
+                  {% for cell in row %}
+                  <td>{{ cell|safe }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="note">No rows to show right now.</div>
+          {% endif %}
+        </section>
+        {% endfor %}
+      </div>
+      <aside class="sidebar">
+        {% for block in side_blocks %}
+        <div style="margin-bottom:16px;">
+          <h3>{{ block.title }}</h3>
+          <div class="mini-list">
+            {% for item in block.items %}
+            <div class="mini-row">{{ item|safe }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+def get_seo_manager_nav_items():
+    return [
+        {"label": "Dashboard", "href": "/admin/seo-manager"},
+        {"label": "Pages", "href": "/admin/seo-manager/pages"},
+        {"label": "Indexing Policy", "href": "/admin/seo-manager/indexing-policy"},
+        {"label": "Sitemaps", "href": "/admin/seo-manager/sitemaps"},
+        {"label": "Metadata", "href": "/admin/seo-manager/metadata"},
+    ]
+
+
+def _seo_health_badge(score):
+    score = int(score or 0)
+    if score >= 90:
+        return f'<span class="tag tag-good">{score}</span>'
+    if score >= 70:
+        return f'<span class="tag tag-medium">{score}</span>'
+    return f'<span class="tag tag-high">{score}</span>'
+
+
+def _seo_severity_badge(severity):
+    severity = str(severity or "").lower()
+    css = "tag-low"
+    if severity == "high":
+        css = "tag-high"
+    elif severity == "medium":
+        css = "tag-medium"
+    return f'<span class="tag {css}">{severity or "n/a"}</span>'
+
+
+def render_seo_manager_screen(context):
+    return render_template_string(SEO_MANAGER_TEMPLATE, **context)
+
+
+def build_seo_manager_dashboard_context():
+    data = get_dashboard_overview()
+    totals = data.get("totals", {})
+    sections = [
+        {
+            "title": "Urgent Issues",
+            "note": "High-severity items are the fastest way to understand whether indexing, response codes, or canonical behavior needs attention first.",
+            "columns": ["URL", "Issue", "Severity", "Detected"],
+            "rows": [
+                [
+                    f'<div class="mono">{row["url"]}</div><div class="muted">{row["page_type"]} | {row["domain"]}</div>',
+                    row["issue_type"],
+                    _seo_severity_badge(row["severity"]),
+                    row["detected_at"],
+                ]
+                for row in data.get("urgent_issues", [])
+            ],
+            "filters": [],
+        },
+        {
+            "title": "Domain Health",
+            "note": "This view keeps the 3-domain structure honest: public on traderhub.in, private on app.traderhub.in, staging on bot.traderhub.in.",
+            "columns": ["Domain", "Tracked Pages", "Expected Indexable", "Actual Indexable", "Issue Pages"],
+            "rows": [
+                [
+                    row["domain"],
+                    row["total_pages"],
+                    row["expected_indexable"],
+                    row["actual_indexable"],
+                    row["issue_pages"],
+                ]
+                for row in data.get("domain_health", [])
+            ],
+            "filters": [],
+        },
+    ]
+    side_blocks = [
+        {
+            "title": "Sitemap Health",
+            "items": [
+                f'{row.get("sitemap_type") or row.get("sitemap_name")}: {row.get("url_count", 0)} URLs'
+                for row in data.get("sitemaps", [])
+            ] or ["No sitemap runs recorded yet."],
+        },
+        {
+            "title": "Page Types",
+            "items": [
+                f'{row["page_type"]}: {row["page_count"]}'
+                for row in data.get("page_type_breakdown", [])[:10]
+            ],
+        },
+        {
+            "title": "Recent Checks",
+            "items": [
+                f'{row["check_type"]} | {row["status"]} | {row.get("pages_scanned", 0)} pages'
+                for row in data.get("recent_checks", [])[:8]
+            ],
+        },
+    ]
+    return {
+        "page_title": "SEO Manager Dashboard | TraderHub",
+        "page_description": "SEO Manager dashboard for TraderHub public, app, and staging domains.",
+        "breadcrumb_text": "Admin > SEO Manager",
+        "breadcrumb_meta_text": f'Phase 1 MVP | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "SEO Manager Dashboard",
+        "hero_subtitle": "A Google-aligned control room for page inventory, issue tracking, domain policy, and metadata quality across TraderHub.",
+        "kpis": [
+            {"label": "Tracked Pages", "value": totals.get("total_pages", 0)},
+            {"label": "Public Indexable", "value": totals.get("public_indexable_pages", 0)},
+            {"label": "Active Issues", "value": totals.get("active_issues", 0)},
+            {"label": "High Severity", "value": totals.get("high_severity_issues", 0)},
+            {"label": "Issue Pages", "value": totals.get("pages_with_issues", 0)},
+            {"label": "Duplicate Meta Groups", "value": totals.get("duplicate_meta_groups", 0)},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager",
+        "sections": sections,
+        "side_blocks": side_blocks,
+    }
+
+
+def build_seo_manager_pages_context():
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    page_type = str(request.args.get("page_type", "") or "").strip() or None
+    issue_only = str(request.args.get("issue_only", "0")).strip().lower() in {"1", "true", "yes"}
+    rows = list_seo_pages(limit=100, domain=domain, page_type=page_type, issue_only=issue_only)
+    return {
+        "page_title": "SEO Pages Inventory | TraderHub",
+        "page_description": "SEO page inventory for TraderHub.",
+        "breadcrumb_text": "Admin > SEO Manager > Pages",
+        "breadcrumb_meta_text": f'Inventory view | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Pages Inventory",
+        "hero_subtitle": "Master table for tracked SEO pages, with health score, issue count, indexing status, and current metadata coverage.",
+        "kpis": [
+            {"label": "Rows", "value": len(rows)},
+            {"label": "Domain Filter", "value": domain or "All"},
+            {"label": "Page Type", "value": page_type or "All"},
+            {"label": "Issue Only", "value": "Yes" if issue_only else "No"},
+            {"label": "Worst Score", "value": min([row["health_score"] for row in rows], default=100)},
+            {"label": "Best Score", "value": max([row["health_score"] for row in rows], default=0)},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/pages",
+        "sections": [
+            {
+                "title": "Tracked Pages",
+                "note": "This is the master inventory table that the rest of the SEO Manager builds on.",
+                "filters": [
+                    f"domain={domain or 'all'}",
+                    f"page_type={page_type or 'all'}",
+                    f"issue_only={issue_only}",
+                ],
+                "columns": ["URL", "Type", "Index", "Sitemap", "Issues", "Health", "Last Checked"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        row.get("index_status") or row.get("index_expected") or "-",
+                        row.get("sitemap_group") or "-",
+                        row.get("active_issue_count", 0),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row.get("last_checked_at") or "-",
+                    ]
+                    for row in rows
+                ],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Quick Links",
+                "items": [
+                    'Run inventory: <span class="mono">/admin/seo-manager/inventory/run</span>',
+                    'Run extractor: <span class="mono">/admin/seo-manager/extractor/run?limit=25&profile=safe</span>',
+                    'Run issues: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
+                ],
+            }
+        ],
+    }
+
+
+def build_seo_manager_indexing_context():
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    data = get_indexing_policy_summary(limit=100, domain=domain)
+    return {
+        "page_title": "SEO Indexing Policy | TraderHub",
+        "page_description": "Indexing policy review for TraderHub domains.",
+        "breadcrumb_text": "Admin > SEO Manager > Indexing Policy",
+        "breadcrumb_meta_text": f'Policy review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Indexing Policy",
+        "hero_subtitle": "This screen compares expected indexing behavior with current page snapshots and canonical targets.",
+        "kpis": [
+            {"label": "Mismatches", "value": len(data.get("mismatches", []))},
+            {"label": "Active Rules", "value": len(data.get("domain_rules", []))},
+            {"label": "Domain Filter", "value": domain or "All"},
+            {"label": "Public Canonical", "value": "traderhub.in"},
+            {"label": "App Default", "value": "noindex"},
+            {"label": "Bot Default", "value": "noindex"},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/indexing-policy",
+        "sections": [
+            {
+                "title": "Current Mismatches",
+                "note": "These are the pages where indexing or canonical behavior does not match policy.",
+                "columns": ["URL", "Domain", "Expected Index", "Actual Index", "Canonical"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        row["domain"],
+                        row["index_expected"],
+                        row.get("index_status") or "-",
+                        f'<div class="mono">{row.get("canonical_url") or "-"}</div>',
+                    ]
+                    for row in data.get("mismatches", [])
+                ],
+                "filters": [f"domain={domain or 'all'}"],
+            },
+            {
+                "title": "Domain Rules",
+                "note": "These rules are the source of truth for expected index and canonical behavior.",
+                "columns": ["Domain", "Path Pattern", "Expected Index", "Canonical Domain", "Rule"],
+                "rows": [
+                    [row["domain"], row["path_pattern"], row["expected_indexing"], row.get("expected_canonical_domain") or "-", row["rule_label"]]
+                    for row in data.get("domain_rules", [])
+                ],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [],
+    }
+
+
+def build_seo_manager_sitemaps_context():
+    data = get_sitemaps_overview()
+    return {
+        "page_title": "SEO Sitemaps | TraderHub",
+        "page_description": "Sitemap status for TraderHub.",
+        "breadcrumb_text": "Admin > SEO Manager > Sitemaps",
+        "breadcrumb_meta_text": f'Sitemap review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Sitemaps",
+        "hero_subtitle": "Phase 1 keeps sitemap visibility simple: what exists, how many URLs it contains, and whether fresh runs have been recorded yet.",
+        "kpis": [
+            {"label": "Sitemaps", "value": len(data.get("rows", []))},
+            {"label": "Indexed Groups", "value": len([row for row in data.get("rows", []) if row.get("status") == "completed"])},
+            {"label": "Pending Groups", "value": len([row for row in data.get("rows", []) if row.get("status") != "completed"])},
+            {"label": "Public Domain", "value": "traderhub.in"},
+            {"label": "App Domain", "value": "noindex"},
+            {"label": "Bot Domain", "value": "staging"},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/sitemaps",
+        "sections": [
+            {
+                "title": "Sitemap Records",
+                "note": "These rows will become more useful once the sitemap generator is wired in the next pass.",
+                "columns": ["Name", "Type", "Domain", "URL Count", "Status", "Last Generated"],
+                "rows": [
+                    [
+                        row.get("sitemap_name") or "-",
+                        row.get("sitemap_type") or "-",
+                        row.get("domain") or "-",
+                        row.get("url_count", 0),
+                        row.get("status") or "-",
+                        row.get("last_generated_at") or "-",
+                    ]
+                    for row in data.get("rows", [])
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Next Step",
+                "items": ["Wire actual sitemap XML generation into the Phase 1 backend so this screen becomes operational instead of only observational."],
+            }
+        ],
+    }
+
+
+def build_seo_manager_metadata_context():
+    data = get_metadata_overview(limit=100)
+    issues = data.get("issues", [])
+    return {
+        "page_title": "SEO Metadata | TraderHub",
+        "page_description": "Metadata issues for TraderHub SEO Manager.",
+        "breadcrumb_text": "Admin > SEO Manager > Metadata",
+        "breadcrumb_meta_text": f'Metadata review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Metadata",
+        "hero_subtitle": "This view keeps titles, descriptions, H1s, and canonicals visible so content quality can be improved systematically instead of by guesswork.",
+        "kpis": [
+            {"label": "Metadata Issues", "value": len(issues)},
+            {"label": "Duplicate Meta Groups", "value": len(data.get("duplicate_meta_groups", []))},
+            {"label": "High Severity", "value": len([row for row in issues if row["severity"] == "high"])},
+            {"label": "Medium Severity", "value": len([row for row in issues if row["severity"] == "medium"])},
+            {"label": "Missing Title", "value": len([row for row in issues if row["issue_type"] == "missing_title"])},
+            {"label": "Missing Meta", "value": len([row for row in issues if row["issue_type"] == "missing_meta_description"])},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/metadata",
+        "sections": [
+            {
+                "title": "Metadata Issue Queue",
+                "note": "These are the currently detected title, description, H1, and canonical issues from the active snapshot set.",
+                "columns": ["URL", "Issue", "Severity", "Current Value"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div><div class="muted">{row["page_type"]}</div>',
+                        row["issue_type"],
+                        _seo_severity_badge(row["severity"]),
+                        html_lib.escape(row.get("meta_description") or row.get("title") or row.get("h1") or row.get("canonical_url") or "-"),
+                    ]
+                    for row in issues
+                ],
+                "filters": [],
+            },
+            {
+                "title": "Duplicate Meta Descriptions",
+                "note": "This is an early duplicate view to help spot template overuse as the public site grows.",
+                "columns": ["Meta Description", "Page Count"],
+                "rows": [
+                    [html_lib.escape(row["meta_description"]), row["page_count"]]
+                    for row in data.get("duplicate_meta_groups", [])
+                ],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [],
+    }
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -22001,6 +22433,31 @@ def seo_manager_ping():
             "version": "phase1-mvp-2026-05-22-v2",
         }
     )
+
+
+@app.route("/admin/seo-manager")
+def seo_manager_dashboard():
+    return render_seo_manager_screen(build_seo_manager_dashboard_context())
+
+
+@app.route("/admin/seo-manager/pages")
+def seo_manager_pages_screen():
+    return render_seo_manager_screen(build_seo_manager_pages_context())
+
+
+@app.route("/admin/seo-manager/indexing-policy")
+def seo_manager_indexing_policy_screen():
+    return render_seo_manager_screen(build_seo_manager_indexing_context())
+
+
+@app.route("/admin/seo-manager/sitemaps")
+def seo_manager_sitemaps_screen():
+    return render_seo_manager_screen(build_seo_manager_sitemaps_context())
+
+
+@app.route("/admin/seo-manager/metadata")
+def seo_manager_metadata_screen():
+    return render_seo_manager_screen(build_seo_manager_metadata_context())
 
 
 @app.route("/admin/seo-manager/inventory/run")

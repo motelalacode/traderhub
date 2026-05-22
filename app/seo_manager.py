@@ -737,3 +737,263 @@ def fetch_active_issue_pages(issue_type=None, limit=50):
         return [dict(row) for row in rows]
     finally:
         conn.close()
+
+
+def get_dashboard_overview():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS total_pages,
+                SUM(CASE WHEN domain = 'traderhub.in' AND index_expected = 'index' THEN 1 ELSE 0 END) AS public_indexable_pages,
+                SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS pages_with_issues
+            FROM seo_pages
+            WHERE is_active = 1
+            """
+        ).fetchone()
+        issue_totals = conn.execute(
+            """
+            SELECT
+                COUNT(*) AS active_issues,
+                SUM(CASE WHEN severity = 'high' THEN 1 ELSE 0 END) AS high_severity_issues
+            FROM seo_issues
+            WHERE status = 'active'
+            """
+        ).fetchone()
+        duplicate_meta_count = conn.execute(
+            """
+            SELECT COUNT(*) AS duplicate_groups
+            FROM (
+                SELECT meta_description
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND meta_description IS NOT NULL
+                  AND TRIM(meta_description) != ''
+                GROUP BY meta_description
+                HAVING COUNT(*) > 1
+            )
+            """
+        ).fetchone()["duplicate_groups"]
+        domain_health = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT domain,
+                       COUNT(*) AS total_pages,
+                       SUM(CASE WHEN index_expected = 'index' THEN 1 ELSE 0 END) AS expected_indexable,
+                       SUM(CASE WHEN index_status = 'index' THEN 1 ELSE 0 END) AS actual_indexable,
+                       SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS issue_pages
+                FROM seo_pages
+                WHERE is_active = 1
+                GROUP BY domain
+                ORDER BY domain
+                """
+            ).fetchall()
+        ]
+        page_type_breakdown = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT page_type, COUNT(*) AS page_count
+                FROM seo_pages
+                WHERE is_active = 1
+                GROUP BY page_type
+                ORDER BY page_count DESC, page_type
+                """
+            ).fetchall()
+        ]
+        recent_checks = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT id, check_type, started_at, completed_at, status, pages_scanned, issues_found
+                FROM seo_checks
+                ORDER BY id DESC
+                LIMIT 10
+                """
+            ).fetchall()
+        ]
+        urgent_issues = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT i.issue_type, i.severity, i.message, i.detected_at, p.url, p.domain, p.page_type
+                FROM seo_issues i
+                JOIN seo_pages p ON p.id = i.page_id
+                WHERE i.status = 'active' AND i.severity = 'high'
+                ORDER BY i.detected_at DESC
+                LIMIT 20
+                """
+            ).fetchall()
+        ]
+        sitemap_rows = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT sitemap_name, sitemap_type, url_count, last_generated_at, status
+                FROM seo_sitemaps
+                ORDER BY sitemap_type, sitemap_name
+                """
+            ).fetchall()
+        ]
+        return {
+            "totals": {**dict(totals), **dict(issue_totals), "duplicate_meta_groups": duplicate_meta_count},
+            "domain_health": domain_health,
+            "page_type_breakdown": page_type_breakdown,
+            "recent_checks": recent_checks,
+            "urgent_issues": urgent_issues,
+            "sitemaps": sitemap_rows,
+        }
+    finally:
+        conn.close()
+
+
+def list_seo_pages(limit=100, offset=0, domain=None, page_type=None, issue_only=False):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["p.is_active = 1"]
+        params = []
+        if domain:
+            where_clauses.append("p.domain = ?")
+            params.append(domain)
+        if page_type:
+            where_clauses.append("p.page_type = ?")
+            params.append(page_type)
+        if issue_only:
+            where_clauses.append("p.health_score < 100")
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT p.id, p.url, p.domain, p.page_type, p.page_subtype,
+                   p.title, p.meta_description, p.h1, p.canonical_url,
+                   p.index_status, p.sitemap_group, p.health_score,
+                   p.last_checked_at,
+                   COUNT(i.id) AS active_issue_count
+            FROM seo_pages p
+            LEFT JOIN seo_issues i
+              ON i.page_id = p.id AND i.status = 'active'
+            WHERE {where_sql}
+            GROUP BY p.id
+            ORDER BY p.health_score ASC, p.domain, p.path
+            LIMIT ? OFFSET ?
+            """,
+            tuple(params + [int(limit), int(offset)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_indexing_policy_summary(limit=100, domain=None):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["p.is_active = 1"]
+        params = []
+        if domain:
+            where_clauses.append("p.domain = ?")
+            params.append(domain)
+        where_sql = " AND ".join(where_clauses)
+        mismatches = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT p.url, p.domain, p.page_type, p.index_expected, p.index_status,
+                       p.canonical_url
+                FROM seo_pages p
+                WHERE {where_sql}
+                  AND (
+                    p.index_expected != p.index_status
+                    OR (p.domain = 'traderhub.in' AND (p.canonical_url IS NULL OR p.canonical_url NOT LIKE 'https://traderhub.in%'))
+                  )
+                ORDER BY p.domain, p.path
+                LIMIT ?
+                """,
+                tuple(params + [int(limit)]),
+            ).fetchall()
+        ]
+        domain_rules = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT domain, path_pattern, expected_indexing, expected_canonical_domain, rule_label, active
+                FROM seo_domain_rules
+                WHERE active = 1
+                ORDER BY domain, path_pattern
+                """
+            ).fetchall()
+        ]
+        return {"mismatches": mismatches, "domain_rules": domain_rules}
+    finally:
+        conn.close()
+
+
+def get_sitemaps_overview():
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        sitemap_rows = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT sitemap_name, domain, sitemap_type, public_url, url_count, last_generated_at, status, notes
+                FROM seo_sitemaps
+                ORDER BY sitemap_type, sitemap_name
+                """
+            ).fetchall()
+        ]
+        return {"rows": sitemap_rows}
+    finally:
+        conn.close()
+
+
+def get_metadata_overview(limit=100):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        issue_rows = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT i.issue_type, i.severity, i.message, p.url, p.page_type,
+                       p.title, p.meta_description, p.h1, p.canonical_url
+                FROM seo_issues i
+                JOIN seo_pages p ON p.id = i.page_id
+                WHERE i.status = 'active'
+                  AND i.issue_type IN (
+                    'missing_title',
+                    'missing_meta_description',
+                    'missing_h1',
+                    'missing_canonical',
+                    'canonical_mismatch'
+                  )
+                ORDER BY
+                  CASE i.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+                  p.domain, p.path
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        ]
+        duplicates = [
+            dict(row)
+            for row in conn.execute(
+                """
+                SELECT meta_description, COUNT(*) AS page_count
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND meta_description IS NOT NULL
+                  AND TRIM(meta_description) != ''
+                GROUP BY meta_description
+                HAVING COUNT(*) > 1
+                ORDER BY page_count DESC, meta_description
+                LIMIT 20
+                """
+            ).fetchall()
+        ]
+        return {"issues": issue_rows, "duplicate_meta_groups": duplicates}
+    finally:
+        conn.close()
