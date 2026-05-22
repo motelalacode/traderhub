@@ -22589,6 +22589,7 @@ def get_index_reference_levels(spot_price, step):
 
 def build_derivatives_hub_context(host_root):
     stock_rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+    real_fno_count = sum(1 for row in stock_rows if row.get("real_fno_available"))
     buildup_counts = {
         "Long Buildup": sum(1 for row in stock_rows if row["buildup_label"] == "Long Buildup"),
         "Short Buildup": sum(1 for row in stock_rows if row["buildup_label"] == "Short Buildup"),
@@ -22601,11 +22602,11 @@ def build_derivatives_hub_context(host_root):
     today_iso = get_today_ist().isoformat()
     canonical_url = f"{host_root.rstrip('/')}/derivatives"
     focus_cards = [
-        {"title": "Nifty Options Dashboard", "meta": "Index Derivatives | Phase 1", "copy": "Start with the Nifty structure page to see the public layout for spot tone, PCR/max-pain placeholders, and broad-market proxy reading in one screen."},
-        {"title": "Bank Nifty Options Dashboard", "meta": "Index Derivatives | Phase 1", "copy": "This page mirrors the Nifty dashboard but stays tuned to banking leadership, which is often the sharper intraday F&O signal for Indian traders."},
-        {"title": "Stock F&O Hub", "meta": "Stock Derivatives | Phase 1", "copy": "Use the stock hub to scan liquid names, spot-led proxy buildup labels, and pending F&O fields without pretending we already have the full futures/OI stack connected."},
-        {"title": "OI Change Dashboard", "meta": "Stock Derivatives | Phase 1", "copy": "This page is designed for organic derivatives intent and keeps the OI structure visible now, while the true open-interest feed can be connected in the next pass."},
-        {"title": "Futures Buildup", "meta": "Classification View | Phase 1", "copy": "The buildup page groups names into long buildup, short buildup, short covering, and long unwinding using a transparent phase-1 proxy model."},
+        {"title": "Nifty Options Dashboard", "meta": "Index Derivatives | Live displayed chain", "copy": "Start with the Nifty structure page to see live displayed-chain OI, PCR, support and resistance framing, and max-pain context in one public screen."},
+        {"title": "Bank Nifty Options Dashboard", "meta": "Index Derivatives | Live displayed chain", "copy": "This page mirrors the Nifty dashboard but stays tuned to banking leadership, with live displayed-chain OI where the broker feed is available."},
+        {"title": "Stock F&O Hub", "meta": "Stock Derivatives | Real futures layer", "copy": "Use the stock hub to scan liquid names with nearest-futures price, OI, OI change, and buildup classification where the derivatives path is available."},
+        {"title": "OI Change Dashboard", "meta": "Stock Derivatives | Real OI", "copy": "This page is built for organic derivatives intent and now prefers real stock-futures OI change wherever the tracked contract path is available."},
+        {"title": "Futures Buildup", "meta": "Classification View | Price + OI", "copy": "The buildup page groups names into long buildup, short buildup, short covering, and long unwinding using real price-plus-OI behavior first and only falls back when the futures path is missing."},
     ]
     return {
         "page_mode": "hub",
@@ -22617,12 +22618,13 @@ def build_derivatives_hub_context(host_root):
         "breadcrumb_meta_text": f"Phase 1 derivatives module | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Derivatives",
         "hero_title": "F&O Phase 1",
-        "hero_subtitle": "This module starts with public structure and honest proxy context first. It is meant to grow into a deeper F&O surface without forcing a fake option-chain terminal on day one.",
+        "hero_subtitle": "This module now has a real public derivatives core: stock futures price and OI where available, plus live displayed-chain index OI. It still stays disciplined enough to grow into deeper expiry and full-chain tools later.",
         "hero_metric_primary": str(len(stock_rows)),
         "hero_metric_secondary": "live stock F&O proxy rows available right now",
-        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Stock F&O Proxy Live", "kind": "tag-up"}, {"label": "Index Options Structure", "kind": "tag-warn"}],
+        "hero_badges": [{"label": "Phase 1 Public Module", "kind": "tag-info"}, {"label": "Real Stock F&O Live", "kind": "tag-up"}, {"label": "Index OI Live", "kind": "tag-up"}],
         "hero_stats": [
             {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS)},
+            {"label": "Real F&O Rows", "value": real_fno_count},
             {"label": "Long Buildup", "value": buildup_counts["Long Buildup"]},
             {"label": "Short Buildup", "value": buildup_counts["Short Buildup"]},
             {"label": "Avg Move", "value": f"{avg_change:+.2f}%"},
@@ -22636,7 +22638,7 @@ def build_derivatives_hub_context(host_root):
             {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
         ],
         "section_title": "Derivatives Dashboard",
-        "section_note": "Phase 1 is intentionally focused. It gives users a public entry into F&O pages, live stock-derivatives proxy context, and SEO-friendly derivative routes before the deeper option-chain or OI engine is connected.",
+        "section_note": "Phase 1 is still intentionally focused, but it is no longer only structural. The public routes now already carry real stock-futures OI behavior and live displayed-chain index OI where the feed is available.",
         "summary_cards": [
             {"label": "Nifty Options", "value": "Ready", "copy": "Public structure is live for spot tone, max-pain placeholder, strike framing, and expiry-usefulness notes."},
             {"label": "Bank Nifty", "value": "Ready", "copy": "The banking index view is positioned as a repeat-use public page with the same cleaner TraderHub design system."},
@@ -23271,6 +23273,55 @@ def build_index_oi_change_context_v2(host_root):
     }
 
 
+def get_derivatives_oi_feed_status():
+    creds = get_active_kite_credentials()
+    stock_rows, missing_symbols, stock_error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+    real_stock_rows = [row for row in stock_rows if row.get("real_fno_available")]
+    stock_with_pending_oi = [
+        row["symbol"]
+        for row in stock_rows
+        if not row.get("real_fno_available")
+    ]
+    index_rows = []
+    for index_slug in ("nifty-options", "banknifty-options"):
+        config = DERIVATIVES_INDEX_CONFIG[index_slug]
+        client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+        spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+        spot_value = float(((spot_quote or {}).get("last_price")) or 0)
+        chain = build_real_index_option_chain(
+            config["index_name"],
+            spot_value,
+            config["strike_step"],
+            underlying_names=config.get("underlying_names"),
+        )
+        index_rows.append(
+            {
+                "slug": index_slug,
+                "index_name": config["index_name"],
+                "chain_available": bool(chain.get("available")),
+                "row_count": len(chain.get("rows") or []),
+                "pcr_display": chain.get("pcr_display"),
+                "expiry_date": chain.get("expiry_date"),
+                "error": chain.get("error"),
+            }
+        )
+    return {
+        "status": "ok",
+        "provider": "kite",
+        "credentials_present": bool(creds["api_key"] and creds["access_token"]),
+        "stock_fno": {
+            "tracked_names": len(FNO_PHASE1_STOCK_SYMBOLS),
+            "rows_available": len(stock_rows),
+            "real_fno_rows": len(real_stock_rows),
+            "missing_symbols": missing_symbols,
+            "pending_oi_symbols": stock_with_pending_oi[:25],
+            "error": stock_error,
+        },
+        "index_chain": index_rows,
+        "checked_at": utcnow_iso(),
+    }
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -23617,6 +23668,14 @@ def derivatives_stock_hub():
 def derivatives_stock_oi_change():
     context = build_stock_oi_change_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/derivatives/oi-feed-status")
+def derivatives_oi_feed_status():
+    try:
+        return jsonify(get_derivatives_oi_feed_status())
+    except BaseException as exc:
+        return jsonify({"status": "error", "message": str(exc), "error_type": type(exc).__name__}), 500
 
 
 @app.route("/derivatives/stocks/futures-buildup")
