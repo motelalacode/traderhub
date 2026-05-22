@@ -30,6 +30,7 @@ from app.seo_manager import (
     get_inventory_summary,
     get_indexing_policy_summary,
     get_issue_summary,
+    list_seo_issues,
     get_metadata_overview,
     get_sitemaps_overview,
     init_seo_manager_db,
@@ -19548,6 +19549,7 @@ def get_seo_manager_nav_items():
         {"label": "Indexing Policy", "href": "/admin/seo-manager/indexing-policy"},
         {"label": "Sitemaps", "href": "/admin/seo-manager/sitemaps"},
         {"label": "Metadata", "href": "/admin/seo-manager/metadata"},
+        {"label": "Issues", "href": "/admin/seo-manager/issues"},
     ]
 
 
@@ -19861,6 +19863,83 @@ def build_seo_manager_metadata_context():
             },
         ],
         "side_blocks": [],
+    }
+
+
+def build_seo_manager_issues_context():
+    severity = str(request.args.get("severity", "") or "").strip().lower() or None
+    issue_type = str(request.args.get("issue_type", "") or "").strip() or None
+    domain = str(request.args.get("domain", "") or "").strip() or None
+    issues = list_seo_issues(limit=150, severity=severity, issue_type=issue_type, domain=domain)
+    summary = get_issue_summary()
+    totals = summary.get("totals", {})
+    by_type = summary.get("by_type", [])
+    return {
+        "page_title": "SEO Issues | TraderHub",
+        "page_description": "Active SEO issue queue for TraderHub.",
+        "breadcrumb_text": "Admin > SEO Manager > Issues",
+        "breadcrumb_meta_text": f'Issue queue | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Issues Queue",
+        "hero_subtitle": "This is the action layer of the SEO Manager: active issues, severity order, and the pages that need attention first.",
+        "kpis": [
+            {"label": "Active Issues", "value": totals.get("active_issues", 0)},
+            {"label": "Issue Pages", "value": totals.get("issue_pages", 0)},
+            {"label": "High Severity", "value": totals.get("high_severity", 0)},
+            {"label": "Medium Severity", "value": totals.get("medium_severity", 0)},
+            {"label": "Low Severity", "value": totals.get("low_severity", 0)},
+            {"label": "Visible Rows", "value": len(issues)},
+        ],
+        "nav_items": get_seo_manager_nav_items(),
+        "active_href": "/admin/seo-manager/issues",
+        "sections": [
+            {
+                "title": "Active Issue Queue",
+                "note": "Issues are ordered by severity first so the highest-risk indexing and response problems stay visible at the top.",
+                "filters": [
+                    f"severity={severity or 'all'}",
+                    f"issue_type={issue_type or 'all'}",
+                    f"domain={domain or 'all'}",
+                ],
+                "columns": ["URL", "Issue", "Severity", "Health", "Detected"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div><div class="muted">{row["page_type"]}{(" | " + row["page_subtype"]) if row.get("page_subtype") else ""} | {row["domain"]}</div><div class="muted">{html_lib.escape(row["message"])}</div>',
+                        row["issue_type"],
+                        _seo_severity_badge(row["severity"]),
+                        _seo_health_badge(row.get("health_score", 100)),
+                        row["detected_at"],
+                    ]
+                    for row in issues
+                ],
+            },
+            {
+                "title": "Issue Type Breakdown",
+                "note": "This helps you see whether the queue is concentrated in metadata, response codes, or a smaller set of repeated problems.",
+                "columns": ["Issue Type", "Severity", "Count"],
+                "rows": [
+                    [row["issue_type"], _seo_severity_badge(row["severity"]), row["issue_count"]]
+                    for row in by_type
+                ],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Lowest Health Pages",
+                "items": [
+                    f'<span class="mono">{row["url"]}</span><br><span class="muted">{row["page_type"]}</span> | {_seo_health_badge(row["health_score"])}'
+                    for row in summary.get("lowest_health", [])[:10]
+                ] or ["No low-health pages right now."],
+            },
+            {
+                "title": "Quick Actions",
+                "items": [
+                    'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
+                    'Rerun issue scan: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
+                    'Inspect one URL: <span class="mono">/admin/seo-manager/issues/debug?url=https://...</span>',
+                ],
+            },
+        ],
     }
 
 
@@ -22575,6 +22654,11 @@ def seo_manager_sitemaps_run():
 @app.route("/admin/seo-manager/metadata")
 def seo_manager_metadata_screen():
     return render_seo_manager_screen(build_seo_manager_metadata_context())
+
+
+@app.route("/admin/seo-manager/issues")
+def seo_manager_issues_screen():
+    return render_seo_manager_screen(build_seo_manager_issues_context())
 
 
 @app.route("/sitemap.xml")

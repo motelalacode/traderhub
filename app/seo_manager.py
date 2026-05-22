@@ -711,6 +711,43 @@ def get_issue_summary():
         conn.close()
 
 
+def list_seo_issues(limit=100, severity=None, issue_type=None, domain=None):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["i.status = 'active'"]
+        params = []
+        if severity:
+            where_clauses.append("i.severity = ?")
+            params.append(severity)
+        if issue_type:
+            where_clauses.append("i.issue_type = ?")
+            params.append(issue_type)
+        if domain:
+            where_clauses.append("p.domain = ?")
+            params.append(domain)
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT i.id, i.issue_type, i.severity, i.message, i.detected_at,
+                   p.url, p.domain, p.page_type, p.page_subtype, p.health_score
+            FROM seo_issues i
+            JOIN seo_pages p ON p.id = i.page_id
+            WHERE {where_sql}
+            ORDER BY
+              CASE i.severity WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END,
+              i.detected_at DESC,
+              p.domain,
+              p.path
+            LIMIT ?
+            """,
+            tuple(params + [int(limit)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def fetch_active_issue_pages(issue_type=None, limit=50):
     init_seo_manager_db()
     conn = get_connection()
