@@ -18,6 +18,7 @@ from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
 from app.seo_manager import (
     bulk_upsert_seo_pages,
+    count_seo_pages_for_link_scan,
     fetch_active_issue_pages,
     fetch_domain_rules,
     fetch_seo_page_by_url,
@@ -19043,6 +19044,38 @@ def fetch_seo_page_snapshot(url):
 
 def get_seo_extractor_profiles():
     return {
+        "graph-core": [
+            "sector_hub",
+            "trend_hub",
+            "archive_hub",
+            "derivatives_hub",
+            "ipo_hub",
+            "market_news",
+            "alerts_prep",
+            "sector",
+            "archive",
+            "trend",
+            "sector_archive",
+        ],
+        "graph-wide": [
+            "sector_hub",
+            "trend_hub",
+            "archive_hub",
+            "derivatives_hub",
+            "ipo_hub",
+            "market_news",
+            "alerts_prep",
+            "sector",
+            "archive",
+            "trend",
+            "sector_archive",
+            "stock",
+            "stock_archive",
+            "stock_news",
+            "derivatives",
+            "ipo_list",
+            "ipo",
+        ],
         "safe": [
             "ipo_hub",
             "ipo_list",
@@ -19462,18 +19495,22 @@ def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
     }
 
 
-def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus", offset=0):
+def run_seo_crawlability_scan(limit=100, domain=None, profile="graph-core", offset=0, only_unlinked=True):
     requested_limit = int(limit)
     effective_limit = requested_limit
     if profile == "full":
         effective_limit = min(requested_limit, 30)
+    elif profile == "graph-wide":
+        effective_limit = min(requested_limit, 35)
+    elif profile == "graph-core":
+        effective_limit = min(requested_limit, 40)
     elif profile == "public-plus":
         effective_limit = min(requested_limit, 40)
     else:
         effective_limit = min(requested_limit, 60)
     check_id = start_check(
         "crawlability_scan",
-        notes=f"Crawlability link scan | domain={domain or 'all'} | limit={effective_limit} | offset={offset} | profile={profile}",
+        notes=f"Crawlability link scan | domain={domain or 'all'} | limit={effective_limit} | offset={offset} | profile={profile} | only_unlinked={int(bool(only_unlinked))}",
     )
     pages_scanned = 0
     failures = 0
@@ -19482,12 +19519,19 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus", off
     try:
         profile_map = get_seo_extractor_profiles()
         selected_page_types = profile_map.get(profile, profile_map["public-plus"])
+        remaining_before = count_seo_pages_for_link_scan(
+            domain=domain,
+            page_types=selected_page_types or None,
+            only_checked=True,
+            only_unlinked=only_unlinked,
+        )
         page_rows = fetch_seo_pages_for_link_scan(
             domain=domain,
             limit=effective_limit,
             offset=offset,
             only_checked=True,
             page_types=selected_page_types or None,
+            only_unlinked=only_unlinked,
         )
         for page_row in page_rows:
             try:
@@ -19516,6 +19560,9 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="public-plus", off
             "requested_limit": requested_limit,
             "effective_limit": effective_limit,
             "offset": offset,
+            "only_unlinked": bool(only_unlinked),
+            "remaining_before": remaining_before,
+            "remaining_after": max(0, remaining_before - pages_scanned),
             "pages_scanned": pages_scanned,
             "total_links": total_links,
             "failures": failures,
@@ -20260,7 +20307,8 @@ def build_seo_manager_crawlability_context():
                 "title": "Quick Actions",
                 "items": [
                     'Run extractor: <span class="mono">/admin/seo-manager/extractor/run?limit=25&profile=public-core</span>',
-                    'Run crawlability scan: <span class="mono">/admin/seo-manager/crawlability/run?limit=40&domain=traderhub.in&profile=public-plus</span>',
+                    'Run graph-core scan: <span class="mono">/admin/seo-manager/crawlability/run?limit=40&domain=traderhub.in&profile=graph-core&only_unlinked=1</span>',
+                    'Run graph-wide scan: <span class="mono">/admin/seo-manager/crawlability/run?limit=35&domain=traderhub.in&profile=graph-wide&only_unlinked=1</span>',
                     'Run issues: <span class="mono">/admin/seo-manager/issues/run?limit=25&profile=public-core</span>',
                     'Refresh flagged pages: <span class="mono">/admin/seo-manager/extractor/refresh-issues?limit=10</span>',
                 ],
@@ -23338,9 +23386,10 @@ def seo_manager_crawlability_run():
     except Exception:
         offset = 0
     domain = str(request.args.get("domain", "") or "").strip() or None
-    profile = str(request.args.get("profile", "public-plus") or "public-plus").strip().lower()
+    profile = str(request.args.get("profile", "graph-core") or "graph-core").strip().lower()
+    only_unlinked = str(request.args.get("only_unlinked", "1")).strip().lower() in {"1", "true", "yes"}
     try:
-        summary = run_seo_crawlability_scan(limit=limit, domain=domain, profile=profile, offset=offset)
+        summary = run_seo_crawlability_scan(limit=limit, domain=domain, profile=profile, offset=offset, only_unlinked=only_unlinked)
         return jsonify(summary)
     except BaseException as exc:
         payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}

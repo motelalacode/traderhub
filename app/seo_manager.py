@@ -592,29 +592,104 @@ def get_extraction_summary():
         conn.close()
 
 
-def fetch_seo_pages_for_link_scan(domain=None, limit=100, offset=0, page_types=None, only_checked=True):
+def count_seo_pages_for_link_scan(domain=None, page_types=None, only_checked=True, only_unlinked=False):
     init_seo_manager_db()
     conn = get_connection()
     try:
-        where_clauses = ["is_active = 1"]
+        where_clauses = ["p.is_active = 1"]
         params = []
+        join_sql = ""
         if domain:
-            where_clauses.append("domain = ?")
+            where_clauses.append("p.domain = ?")
             params.append(domain)
         if only_checked:
-            where_clauses.append("last_checked_at IS NOT NULL")
+            where_clauses.append("p.last_checked_at IS NOT NULL")
         if page_types:
             placeholders = ",".join("?" for _ in page_types)
-            where_clauses.append(f"page_type IN ({placeholders})")
+            where_clauses.append(f"p.page_type IN ({placeholders})")
+            params.extend(page_types)
+        if only_unlinked:
+            join_sql = "LEFT JOIN seo_crawl_links cl ON cl.from_page_id = p.id"
+        where_sql = " AND ".join(where_clauses)
+        if only_unlinked:
+            row = conn.execute(
+                f"""
+                SELECT COUNT(*) AS page_count
+                FROM (
+                    SELECT p.id
+                    FROM seo_pages p
+                    {join_sql}
+                    WHERE {where_sql}
+                    GROUP BY p.id
+                    HAVING COUNT(cl.id) = 0
+                ) ranked
+                """,
+                tuple(params),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                f"""
+                SELECT COUNT(*) AS page_count
+                FROM seo_pages p
+                WHERE {where_sql}
+                """,
+                tuple(params),
+            ).fetchone()
+        return int((row or {}).get("page_count") or 0)
+    finally:
+        conn.close()
+
+
+def fetch_seo_pages_for_link_scan(domain=None, limit=100, offset=0, page_types=None, only_checked=True, only_unlinked=False):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["p.is_active = 1"]
+        params = []
+        join_sql = "LEFT JOIN seo_crawl_links cl ON cl.from_page_id = p.id"
+        if domain:
+            where_clauses.append("p.domain = ?")
+            params.append(domain)
+        if only_checked:
+            where_clauses.append("p.last_checked_at IS NOT NULL")
+        if page_types:
+            placeholders = ",".join("?" for _ in page_types)
+            where_clauses.append(f"p.page_type IN ({placeholders})")
             params.extend(page_types)
         where_sql = " AND ".join(where_clauses)
+        having_sql = "HAVING COUNT(cl.id) = 0" if only_unlinked else ""
         rows = conn.execute(
             f"""
-            SELECT id, url, path, domain, page_type, page_subtype,
-                   last_checked_at, health_score
-            FROM seo_pages
+            SELECT p.id, p.url, p.path, p.domain, p.page_type, p.page_subtype,
+                   p.last_checked_at, p.health_score,
+                   COUNT(cl.id) AS existing_link_rows
+            FROM seo_pages p
+            {join_sql}
             WHERE {where_sql}
-            ORDER BY domain, path
+            GROUP BY p.id
+            {having_sql}
+            ORDER BY
+              CASE p.page_type
+                WHEN 'sector_hub' THEN 1
+                WHEN 'trend_hub' THEN 2
+                WHEN 'archive_hub' THEN 3
+                WHEN 'derivatives_hub' THEN 4
+                WHEN 'ipo_hub' THEN 5
+                WHEN 'market_news' THEN 6
+                WHEN 'alerts_prep' THEN 7
+                WHEN 'sector' THEN 8
+                WHEN 'archive' THEN 9
+                WHEN 'trend' THEN 10
+                WHEN 'sector_archive' THEN 11
+                WHEN 'stock' THEN 12
+                WHEN 'stock_archive' THEN 13
+                WHEN 'stock_news' THEN 14
+                WHEN 'derivatives' THEN 15
+                WHEN 'ipo_list' THEN 16
+                WHEN 'ipo' THEN 17
+                ELSE 99
+              END,
+              p.path
             LIMIT ? OFFSET ?
             """,
             tuple(params + [int(limit), int(offset)]),
