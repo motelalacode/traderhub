@@ -708,3 +708,32 @@ def get_issue_summary():
         }
     finally:
         conn.close()
+
+
+def fetch_active_issue_pages(issue_type=None, limit=50):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        where_clauses = ["i.status = 'active'"]
+        params = []
+        if issue_type:
+            where_clauses.append("i.issue_type = ?")
+            params.append(issue_type)
+        where_sql = " AND ".join(where_clauses)
+        rows = conn.execute(
+            f"""
+            SELECT DISTINCT p.id, p.url, p.path, p.domain, p.page_type, p.page_subtype,
+                            p.canonical_url, p.robots_directive, p.index_expected,
+                            p.index_status, p.status_code, p.schema_type, p.sitemap_group,
+                            p.last_checked_at, p.health_score
+            FROM seo_issues i
+            JOIN seo_pages p ON p.id = i.page_id
+            WHERE {where_sql}
+            ORDER BY p.domain, p.path
+            LIMIT ?
+            """,
+            tuple(params + [int(limit)]),
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()

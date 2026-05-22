@@ -19,6 +19,7 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 from app.seo_manager import (
     bulk_upsert_seo_pages,
     fetch_domain_rules,
+    fetch_active_issue_pages,
     fetch_seo_page_by_url,
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
@@ -19305,6 +19306,25 @@ def refresh_seo_snapshot_for_url(url):
     return {"page": refreshed_row, "snapshot": snapshot}
 
 
+def refresh_seo_snapshots_for_issue_type(issue_type=None, limit=25):
+    page_rows = fetch_active_issue_pages(issue_type=issue_type, limit=limit)
+    refreshed = []
+    failures = []
+    for page_row in page_rows:
+        try:
+            payload = refresh_seo_snapshot_for_url(page_row["url"])
+            refreshed.append(payload["page"]["url"])
+        except BaseException as exc:
+            failures.append({"url": page_row["url"], "message": str(exc), "error_type": type(exc).__name__})
+    return {
+        "issue_type": issue_type or "all",
+        "requested_limit": limit,
+        "refreshed_count": len(refreshed),
+        "refreshed_urls": refreshed,
+        "failures": failures,
+    }
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -22060,6 +22080,21 @@ def seo_manager_extractor_refresh():
         )
     try:
         payload = refresh_seo_snapshot_for_url(refresh_url)
+        return jsonify({"status": "ok", "payload": payload})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
+@app.route("/admin/seo-manager/extractor/refresh-issues")
+def seo_manager_extractor_refresh_issues():
+    issue_type = str(request.args.get("issue_type", "") or "").strip() or None
+    try:
+        limit = max(1, min(int(request.args.get("limit", 25)), 100))
+    except Exception:
+        limit = 25
+    try:
+        payload = refresh_seo_snapshots_for_issue_type(issue_type=issue_type, limit=limit)
         return jsonify({"status": "ok", "payload": payload})
     except BaseException as exc:
         payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
