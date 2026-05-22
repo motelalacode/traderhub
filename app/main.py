@@ -19703,7 +19703,7 @@ SEO_MANAGER_TEMPLATE = """
     .chip { text-decoration:none; border:1px solid var(--line); background:var(--paper); color:#0e554b; border-radius:999px; padding:10px 14px; font-size:13px; font-weight:700; white-space:nowrap; }
     .chip.active { background:#0e554b; color:#fff; border-color:#0e554b; }
     .kpi-grid { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:12px; margin-top:16px; }
-    .card { padding:14px; background:var(--panel); } .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; } .value { font-size:28px; font-weight:700; }
+    .card { padding:14px; background:var(--panel); } .label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; } .value { font-size:28px; font-weight:700; color:var(--ink); }
     .layout { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:16px; margin-top:16px; align-items:start; }
     .stack { display:grid; gap:16px; } .panel { padding:16px; } .panel h2 { margin:0 0 6px; font-size:24px; } .note { color:var(--muted); font-size:14px; line-height:1.55; margin-bottom:12px; }
     .grid-2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
