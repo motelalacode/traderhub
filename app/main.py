@@ -19,6 +19,7 @@ from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_conf
 from app.seo_manager import (
     bulk_upsert_seo_pages,
     fetch_domain_rules,
+    fetch_seo_page_by_url,
     fetch_seo_pages_for_extraction,
     fetch_seo_pages_for_issue_detection,
     finish_check,
@@ -19294,6 +19295,16 @@ def run_seo_issue_debug(url):
         return diagnostics
 
 
+def refresh_seo_snapshot_for_url(url):
+    page_row = fetch_seo_page_by_url(url)
+    if not page_row:
+        raise ValueError(f"SEO page record not found for {url}")
+    snapshot = fetch_internal_seo_page_snapshot(page_row)
+    update_seo_page_snapshot(page_row["id"], snapshot)
+    refreshed_row = fetch_seo_page_by_url(url) or {}
+    return {"page": refreshed_row, "snapshot": snapshot}
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -22036,6 +22047,23 @@ def seo_manager_extractor_debug():
     payload = run_seo_metadata_debug(debug_url)
     status_code = 200 if payload.get("status") == "ok" else 500
     return Response(json.dumps(payload), mimetype="application/json", status=status_code)
+
+
+@app.route("/admin/seo-manager/extractor/refresh")
+def seo_manager_extractor_refresh():
+    refresh_url = str(request.args.get("url", "") or "").strip()
+    if not refresh_url:
+        return Response(
+            json.dumps({"status": "error", "message": "Please provide ?url=https://..."}),
+            mimetype="application/json",
+            status=400,
+        )
+    try:
+        payload = refresh_seo_snapshot_for_url(refresh_url)
+        return jsonify({"status": "ok", "payload": payload})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
 
 
 @app.route("/admin/seo-manager/issues/run")

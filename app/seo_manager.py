@@ -540,6 +540,28 @@ def fetch_seo_pages_for_issue_detection(domain=None, limit=100, offset=0, only_c
         conn.close()
 
 
+def fetch_seo_page_by_url(url):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        row = conn.execute(
+            """
+            SELECT id, url, path, domain, page_type, page_subtype,
+                   title, meta_description, h1, canonical_url,
+                   robots_directive, index_expected, index_status,
+                   status_code, schema_type, sitemap_group,
+                   last_checked_at, health_score
+            FROM seo_pages
+            WHERE url = ?
+            LIMIT 1
+            """,
+            (url,),
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
 def replace_page_issues(issue_map):
     init_seo_manager_db()
     conn = get_connection()
