@@ -19807,8 +19807,15 @@ def build_sector_news_archive_context(sector_key, host_root):
     master = load_symbol_master()
     for symbol in symbols:
         master_row = master.get("by_symbol", {}).get(symbol) or {}
-        stock_isin = resolve_stock_isin(symbol, master_row.get("security") or symbol)
-        for item in get_upstox_stock_news_items(stock_isin, page_size=2):
+        try:
+            stock_isin = resolve_stock_isin(symbol, master_row.get("security") or symbol)
+        except Exception:
+            stock_isin = ""
+        try:
+            news_items = get_upstox_stock_news_items(stock_isin, page_size=2)
+        except Exception:
+            news_items = []
+        for item in news_items:
             rows.append(
                 {
                     "title": f"{symbol}: {item['title']}",
