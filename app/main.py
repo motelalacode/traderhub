@@ -22871,7 +22871,30 @@ def sector_news_archive(sector_slug):
     sector_key = resolve_public_sector_slug(sector_slug)
     if not sector_key:
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
-    context = build_sector_news_archive_context(sector_key, request.url_root.rstrip("/"))
+    try:
+        context = build_sector_news_archive_context(sector_key, request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render sector archive page: %s", sector_slug)
+        sector_label = sector_key.replace("_", " ").title()
+        context = build_market_phase2_fallback_context(
+            request.url_root.rstrip("/"),
+            "sector_archive",
+            f"{sector_label} News Archive | TraderHub",
+            f"Review the public sector news archive for {sector_label} with linked company stories and theme-follow-up paths in TraderHub.",
+            f"/sectors/{get_public_sector_slug(sector_key)}/news-archive",
+            f"Sectors > {sector_label} > News Archive",
+            f"Phase 3 sector archive fallback | Last reviewed {get_today_ist().isoformat()}",
+            "TraderHub Sector Archive",
+            f"{sector_label} Archive",
+            "A safe fallback archive view while sector-level live story assembly is retried.",
+            f"Sector archive is temporarily unavailable: {exc}",
+            [
+                {"label": "Sector Page", "href": f"/sectors/{get_public_sector_slug(sector_key)}"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+                {"label": "Trend Hub", "href": "/market/trends"},
+                {"label": "Archive Hub", "href": "/market/archive"},
+            ],
+        )
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
