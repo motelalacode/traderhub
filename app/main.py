@@ -36,6 +36,7 @@ from app.seo_manager import (
     list_seo_issues,
     get_metadata_overview,
     get_news_manager_overview,
+    get_news_manager_summary_overview,
     get_sitemaps_overview,
     init_seo_manager_db,
     list_news_manager_pages,
@@ -19807,6 +19808,7 @@ def get_news_manager_nav_items():
         {"label": "Live", "href": "/admin/news-manager/live"},
         {"label": "Trends", "href": "/admin/news-manager/trends"},
         {"label": "Archive", "href": "/admin/news-manager/archive"},
+        {"label": "Editor Summaries", "href": "/admin/news-manager/editor-summaries"},
     ]
 
 
@@ -20549,6 +20551,73 @@ def build_news_manager_archive_context():
                     "A later snapshot layer can add shell-only detection, story counts, and summary coverage without replacing this screen.",
                 ],
             }
+        ],
+    }
+
+
+def build_news_manager_editor_summaries_context():
+    data = get_news_manager_summary_overview(limit=140)
+    totals = data.get("totals", {})
+    rows = data.get("rows", [])
+    return {
+        "page_title": "News Manager Editor Summaries | TraderHub",
+        "page_description": "Editor summary readiness review for TraderHub public news pages.",
+        "breadcrumb_text": "Admin > News Manager > Editor Summaries",
+        "breadcrumb_meta_text": f'Summary readiness | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Editor Summaries",
+        "hero_subtitle": "Phase 1A stays honest: this screen does not pretend there is already a dedicated editorial summary database. It shows which public news pages are technically ready for richer summary work and which still need cleanup first.",
+        "kpis": [
+            {"label": "Summary Pages", "value": totals.get("total_pages", 0)},
+            {"label": "Titles", "value": totals.get("titled_pages", 0)},
+            {"label": "Meta Descriptions", "value": totals.get("meta_pages", 0)},
+            {"label": "H1 Coverage", "value": totals.get("h1_pages", 0)},
+            {"label": "Canonicals", "value": totals.get("canonical_pages", 0)},
+            {"label": "HTTP 200", "value": totals.get("ok_pages", 0)},
+            {"label": "Clean Pages", "value": totals.get("clean_pages", 0)},
+            {"label": "Rows", "value": len(rows)},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager/editor-summaries",
+        "sections": [
+            {
+                "title": "Summary Readiness Queue",
+                "note": "Use this queue to find pages that are missing the basics a public summary layer depends on: title, meta description, H1, canonical, and a stable HTTP 200 response.",
+                "columns": ["URL", "Type", "Title", "Meta", "H1", "Canonical", "Status", "Health"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        "Yes" if row.get("title") else "No",
+                        "Yes" if row.get("meta_description") else "No",
+                        "Yes" if row.get("h1") else "No",
+                        "Yes" if row.get("canonical_url") else "No",
+                        row.get("status_code") or "-",
+                        _seo_health_badge(row.get("health_score", 100)),
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Coverage By Type",
+                "items": [
+                    (
+                        f'{row["page_type"]}: {row["page_count"]} pages | '
+                        f'{row["meta_pages"]} meta | {row["h1_pages"]} H1 | '
+                        f'{row["weak_pages"]} weak'
+                    )
+                    for row in data.get("by_type", [])
+                ] or ["No summary-oriented page groups recorded yet."],
+            },
+            {
+                "title": "Phase 1A Rule",
+                "items": [
+                    "This screen is a readiness layer, not a publishing system.",
+                    "Once a dedicated content snapshot table exists, it can be extended with summary presence, point counts, and fallback-copy flags without replacing this view.",
+                ],
+            },
         ],
     }
 
@@ -23474,6 +23543,11 @@ def news_manager_trends_screen():
 @app.route("/admin/news-manager/archive")
 def news_manager_archive_screen():
     return render_seo_manager_screen(build_news_manager_archive_context())
+
+
+@app.route("/admin/news-manager/editor-summaries")
+def news_manager_editor_summaries_screen():
+    return render_seo_manager_screen(build_news_manager_editor_summaries_context())
 
 
 @app.route("/sitemap.xml")

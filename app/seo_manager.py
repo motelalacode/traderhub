@@ -1566,3 +1566,88 @@ def list_news_manager_pages(page_types, limit=100):
         return [dict(row) for row in rows]
     finally:
         conn.close()
+
+
+def get_news_manager_summary_overview(limit=120):
+    init_seo_manager_db()
+    conn = get_connection()
+    try:
+        summary_page_types = (
+            "market_news",
+            "alerts_prep",
+            "stock_news",
+            "trend",
+            "archive",
+            "stock_archive",
+            "sector_archive",
+        )
+        placeholders = ",".join("?" for _ in summary_page_types)
+        totals = conn.execute(
+            f"""
+            SELECT
+                COUNT(*) AS total_pages,
+                SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
+                SUM(CASE WHEN canonical_url IS NOT NULL AND TRIM(canonical_url) != '' THEN 1 ELSE 0 END) AS canonical_pages,
+                SUM(CASE WHEN status_code = 200 THEN 1 ELSE 0 END) AS ok_pages,
+                SUM(CASE WHEN health_score = 100 THEN 1 ELSE 0 END) AS clean_pages
+            FROM seo_pages
+            WHERE is_active = 1
+              AND domain = 'traderhub.in'
+              AND page_type IN ({placeholders})
+            """,
+            summary_page_types,
+        ).fetchone()
+        by_type = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT
+                    page_type,
+                    COUNT(*) AS page_count,
+                    SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                    SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                    SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
+                    SUM(CASE WHEN health_score < 100 THEN 1 ELSE 0 END) AS weak_pages
+                FROM seo_pages
+                WHERE is_active = 1
+                  AND domain = 'traderhub.in'
+                  AND page_type IN ({placeholders})
+                GROUP BY page_type
+                ORDER BY page_count DESC, page_type
+                """,
+                summary_page_types,
+            ).fetchall()
+        ]
+        rows = [
+            dict(row)
+            for row in conn.execute(
+                f"""
+                SELECT p.url, p.page_type, p.page_subtype, p.title, p.meta_description, p.h1,
+                       p.canonical_url, p.status_code, p.health_score, p.last_checked_at,
+                       COUNT(i.id) AS active_issue_count
+                FROM seo_pages p
+                LEFT JOIN seo_issues i
+                  ON i.page_id = p.id AND i.status = 'active'
+                WHERE p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.page_type IN ({placeholders})
+                GROUP BY p.id
+                ORDER BY
+                  CASE WHEN p.health_score < 100 THEN 0 ELSE 1 END,
+                  CASE WHEN p.meta_description IS NULL OR TRIM(p.meta_description) = '' THEN 0 ELSE 1 END,
+                  CASE WHEN p.h1 IS NULL OR TRIM(p.h1) = '' THEN 0 ELSE 1 END,
+                  p.path
+                LIMIT ?
+                """,
+                tuple(summary_page_types) + (int(limit),),
+            ).fetchall()
+        ]
+        return {
+            "totals": dict(totals) if totals else {},
+            "by_type": by_type,
+            "rows": rows,
+        }
+    finally:
+        conn.close()
