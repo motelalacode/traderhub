@@ -19060,6 +19060,40 @@ def get_seo_extractor_profiles():
             "archive",
             "sector_archive",
         ],
+        "public-wide": [
+            "ipo_hub",
+            "ipo_list",
+            "ipo",
+            "trend_hub",
+            "trend",
+            "sector_hub",
+            "sector",
+            "archive_hub",
+            "archive",
+            "sector_archive",
+            "stock_archive",
+            "market_news",
+            "alerts_prep",
+            "derivatives_hub",
+        ],
+        "public-plus": [
+            "ipo_hub",
+            "ipo_list",
+            "ipo",
+            "trend_hub",
+            "trend",
+            "sector_hub",
+            "sector",
+            "archive_hub",
+            "archive",
+            "sector_archive",
+            "stock_archive",
+            "market_news",
+            "alerts_prep",
+            "derivatives_hub",
+            "derivatives",
+            "stock_news",
+        ],
         "full": [],
     }
 
@@ -19171,6 +19205,10 @@ def build_seo_issue_records(page_row):
     meta_description = str(page_row.get("meta_description") or "").strip()
     h1 = str(page_row.get("h1") or "").strip()
     canonical_url = str(page_row.get("canonical_url") or "").strip()
+    robots_directive = str(page_row.get("robots_directive") or "").strip()
+    index_status = str(page_row.get("index_status") or "").strip().lower()
+    index_expected = str(page_row.get("index_expected") or "").strip().lower()
+    schema_type = str(page_row.get("schema_type") or "").strip()
     status_code = page_row.get("status_code")
     expected_canonical_domain = "traderhub.in" if page_row.get("domain") == "traderhub.in" else None
 
@@ -19189,6 +19227,15 @@ def build_seo_issue_records(page_row):
                 "issue_type": "missing_meta_description",
                 "severity": "medium",
                 "message": f"{page_label} is missing a meta description.",
+                "detected_at": detected_at,
+            }
+        )
+    if not robots_directive:
+        issues.append(
+            {
+                "issue_type": "missing_robots_directive",
+                "severity": "low",
+                "message": f"{page_label} is missing a robots directive.",
                 "detected_at": detected_at,
             }
         )
@@ -19219,12 +19266,39 @@ def build_seo_issue_records(page_row):
                 "detected_at": detected_at,
             }
         )
+    if not schema_type:
+        issues.append(
+            {
+                "issue_type": "missing_schema",
+                "severity": "low",
+                "message": f"{page_label} is missing structured data markup.",
+                "detected_at": detected_at,
+            }
+        )
     if page_row.get("domain") == "traderhub.in" and status_code not in (200, None):
         issues.append(
             {
                 "issue_type": "non_200_public_page",
                 "severity": "high",
                 "message": f"{page_label} returned HTTP {status_code}.",
+                "detected_at": detected_at,
+            }
+        )
+    if page_row.get("domain") == "traderhub.in" and index_expected == "index" and index_status and index_status != "index":
+        issues.append(
+            {
+                "issue_type": "expected_public_not_indexable",
+                "severity": "high",
+                "message": f"{page_label} is expected to be indexable but currently resolves to {index_status}.",
+                "detected_at": detected_at,
+            }
+        )
+    if page_row.get("domain") != "traderhub.in" and index_expected == "noindex" and index_status == "index":
+        issues.append(
+            {
+                "issue_type": "unexpected_indexable",
+                "severity": "high",
+                "message": f"{page_label} is expected to stay noindex on {page_row.get('domain')} but currently resolves as indexable.",
                 "detected_at": detected_at,
             }
         )
