@@ -15,6 +15,17 @@ from kiteconnect import KiteConnect
 
 from app.ai_engine import get_trade_setup_insight
 from app.config import ENV_PATH, KITE_API_KEY, KITE_API_SECRET, get_runtime_config
+from app.seo_manager import (
+    fetch_domain_rules,
+    finish_check,
+    get_inventory_summary,
+    init_seo_manager_db,
+    mark_pages_inactive_except,
+    seed_domain_rules,
+    start_check,
+    upsert_seo_page,
+    utcnow_iso,
+)
 from app.symbol_resolver import load_symbol_master, normalize_lookup_value, resolve_symbol_list
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
@@ -18593,6 +18604,288 @@ def get_alert_track_definitions():
     }
 
 
+def get_seo_manager_domain_rules_seed():
+    return [
+        {
+            "domain": "traderhub.in",
+            "path_pattern": "/stocks/*",
+            "expected_indexing": "index",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Public stock pages",
+            "active": True,
+        },
+        {
+            "domain": "traderhub.in",
+            "path_pattern": "/sectors*",
+            "expected_indexing": "index",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Public sector pages",
+            "active": True,
+        },
+        {
+            "domain": "traderhub.in",
+            "path_pattern": "/ipo*",
+            "expected_indexing": "index",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Public IPO pages",
+            "active": True,
+        },
+        {
+            "domain": "traderhub.in",
+            "path_pattern": "/market/*",
+            "expected_indexing": "index",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Public market pages",
+            "active": True,
+        },
+        {
+            "domain": "traderhub.in",
+            "path_pattern": "/derivatives*",
+            "expected_indexing": "index",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Public derivatives pages",
+            "active": True,
+        },
+        {
+            "domain": "app.traderhub.in",
+            "path_pattern": "/admin/*",
+            "expected_indexing": "noindex",
+            "expected_canonical_domain": "app.traderhub.in",
+            "rule_label": "Admin area",
+            "active": True,
+        },
+        {
+            "domain": "app.traderhub.in",
+            "path_pattern": "/dashboard/*",
+            "expected_indexing": "noindex",
+            "expected_canonical_domain": "app.traderhub.in",
+            "rule_label": "Private user workspace",
+            "active": True,
+        },
+        {
+            "domain": "app.traderhub.in",
+            "path_pattern": "/*",
+            "expected_indexing": "noindex",
+            "expected_canonical_domain": "app.traderhub.in",
+            "rule_label": "Default app protection",
+            "active": True,
+        },
+        {
+            "domain": "bot.traderhub.in",
+            "path_pattern": "/*",
+            "expected_indexing": "noindex",
+            "expected_canonical_domain": "traderhub.in",
+            "rule_label": "Staging protection",
+            "active": True,
+        },
+    ]
+
+
+def build_seo_inventory_page_row(domain, path, page_type, page_subtype="", sitemap_group=None, schema_type="WebPage"):
+    path = path if path.startswith("/") else f"/{path}"
+    public_canonical = f"https://traderhub.in{path}"
+    is_public_domain = domain == "traderhub.in"
+    index_expected = "index" if (is_public_domain and sitemap_group != "alerts") else "noindex"
+    robots_directive = "index,follow" if index_expected == "index" else "noindex,follow"
+    now_iso = utcnow_iso()
+    return {
+        "url": f"https://{domain}{path}",
+        "path": path,
+        "domain": domain,
+        "page_type": page_type,
+        "page_subtype": page_subtype or None,
+        "canonical_url": public_canonical,
+        "robots_directive": robots_directive,
+        "index_expected": index_expected,
+        "index_status": index_expected,
+        "status_code": 200 if is_public_domain else None,
+        "schema_type": schema_type,
+        "sitemap_group": sitemap_group,
+        "is_active": True,
+        "last_seen_at": now_iso,
+        "last_checked_at": now_iso,
+        "last_updated_at": now_iso,
+        "health_score": 100,
+    }
+
+
+def build_known_seo_inventory():
+    inventory_rows = []
+    symbol_master = load_symbol_master()
+    stock_symbols = sorted(symbol_master.get("by_symbol", {}).keys())
+    ipo_records = build_ipo_phase1_records()
+    sector_maps = get_public_sector_maps()
+    sector_slugs = sorted(set(sector_maps.get("sector_to_slug", {}).values()))
+    trend_slugs = sorted(get_trend_group_definitions().keys())
+    alert_slugs = sorted(get_alert_track_definitions().keys())
+    archive_days = build_archive_recent_days(total_days=7)
+
+    base_pages = [
+        ("/ipo", "ipo_hub", "hub", "ipo", "CollectionPage"),
+        ("/ipo/current", "ipo_list", "current", "ipo", "CollectionPage"),
+        ("/ipo/upcoming", "ipo_list", "upcoming", "ipo", "CollectionPage"),
+        ("/market/pre-market-news", "market_news", "pre-market", "market-news", "CollectionPage"),
+        ("/market/post-market-wrap", "market_news", "post-market", "market-news", "CollectionPage"),
+        ("/market/live-movers", "market_news", "live-movers", "market-news", "CollectionPage"),
+        ("/market/sector-news", "market_news", "sector-news", "market-news", "CollectionPage"),
+        ("/market/trends", "trend_hub", "hub", "market-news", "CollectionPage"),
+        ("/market/alerts", "alerts_prep", "hub", None, "CollectionPage"),
+        ("/market/archive", "archive_hub", "hub", "archive", "CollectionPage"),
+        ("/sectors", "sector_hub", "hub", "sectors", "CollectionPage"),
+        ("/derivatives", "derivatives_hub", "hub", "derivatives", "CollectionPage"),
+        ("/derivatives/index/nifty-options", "derivatives", "nifty-options", "derivatives", "WebPage"),
+        ("/derivatives/index/banknifty-options", "derivatives", "banknifty-options", "derivatives", "WebPage"),
+        ("/derivatives/index/oi-change", "derivatives", "index-oi-change", "derivatives", "WebPage"),
+        ("/derivatives/stocks", "derivatives", "stocks", "derivatives", "CollectionPage"),
+        ("/derivatives/stocks/oi-change", "derivatives", "stock-oi-change", "derivatives", "WebPage"),
+        ("/derivatives/stocks/futures-buildup", "derivatives", "futures-buildup", "derivatives", "WebPage"),
+    ]
+
+    for domain in ("traderhub.in", "bot.traderhub.in"):
+        for path, page_type, page_subtype, sitemap_group, schema_type in base_pages:
+            inventory_rows.append(
+                build_seo_inventory_page_row(domain, path, page_type, page_subtype, sitemap_group, schema_type)
+            )
+
+        for ipo_record in ipo_records:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/ipo/{ipo_record['slug']}",
+                    "ipo",
+                    "detail",
+                    "ipo",
+                    "WebPage",
+                )
+            )
+
+        for trend_slug in trend_slugs:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/market/trends/{trend_slug}",
+                    "trend",
+                    trend_slug,
+                    "market-news",
+                    "CollectionPage",
+                )
+            )
+
+        for alert_slug in alert_slugs:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/market/alerts/{alert_slug}",
+                    "alerts_prep",
+                    alert_slug,
+                    None,
+                    "CollectionPage",
+                )
+            )
+
+        for archive_day in archive_days:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/market/archive/{archive_day['iso']}",
+                    "archive",
+                    "market-day",
+                    "archive",
+                    "CollectionPage",
+                )
+            )
+
+        for sector_slug in sector_slugs:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/sectors/{sector_slug}",
+                    "sector",
+                    "detail",
+                    "sectors",
+                    "CollectionPage",
+                )
+            )
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/sectors/{sector_slug}/news-archive",
+                    "sector_archive",
+                    "news-archive",
+                    "archive",
+                    "CollectionPage",
+                )
+            )
+
+        for symbol in stock_symbols:
+            stock_slug = get_canonical_stock_slug(symbol)
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/stocks/{stock_slug}",
+                    "stock",
+                    "detail",
+                    "stocks",
+                    "WebPage",
+                )
+            )
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/stocks/{stock_slug}/why-moving",
+                    "stock_news",
+                    "why-moving",
+                    None,
+                    "WebPage",
+                )
+            )
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/stocks/{stock_slug}/news-archive",
+                    "stock_archive",
+                    "news-archive",
+                    "archive",
+                    "CollectionPage",
+                )
+            )
+    return inventory_rows
+
+
+def run_seo_inventory_scan():
+    init_seo_manager_db()
+    seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
+    inventory_rows = build_known_seo_inventory()
+    seen_urls = []
+    check_id = start_check("inventory_scan", notes="Known-route SEO inventory build")
+    try:
+        for row in inventory_rows:
+            upsert_seo_page(row)
+            seen_urls.append(row["url"])
+        mark_pages_inactive_except(seen_urls)
+        finish_check(
+            check_id,
+            "completed",
+            pages_scanned=len(inventory_rows),
+            issues_found=0,
+            notes=f"Seeded {seeded_rule_count} domain rules and scanned {len(inventory_rows)} URLs.",
+        )
+    except Exception as exc:
+        finish_check(
+            check_id,
+            "failed",
+            pages_scanned=len(seen_urls),
+            issues_found=0,
+            notes=f"Inventory scan failed: {exc}",
+        )
+        raise
+
+    summary = get_inventory_summary()
+    summary["seeded_rule_count"] = seeded_rule_count
+    summary["scanned_urls"] = len(inventory_rows)
+    return summary
+
+
 def build_alerts_hub_context(host_root):
     alert_defs = get_alert_track_definitions()
     rows, _, market_error = get_phase2_live_market_rows(limit=18)
@@ -21234,6 +21527,31 @@ def derivatives_stock_oi_change():
 def derivatives_futures_buildup():
     context = build_futures_buildup_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/seo-manager/bootstrap")
+def seo_manager_bootstrap():
+    init_seo_manager_db()
+    seeded_rule_count = seed_domain_rules(get_seo_manager_domain_rules_seed())
+    return jsonify(
+        {
+            "status": "ok",
+            "seeded_rule_count": seeded_rule_count,
+            "rules": fetch_domain_rules(),
+            "inventory_summary": get_inventory_summary(),
+        }
+    )
+
+
+@app.route("/admin/seo-manager/inventory/run")
+def seo_manager_inventory_run():
+    summary = run_seo_inventory_scan()
+    return jsonify({"status": "ok", "summary": summary})
+
+
+@app.route("/admin/seo-manager/inventory/summary")
+def seo_manager_inventory_summary():
+    return jsonify({"status": "ok", "summary": get_inventory_summary()})
 
 
 @app.route("/api/equity-ohlc")
