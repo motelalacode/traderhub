@@ -49,4 +49,6 @@ def get_runtime_config():
         "UPSTOX_REDIRECT_URI": values.get("UPSTOX_REDIRECT_URI") or UPSTOX_REDIRECT_URI,
         "UPSTOX_ACCESS_TOKEN": values.get("UPSTOX_ACCESS_TOKEN") or UPSTOX_ACCESS_TOKEN,
         "UPSTOX_API_BASE_URL": values.get("UPSTOX_API_BASE_URL") or UPSTOX_API_BASE_URL,
+        "TELEGRAM_TOKEN": values.get("TELEGRAM_TOKEN") or TELEGRAM_TOKEN,
+        "TELEGRAM_CHAT_ID": values.get("TELEGRAM_CHAT_ID") or CHAT_ID,
     }

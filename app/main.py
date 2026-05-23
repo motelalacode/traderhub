@@ -9958,6 +9958,33 @@ def get_active_upstox_credentials():
     }
 
 
+def get_active_telegram_credentials():
+    runtime = get_runtime_config()
+    return {
+        "token": str(runtime.get("TELEGRAM_TOKEN") or "").strip(),
+        "chat_id": str(runtime.get("TELEGRAM_CHAT_ID") or "").strip(),
+    }
+
+
+def send_telegram_message(message_text, chat_id=None):
+    creds = get_active_telegram_credentials()
+    token = creds["token"]
+    target_chat_id = str(chat_id or creds["chat_id"] or "").strip()
+    if not token or not target_chat_id:
+        raise ValueError("Telegram token or chat ID is missing in .env.")
+    response = requests.post(
+        f"https://api.telegram.org/bot{token}/sendMessage",
+        json={
+            "chat_id": target_chat_id,
+            "text": message_text,
+            "disable_web_page_preview": True,
+        },
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 def persist_env_value(env_key, env_value):
     if not ENV_PATH.exists():
         ENV_PATH.write_text(f"{env_key}={env_value}\n", encoding="utf-8")
@@ -11021,6 +11048,10 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         {"label": f"{profile['name']} ({channel_labels.get(profile['channel'], profile['channel'].title())})", "href": f"/admin/derivatives/delivery?profile={profile['key']}"}
         for profile in profiles
     ]
+    telegram_creds = get_active_telegram_credentials()
+    telegram_ready = bool(telegram_creds["token"] and telegram_creds["chat_id"])
+    active_channel = str(active_profile.get("channel") or "dashboard").strip().lower()
+    delivery_mode = "Live Telegram ready" if active_channel == "telegram" and telegram_ready else ("Preview only" if active_channel != "telegram" else "Telegram config missing")
 
     return {
         "page_mode": "derivatives_delivery",
@@ -11039,6 +11070,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Phase 1 Profiles", "kind": "tag-info"},
             {"label": channel_labels.get(active_profile.get("channel"), active_profile.get("channel", "dashboard").title()), "kind": "tag-up"},
             {"label": f"{sum(int(row.get('alert_count') or 0) for row in profile_rows)} Alerts", "kind": "tag-warn" if profile_rows else "tag-up"},
+            {"label": delivery_mode, "kind": "tag-up" if delivery_mode == "Live Telegram ready" else "tag-warn"},
         ],
         "hero_stats": [
             {"label": "Profiles", "value": len(profiles)},
@@ -11051,6 +11083,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Delivery Profiles", "href": f"/admin/derivatives/delivery?profile={active_profile.get('key')}"},
             *profile_chips,
             {"label": "Add Dashboard Profile", "href": "/admin/derivatives/delivery/add-profile?name=Desk%20Digest&channel=dashboard"},
+            {"label": "Add Telegram Profile", "href": "/admin/derivatives/delivery/add-profile?name=Telegram%20Expiry&channel=telegram"},
             {"label": "Preview Payload", "href": f"/admin/derivatives/delivery/preview?profile={active_profile.get('key')}"},
             {"label": "Trigger Test", "href": f"/admin/derivatives/delivery/trigger?profile={active_profile.get('key')}"},
         ],
@@ -11061,6 +11094,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Total Alerts", "value": sum(int(row.get("alert_count") or 0) for row in profile_rows), "copy": "Combined active alert count across the profile rows."},
             {"label": "Top Digest Line", "value": digest_lines[0] if digest_lines else "No rows yet", "copy": "This is the first line that would appear in the current digest preview."},
             {"label": "Available Watch Rows", "value": len(all_watch_summaries), "copy": "Saved expiry rows that can be added into this delivery profile."},
+            {"label": "Transport", "value": delivery_mode, "copy": ("Telegram token and chat ID are configured for live sending." if telegram_ready else "Telegram transport is not fully configured yet, so trigger stays in preview mode.")},
         ],
         "focus_title": None,
         "focus_note": None,
@@ -11082,6 +11116,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         "group_blocks": [
             {"title": "Current Digest Preview", "count": len(digest_lines), "copy": "A simple preview of the rows this profile would deliver right now.", "items": digest_lines or ["No rows have been assigned to this profile yet."]},
             {"title": "Delivery Endpoints", "count": 3, "copy": "These routes expose the real payload without pretending the transport layer is already live.", "items": [f"Preview JSON: /admin/derivatives/delivery/preview?profile={active_profile.get('key')}", f"Trigger JSON: /admin/derivatives/delivery/trigger?profile={active_profile.get('key')}", f"Toggle rows from the assignment table to reshape the payload instantly"]},
+            {"title": "Transport Status", "count": 3, "copy": "Phase 1 only turns on real sending for Telegram when credentials are present. Everything else stays preview-first on purpose.", "items": [f"Active channel: {channel_labels.get(active_channel, active_channel.title())}", f"Telegram ready: {'Yes' if telegram_ready else 'No'}", f"Mode: {delivery_mode}"]},
             {"title": "Profile Rules", "count": 4, "copy": "Phase 1 keeps profiles deliberately simple and reusable.", "items": ["Profiles are named bundles of saved expiry rows", "Each profile can preview dashboard, email, or Telegram style delivery", "Rows stay live because the digest reuses current public derivatives signals", "Real outbound delivery can be added later without redesigning the desk"]},
         ],
         "public_note": "This is a delivery preview layer, not a messaging engine yet. It proves the product flow from saved expiry row to named digest without overbuilding the first release.",
@@ -25152,11 +25187,21 @@ def derivatives_delivery_trigger():
     payload = build_derivatives_delivery_payload(request.url_root.rstrip("/"), profile_key)
     if not payload:
         return jsonify({"status": "error", "message": "Please provide a valid delivery profile."}), 400
-    payload["trigger_status"] = "preview_only"
-    payload["trigger_message"] = (
-        f"{payload['channel_label']} delivery is not wired to an external transport yet. "
-        "This trigger confirms the live payload that would be sent right now."
-    )
+    if payload["channel"] == "telegram":
+        try:
+            telegram_response = send_telegram_message(payload["body"])
+            payload["trigger_status"] = "sent"
+            payload["trigger_message"] = "Telegram delivery sent successfully."
+            payload["transport_response"] = telegram_response
+        except Exception as exc:
+            payload["trigger_status"] = "transport_error"
+            payload["trigger_message"] = f"Telegram delivery failed: {exc}"
+    else:
+        payload["trigger_status"] = "preview_only"
+        payload["trigger_message"] = (
+            f"{payload['channel_label']} delivery is not wired to an external transport yet. "
+            "This trigger confirms the live payload that would be sent right now."
+        )
     return jsonify(payload)
 
 
