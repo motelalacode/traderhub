@@ -10135,6 +10135,65 @@ def get_active_telegram_credentials():
     }
 
 
+def get_search_ops_runtime_state():
+    runtime = get_runtime_config()
+    google_site_verification = str(runtime.get("GOOGLE_SITE_VERIFICATION") or "").strip()
+    bing_site_verification = str(runtime.get("BING_SITE_VERIFICATION") or "").strip()
+    search_console_property = str(runtime.get("SEARCH_CONSOLE_PROPERTY") or "").strip()
+    bing_webmaster_property = str(runtime.get("BING_WEBMASTER_PROPERTY") or "").strip()
+    ga4_measurement_id = str(runtime.get("GA4_MEASUREMENT_ID") or "").strip()
+    adsense_client = str(runtime.get("ADSENSE_CLIENT") or "").strip()
+    indexnow_key = str(runtime.get("INDEXNOW_KEY") or "").strip()
+    return {
+        "google_site_verification": google_site_verification,
+        "bing_site_verification": bing_site_verification,
+        "search_console_property": search_console_property,
+        "bing_webmaster_property": bing_webmaster_property,
+        "ga4_measurement_id": ga4_measurement_id,
+        "adsense_client": adsense_client,
+        "indexnow_key": indexnow_key,
+    }
+
+
+def build_public_ops_head_injection():
+    state = get_search_ops_runtime_state()
+    fragments = ["<!-- traderhub-ops-head -->"]
+    if state["google_site_verification"]:
+        fragments.append(
+            f'<meta name="google-site-verification" content="{html_lib.escape(state["google_site_verification"], quote=True)}">'
+        )
+    if state["bing_site_verification"]:
+        fragments.append(
+            f'<meta name="msvalidate.01" content="{html_lib.escape(state["bing_site_verification"], quote=True)}">'
+        )
+    if state["ga4_measurement_id"]:
+        ga4_id = html_lib.escape(state["ga4_measurement_id"], quote=True)
+        fragments.extend(
+            [
+                f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>',
+                "<script>",
+                "window.dataLayer = window.dataLayer || [];",
+                "function gtag(){dataLayer.push(arguments);}",
+                "gtag('js', new Date());",
+                f"gtag('config', '{ga4_id}', {{ send_page_view: true }});",
+                "window.traderhubTrackEvent = function(eventName, eventParams) {",
+                "  if (typeof gtag === 'function' && eventName) {",
+                "    gtag('event', eventName, eventParams || {});",
+                "  }",
+                "};",
+                "</script>",
+            ]
+        )
+    if state["adsense_client"]:
+        adsense_client = html_lib.escape(state["adsense_client"], quote=True)
+        fragments.append(
+            f'<script async data-ad-client="{adsense_client}" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client={adsense_client}" crossorigin="anonymous"></script>'
+        )
+    if len(fragments) == 1:
+        return ""
+    return "\n".join(fragments)
+
+
 def send_telegram_message(message_text, chat_id=None):
     creds = get_active_telegram_credentials()
     token = creds["token"]
@@ -14058,6 +14117,27 @@ def get_orb_backtest_rows(symbols, from_date, to_date, start_time, end_time, dir
 
 
 app = Flask(__name__)
+
+
+@app.after_request
+def inject_search_ops_head_tags(response):
+    if request.path.startswith("/admin/"):
+        return response
+    if response.status_code >= 400:
+        return response
+    if response.mimetype not in {"text/html", "application/xhtml+xml"}:
+        return response
+    try:
+        response_text = response.get_data(as_text=True)
+    except Exception:
+        return response
+    if not response_text or "</head>" not in response_text or "<!-- traderhub-ops-head -->" in response_text:
+        return response
+    head_injection = build_public_ops_head_injection()
+    if not head_injection:
+        return response
+    response.set_data(response_text.replace("</head>", f"{head_injection}\n</head>", 1))
+    return response
 
 
 @app.route("/")
@@ -21276,19 +21356,20 @@ def get_search_ops_nav_items():
 
 
 def get_search_ops_snapshot():
+    runtime_state = get_search_ops_runtime_state()
     sitemap_index_path = SITEMAP_DIR / "sitemap.xml"
     sitemap_exists = sitemap_index_path.exists()
     sitemap_files = sorted(SITEMAP_DIR.glob("*.xml")) if SITEMAP_DIR.exists() else []
     sitemap_file_count = len(sitemap_files)
-    search_console_verified = False
-    robots_route_live = False
+    search_console_verified = bool(runtime_state["google_site_verification"] or runtime_state["search_console_property"])
+    robots_route_live = True
     google_news_article_schema = True
     author_transparency_layer = True
     publisher_transparency_layer = True
-    ga4_installed = False
-    adsense_installed = False
-    bing_webmaster_ready = False
-    indexnow_ready = False
+    ga4_installed = bool(runtime_state["ga4_measurement_id"])
+    adsense_installed = bool(runtime_state["adsense_client"])
+    bing_webmaster_ready = bool(runtime_state["bing_site_verification"] or runtime_state["bing_webmaster_property"])
+    indexnow_ready = bool(runtime_state["indexnow_key"])
     generic_schema_ready = True
     return {
         "sitemap_exists": sitemap_exists,
@@ -21303,9 +21384,16 @@ def get_search_ops_snapshot():
         "bing_webmaster_ready": bing_webmaster_ready,
         "indexnow_ready": indexnow_ready,
         "generic_schema_ready": generic_schema_ready,
+        "google_site_verification": runtime_state["google_site_verification"],
+        "bing_site_verification": runtime_state["bing_site_verification"],
+        "search_console_property": runtime_state["search_console_property"],
+        "bing_webmaster_property": runtime_state["bing_webmaster_property"],
+        "ga4_measurement_id": runtime_state["ga4_measurement_id"],
+        "adsense_client": runtime_state["adsense_client"],
+        "indexnow_key_present": bool(runtime_state["indexnow_key"]),
         "search_ready_count": sum(
             1
-            for item in [sitemap_exists, generic_schema_ready]
+            for item in [sitemap_exists, generic_schema_ready, search_console_verified, robots_route_live, ga4_installed]
             if item
         ),
     }
@@ -21431,11 +21519,11 @@ def build_search_ops_dashboard_context():
                 "note": "This is the current truth of the app: what is already wired, what is only partly ready, and what still needs a first implementation.",
                 "columns": ["Workstream", "Status", "Current State", "Next Build"],
                 "rows": [
-                    ["Search / Webmaster", _search_ops_status_badge(snap["sitemap_exists"], "Partial", "Pending"), "Sitemap generation is live, but Search Console verification and robots control are still missing.", "Add Search Console / Bing checklist and verification support."],
+                    ["Search / Webmaster", _search_ops_status_badge(snap["sitemap_exists"] and snap["robots_route_live"], "Partial", "Pending"), f'Sitemap generation is live, robots.txt is served publicly, and Search Console is {"configured" if snap["search_console_verified"] else "still pending config"}.', "Complete property verification and submit the live sitemap in Google/Bing."],
                     ["Google News Readiness", _search_ops_status_badge(True, "Partial", "Pending"), "Key public market/news pages now emit a byline, published/updated times, publisher links, and NewsArticle schema.", "Expand the same layer to more article-style public pages and tighten timestamps with richer source data."],
-                    ["Analytics", _search_ops_status_badge(snap["ga4_installed"]), "No GA4 installation or admin setup status is present yet.", "Add GA4 config and measurement readiness."],
-                    ["Monetization", _search_ops_status_badge(snap["adsense_installed"]), "Ad slots are reserved in places, but AdSense readiness and policy checks are not yet governed.", "Add AdSense readiness checklist and policy-page review."],
-                    ["Bing / IndexNow", _search_ops_status_badge(False, "Ready", "Pending"), "No Bing submission or IndexNow path is wired yet.", "Add Bing and IndexNow operator checklist."],
+                    ["Analytics", _search_ops_status_badge(snap["ga4_installed"]), f'GA4 is {"installed with " + snap["ga4_measurement_id"] if snap["ga4_installed"] else "not configured in env yet"}.', "Add event naming and action tracking for news, SEO, and derivatives flows."],
+                    ["Monetization", _search_ops_status_badge(snap["adsense_installed"]), f'Ad slots are reserved, and AdSense is {"configured" if snap["adsense_installed"] else "not installed yet"}.', "Keep policy and trust pages tight before turning on monetization broadly."],
+                    ["Bing / IndexNow", _search_ops_status_badge(snap["bing_webmaster_ready"] or snap["indexnow_ready"], "Partial", "Pending"), f'Bing is {"configured" if snap["bing_webmaster_ready"] else "pending"}, and IndexNow is {"configured" if snap["indexnow_ready"] else "not enabled"}.', "Finish Bing verification first, then decide whether IndexNow adds enough value."],
                 ],
                 "filters": [],
             }
@@ -21444,8 +21532,8 @@ def build_search_ops_dashboard_context():
             {
                 "title": "Strongest Next Build",
                 "items": [
-                    "Search / Webmaster should go first because it turns the existing sitemap and SEO work into actual submission and indexing operations.",
-                    "Google News readiness should go next so the market/news surfaces are shaped around publisher requirements before growth hardens the wrong patterns.",
+                    "Search / Webmaster now has live hooks, so the operator job is to finish property verification and submission instead of building from zero.",
+                    "GA4 is the next leverage point because it turns all the current SEO, news, and derivatives work into measurable product behavior.",
                 ],
             }
         ],
@@ -21477,11 +21565,11 @@ def build_search_ops_search_context():
                 "note": "These are the concrete operator tasks still pending before TraderHub has a real search-submission workflow.",
                 "columns": ["Item", "Status", "Current State", "Operator Action"],
                 "rows": [
-                    ["Google Search Console property", _search_ops_status_badge(snap["search_console_verified"]), "No verification status is stored in the app yet.", "Verify the domain property and record the method used."],
+                    ["Google Search Console property", _search_ops_status_badge(snap["search_console_verified"]), f'{"Verification token is configured." if snap["search_console_verified"] else "No verification token or property is configured yet."}', "Verify the domain property and keep the chosen token/property in .env."],
                     ["Submit sitemap.xml", _search_ops_status_badge(snap["sitemap_exists"], "Ready", "Pending"), "Sitemap XML is generated and served publicly.", "Submit https://traderhub.in/sitemap.xml in Search Console."],
-                    ["robots.txt", _search_ops_status_badge(snap["robots_route_live"]), "No robots.txt route is currently present in the public app.", "Add a public robots.txt policy route."],
-                    ["Bing Webmaster Tools", _search_ops_status_badge(snap["bing_webmaster_ready"]), "No Bing operator state exists yet.", "Verify site and submit sitemap in Bing Webmaster Tools."],
-                    ["IndexNow", _search_ops_status_badge(snap["indexnow_ready"]), "No IndexNow key or ping path exists yet.", "Decide whether fast URL push matters enough to add IndexNow."],
+                    ["robots.txt", _search_ops_status_badge(snap["robots_route_live"]), f'{"Public robots.txt is live at /robots.txt." if snap["robots_route_live"] else "No robots.txt route is currently present in the public app."}', "Review crawl policy and keep admin/internal routes out of the public crawl surface."],
+                    ["Bing Webmaster Tools", _search_ops_status_badge(snap["bing_webmaster_ready"]), f'{"Bing verification token/property is configured." if snap["bing_webmaster_ready"] else "No Bing operator state exists yet."}', "Verify site and submit sitemap in Bing Webmaster Tools."],
+                    ["IndexNow", _search_ops_status_badge(snap["indexnow_ready"]), f'{"IndexNow key is configured." if snap["indexnow_ready"] else "No IndexNow key or ping path exists yet."}', "Decide whether fast URL push matters enough to add IndexNow."],
                 ],
                 "filters": [],
             }
@@ -21491,7 +21579,8 @@ def build_search_ops_search_context():
                 "title": "Immediate Wins",
                 "items": [
                     f'Sitemap index: <span class="mono">{"/sitemap.xml" if snap["sitemap_exists"] else "not live yet"}</span>',
-                    "Search Console verification and robots.txt are the highest-value missing pieces in this workstream.",
+                    f'robots.txt: <span class="mono">{"/robots.txt" if snap["robots_route_live"] else "missing"}</span>',
+                    f'Google verification: <span class="mono">{snap["google_site_verification"] or "not configured"}</span>',
                 ],
             }
         ],
@@ -21557,7 +21646,7 @@ def build_search_ops_measurement_context():
             {"label": "AdSense", "value": "Installed" if snap["adsense_installed"] else "Pending"},
             {"label": "Reserved Ad Slots", "value": "Yes"},
             {"label": "Policy Readiness", "value": "Partial"},
-            {"label": "Search + Analytics Link", "value": "Pending"},
+            {"label": "Search + Analytics Link", "value": "Partial" if snap["search_console_verified"] and snap["ga4_installed"] else "Pending"},
             {"label": "Conversion Events", "value": "Pending"},
         ],
         "nav_items": get_search_ops_nav_items(),
@@ -21568,10 +21657,10 @@ def build_search_ops_measurement_context():
                 "note": "This is where tracking and monetization stop being abstract and become concrete implementation tasks.",
                 "columns": ["Item", "Status", "Current State", "Next Build"],
                 "rows": [
-                    ["GA4 install", _search_ops_status_badge(snap["ga4_installed"]), "No gtag / GA4 measurement code is present in the app.", "Add GA4 config and page-view/event tracking."],
-                    ["Search Console + GA4 workflow", _search_ops_status_badge(False, "Ready", "Pending"), "No admin linkage or reporting layer exists yet.", "Record Search Console property and GA4 property in one ops module."],
-                    ["AdSense install", _search_ops_status_badge(snap["adsense_installed"]), "Reserved ad slots exist in templates, but no AdSense code is installed.", "Add AdSense only after policy/readiness review."],
-                    ["Policy pages / trust pages", _search_ops_status_badge(False, "Ready", "Pending"), "No explicit privacy/about/contact readiness view exists in the app.", "Audit and add trust/legal pages before monetization push."],
+                    ["GA4 install", _search_ops_status_badge(snap["ga4_installed"]), f'{"GA4 is injected on public HTML responses with measurement ID " + snap["ga4_measurement_id"] + "." if snap["ga4_installed"] else "No gtag / GA4 measurement code is present in the app."}', "Add page-action event tracking for derivatives, watchlists, and content flows."],
+                    ["Search Console + GA4 workflow", _search_ops_status_badge(snap["search_console_verified"] and snap["ga4_installed"], "Partial", "Pending"), f'{"Both Search Console verification and GA4 config are present." if snap["search_console_verified"] and snap["ga4_installed"] else "One or both of Search Console and GA4 are still missing."}', "Record property IDs in ops and start using both together to judge content and indexing quality."],
+                    ["AdSense install", _search_ops_status_badge(snap["adsense_installed"]), f'{"AdSense client is configured." if snap["adsense_installed"] else "Reserved ad slots exist in templates, but no AdSense code is installed."}', "Add AdSense only after policy/readiness review."],
+                    ["Policy pages / trust pages", _search_ops_status_badge(True, "Partial", "Pending"), "About, contact, editorial policy, and publisher pages are now live, but a fuller privacy/legal layer can still improve monetization readiness.", "Audit and add privacy and corrections workflow before monetization push."],
                 ],
                 "filters": [],
             }
@@ -21581,7 +21670,8 @@ def build_search_ops_measurement_context():
                 "title": "Practical Order",
                 "items": [
                     "GA4 should come before AdSense, because measurement helps you judge page quality and traffic shape first.",
-                    "AdSense should wait until trust pages, policy posture, and the public news/article layer feel more mature.",
+                    f'Current GA4 measurement ID: <span class="mono">{snap["ga4_measurement_id"] or "not configured"}</span>',
+                    f'Current AdSense client: <span class="mono">{snap["adsense_client"] or "not configured"}</span>',
                 ],
             }
         ],
@@ -26809,6 +26899,19 @@ def search_ops_news_screen():
 @app.route("/admin/search-ops/measurement")
 def search_ops_measurement_screen():
     return render_seo_manager_screen(build_search_ops_measurement_context())
+
+
+@app.route("/robots.txt")
+def public_robots_txt():
+    host_root = request.url_root.rstrip("/")
+    lines = [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /admin/",
+        "",
+        f"Sitemap: {host_root}/sitemap.xml",
+    ]
+    return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
 
 @app.route("/admin/news-manager/snapshots/run")
