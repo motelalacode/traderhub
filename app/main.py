@@ -23322,6 +23322,104 @@ def get_derivatives_oi_feed_status():
     }
 
 
+def get_derivatives_oi_diagnostics(sample_symbols=None):
+    creds = get_active_kite_credentials()
+    diagnostics = {
+        "status": "ok",
+        "provider": "kite",
+        "checked_at": utcnow_iso(),
+        "credentials_present": bool(creds["api_key"] and creds["access_token"]),
+    }
+    if not diagnostics["credentials_present"]:
+        diagnostics["status"] = "missing_credentials"
+        return diagnostics
+
+    client = build_kite_client(with_access_token=True)
+    sample_symbols = [str(symbol).strip().upper() for symbol in (sample_symbols or FNO_PHASE1_STOCK_SYMBOLS[:5]) if str(symbol).strip()]
+    diagnostics["sample_symbols"] = sample_symbols
+
+    nse_quote_keys = [f"NSE:{symbol}" for symbol in sample_symbols]
+    nse_quotes = fetch_quote_map_safe(client, nse_quote_keys)
+    diagnostics["nse_quotes"] = {
+        key: {
+            "present": bool(nse_quotes.get(key)),
+            "last_price": (nse_quotes.get(key) or {}).get("last_price"),
+            "volume": (nse_quotes.get(key) or {}).get("volume"),
+        }
+        for key in nse_quote_keys
+    }
+
+    stock_future_rows = {}
+    stock_future_quote_keys = []
+    for symbol in sample_symbols:
+        future_row = get_nearest_stock_future_instrument(symbol)
+        if future_row:
+            stock_future_rows[symbol] = {
+                "tradingsymbol": future_row.get("tradingsymbol"),
+                "expiry_date": future_row.get("expiry_date").isoformat() if future_row.get("expiry_date") else None,
+                "instrument_token": future_row.get("instrument_token"),
+            }
+            stock_future_quote_keys.append(f"NFO:{future_row['tradingsymbol']}")
+        else:
+            stock_future_rows[symbol] = None
+    diagnostics["stock_futures"] = stock_future_rows
+
+    future_quotes = fetch_quote_map_safe(client, stock_future_quote_keys)
+    diagnostics["stock_future_quotes"] = {
+        key: {
+            "present": bool(future_quotes.get(key)),
+            "last_price": (future_quotes.get(key) or {}).get("last_price"),
+            "oi": (future_quotes.get(key) or {}).get("oi"),
+            "volume": (future_quotes.get(key) or {}).get("volume"),
+        }
+        for key in stock_future_quote_keys
+    }
+
+    index_results = []
+    for index_slug in ("nifty-options", "banknifty-options"):
+        config = DERIVATIVES_INDEX_CONFIG[index_slug]
+        spot_quote_map = fetch_quote_map_safe(client, config["quote_candidates"])
+        chosen_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+        nearest_index_future = get_nearest_index_future_instrument(
+            config["index_name"],
+            underlying_names=config.get("underlying_names"),
+        )
+        option_rows = get_nearest_index_option_instruments(
+            config["index_name"],
+            underlying_names=config.get("underlying_names"),
+        )
+        index_results.append(
+            {
+                "slug": index_slug,
+                "index_name": config["index_name"],
+                "quote_candidates": {
+                    key: {
+                        "present": bool(spot_quote_map.get(key)),
+                        "last_price": (spot_quote_map.get(key) or {}).get("last_price"),
+                    }
+                    for key in config["quote_candidates"]
+                },
+                "chosen_spot_last_price": (chosen_quote or {}).get("last_price"),
+                "nearest_future": {
+                    "tradingsymbol": nearest_index_future.get("tradingsymbol") if nearest_index_future else None,
+                    "expiry_date": nearest_index_future.get("expiry_date").isoformat() if nearest_index_future and nearest_index_future.get("expiry_date") else None,
+                },
+                "nearest_option_count": len(option_rows),
+                "nearest_option_sample": [
+                    {
+                        "tradingsymbol": row.get("tradingsymbol"),
+                        "instrument_type": row.get("instrument_type"),
+                        "strike_value": row.get("strike_value"),
+                        "expiry_date": row.get("expiry_date").isoformat() if row.get("expiry_date") else None,
+                    }
+                    for row in option_rows[:4]
+                ],
+            }
+        )
+    diagnostics["index_diagnostics"] = index_results
+    return diagnostics
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -23674,6 +23772,16 @@ def derivatives_stock_oi_change():
 def derivatives_oi_feed_status():
     try:
         return jsonify(get_derivatives_oi_feed_status())
+    except BaseException as exc:
+        return jsonify({"status": "error", "message": str(exc), "error_type": type(exc).__name__}), 500
+
+
+@app.route("/admin/derivatives/oi-diagnostics")
+def derivatives_oi_diagnostics():
+    symbols_param = str(request.args.get("symbols", "") or "").strip()
+    sample_symbols = [item.strip().upper() for item in symbols_param.split(",") if item.strip()] if symbols_param else None
+    try:
+        return jsonify(get_derivatives_oi_diagnostics(sample_symbols=sample_symbols))
     except BaseException as exc:
         return jsonify({"status": "error", "message": str(exc), "error_type": type(exc).__name__}), 500
 
