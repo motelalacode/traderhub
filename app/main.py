@@ -9010,6 +9010,10 @@ def build_default_derivatives_delivery_profiles():
                 "timezone": "Asia/Kolkata",
                 "last_sent_on": "",
                 "last_trigger_at": "",
+                "consecutive_failures": 0,
+                "paused_until": "",
+                "last_failure_at": "",
+                "last_failure_message": "",
                 "created_at": utcnow_iso(),
             }
         ]
@@ -9031,6 +9035,10 @@ def normalize_derivatives_delivery_profiles(payload):
         timezone_name = str((raw or {}).get("timezone") or "Asia/Kolkata").strip() or "Asia/Kolkata"
         last_sent_on = str((raw or {}).get("last_sent_on") or "").strip()
         last_trigger_at = str((raw or {}).get("last_trigger_at") or "").strip()
+        consecutive_failures = max(0, int((raw or {}).get("consecutive_failures") or 0))
+        paused_until = str((raw or {}).get("paused_until") or "").strip()
+        last_failure_at = str((raw or {}).get("last_failure_at") or "").strip()
+        last_failure_message = str((raw or {}).get("last_failure_message") or "").strip()[:240]
         watch_keys = []
         for item in (raw or {}).get("watch_keys") or []:
             watch_key = str(item or "").strip()
@@ -9067,6 +9075,10 @@ def normalize_derivatives_delivery_profiles(payload):
                 "timezone": timezone_name,
                 "last_sent_on": last_sent_on,
                 "last_trigger_at": last_trigger_at,
+                "consecutive_failures": consecutive_failures,
+                "paused_until": paused_until,
+                "last_failure_at": last_failure_at,
+                "last_failure_message": last_failure_message,
                 "created_at": created_at,
             }
         )
@@ -9197,6 +9209,40 @@ def get_derivatives_delivery_failure_entries(profile_key=None, limit=12):
 def get_derivatives_delivery_latest_failure(profile_key):
     failures = get_derivatives_delivery_failure_entries(profile_key=profile_key, limit=1)
     return failures[0] if failures else None
+
+
+def parse_optional_iso_datetime(value):
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=APP_TZ)
+        return parsed.astimezone(APP_TZ)
+    except Exception:
+        return None
+
+
+def apply_derivatives_delivery_result(profile, payload):
+    now_iso = utcnow_iso()
+    profile["last_trigger_at"] = now_iso
+    status = str(payload.get("trigger_status") or "").strip().lower()
+    if status in {"sent", "preview_only"}:
+        profile["last_sent_on"] = get_today_ist().isoformat()
+        profile["consecutive_failures"] = 0
+        profile["paused_until"] = ""
+        profile["last_failure_at"] = ""
+        profile["last_failure_message"] = ""
+        return profile
+    failure_count = max(0, int(profile.get("consecutive_failures") or 0)) + 1
+    profile["consecutive_failures"] = failure_count
+    profile["last_failure_at"] = now_iso
+    profile["last_failure_message"] = str(payload.get("trigger_message") or "Delivery failed.").strip()[:240]
+    if failure_count >= 3:
+        pause_until = datetime.datetime.now(APP_TZ) + datetime.timedelta(minutes=60)
+        profile["paused_until"] = pause_until.isoformat()
+    return profile
 
 
 def get_manual_watchlist_options(state):
@@ -11184,6 +11230,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
     telegram_ready = bool(telegram_creds["token"] and telegram_creds["chat_id"])
     active_channel = str(active_profile.get("channel") or "dashboard").strip().lower()
     delivery_mode = "Live Telegram ready" if active_channel == "telegram" and telegram_ready else ("Preview only" if active_channel != "telegram" else "Telegram config missing")
+    failure_streak = int(active_profile.get("consecutive_failures") or 0)
 
     return {
         "page_mode": "derivatives_delivery",
@@ -11203,6 +11250,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": channel_labels.get(active_profile.get("channel"), active_profile.get("channel", "dashboard").title()), "kind": "tag-up"},
             {"label": f"{sum(int(row.get('alert_count') or 0) for row in profile_rows)} Alerts", "kind": "tag-warn" if profile_rows else "tag-up"},
             {"label": delivery_mode, "kind": "tag-up" if delivery_mode == "Live Telegram ready" else "tag-warn"},
+            {"label": "Backoff Active" if schedule_status["backoff_active"] else (f"{failure_streak} failure streak" if failure_streak else "Healthy transport"), "kind": "tag-warn" if (schedule_status["backoff_active"] or failure_streak) else "tag-up"},
             {"label": "Due now" if schedule_status["due_now"] else schedule_status["delivery_time"], "kind": "tag-up" if schedule_status["due_now"] else "tag-info"},
         ],
         "hero_stats": [
@@ -11234,6 +11282,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Schedule", "value": schedule_status["delivery_time"], "copy": f"Next run status: {schedule_status['next_run_label']}"},
             {"label": "History Rows", "value": len(recent_history), "copy": "Recent audit entries for this profile, including preview-only and sent events."},
             {"label": "Failure Rows", "value": len(recent_failures), "copy": (latest_failure.get("trigger_message", "No live delivery failures logged for this profile.") if latest_failure else "No live delivery failures logged for this profile.")},
+            {"label": "Failure Streak", "value": failure_streak, "copy": ("Scheduled delivery is temporarily backing off after repeated failures." if schedule_status["backoff_active"] else "Failure streak resets after the next successful or preview-only run.")},
         ],
         "focus_title": None,
         "focus_note": None,
@@ -11257,7 +11306,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"title": "Recent History", "count": len(recent_history), "copy": "These are the latest audit rows captured for this profile.", "items": ([f"{entry['logged_at']} | {entry['trigger_status']} | alerts {entry['alert_total']} | rows {entry['row_count']}" for entry in recent_history] if recent_history else ["No delivery events have been logged for this profile yet."])},
             {"title": "Recent Failures", "count": len(recent_failures), "copy": "Failures stay visible here so the desk can retry without guesswork.", "items": ([f"{entry['logged_at']} | {entry['trigger_status']} | {entry['trigger_message']}" for entry in recent_failures] if recent_failures else ["No failure rows are currently logged for this profile."])},
             {"title": "Delivery Endpoints", "count": 3, "copy": "These routes expose the real payload without pretending the transport layer is already live.", "items": [f"Preview JSON: /admin/derivatives/delivery/preview?profile={active_profile.get('key')}", f"Trigger JSON: /admin/derivatives/delivery/trigger?profile={active_profile.get('key')}", f"Toggle rows from the assignment table to reshape the payload instantly"]},
-            {"title": "Schedule Status", "count": 4, "copy": "Phase 1 scheduling is cron-friendly: profiles know when they are due, and a run-due endpoint can trigger them safely once per day.", "items": [f"Enabled: {'Yes' if schedule_status['enabled'] else 'No'}", f"Time: {schedule_status['delivery_time']} IST", f"Last sent on: {schedule_status['last_sent_on'] or 'Never'}", f"Next status: {schedule_status['next_run_label']}"]},
+            {"title": "Schedule Status", "count": 5, "copy": "Phase 1 scheduling is cron-friendly: profiles know when they are due, and a run-due endpoint can trigger them safely once per day.", "items": [f"Enabled: {'Yes' if schedule_status['enabled'] else 'No'}", f"Time: {schedule_status['delivery_time']} IST", f"Last sent on: {schedule_status['last_sent_on'] or 'Never'}", f"Failure streak: {failure_streak}", f"Next status: {schedule_status['next_run_label']}"]},
             {"title": "Transport Status", "count": 3, "copy": "Phase 1 only turns on real sending for Telegram when credentials are present. Everything else stays preview-first on purpose.", "items": [f"Active channel: {channel_labels.get(active_channel, active_channel.title())}", f"Telegram ready: {'Yes' if telegram_ready else 'No'}", f"Mode: {delivery_mode}"]},
             {"title": "Profile Rules", "count": 4, "copy": "Phase 1 keeps profiles deliberately simple and reusable.", "items": ["Profiles are named bundles of saved expiry rows", "Each profile can preview dashboard, email, or Telegram style delivery", "Rows stay live because the digest reuses current public derivatives signals", "Real outbound delivery can be added later without redesigning the desk"]},
         ],
@@ -11414,6 +11463,8 @@ def get_profile_schedule_status(profile):
     enabled = bool((profile or {}).get("enabled", True))
     delivery_time_value = str((profile or {}).get("delivery_time") or "09:20").strip() or "09:20"
     last_sent_on = str((profile or {}).get("last_sent_on") or "").strip()
+    consecutive_failures = max(0, int((profile or {}).get("consecutive_failures") or 0))
+    paused_until = parse_optional_iso_datetime((profile or {}).get("paused_until"))
     now_ist = datetime.datetime.now(APP_TZ)
     today_iso = now_ist.date().isoformat()
     try:
@@ -11421,10 +11472,13 @@ def get_profile_schedule_status(profile):
     except Exception:
         scheduled_time = parse_time("09:20", "09:20")
         delivery_time_value = "09:20"
-    due_now = enabled and now_ist.time() >= scheduled_time and last_sent_on != today_iso
+    backoff_active = bool(paused_until and paused_until > now_ist)
+    due_now = enabled and (not backoff_active) and now_ist.time() >= scheduled_time and last_sent_on != today_iso
     next_run_label = f"{today_iso} {delivery_time_value} IST"
     if not enabled:
         next_run_label = f"Paused at {delivery_time_value} IST"
+    elif backoff_active:
+        next_run_label = f"Backoff until {paused_until.strftime('%Y-%m-%d %H:%M')} IST"
     elif now_ist.time() >= scheduled_time and last_sent_on == today_iso:
         next_run_label = f"Sent today at {delivery_time_value} IST"
     elif now_ist.time() >= scheduled_time:
@@ -11434,6 +11488,9 @@ def get_profile_schedule_status(profile):
         "enabled": enabled,
         "delivery_time": delivery_time_value,
         "last_sent_on": last_sent_on,
+        "consecutive_failures": consecutive_failures,
+        "backoff_active": backoff_active,
+        "paused_until": paused_until.isoformat() if paused_until else "",
         "due_now": due_now,
         "next_run_label": next_run_label,
         "today_iso": today_iso,
@@ -25542,9 +25599,7 @@ def derivatives_delivery_trigger():
     state = load_derivatives_delivery_profiles()
     for profile in state.get("profiles") or []:
         if profile.get("key") == profile_key:
-            profile["last_trigger_at"] = utcnow_iso()
-            if payload.get("trigger_status") in {"sent", "preview_only"}:
-                profile["last_sent_on"] = get_today_ist().isoformat()
+            apply_derivatives_delivery_result(profile, payload)
             break
     save_derivatives_delivery_profiles(state)
     return jsonify(payload)
@@ -25566,9 +25621,7 @@ def derivatives_delivery_retry_last_failure():
     payload["retry_of"] = latest_failure.get("logged_at")
     payload["retry_previous_status"] = latest_failure.get("trigger_status")
     append_derivatives_delivery_history(payload, mode="retry")
-    target_profile["last_trigger_at"] = utcnow_iso()
-    if payload.get("trigger_status") in {"sent", "preview_only"}:
-        target_profile["last_sent_on"] = get_today_ist().isoformat()
+    apply_derivatives_delivery_result(target_profile, payload)
     save_derivatives_delivery_profiles(state)
     return jsonify(payload)
 
@@ -25579,16 +25632,30 @@ def derivatives_delivery_run_due():
     results = []
     due_count = 0
     sent_count = 0
+    skipped_backoff = 0
     for profile in state.get("profiles") or []:
         schedule_status = get_profile_schedule_status(profile)
+        if schedule_status["backoff_active"]:
+            skipped_backoff += 1
+            results.append(
+                {
+                    "profile": profile.get("key"),
+                    "name": profile.get("name"),
+                    "channel": profile.get("channel"),
+                    "trigger_status": "backoff_active",
+                    "trigger_message": schedule_status["next_run_label"],
+                    "alert_total": 0,
+                    "row_count": 0,
+                }
+            )
+            continue
         if not schedule_status["due_now"]:
             continue
         due_count += 1
         payload = trigger_derivatives_delivery_profile(profile, request.url_root.rstrip("/"))
         append_derivatives_delivery_history(payload, mode="scheduled")
-        profile["last_trigger_at"] = utcnow_iso()
+        apply_derivatives_delivery_result(profile, payload)
         if payload.get("trigger_status") in {"sent", "preview_only"}:
-            profile["last_sent_on"] = get_today_ist().isoformat()
             sent_count += 1
         results.append(
             {
@@ -25607,6 +25674,7 @@ def derivatives_delivery_run_due():
             "status": "ok",
             "due_profiles": due_count,
             "completed_profiles": sent_count,
+            "skipped_backoff_profiles": skipped_backoff,
             "results": results,
             "checked_at": utcnow_iso(),
         }
