@@ -19467,8 +19467,8 @@ PUBLIC_INFO_TEMPLATE = """
         {% for paragraph in block.paragraphs %}
         <p>{{ paragraph }}</p>
         {% endfor %}
-        {% if block.items %}
-        <ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% if block["items"] %}
+        <ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul>
         {% endif %}
       </div>
       {% endfor %}
@@ -26073,7 +26073,36 @@ def market_trends_hub():
 
 @app.route("/market/trends/<trend_slug>")
 def market_trend_group(trend_slug):
-    context = build_market_trend_group_context(request.url_root.rstrip("/"), str(trend_slug or "").strip().lower())
+    clean_slug = str(trend_slug or "").strip().lower()
+    try:
+        context = build_market_trend_group_context(request.url_root.rstrip("/"), clean_slug)
+    except Exception as exc:
+        app.logger.exception("Failed to render trend group page: %s", clean_slug)
+        trend_config = get_trend_group_definitions().get(clean_slug)
+        if not trend_config:
+            context = None
+        else:
+            fallback_context = build_market_phase2_fallback_context(
+                request.url_root.rstrip("/"),
+                "trend_group",
+                f"{trend_config['label']} | TraderHub Market Trends",
+                trend_config["description"],
+                f"/market/trends/{clean_slug}",
+                f"Market News > Trends > {trend_config['label']}",
+                f"Phase 3 trend fallback | Last reviewed {get_today_ist().isoformat()}",
+                "TraderHub Trend Group",
+                trend_config["label"],
+                trend_config["description"],
+                f"Trend group is temporarily unavailable: {exc}",
+                [
+                    {"label": "Trend Hub", "href": "/market/trends"},
+                    {"label": "Bullish", "href": "/market/trends/bullish"},
+                    {"label": "Bearish", "href": "/market/trends/bearish"},
+                    {"label": "Earnings", "href": "/market/trends/earnings"},
+                    {"label": "Sector Rotation", "href": "/market/trends/sector-rotation"},
+                ],
+            )
+            context = attach_news_article_layer(fallback_context, request.url_root.rstrip("/"), "Market Trends")
     if not context:
         return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
