@@ -9222,6 +9222,7 @@ def normalize_mapping_manager_overrides(payload):
 
 def load_mapping_manager_overrides():
     if not MAPPING_MANAGER_OVERRIDES_PATH.exists():
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         payload = build_default_mapping_manager_overrides()
         MAPPING_MANAGER_OVERRIDES_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return payload
@@ -9235,6 +9236,7 @@ def load_mapping_manager_overrides():
 
 
 def save_mapping_manager_overrides(state):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     normalized = normalize_mapping_manager_overrides(state)
     MAPPING_MANAGER_OVERRIDES_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
     return normalized
@@ -9274,6 +9276,7 @@ def normalize_keyword_planner_targets(payload):
 
 def load_keyword_planner_targets():
     if not KEYWORD_PLANNER_TARGETS_PATH.exists():
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
         payload = build_default_keyword_planner_targets()
         KEYWORD_PLANNER_TARGETS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         return payload
@@ -9287,6 +9290,7 @@ def load_keyword_planner_targets():
 
 
 def save_keyword_planner_targets(state):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     normalized = normalize_keyword_planner_targets(state)
     KEYWORD_PLANNER_TARGETS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
     return normalized
@@ -27471,7 +27475,51 @@ def news_manager_archive_screen():
 
 @app.route("/admin/news-manager/quality")
 def news_manager_quality_screen():
-    return render_seo_manager_screen(build_news_manager_quality_context())
+    try:
+        return render_seo_manager_screen(build_news_manager_quality_context())
+    except BaseException as exc:
+        summary = get_news_snapshot_run_summary()
+        fallback_context = {
+            "page_title": "News Manager Quality | TraderHub",
+            "page_description": "Content quality scoring for TraderHub public news pages.",
+            "breadcrumb_text": "Admin > News Manager > Quality",
+            "breadcrumb_meta_text": f'Fallback view | Last reviewed {get_today_ist().isoformat()}',
+            "hero_title": "News Quality Scoring",
+            "hero_subtitle": "The full quality view hit an internal error, so this fallback is showing snapshot totals instead of failing completely.",
+            "kpis": [
+                {"label": "Snapshot Rows", "value": (summary.get("totals") or {}).get("snapshot_pages", 0)},
+                {"label": "Summary Signals", "value": (summary.get("totals") or {}).get("summary_pages", 0)},
+                {"label": "Fallback Flags", "value": (summary.get("totals") or {}).get("fallback_pages", 0)},
+                {"label": "Market Errors", "value": (summary.get("totals") or {}).get("market_error_pages", 0)},
+                {"label": "Shell Flags", "value": (summary.get("totals") or {}).get("shell_pages", 0)},
+                {"label": "Error", "value": type(exc).__name__},
+            ],
+            "nav_items": get_news_manager_nav_items(),
+            "active_href": "/admin/news-manager/quality",
+            "sections": [
+                {
+                    "title": "Fallback Snapshot Totals",
+                    "note": "This keeps the screen usable while the richer quality scoring query is being stabilized.",
+                    "columns": ["Page Type", "Pages", "Summary Signals", "Fallback Flags", "Shell Flags"],
+                    "rows": [
+                        [
+                            row.get("page_type") or "-",
+                            row.get("page_count", 0),
+                            row.get("summary_pages", 0),
+                            row.get("fallback_pages", 0),
+                            row.get("shell_pages", 0),
+                        ]
+                        for row in summary.get("by_type", [])
+                    ],
+                    "filters": [],
+                }
+            ],
+            "side_blocks": [
+                {"title": "Error Detail", "items": [html_lib.escape(str(exc))]},
+                {"title": "Quick Actions", "items": ['View raw totals: <span class="mono">/admin/news-manager/snapshots/summary</span>']},
+            ],
+        }
+        return render_seo_manager_screen(fallback_context)
 
 
 @app.route("/admin/news-manager/editor-summaries")
@@ -27555,7 +27603,41 @@ def mapping_manager_public_routes_screen():
 
 @app.route("/admin/mapping-manager/corrections")
 def mapping_manager_corrections_screen():
-    return render_seo_manager_screen(build_mapping_manager_corrections_context())
+    try:
+        return render_seo_manager_screen(build_mapping_manager_corrections_context())
+    except BaseException as exc:
+        fallback_context = {
+            "page_title": "Mapping Manager Corrections | TraderHub",
+            "page_description": "Editable mapping overrides for TraderHub stock-to-sector assignments.",
+            "breadcrumb_text": "Admin > Mapping Manager > Corrections",
+            "breadcrumb_meta_text": f'Fallback view | Last reviewed {get_today_ist().isoformat()}',
+            "hero_title": "Mapping Corrections",
+            "hero_subtitle": "The full corrections screen hit an internal error, so this fallback is showing the writable endpoints and the error detail instead of failing completely.",
+            "kpis": [
+                {"label": "Overrides", "value": 0},
+                {"label": "Save Route", "value": "Live"},
+                {"label": "Remove Route", "value": "Live"},
+                {"label": "Error", "value": type(exc).__name__},
+            ],
+            "nav_items": get_mapping_manager_nav_items(),
+            "active_href": "/admin/mapping-manager/corrections",
+            "sections": [
+                {
+                    "title": "Correction Endpoints",
+                    "note": "These routes stay usable while the richer corrections table is being stabilized.",
+                    "columns": ["Action", "Pattern"],
+                    "rows": [
+                        ["Save override", '<div class="mono">/admin/mapping-manager/corrections/save?symbol=RELIANCE&sector=oil_gas&note=manual%20override</div>'],
+                        ["Remove override", '<div class="mono">/admin/mapping-manager/corrections/remove?symbol=RELIANCE</div>'],
+                    ],
+                    "filters": [],
+                }
+            ],
+            "side_blocks": [
+                {"title": "Error Detail", "items": [html_lib.escape(str(exc))]},
+            ],
+        }
+        return render_seo_manager_screen(fallback_context)
 
 
 @app.route("/admin/mapping-manager/corrections/save")
