@@ -71,7 +71,9 @@ MARKET_NEWS_PHASE1_FEED_PATH = DATA_DIR / "market_news_phase1_feed.json"
 DERIVATIVES_PHASE1_FEED_PATH = DATA_DIR / "derivatives_phase1_feed.json"
 DERIVATIVES_EXPIRY_WATCHLISTS_PATH = DATA_DIR / "derivatives_expiry_watchlists.json"
 DERIVATIVES_DELIVERY_PROFILES_PATH = DATA_DIR / "derivatives_delivery_profiles.json"
+DERIVATIVES_DELIVERY_HISTORY_PATH = DATA_DIR / "derivatives_delivery_history.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
+DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS = 14
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
 MANUAL_WATCHLIST_DEFAULT_NAMES = ["Intraday", "Swing", "Portfolio", "Breakout", "Radar"]
@@ -9095,6 +9097,86 @@ def save_derivatives_delivery_profiles(state):
     return normalized
 
 
+def load_derivatives_delivery_history():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DERIVATIVES_DELIVERY_HISTORY_PATH.exists():
+        payload = {"entries": []}
+        DERIVATIVES_DELIVERY_HISTORY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return payload
+    try:
+        payload = json.loads(DERIVATIVES_DELIVERY_HISTORY_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = {"entries": []}
+    entries = payload.get("entries") or []
+    normalized_entries = []
+    for entry in entries:
+        normalized_entries.append(
+            {
+                "logged_at": str((entry or {}).get("logged_at") or utcnow_iso()).strip(),
+                "profile_key": str((entry or {}).get("profile_key") or "").strip().lower(),
+                "profile_name": str((entry or {}).get("profile_name") or "").strip(),
+                "channel": str((entry or {}).get("channel") or "").strip().lower(),
+                "trigger_status": str((entry or {}).get("trigger_status") or "").strip().lower(),
+                "trigger_message": str((entry or {}).get("trigger_message") or "").strip(),
+                "alert_total": int((entry or {}).get("alert_total") or 0),
+                "row_count": int((entry or {}).get("row_count") or 0),
+                "subject": str((entry or {}).get("subject") or "").strip(),
+                "mode": str((entry or {}).get("mode") or "").strip().lower(),
+            }
+        )
+    normalized_entries.sort(key=lambda item: item["logged_at"], reverse=True)
+    payload = {"entries": normalized_entries[:250]}
+    DERIVATIVES_DELIVERY_HISTORY_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return payload
+
+
+def prune_derivatives_delivery_history(payload):
+    entries = payload.get("entries") or []
+    cutoff = datetime.datetime.now(APP_TZ) - datetime.timedelta(days=DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS)
+    kept_entries = []
+    for entry in entries:
+        try:
+            logged_at = datetime.datetime.fromisoformat(str(entry.get("logged_at") or "").replace("Z", "+00:00"))
+            if logged_at.tzinfo is None:
+                logged_at = logged_at.replace(tzinfo=APP_TZ)
+            logged_at = logged_at.astimezone(APP_TZ)
+        except Exception:
+            logged_at = datetime.datetime.now(APP_TZ)
+        if logged_at >= cutoff:
+            kept_entries.append(entry)
+    kept_entries.sort(key=lambda item: item.get("logged_at", ""), reverse=True)
+    return {"entries": kept_entries[:250]}
+
+
+def save_derivatives_delivery_history(payload):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = prune_derivatives_delivery_history(payload)
+    DERIVATIVES_DELIVERY_HISTORY_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def append_derivatives_delivery_history(payload, mode):
+    history = load_derivatives_delivery_history()
+    history_entries = history.get("entries") or []
+    history_entries.insert(
+        0,
+        {
+            "logged_at": utcnow_iso(),
+            "profile_key": payload.get("profile_key", ""),
+            "profile_name": payload.get("profile_name", ""),
+            "channel": payload.get("channel", ""),
+            "trigger_status": payload.get("trigger_status", ""),
+            "trigger_message": payload.get("trigger_message", ""),
+            "alert_total": int(payload.get("alert_total") or 0),
+            "row_count": int(payload.get("row_count") or 0),
+            "subject": payload.get("subject", ""),
+            "mode": str(mode or "").strip().lower(),
+        },
+    )
+    history["entries"] = history_entries
+    return save_derivatives_delivery_history(history)
+
+
 def get_manual_watchlist_options(state):
     return [
         {
@@ -11016,6 +11098,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
     watch_state = load_derivatives_watchlist_state()
     all_watch_entries = watch_state.get("entries") or []
     profile_state = load_derivatives_delivery_profiles()
+    history_state = load_derivatives_delivery_history()
     profiles = profile_state.get("profiles") or []
     active_profile = None
     for profile in profiles:
@@ -11049,6 +11132,11 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         f"{row['index_label']} {row['expiry']} | PCR {row['pcr']} | Max Pain {row['max_pain']} | {row['top_alert']}"
         for row in profile_rows[:8]
     ]
+    recent_history = [
+        entry
+        for entry in (history_state.get("entries") or [])
+        if entry.get("profile_key") == active_profile.get("key")
+    ][:8]
     delivery_rows = [
         {
             "index": row["index_label"],
@@ -11119,6 +11207,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Available Watch Rows", "value": len(all_watch_summaries), "copy": "Saved expiry rows that can be added into this delivery profile."},
             {"label": "Transport", "value": delivery_mode, "copy": ("Telegram token and chat ID are configured for live sending." if telegram_ready else "Telegram transport is not fully configured yet, so trigger stays in preview mode.")},
             {"label": "Schedule", "value": schedule_status["delivery_time"], "copy": f"Next run status: {schedule_status['next_run_label']}"},
+            {"label": "History Rows", "value": len(recent_history), "copy": "Recent audit entries for this profile, including preview-only and sent events."},
         ],
         "focus_title": None,
         "focus_note": None,
@@ -11139,6 +11228,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         "group_note": "These blocks preview what the active profile is really carrying right now.",
         "group_blocks": [
             {"title": "Current Digest Preview", "count": len(digest_lines), "copy": "A simple preview of the rows this profile would deliver right now.", "items": digest_lines or ["No rows have been assigned to this profile yet."]},
+            {"title": "Recent History", "count": len(recent_history), "copy": "These are the latest audit rows captured for this profile.", "items": ([f"{entry['logged_at']} | {entry['trigger_status']} | alerts {entry['alert_total']} | rows {entry['row_count']}" for entry in recent_history] if recent_history else ["No delivery events have been logged for this profile yet."])},
             {"title": "Delivery Endpoints", "count": 3, "copy": "These routes expose the real payload without pretending the transport layer is already live.", "items": [f"Preview JSON: /admin/derivatives/delivery/preview?profile={active_profile.get('key')}", f"Trigger JSON: /admin/derivatives/delivery/trigger?profile={active_profile.get('key')}", f"Toggle rows from the assignment table to reshape the payload instantly"]},
             {"title": "Schedule Status", "count": 4, "copy": "Phase 1 scheduling is cron-friendly: profiles know when they are due, and a run-due endpoint can trigger them safely once per day.", "items": [f"Enabled: {'Yes' if schedule_status['enabled'] else 'No'}", f"Time: {schedule_status['delivery_time']} IST", f"Last sent on: {schedule_status['last_sent_on'] or 'Never'}", f"Next status: {schedule_status['next_run_label']}"]},
             {"title": "Transport Status", "count": 3, "copy": "Phase 1 only turns on real sending for Telegram when credentials are present. Everything else stays preview-first on purpose.", "items": [f"Active channel: {channel_labels.get(active_channel, active_channel.title())}", f"Telegram ready: {'Yes' if telegram_ready else 'No'}", f"Mode: {delivery_mode}"]},
@@ -11202,6 +11292,90 @@ def build_derivatives_delivery_payload(host_root, profile_key):
         "lines": lines,
         "body": body,
         "rows": rows,
+    }
+
+
+def build_derivatives_delivery_history_context(host_root):
+    history_state = load_derivatives_delivery_history()
+    rows = history_state.get("entries") or []
+    sent_count = sum(1 for row in rows if row.get("trigger_status") == "sent")
+    error_count = sum(1 for row in rows if row.get("trigger_status") == "transport_error")
+    table_rows = [
+        {
+            "logged_at": row.get("logged_at", ""),
+            "profile": row.get("profile_name") or row.get("profile_key") or "-",
+            "channel": row.get("channel", "-"),
+            "mode": row.get("mode", "-"),
+            "status": row.get("trigger_status", "-"),
+            "alerts": row.get("alert_total", 0),
+            "rows": row.get("row_count", 0),
+            "subject": row.get("subject", "")[:80] if row.get("subject") else "-",
+        }
+        for row in rows[:80]
+    ]
+    return {
+        "page_mode": "derivatives_delivery_history",
+        "seo_title": "Derivatives Delivery History | TraderHub",
+        "seo_description": "Audit history for derivatives delivery preview, scheduled runs, and Telegram sends.",
+        "canonical_url": f"{host_root.rstrip('/')}/admin/derivatives/delivery/history",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Derivatives Delivery History | TraderHub", "description": "Audit history for derivatives delivery events.", "url": f"{host_root.rstrip('/')}/admin/derivatives/delivery/history"}, indent=2),
+        "breadcrumb_text": "Admin > Derivatives > Delivery History",
+        "breadcrumb_meta_text": f"Delivery audit log | Last reviewed {get_today_ist().isoformat()}",
+        "hero_kicker": "TraderHub Delivery Audit",
+        "hero_title": "Delivery History",
+        "hero_subtitle": "This audit log keeps the delivery layer explainable. It captures manual previews, scheduled due-runs, and Telegram transport results in one place.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "logged delivery events",
+        "hero_badges": [
+            {"label": "Audit Trail", "kind": "tag-info"},
+            {"label": f"{sent_count} Sent", "kind": "tag-up"},
+            {"label": f"{error_count} Errors", "kind": "tag-warn" if error_count else "tag-up"},
+        ],
+        "hero_stats": [
+            {"label": "History Rows", "value": len(rows)},
+            {"label": "Sent", "value": sent_count},
+            {"label": "Errors", "value": error_count},
+            {"label": "Retention", "value": f"{DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS} days"},
+        ],
+        "nav_chips": [
+            {"label": "Delivery Desk", "href": "/admin/derivatives/delivery"},
+            {"label": "Delivery History", "href": "/admin/derivatives/delivery/history"},
+            {"label": "Run Due", "href": "/admin/derivatives/delivery/run-due"},
+        ],
+        "section_title": "Audit Snapshot",
+        "section_note": "Use this page when you need to verify what ran, how many alerts were included, and whether the transport succeeded or failed.",
+        "summary_cards": [
+            {"label": "Logged Events", "value": len(rows), "copy": "All retained delivery events across manual and scheduled modes."},
+            {"label": "Sent Events", "value": sent_count, "copy": "Events that actually reached a live transport, currently Telegram."},
+            {"label": "Errors", "value": error_count, "copy": "Transport failures kept in the audit log for debugging."},
+            {"label": "Latest Event", "value": rows[0].get("trigger_status", "Pending") if rows else "Pending", "copy": rows[0].get("trigger_message", "No events logged yet.") if rows else "No events logged yet."},
+        ],
+        "focus_title": None,
+        "focus_note": None,
+        "focus_cards": [],
+        "table_title": "Delivery Event Table",
+        "table_note": "Each row shows when a profile was triggered, which mode it used, and what the result looked like.",
+        "table_columns": [
+            {"label": "Logged At", "key": "logged_at", "link_key": None},
+            {"label": "Profile", "key": "profile", "link_key": None},
+            {"label": "Channel", "key": "channel", "link_key": None},
+            {"label": "Mode", "key": "mode", "link_key": None},
+            {"label": "Status", "key": "status", "link_key": None},
+            {"label": "Alerts", "key": "alerts", "link_key": None},
+            {"label": "Rows", "key": "rows", "link_key": None},
+            {"label": "Subject", "key": "subject", "link_key": None},
+        ],
+        "table_rows": table_rows,
+        "group_title": "Audit Notes",
+        "group_note": "The history layer exists to make the scheduled system debuggable and trustworthy.",
+        "group_blocks": [
+            {"title": "Why It Matters", "count": 4, "copy": "Delivery automation gets much easier to trust once the outcomes are visible.", "items": ["Every manual trigger is logged", "Every scheduled due-run is logged", "Telegram send failures stay visible", "The log is retained long enough for routine debugging"]},
+        ],
+        "public_note": "This history page is an audit tool, not a user-facing feed. It exists so the delivery system can grow without becoming opaque.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Check the latest status first, then compare alert counts and row counts before debugging a schedule or transport issue.",
+        "why_page_works": "It closes the loop on the derivatives delivery system and makes automation failures visible instead of mysterious.",
+        "market_error": None,
     }
 
 
@@ -25182,6 +25356,17 @@ def derivatives_delivery_desk():
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
+@app.route("/admin/derivatives/delivery/history")
+def derivatives_delivery_history():
+    context = build_derivatives_delivery_history_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/derivatives/delivery/history.json")
+def derivatives_delivery_history_json():
+    return jsonify(load_derivatives_delivery_history())
+
+
 @app.route("/admin/derivatives/delivery/add-profile")
 def derivatives_delivery_add_profile():
     name = str(request.args.get("name", "Delivery Profile") or "").strip()[:32]
@@ -25311,6 +25496,7 @@ def derivatives_delivery_trigger():
             f"{payload['channel_label']} delivery is not wired to an external transport yet. "
             "This trigger confirms the live payload that would be sent right now."
         )
+    append_derivatives_delivery_history(payload, mode="manual")
     state = load_derivatives_delivery_profiles()
     for profile in state.get("profiles") or []:
         if profile.get("key") == profile_key:
@@ -25334,6 +25520,7 @@ def derivatives_delivery_run_due():
             continue
         due_count += 1
         payload = trigger_derivatives_delivery_profile(profile, request.url_root.rstrip("/"))
+        append_derivatives_delivery_history(payload, mode="scheduled")
         profile["last_trigger_at"] = utcnow_iso()
         if payload.get("trigger_status") in {"sent", "preview_only"}:
             profile["last_sent_on"] = get_today_ist().isoformat()
