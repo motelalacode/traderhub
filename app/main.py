@@ -23485,26 +23485,60 @@ def build_expiry_strategy_context(index_slug, host_root):
         expiry_tone = "Discount Caution"
         expiry_tone_copy = f"Futures are trading at a {premium_discount:+.2f} point discount, which keeps some caution in the expiry tone even though the displayed chain looks balanced."
 
+    range_bias = "Balanced"
+    breakout_bias = "Watch"
+    breakdown_risk = "Watch"
+    squeeze_risk = "Moderate"
+
+    if strongest_call_wall not in {"-", "Pending"} and strongest_put_wall not in {"-", "Pending"} and spot_value > 0:
+        try:
+            call_gap = float(strongest_call_wall) - float(spot_value)
+            put_gap = float(spot_value) - float(strongest_put_wall)
+            if abs(call_gap) <= config["strike_step"] and abs(put_gap) <= config["strike_step"]:
+                range_bias = "High"
+            elif abs(call_gap) <= config["strike_step"] * 2 and abs(put_gap) <= config["strike_step"] * 2:
+                range_bias = "Moderate"
+            else:
+                range_bias = "Loose"
+
+            if call_gap > 0 and call_gap <= config["strike_step"]:
+                breakout_bias = "Blocked by near call wall"
+            elif call_gap > config["strike_step"]:
+                breakout_bias = "Cleaner if call wall lifts"
+
+            if put_gap > 0 and put_gap <= config["strike_step"]:
+                breakdown_risk = "Higher near put shelf"
+            elif put_gap > config["strike_step"]:
+                breakdown_risk = "Lower while put shelf holds"
+        except Exception:
+            pass
+
+    if pcr_numeric is not None:
+        if pcr_numeric >= 1.20:
+            squeeze_risk = "Short squeeze watch"
+        elif pcr_numeric <= 0.80:
+            squeeze_risk = "Upside squeeze weaker"
+
     strategy_blocks = [
         {
             "title": "Range-Bound Bias",
             "meta": "Max pain and walls",
-            "copy": f"Range traders should watch whether spot keeps gravitating toward max pain near {max_pain} while call resistance stays near {strongest_call_wall} and put support stays near {strongest_put_wall}.",
+            "copy": f"Range bias is {range_bias.lower()} right now. Watch whether spot keeps gravitating toward max pain near {max_pain} while call resistance stays near {strongest_call_wall} and put support stays near {strongest_put_wall}.",
         },
         {
             "title": "Breakout Bias",
             "meta": "Resistance pressure",
-            "copy": f"A cleaner breakout case improves if spot starts clearing the strongest call wall near {strongest_call_wall} while futures stay firm and displayed call OI change stops expanding overhead.",
+            "copy": f"{breakout_bias}. A cleaner breakout case improves if spot starts clearing the strongest call wall near {strongest_call_wall} while futures stay firm and displayed call OI change stops expanding overhead.",
         },
         {
             "title": "Breakdown Risk",
             "meta": "Support pressure",
-            "copy": f"Breakdown risk matters more if spot starts losing the strongest put wall near {strongest_put_wall} while the displayed chain keeps building call-side pressure.",
+            "copy": f"{breakdown_risk}. Breakdown risk matters more if spot starts losing the strongest put wall near {strongest_put_wall} while the displayed chain keeps building call-side pressure.",
         },
         {
             "title": "Short Covering Risk",
             "meta": "Futures premium + PCR",
-            "copy": f"If futures stay firm and PCR steadies near {pcr_display}, then a short-covering style expiry squeeze can still appear even without a full-chain terminal view.",
+            "copy": f"{squeeze_risk}. If futures stay firm and PCR steadies near {pcr_display}, then a short-covering style expiry squeeze can still appear even without a full-chain terminal view.",
         },
     ]
 
@@ -23564,6 +23598,8 @@ def build_expiry_strategy_context(index_slug, host_root):
         "nav_chips": [
             {"label": "Derivatives Hub", "href": "/derivatives"},
             {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}"},
+            {"label": "Nifty Expiry", "href": "/derivatives/expiry-strategy?index=nifty-options"},
+            {"label": "Bank Nifty Expiry", "href": "/derivatives/expiry-strategy?index=banknifty-options"},
             {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
             {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
             {"label": "Index OI", "href": "/derivatives/index/oi-change"},
@@ -23595,7 +23631,7 @@ def build_expiry_strategy_context(index_slug, host_root):
         "group_note": "These notes make the page more habit-forming by translating the current expiry structure into a few quick changes worth watching.",
         "group_blocks": [
             {"title": "Expiry Structure", "count": len(what_changed_items), "copy": "Quick market-structure changes that matter first on expiry dashboards.", "items": what_changed_items},
-            {"title": "Next Clicks", "count": 4, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": ["Open the detailed index options page", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
+            {"title": "Next Clicks", "count": 5, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": [f"Open the {selector_label} options page", "Switch to the other expiry dashboard", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
         ],
         "public_note": "This expiry page is designed to sit between the current public OI pages and the later full option chain. It already uses live chain and futures inputs where available, while keeping the trader read fast and uncluttered.",
         "side_box_title": "Current Rule",
