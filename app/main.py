@@ -10400,7 +10400,7 @@ def normalize_expiry_date(value):
         return None
 
 
-def get_nearest_index_option_instruments(index_name, underlying_names=None):
+def get_index_option_expiry_map(index_name, underlying_names=None):
     today = get_today_ist()
     option_rows = []
     allowed_names = {str(item).strip().upper() for item in (underlying_names or []) if str(item).strip()}
@@ -10421,10 +10421,36 @@ def get_nearest_index_option_instruments(index_name, underlying_names=None):
         option_rows.append({**row, "expiry_date": expiry, "strike_value": strike})
 
     if not option_rows:
-        return []
+        return {}
 
-    nearest_expiry = min(row["expiry_date"] for row in option_rows)
-    return [row for row in option_rows if row["expiry_date"] == nearest_expiry]
+    expiry_map = {}
+    for row in option_rows:
+        expiry_map.setdefault(row["expiry_date"], []).append(row)
+    return expiry_map
+
+
+def get_nearest_index_option_instruments(index_name, underlying_names=None):
+    expiry_map = get_index_option_expiry_map(index_name, underlying_names=underlying_names)
+    if not expiry_map:
+        return []
+    nearest_expiry = min(expiry_map.keys())
+    return expiry_map.get(nearest_expiry, [])
+
+
+def build_derivatives_expiry_nav(index_slug, available_expiries, selected_expiry, route_path):
+    chips = []
+    current_expiry = str(selected_expiry or "").strip()
+    for expiry_value in available_expiries or []:
+        label = f"Expiry {expiry_value[5:]}" if len(expiry_value) >= 10 else f"Expiry {expiry_value}"
+        if expiry_value == current_expiry:
+            label = f"{label} active"
+        chips.append(
+            {
+                "label": label,
+                "href": f"{route_path}?index={index_slug}&expiry={expiry_value}",
+            }
+        )
+    return chips
 
 
 def get_nearest_index_future_instrument(index_name, underlying_names=None):
@@ -10575,18 +10601,39 @@ def get_option_oi_change_for_instrument(client, instrument_token):
     return float(latest_oi) - float(previous_oi)
 
 
-def build_real_index_option_chain(index_name, spot_value, strike_step, underlying_names=None, strike_span=4):
+def build_real_index_option_chain(index_name, spot_value, strike_step, underlying_names=None, strike_span=4, selected_expiry=None):
     creds = get_active_kite_credentials()
     if not creds["api_key"] or not creds["access_token"]:
         return {"available": False, "error": "Kite API key or access token is missing in .env."}
 
     client = build_kite_client(with_access_token=True)
-    option_rows = get_nearest_index_option_instruments(index_name, underlying_names=underlying_names)
+    expiry_map = get_index_option_expiry_map(index_name, underlying_names=underlying_names)
+    if not expiry_map:
+        return {"available": False, "error": f"No {index_name} option instruments were available for any active expiry."}
+
+    available_expiry_dates = sorted(expiry_map.keys())
+    available_expiries = [expiry.isoformat() for expiry in available_expiry_dates]
+    selected_expiry_date = None
+    if selected_expiry:
+        selected_expiry_date = normalize_expiry_date(selected_expiry)
+    if selected_expiry_date not in expiry_map:
+        selected_expiry_date = available_expiry_dates[0]
+    option_rows = expiry_map.get(selected_expiry_date) or []
     if not option_rows:
-        return {"available": False, "error": f"No {index_name} option instruments were available for the nearest expiry."}
+        return {
+            "available": False,
+            "error": f"No {index_name} option instruments were available for expiry {selected_expiry_date.isoformat()}.",
+            "available_expiries": available_expiries,
+            "selected_expiry": selected_expiry_date.isoformat() if selected_expiry_date else None,
+        }
 
     if not spot_value or spot_value <= 0:
-        return {"available": False, "error": f"{index_name} spot quote is unavailable, so the option chain window could not be framed."}
+        return {
+            "available": False,
+            "error": f"{index_name} spot quote is unavailable, so the option chain window could not be framed.",
+            "available_expiries": available_expiries,
+            "selected_expiry": selected_expiry_date.isoformat() if selected_expiry_date else None,
+        }
 
     anchor = int(round(spot_value / strike_step) * strike_step)
     span = max(2, int(strike_span or 4))
@@ -10594,7 +10641,12 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
     window_max = anchor + (span * strike_step)
     selected_rows = [row for row in option_rows if window_min <= row["strike_value"] <= window_max]
     if not selected_rows:
-        return {"available": False, "error": f"No {index_name} option strikes were available around the current spot window."}
+        return {
+            "available": False,
+            "error": f"No {index_name} option strikes were available around the current spot window for expiry {selected_expiry_date.isoformat()}.",
+            "available_expiries": available_expiries,
+            "selected_expiry": selected_expiry_date.isoformat() if selected_expiry_date else None,
+        }
 
     quote_symbols = [f"NFO:{row['tradingsymbol']}" for row in selected_rows]
     quote_data = fetch_quote_map_safe(client, quote_symbols)
@@ -10686,6 +10738,8 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         "strongest_call_wall": f"{strongest_call['strike']}" if strongest_call else "-",
         "strongest_put_wall": f"{strongest_put['strike']}" if strongest_put else "-",
         "expiry_date": selected_rows[0]["expiry_date"].isoformat() if selected_rows else "",
+        "selected_expiry": selected_expiry_date.isoformat() if selected_expiry_date else "",
+        "available_expiries": available_expiries,
     }
 
 
@@ -23424,7 +23478,7 @@ def get_derivatives_oi_diagnostics(sample_symbols=None):
     return diagnostics
 
 
-def build_expiry_strategy_context(index_slug, host_root):
+def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
     config = DERIVATIVES_INDEX_CONFIG[index_slug]
     today_iso = get_today_ist().isoformat()
     creds = get_active_kite_credentials()
@@ -23441,6 +23495,7 @@ def build_expiry_strategy_context(index_slug, host_root):
         config["strike_step"],
         underlying_names=config.get("underlying_names"),
         strike_span=config.get("strike_span", 4),
+        selected_expiry=selected_expiry,
     )
     future_snapshot = get_live_index_future_snapshot(
         config["index_name"],
@@ -23461,6 +23516,8 @@ def build_expiry_strategy_context(index_slug, host_root):
     total_call_change = chain.get("total_call_change", "Pending")
     total_put_change = chain.get("total_put_change", "Pending")
     expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
+    available_expiries = chain.get("available_expiries") or []
+    selected_expiry_value = chain.get("selected_expiry") or expiry_date
 
     premium_discount = None
     if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
@@ -23573,7 +23630,10 @@ def build_expiry_strategy_context(index_slug, host_root):
 
     page_error = (None if chain_available else chain.get("error")) or (None if future_available else future_snapshot.get("error"))
     canonical_url = f"{host_root.rstrip('/')}/derivatives/expiry-strategy?index={index_slug}"
+    if selected_expiry_value and selected_expiry_value != "Pending":
+        canonical_url += f"&expiry={selected_expiry_value}"
     selector_label = "Nifty 50" if index_slug == "nifty-options" else "Bank Nifty"
+    expiry_nav_chips = build_derivatives_expiry_nav(index_slug, available_expiries, selected_expiry_value, "/derivatives/expiry-strategy")
     return {
         "page_mode": "expiry_strategy",
         "seo_title": f"{selector_label} Expiry Strategy Dashboard, PCR, Max Pain & Walls | TraderHub",
@@ -23586,11 +23646,12 @@ def build_expiry_strategy_context(index_slug, host_root):
         "hero_title": f"{selector_label} Expiry Dashboard",
         "hero_subtitle": f"This dashboard turns the live chain into a faster expiry read for {selector_label}. It is built for trader orientation first: PCR, max pain, support and resistance walls, and a clean strategy lens without pretending to be a full terminal.",
         "hero_metric_primary": expiry_date,
-        "hero_metric_secondary": "nearest expiry in focus",
+        "hero_metric_secondary": "selected expiry in focus",
         "hero_badges": [
             {"label": "Phase 1 Dashboard", "kind": "tag-info"},
             {"label": selector_label, "kind": "tag-up"},
             {"label": "Real OI Live" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-warn"},
+            {"label": f"Expiry {selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else "Expiry Pending", "kind": "tag-info"},
             {"label": expiry_tone, "kind": "tag-up" if expiry_tone in {"Constructive Carry", "Put-Heavy Support"} else "tag-warn" if expiry_tone == "Balanced" else "tag-down"},
         ],
         "hero_stats": [
@@ -23601,16 +23662,17 @@ def build_expiry_strategy_context(index_slug, host_root):
         ],
         "nav_chips": [
             {"label": "Derivatives Hub", "href": "/derivatives"},
-            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}"},
+            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else f"/derivatives/expiry-strategy?index={index_slug}"},
             {"label": "Nifty Expiry", "href": "/derivatives/expiry-strategy?index=nifty-options"},
             {"label": "Bank Nifty Expiry", "href": "/derivatives/expiry-strategy?index=banknifty-options"},
+            *expiry_nav_chips,
             {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
             {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
             {"label": "Index OI", "href": "/derivatives/index/oi-change"},
             {"label": "Stock OI", "href": "/derivatives/stocks/oi-change"},
         ],
         "section_title": "Expiry Snapshot",
-        "section_note": "The dashboard stays public and readable on purpose. It uses the live displayed chain and nearest futures context to frame expiry pressure without forcing a full option-chain terminal layout.",
+        "section_note": "The dashboard stays public and readable on purpose. It uses the live displayed chain and nearest futures context to frame expiry pressure without forcing a full option-chain terminal layout. Expiry tabs now let users compare active weekly or monthly structures without leaving the same page family.",
         "summary_cards": [
             {"label": "Expiry Tone", "value": expiry_tone, "copy": expiry_tone_copy},
             {"label": "Support Zone", "value": support_zone, "copy": f"Nearest support shelf from the strongest put wall sits around {strongest_put_wall}."},
@@ -23635,17 +23697,17 @@ def build_expiry_strategy_context(index_slug, host_root):
         "group_note": "These notes make the page more habit-forming by translating the current expiry structure into a few quick changes worth watching.",
         "group_blocks": [
             {"title": "Expiry Structure", "count": len(what_changed_items), "copy": "Quick market-structure changes that matter first on expiry dashboards.", "items": what_changed_items},
-            {"title": "Next Clicks", "count": 5, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": [f"Open the {selector_label} options page", "Switch to the other expiry dashboard", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
+            {"title": "Next Clicks", "count": 5, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": [f"Open the {selector_label} options page for expiry {selected_expiry_value}", "Switch to the other expiry dashboard", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
         ],
         "public_note": "This expiry page is designed to sit between the current public OI pages and the later full option chain. It already uses live chain and futures inputs where available, while keeping the trader read fast and uncluttered.",
         "side_box_title": "Current Rule",
-        "side_box_copy": f"Start with {expiry_tone.lower()} tone, then compare max pain near {max_pain}, support at {support_zone}, and resistance at {resistance_zone} before opening deeper derivatives pages.",
+        "side_box_copy": f"Start with {expiry_tone.lower()} tone for expiry {selected_expiry_value}, then compare max pain near {max_pain}, support at {support_zone}, and resistance at {resistance_zone} before opening deeper derivatives pages.",
         "why_page_works": "It turns the live chain into a more actionable expiry read, creates a stronger trader habit page, and bridges today’s OI routes with the later full option chain.",
         "market_error": page_error,
     }
 
 
-def build_full_option_chain_context(index_slug, host_root):
+def build_full_option_chain_context(index_slug, host_root, selected_expiry=None):
     config = DERIVATIVES_INDEX_CONFIG[index_slug]
     today_iso = get_today_ist().isoformat()
     creds = get_active_kite_credentials()
@@ -23661,6 +23723,7 @@ def build_full_option_chain_context(index_slug, host_root):
         config["strike_step"],
         underlying_names=config.get("underlying_names"),
         strike_span=8,
+        selected_expiry=selected_expiry,
     )
     future_snapshot = get_live_index_future_snapshot(
         config["index_name"],
@@ -23669,6 +23732,8 @@ def build_full_option_chain_context(index_slug, host_root):
     chain_available = bool(chain.get("available"))
     future_available = bool(future_snapshot.get("available"))
     expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
+    available_expiries = chain.get("available_expiries") or []
+    selected_expiry_value = chain.get("selected_expiry") or expiry_date
     premium_discount = None
     if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
         premium_discount = float(future_snapshot["price_numeric"]) - float(spot_value)
@@ -23688,8 +23753,8 @@ def build_full_option_chain_context(index_slug, host_root):
     focus_cards = [
         {
             "title": "Displayed Chain Window",
-            "meta": "Live nearest expiry",
-            "copy": f"The public chain is currently centered on the nearest expiry {expiry_date} with a wider strike band so users can read calls and puts side by side without opening a dealing terminal.",
+            "meta": "Live selected expiry",
+            "copy": f"The public chain is currently centered on expiry {expiry_date} with a wider strike band so users can read calls and puts side by side without opening a dealing terminal.",
         },
         {
             "title": "Call Side",
@@ -23724,6 +23789,9 @@ def build_full_option_chain_context(index_slug, host_root):
 
     page_error = (None if chain_available else chain.get("error")) or (None if future_available else future_snapshot.get("error"))
     canonical_url = f"{host_root.rstrip('/')}/derivatives/index/option-chain?index={index_slug}"
+    if selected_expiry_value and selected_expiry_value != "Pending":
+        canonical_url += f"&expiry={selected_expiry_value}"
+    expiry_nav_chips = build_derivatives_expiry_nav(index_slug, available_expiries, selected_expiry_value, "/derivatives/index/option-chain")
     return {
         "page_mode": "option_chain",
         "seo_title": f"{selector_label} Option Chain, Live Calls & Puts Window | TraderHub",
@@ -23736,11 +23804,12 @@ def build_full_option_chain_context(index_slug, host_root):
         "hero_title": f"{selector_label} Option Chain",
         "hero_subtitle": "This is the first full public option-chain view in TraderHub. It keeps the screen disciplined: a wider live displayed-chain window, clear calls-versus-puts comparison, and direct expiry context without turning into a cluttered terminal.",
         "hero_metric_primary": expiry_date,
-        "hero_metric_secondary": "nearest expiry in chain view",
+        "hero_metric_secondary": "selected expiry in chain view",
         "hero_badges": [
             {"label": "Phase 1 Chain", "kind": "tag-info"},
             {"label": selector_label, "kind": "tag-up"},
             {"label": "Live Calls & Puts" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-warn"},
+            {"label": f"Expiry {selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else "Expiry Pending", "kind": "tag-info"},
         ],
         "hero_stats": [
             {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
@@ -23750,14 +23819,15 @@ def build_full_option_chain_context(index_slug, host_root):
         ],
         "nav_chips": [
             {"label": "Derivatives Hub", "href": "/derivatives"},
-            {"label": "Option Chain", "href": f"/derivatives/index/option-chain?index={index_slug}"},
+            {"label": "Option Chain", "href": f"/derivatives/index/option-chain?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else f"/derivatives/index/option-chain?index={index_slug}"},
             {"label": "Nifty Chain", "href": "/derivatives/index/option-chain?index=nifty-options"},
             {"label": "Bank Nifty Chain", "href": "/derivatives/index/option-chain?index=banknifty-options"},
-            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}"},
+            *expiry_nav_chips,
+            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else f"/derivatives/expiry-strategy?index={index_slug}"},
             {"label": "Index OI", "href": "/derivatives/index/oi-change"},
         ],
         "section_title": "Chain Snapshot",
-        "section_note": "Phase 1 keeps the chain public and readable. It already uses live displayed calls and puts across a wider strike window, but still leaves deeper Greeks and full expiry stacks for later.",
+        "section_note": "Phase 1 keeps the chain public and readable. It already uses live displayed calls and puts across a wider strike window, and now lets users step across active expiries without leaving the public chain flow.",
         "summary_cards": [
             {"label": "Total Call OI", "value": total_call_oi, "copy": "Displayed-window call-side open interest across the current expiry band."},
             {"label": "Total Put OI", "value": total_put_oi, "copy": "Displayed-window put-side open interest across the current expiry band."},
@@ -23784,11 +23854,11 @@ def build_full_option_chain_context(index_slug, host_root):
         "group_note": "These notes explain what this public option-chain page solves today and what deeper chain tools can still add later.",
         "group_blocks": [
             {"title": "What Is Live", "count": 4, "copy": "The first public full-chain layer is already more than structural.", "items": ["Displayed calls and puts side by side", "Live OI and OI change across the visible band", "PCR and max-pain context", "Nearest futures carry context"]},
-            {"title": "What Comes Later", "count": 4, "copy": "Phase 1 stops before turning this into a broker terminal clone.", "items": ["More strike depth", "More expiries", "Greeks and IV", "Deeper trader filters"]},
+            {"title": "What Comes Later", "count": 4, "copy": "Phase 1 stops before turning this into a broker terminal clone.", "items": ["More strike depth", "Greeks and IV", "Deeper trader filters", "Cross-expiry comparison ladders"]},
         ],
         "public_note": "This option-chain page is the public chain layer, not the final terminal layer. It already gives users a live calls-versus-puts window they can trust, while keeping room for a much deeper derivatives stack later.",
         "side_box_title": "Current Rule",
-        "side_box_copy": f"Start with PCR {pcr_display}, then check max pain near {max_pain}, and finally compare the strongest call wall at {strongest_call_wall} versus the strongest put wall at {strongest_put_wall}.",
+        "side_box_copy": f"Start with PCR {pcr_display} for expiry {selected_expiry_value}, then check max pain near {max_pain}, and finally compare the strongest call wall at {strongest_call_wall} versus the strongest put wall at {strongest_put_wall}.",
         "why_page_works": "It completes the public derivatives journey, bridges expiry strategy and index OI pages, and gives TraderHub a real option-chain footprint without collapsing into clutter.",
         "market_error": page_error,
     }
@@ -24133,18 +24203,20 @@ def derivatives_index_oi_change():
 @app.route("/derivatives/index/option-chain")
 def derivatives_index_option_chain():
     index_slug = str(request.args.get("index", "nifty-options") or "nifty-options").strip()
+    expiry_value = str(request.args.get("expiry", "") or "").strip()
     if index_slug not in {"nifty-options", "banknifty-options"}:
         index_slug = "nifty-options"
-    context = build_full_option_chain_context(index_slug, request.url_root.rstrip("/"))
+    context = build_full_option_chain_context(index_slug, request.url_root.rstrip("/"), selected_expiry=expiry_value)
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
 @app.route("/derivatives/expiry-strategy")
 def derivatives_expiry_strategy():
     index_slug = str(request.args.get("index", "nifty-options") or "nifty-options").strip()
+    expiry_value = str(request.args.get("expiry", "") or "").strip()
     if index_slug not in {"nifty-options", "banknifty-options"}:
         index_slug = "nifty-options"
-    context = build_expiry_strategy_context(index_slug, request.url_root.rstrip("/"))
+    context = build_expiry_strategy_context(index_slug, request.url_root.rstrip("/"), selected_expiry=expiry_value)
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
