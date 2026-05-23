@@ -11051,6 +11051,8 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Delivery Profiles", "href": f"/admin/derivatives/delivery?profile={active_profile.get('key')}"},
             *profile_chips,
             {"label": "Add Dashboard Profile", "href": "/admin/derivatives/delivery/add-profile?name=Desk%20Digest&channel=dashboard"},
+            {"label": "Preview Payload", "href": f"/admin/derivatives/delivery/preview?profile={active_profile.get('key')}"},
+            {"label": "Trigger Test", "href": f"/admin/derivatives/delivery/trigger?profile={active_profile.get('key')}"},
         ],
         "section_title": "Delivery Preview",
         "section_note": "Pick a profile, then add or remove saved expiry rows. The digest preview below shows what that profile would send or display if delivery were triggered right now.",
@@ -11079,6 +11081,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         "group_note": "These blocks preview what the active profile is really carrying right now.",
         "group_blocks": [
             {"title": "Current Digest Preview", "count": len(digest_lines), "copy": "A simple preview of the rows this profile would deliver right now.", "items": digest_lines or ["No rows have been assigned to this profile yet."]},
+            {"title": "Delivery Endpoints", "count": 3, "copy": "These routes expose the real payload without pretending the transport layer is already live.", "items": [f"Preview JSON: /admin/derivatives/delivery/preview?profile={active_profile.get('key')}", f"Trigger JSON: /admin/derivatives/delivery/trigger?profile={active_profile.get('key')}", f"Toggle rows from the assignment table to reshape the payload instantly"]},
             {"title": "Profile Rules", "count": 4, "copy": "Phase 1 keeps profiles deliberately simple and reusable.", "items": ["Profiles are named bundles of saved expiry rows", "Each profile can preview dashboard, email, or Telegram style delivery", "Rows stay live because the digest reuses current public derivatives signals", "Real outbound delivery can be added later without redesigning the desk"]},
         ],
         "public_note": "This is a delivery preview layer, not a messaging engine yet. It proves the product flow from saved expiry row to named digest without overbuilding the first release.",
@@ -11086,6 +11089,59 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         "side_box_copy": "Keep profiles small and purposeful. A good expiry digest should reopen the best live setups quickly, not overwhelm the user with every saved row.",
         "why_page_works": "It turns saved expiry rows into reusable product output and gives TraderHub a clean bridge from public page interpretation to future delivery systems.",
         "market_error": None,
+    }
+
+
+def build_derivatives_delivery_payload(host_root, profile_key):
+    profile_state = load_derivatives_delivery_profiles()
+    profiles = profile_state.get("profiles") or []
+    active_profile = next((profile for profile in profiles if profile.get("key") == profile_key), None)
+    if not active_profile:
+        return None
+
+    watch_state = load_derivatives_watchlist_state()
+    saved_watch_map = {
+        item.get("watch_key"): item
+        for item in (watch_state.get("entries") or [])
+        if item.get("watch_key")
+    }
+    rows = []
+    for watch_key in active_profile.get("watch_keys") or []:
+        if watch_key not in saved_watch_map:
+            continue
+        index_slug, expiry_value = watch_key.split(":", 1)
+        rows.append(build_derivatives_watch_snapshot(index_slug, expiry_value, host_root))
+
+    channel = str(active_profile.get("channel") or "dashboard").strip().lower()
+    channel_label = {"dashboard": "Dashboard", "email": "Email", "telegram": "Telegram"}.get(channel, channel.title())
+    alert_total = sum(int(row.get("alert_count") or 0) for row in rows)
+    subject = f"{active_profile.get('name')} | {len(rows)} expiry rows | {alert_total} alerts"
+    lines = []
+    for row in rows[:10]:
+        lines.append(
+            f"{row['index_label']} {row['expiry']} | Tone {row['tone']} | PCR {row['pcr']} | Max Pain {row['max_pain']} | {row['top_alert']}"
+        )
+
+    if channel == "telegram":
+        body = "\n".join([subject] + lines) if lines else f"{subject}\nNo active rows are assigned right now."
+    elif channel == "email":
+        body = "\n".join([subject, "", "Saved expiry rows:", *lines]) if lines else f"{subject}\n\nNo active rows are assigned right now."
+    else:
+        body = "\n".join(lines) if lines else "No active rows are assigned right now."
+
+    return {
+        "status": "ok",
+        "profile_key": active_profile.get("key"),
+        "profile_name": active_profile.get("name"),
+        "channel": channel,
+        "channel_label": channel_label,
+        "subject": subject,
+        "alert_total": alert_total,
+        "row_count": len(rows),
+        "generated_at": utcnow_iso(),
+        "lines": lines,
+        "body": body,
+        "rows": rows,
     }
 
 
@@ -25079,6 +25135,29 @@ def derivatives_delivery_toggle_watch():
             "watch_count": len(target_profile.get("watch_keys") or []),
         }
     )
+
+
+@app.route("/admin/derivatives/delivery/preview")
+def derivatives_delivery_preview():
+    profile_key = str(request.args.get("profile", "") or "").strip().lower()
+    payload = build_derivatives_delivery_payload(request.url_root.rstrip("/"), profile_key)
+    if not payload:
+        return jsonify({"status": "error", "message": "Please provide a valid delivery profile."}), 400
+    return jsonify(payload)
+
+
+@app.route("/admin/derivatives/delivery/trigger")
+def derivatives_delivery_trigger():
+    profile_key = str(request.args.get("profile", "") or "").strip().lower()
+    payload = build_derivatives_delivery_payload(request.url_root.rstrip("/"), profile_key)
+    if not payload:
+        return jsonify({"status": "error", "message": "Please provide a valid delivery profile."}), 400
+    payload["trigger_status"] = "preview_only"
+    payload["trigger_message"] = (
+        f"{payload['channel_label']} delivery is not wired to an external transport yet. "
+        "This trigger confirms the live payload that would be sent right now."
+    )
+    return jsonify(payload)
 
 
 @app.route("/admin/derivatives/oi-feed-status")
