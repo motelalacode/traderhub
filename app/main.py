@@ -23815,6 +23815,13 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
     expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
     available_expiries = chain.get("available_expiries") or []
     selected_expiry_value = chain.get("selected_expiry") or expiry_date
+    cross_expiry = build_cross_expiry_comparison(
+        config,
+        spot_value,
+        selected_expiry_value,
+        available_expiries,
+        strike_span=8,
+    )
     premium_discount = None
     if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
         premium_discount = float(future_snapshot["price_numeric"]) - float(spot_value)
