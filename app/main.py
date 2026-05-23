@@ -72,6 +72,8 @@ DERIVATIVES_PHASE1_FEED_PATH = DATA_DIR / "derivatives_phase1_feed.json"
 DERIVATIVES_EXPIRY_WATCHLISTS_PATH = DATA_DIR / "derivatives_expiry_watchlists.json"
 DERIVATIVES_DELIVERY_PROFILES_PATH = DATA_DIR / "derivatives_delivery_profiles.json"
 DERIVATIVES_DELIVERY_HISTORY_PATH = DATA_DIR / "derivatives_delivery_history.json"
+MAPPING_MANAGER_OVERRIDES_PATH = DATA_DIR / "mapping_manager_overrides.json"
+KEYWORD_PLANNER_TARGETS_PATH = DATA_DIR / "keyword_planner_targets.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS = 14
 MANUAL_WATCHLIST_LIMIT = 5
@@ -9187,6 +9189,107 @@ def append_derivatives_delivery_history(payload, mode):
     )
     history["entries"] = history_entries
     return save_derivatives_delivery_history(history)
+
+
+def build_default_mapping_manager_overrides():
+    return {"symbol_sector_overrides": {}}
+
+
+def normalize_mapping_manager_overrides(payload):
+    payload = payload or {}
+    raw_overrides = payload.get("symbol_sector_overrides")
+    normalized_items = {}
+    if isinstance(raw_overrides, dict):
+        for raw_symbol, raw_item in raw_overrides.items():
+            symbol = str(raw_symbol or "").strip().upper()
+            if not symbol:
+                continue
+            if isinstance(raw_item, dict):
+                sector_key = str(raw_item.get("sector_key") or "").strip().lower()
+                note = str(raw_item.get("note") or "").strip()
+                updated_at = str(raw_item.get("updated_at") or utcnow_iso()).strip()
+            else:
+                sector_key = str(raw_item or "").strip().lower()
+                note = ""
+                updated_at = utcnow_iso()
+            normalized_items[symbol] = {
+                "sector_key": sector_key,
+                "note": note,
+                "updated_at": updated_at,
+            }
+    return {"symbol_sector_overrides": normalized_items}
+
+
+def load_mapping_manager_overrides():
+    if not MAPPING_MANAGER_OVERRIDES_PATH.exists():
+        payload = build_default_mapping_manager_overrides()
+        MAPPING_MANAGER_OVERRIDES_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return payload
+    try:
+        payload = json.loads(MAPPING_MANAGER_OVERRIDES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = build_default_mapping_manager_overrides()
+    normalized = normalize_mapping_manager_overrides(payload)
+    MAPPING_MANAGER_OVERRIDES_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_mapping_manager_overrides(state):
+    normalized = normalize_mapping_manager_overrides(state)
+    MAPPING_MANAGER_OVERRIDES_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def build_default_keyword_planner_targets():
+    return {"targets": {}}
+
+
+def normalize_keyword_planner_targets(payload):
+    payload = payload or {}
+    raw_targets = payload.get("targets")
+    normalized_targets = {}
+    if isinstance(raw_targets, dict):
+        for raw_url, raw_item in raw_targets.items():
+            url = str(raw_url or "").strip()
+            if not url:
+                continue
+            if isinstance(raw_item, dict):
+                primary_keyword = str(raw_item.get("primary_keyword") or "").strip()
+                secondary_keywords = str(raw_item.get("secondary_keywords") or "").strip()
+                note = str(raw_item.get("note") or "").strip()
+                updated_at = str(raw_item.get("updated_at") or utcnow_iso()).strip()
+            else:
+                primary_keyword = str(raw_item or "").strip()
+                secondary_keywords = ""
+                note = ""
+                updated_at = utcnow_iso()
+            normalized_targets[url] = {
+                "primary_keyword": primary_keyword,
+                "secondary_keywords": secondary_keywords,
+                "note": note,
+                "updated_at": updated_at,
+            }
+    return {"targets": normalized_targets}
+
+
+def load_keyword_planner_targets():
+    if not KEYWORD_PLANNER_TARGETS_PATH.exists():
+        payload = build_default_keyword_planner_targets()
+        KEYWORD_PLANNER_TARGETS_PATH.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        return payload
+    try:
+        payload = json.loads(KEYWORD_PLANNER_TARGETS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = build_default_keyword_planner_targets()
+    normalized = normalize_keyword_planner_targets(payload)
+    KEYWORD_PLANNER_TARGETS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_keyword_planner_targets(state):
+    normalized = normalize_keyword_planner_targets(state)
+    KEYWORD_PLANNER_TARGETS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
 
 
 def get_derivatives_delivery_failure_entries(profile_key=None, limit=12):
@@ -21333,6 +21436,7 @@ def get_news_manager_nav_items():
         {"label": "Live", "href": "/admin/news-manager/live"},
         {"label": "Trends", "href": "/admin/news-manager/trends"},
         {"label": "Archive", "href": "/admin/news-manager/archive"},
+        {"label": "Quality", "href": "/admin/news-manager/quality"},
         {"label": "Editor Summaries", "href": "/admin/news-manager/editor-summaries"},
     ]
 
@@ -21343,6 +21447,20 @@ def get_mapping_manager_nav_items():
         {"label": "Stocks", "href": "/admin/mapping-manager/stocks"},
         {"label": "Sectors", "href": "/admin/mapping-manager/sectors"},
         {"label": "Public Routes", "href": "/admin/mapping-manager/public-routes"},
+        {"label": "Corrections", "href": "/admin/mapping-manager/corrections"},
+    ]
+
+
+def get_keyword_planner_nav_items():
+    return [
+        {"label": "Planner", "href": "/admin/keyword-planner"},
+    ]
+
+
+def get_ipo_manager_nav_items():
+    return [
+        {"label": "Dashboard", "href": "/admin/ipo-manager"},
+        {"label": "Feed Review", "href": "/admin/ipo-manager/feed"},
     ]
 
 
@@ -21678,26 +21796,245 @@ def build_search_ops_measurement_context():
     }
 
 
+def get_effective_sector_membership_snapshot():
+    raw_symbol_lists = {
+        sector_key: sorted({str(symbol or "").strip().upper() for symbol in symbol_list if str(symbol or "").strip()})
+        for sector_key, symbol_list in (SECTOR_GROUPS or {}).items()
+    }
+    effective_symbol_lists = {sector_key: list(symbols) for sector_key, symbols in raw_symbol_lists.items()}
+    overrides_state = load_mapping_manager_overrides()
+    override_rows = []
+    for symbol, item in sorted((overrides_state.get("symbol_sector_overrides") or {}).items()):
+        sector_key = str(item.get("sector_key") or "").strip().lower()
+        if sector_key not in effective_symbol_lists:
+            continue
+        for existing_sector in effective_symbol_lists:
+            effective_symbol_lists[existing_sector] = [value for value in effective_symbol_lists[existing_sector] if value != symbol]
+        if symbol not in effective_symbol_lists[sector_key]:
+            effective_symbol_lists[sector_key].append(symbol)
+            effective_symbol_lists[sector_key].sort()
+        override_rows.append(
+            {
+                "symbol": symbol,
+                "sector_key": sector_key,
+                "sector_label": sector_key.replace("_", " ").title(),
+                "note": item.get("note") or "",
+                "updated_at": item.get("updated_at") or "",
+            }
+        )
+    effective_membership = {}
+    for sector_key, symbols in effective_symbol_lists.items():
+        for symbol in symbols:
+            effective_membership[symbol] = sector_key
+    return {
+        "raw_symbol_lists": raw_symbol_lists,
+        "effective_symbol_lists": effective_symbol_lists,
+        "effective_membership": effective_membership,
+        "override_rows": override_rows,
+    }
+
+
+def _clean_path_slug_token(path_value):
+    cleaned = str(path_value or "").strip("/").split("/")[-1]
+    cleaned = cleaned.replace("-", " ").strip()
+    return cleaned.title() if cleaned else "TraderHub"
+
+
+def _derive_keyword_plan_for_page(page_row, approved_item=None):
+    approved_item = approved_item or {}
+    page_type = str(page_row.get("page_type") or "").strip().lower()
+    page_subtype = str(page_row.get("page_subtype") or "").strip().lower()
+    url = str(page_row.get("url") or "")
+    path = urllib.parse.urlparse(url).path
+    title = str(page_row.get("title") or "").strip()
+    if page_type == "stock":
+        topic = _clean_path_slug_token(path)
+        primary = f"{topic} share price"
+        secondary = f"{topic} news, {topic} analysis, {topic} results"
+        search_intent = "stock research"
+    elif page_type == "stock_news":
+        topic = _clean_path_slug_token(path.replace("/why-moving", ""))
+        primary = f"why {topic} share is moving"
+        secondary = f"{topic} news, {topic} stock movement, {topic} today"
+        search_intent = "breaking stock intent"
+    elif page_type == "stock_archive":
+        topic = _clean_path_slug_token(path.replace("/news-archive", ""))
+        primary = f"{topic} news archive"
+        secondary = f"{topic} old news, {topic} market archive"
+        search_intent = "archive intent"
+    elif page_type == "sector":
+        topic = _clean_path_slug_token(path)
+        primary = f"{topic} sector stocks"
+        secondary = f"{topic} sector news, best {topic} stocks, {topic} market theme"
+        search_intent = "sector discovery"
+    elif page_type == "sector_archive":
+        topic = _clean_path_slug_token(path.replace("/news-archive", ""))
+        primary = f"{topic} sector news archive"
+        secondary = f"{topic} archive, {topic} sector stories"
+        search_intent = "sector archive"
+    elif page_type == "market_news":
+        market_map = {
+            "pre-market": ("pre market news india", "pre market stocks today, sgx nifty, opening watchlist"),
+            "post-market": ("post market wrap india", "market closing news, today market wrap"),
+            "live-movers": ("stocks moving today india", "top gainers losers today, live movers"),
+            "sector-news": ("sector news india", "sector movers today, sector rotation india"),
+        }
+        primary, secondary = market_map.get(page_subtype, ("share market news today", "stock market news india, nifty news"))
+        search_intent = "market news"
+    elif page_type == "alerts_prep":
+        topic = _clean_path_slug_token(path)
+        primary = f"{topic.lower()} stocks today"
+        secondary = f"{topic.lower()} market alerts, {topic.lower()} watchlist"
+        search_intent = "alert intent"
+    elif page_type == "trend":
+        trend_map = {
+            "bullish": ("bullish stocks today india", "bullish trend stocks, top bullish shares"),
+            "bearish": ("bearish stocks today india", "bearish trend stocks, weak shares today"),
+            "earnings": ("earnings stocks today india", "results stocks today, earnings movers"),
+            "sector-rotation": ("sector rotation stocks india", "sector rotation today, sector momentum"),
+        }
+        primary, secondary = trend_map.get(page_subtype, ("market trends india", "stock market themes today"))
+        search_intent = "grouped trend"
+    elif page_type in {"ipo_hub", "ipo_list", "ipo"}:
+        topic = _clean_path_slug_token(path)
+        primary = "ipo news india" if page_type == "ipo_hub" else f"{topic} ipo"
+        secondary = "current ipo, upcoming ipo, ipo review, ipo dates"
+        search_intent = "ipo intent"
+    elif page_type.startswith("derivatives"):
+        topic = _clean_path_slug_token(path)
+        primary = f"{topic.lower()} option chain"
+        secondary = f"{topic.lower()} oi change, expiry strategy, pcr"
+        search_intent = "derivatives intent"
+    else:
+        topic = _clean_path_slug_token(path)
+        primary = topic.lower()
+        secondary = f"{topic.lower()} traderhub, {topic.lower()} india"
+        search_intent = "general"
+    suggested_title = title or f"{primary.title()} | TraderHub"
+    return {
+        "url": url,
+        "page_type": page_type,
+        "page_subtype": page_subtype,
+        "current_title": title or "-",
+        "suggested_primary": primary,
+        "suggested_secondary": secondary,
+        "search_intent": search_intent,
+        "suggested_title": suggested_title,
+        "approved_primary": str(approved_item.get("primary_keyword") or "").strip(),
+        "approved_secondary": str(approved_item.get("secondary_keywords") or "").strip(),
+        "approved_note": str(approved_item.get("note") or "").strip(),
+        "approved_updated_at": str(approved_item.get("updated_at") or "").strip(),
+    }
+
+
+def get_keyword_planner_snapshot(limit=140):
+    candidate_types = {
+        "stock",
+        "stock_news",
+        "stock_archive",
+        "sector",
+        "sector_archive",
+        "market_news",
+        "alerts_prep",
+        "trend",
+        "ipo_hub",
+        "ipo_list",
+        "ipo",
+        "derivatives",
+        "derivatives_hub",
+    }
+    targets_state = load_keyword_planner_targets()
+    approved_targets = targets_state.get("targets") or {}
+    pages = [row for row in list_seo_pages(limit=500, domain="traderhub.in") if row.get("page_type") in candidate_types][: int(limit)]
+    plan_rows = [_derive_keyword_plan_for_page(row, approved_targets.get(row.get("url") or "")) for row in pages]
+    approved_count = len([row for row in plan_rows if row["approved_primary"]])
+    return {
+        "rows": plan_rows,
+        "approved_count": approved_count,
+        "total_count": len(plan_rows),
+        "covered_types": sorted({row["page_type"] for row in plan_rows}),
+    }
+
+
+def compute_news_quality_row(row):
+    score = 100
+    issues = []
+    if int(row.get("status_code") or 0) != 200:
+        score -= 25
+        issues.append("non_200")
+    if not str(row.get("title") or "").strip():
+        score -= 10
+        issues.append("missing_title")
+    if not str(row.get("meta_description") or "").strip():
+        score -= 10
+        issues.append("missing_meta")
+    if not str(row.get("h1") or "").strip():
+        score -= 10
+        issues.append("missing_h1")
+    if not row.get("summary_present"):
+        score -= 15
+        issues.append("no_summary")
+    if int(row.get("story_link_count") or 0) < 3:
+        score -= 8
+        issues.append("thin_story_links")
+    if int(row.get("section_count") or 0) < 2:
+        score -= 6
+        issues.append("thin_sections")
+    if int(row.get("bullet_count") or 0) < 3:
+        score -= 6
+        issues.append("thin_bullets")
+    if row.get("fallback_active"):
+        score -= 20
+        issues.append("fallback_active")
+    if row.get("market_error_present"):
+        score -= 18
+        issues.append("market_error")
+    if row.get("shell_only"):
+        score -= 22
+        issues.append("shell_only")
+    score = max(0, score)
+    quality_band = "Strong" if score >= 85 else "Watch" if score >= 65 else "Weak"
+    enriched = dict(row)
+    enriched["quality_score"] = score
+    enriched["quality_band"] = quality_band
+    enriched["quality_issues"] = ", ".join(issues) if issues else "clean"
+    return enriched
+
+
+def is_placeholder_ipo_record(record):
+    combined = " ".join(
+        [
+            str(record.get("about") or ""),
+            str(record.get("editorial_note") or ""),
+            str(record.get("cta_note") or ""),
+        ]
+    ).lower()
+    return any(keyword in combined for keyword in ("placeholder", "sample", "seeded", "staging"))
+
+
 def get_mapping_manager_snapshot():
     master = load_symbol_master()
     by_symbol = master.get("by_symbol") or {}
-    sector_membership = {}
+    effective_mapping = get_effective_sector_membership_snapshot()
+    sector_membership = effective_mapping["effective_membership"]
     duplicate_membership = {}
+    raw_membership_tracker = {}
     for sector_key, symbol_list in (SECTOR_GROUPS or {}).items():
         for symbol in symbol_list:
             normalized_symbol = str(symbol or "").strip().upper()
             if not normalized_symbol:
                 continue
-            if normalized_symbol in sector_membership:
+            if normalized_symbol in raw_membership_tracker:
                 duplicate_membership.setdefault(normalized_symbol, []).append(sector_key)
                 continue
-            sector_membership[normalized_symbol] = sector_key
+            raw_membership_tracker[normalized_symbol] = sector_key
 
     stock_rows = []
     for symbol, row in sorted(by_symbol.items()):
         security_name = str((row or {}).get("security") or "").strip()
         isin_value = str((row or {}).get("isin") or "").strip()
         sector_key = sector_membership.get(symbol)
+        override_item = next((row for row in effective_mapping["override_rows"] if row["symbol"] == symbol), None)
         stock_slug = get_canonical_stock_slug(symbol)
         stock_rows.append(
             {
@@ -21712,11 +22049,13 @@ def get_mapping_manager_snapshot():
                 "archive_url": f"/stocks/{stock_slug}/news-archive",
                 "isin_present": bool(isin_value),
                 "curated": bool(sector_key),
+                "mapping_source": "override" if override_item else "curated" if sector_key else "unassigned",
+                "override_note": (override_item or {}).get("note", ""),
             }
         )
 
     sector_rows = []
-    for sector_key, symbol_list in sorted((SECTOR_GROUPS or {}).items()):
+    for sector_key, symbol_list in sorted((effective_mapping["effective_symbol_lists"] or {}).items()):
         sector_slug = slugify_sector_key(sector_key)
         sorted_symbols = sorted({str(symbol or "").strip().upper() for symbol in symbol_list if str(symbol or "").strip()})
         sector_rows.append(
@@ -21814,6 +22153,8 @@ def get_mapping_manager_snapshot():
         "curated_symbol_count": len(sector_membership),
         "duplicate_membership_count": len(duplicate_membership),
         "duplicate_membership": duplicate_membership,
+        "override_rows": effective_mapping["override_rows"],
+        "override_count": len(effective_mapping["override_rows"]),
         "expected_public_routes": expected_public_routes,
         "market_route_count": len(market_routes),
         "derivative_route_count": len(derivative_routes),
@@ -22042,6 +22383,332 @@ def build_mapping_manager_routes_context():
                 "items": [
                     "Broken mapping usually shows up first as route drift: missing archives, mismatched slugs, or links pointing at the wrong public family.",
                     "This table gives that structure a home before you add correction workflows on top of it.",
+                ],
+            },
+        ],
+    }
+
+
+def build_mapping_manager_corrections_context():
+    snapshot = get_mapping_manager_snapshot()
+    override_rows = snapshot.get("override_rows") or []
+    stock_rows = snapshot.get("stock_rows") or []
+    unassigned_rows = [row for row in stock_rows if row.get("mapping_source") == "unassigned"][:80]
+    override_display_rows = [
+        [
+            row["symbol"],
+            row["sector_label"],
+            html_lib.escape(row.get("note") or "-"),
+            row.get("updated_at") or "-",
+            f'<div class="mono">/admin/mapping-manager/corrections/remove?symbol={urllib.parse.quote(row["symbol"])}</div>',
+        ]
+        for row in override_rows
+    ]
+    candidate_rows = [
+        [
+            row["symbol"],
+            html_lib.escape(row["security"] or row["symbol"]),
+            row["sector_label"],
+            row["mapping_source"],
+            f'<div class="mono">/admin/mapping-manager/corrections/save?symbol={urllib.parse.quote(row["symbol"])}&sector=it&note=review</div>',
+        ]
+        for row in unassigned_rows
+    ]
+    return {
+        "page_title": "Mapping Manager Corrections | TraderHub",
+        "page_description": "Editable mapping overrides for TraderHub stock-to-sector assignments.",
+        "breadcrumb_text": "Admin > Mapping Manager > Corrections",
+        "breadcrumb_meta_text": f'Correction layer | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Mapping Corrections",
+        "hero_subtitle": "This is the first writable mapping layer. It lets you store operator overrides for stock-to-sector assignments without rewriting the base sector config yet.",
+        "kpis": [
+            {"label": "Active Overrides", "value": len(override_rows)},
+            {"label": "Unassigned Symbols", "value": len([row for row in stock_rows if row.get("mapping_source") == "unassigned"])},
+            {"label": "Override Candidates", "value": len(unassigned_rows)},
+            {"label": "Curated Symbols", "value": snapshot.get("curated_symbol_count", 0)},
+            {"label": "Duplicate Memberships", "value": snapshot.get("duplicate_membership_count", 0)},
+            {"label": "Route Families", "value": len(snapshot.get("route_rows") or [])},
+        ],
+        "nav_items": get_mapping_manager_nav_items(),
+        "active_href": "/admin/mapping-manager/corrections",
+        "sections": [
+            {
+                "title": "Active Override Table",
+                "note": "These overrides are stored in a lightweight JSON file so you can correct obvious sector assignments before a deeper mapping workflow exists.",
+                "columns": ["Symbol", "Sector", "Note", "Updated", "Remove"],
+                "rows": override_display_rows or [["-", "-", "No active overrides.", "-", "-"]],
+                "filters": [],
+            },
+            {
+                "title": "Unassigned / Review Queue",
+                "note": "This queue gives you the first operator pass for symbols that still have no effective sector assignment in the current map.",
+                "columns": ["Symbol", "Company", "Current Sector", "Source", "Save Pattern"],
+                "rows": candidate_rows or [["-", "-", "No unassigned symbols in the current sample.", "-", "-"]],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "How To Save",
+                "items": [
+                    'Use <span class="mono">/admin/mapping-manager/corrections/save?symbol=RELIANCE&sector=oil_gas&note=manual%20override</span> to add or replace an override.',
+                    'Use <span class="mono">/admin/mapping-manager/corrections/remove?symbol=RELIANCE</span> to remove one override.',
+                ],
+            },
+            {
+                "title": "Phase 1 Rule",
+                "items": [
+                    "This layer corrects effective assignments for admin governance first.",
+                    "It is intentionally lighter than a full sector-composition editor so you can fix drift now without destabilizing the public config.",
+                ],
+            },
+        ],
+    }
+
+
+def build_news_manager_quality_context():
+    data = get_news_manager_summary_overview(limit=180)
+    quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
+    quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
+    grouped = {}
+    for row in quality_rows:
+        grouped.setdefault(row.get("page_type") or "other", []).append(row)
+    by_type_rows = []
+    for page_type, rows in sorted(grouped.items(), key=lambda item: (sum(row["quality_score"] for row in item[1]) / max(len(item[1]), 1), item[0])):
+        avg_score = round(sum(row["quality_score"] for row in rows) / max(len(rows), 1), 1)
+        by_type_rows.append([page_type, len(rows), avg_score, len([row for row in rows if row.get("fallback_active")]), len([row for row in rows if row.get("shell_only")])])
+    return {
+        "page_title": "News Manager Quality | TraderHub",
+        "page_description": "Content quality scoring for TraderHub public news pages.",
+        "breadcrumb_text": "Admin > News Manager > Quality",
+        "breadcrumb_meta_text": f'Quality scoring | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "News Quality Scoring",
+        "hero_subtitle": "This layer turns snapshot signals into a usable quality queue: summary presence, structure depth, fallback risk, shell risk, and technical readiness in one score.",
+        "kpis": [
+            {"label": "Rows", "value": len(quality_rows)},
+            {"label": "Strong", "value": len([row for row in quality_rows if row["quality_score"] >= 85])},
+            {"label": "Watch", "value": len([row for row in quality_rows if 65 <= row["quality_score"] < 85])},
+            {"label": "Weak", "value": len([row for row in quality_rows if row["quality_score"] < 65])},
+            {"label": "Fallback Pages", "value": len([row for row in quality_rows if row.get("fallback_active")])},
+            {"label": "Shell Pages", "value": len([row for row in quality_rows if row.get("shell_only")])},
+        ],
+        "nav_items": get_news_manager_nav_items(),
+        "active_href": "/admin/news-manager/quality",
+        "sections": [
+            {
+                "title": "Lowest Quality Queue",
+                "note": "The weakest pages should be reviewed first because they combine technical readiness with thin summary structure or fallback-heavy content.",
+                "columns": ["URL", "Type", "Score", "Band", "Stories", "Flags", "Last Snapshot"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        row["quality_score"],
+                        row["quality_band"],
+                        row.get("story_link_count", 0),
+                        html_lib.escape(row["quality_issues"]),
+                        row.get("snapshot_checked_at") or row.get("last_checked_at") or "-",
+                    ]
+                    for row in quality_rows[:140]
+                ],
+                "filters": [],
+            },
+            {
+                "title": "Quality By Page Type",
+                "note": "This table helps you see whether archive, trend, alerts, or live-market pages are currently dragging the public content layer down.",
+                "columns": ["Page Type", "Rows", "Avg Score", "Fallback Rows", "Shell Rows"],
+                "rows": by_type_rows,
+                "filters": [],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Scoring Rule",
+                "items": [
+                    "Missing title, meta, H1, or summary signals reduce score quickly.",
+                    "Fallback and shell flags are treated as stronger quality penalties than light structural gaps.",
+                ],
+            },
+        ],
+    }
+
+
+def build_keyword_planner_context():
+    snapshot = get_keyword_planner_snapshot(limit=180)
+    rows = snapshot.get("rows") or []
+    return {
+        "page_title": "Keyword Planner | TraderHub",
+        "page_description": "Primary and secondary keyword planning for TraderHub public pages.",
+        "breadcrumb_text": "Admin > Keyword Planner",
+        "breadcrumb_meta_text": f'Content planning | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Keyword / Topic Planner",
+        "hero_subtitle": "This planner turns the current public page set into a working content map: suggested primary query, support terms, intent, and a simple approval layer you can fill in before deeper editorial workflows exist.",
+        "kpis": [
+            {"label": "Planned Rows", "value": snapshot.get("total_count", 0)},
+            {"label": "Approved Targets", "value": snapshot.get("approved_count", 0)},
+            {"label": "Coverage", "value": f'{round((snapshot.get("approved_count", 0) / max(snapshot.get("total_count", 1), 1)) * 100, 1)}%'},
+            {"label": "Page Types", "value": len(snapshot.get("covered_types") or [])},
+            {"label": "News + Trends", "value": len([row for row in rows if row["page_type"] in {"market_news", "trend", "alerts_prep"}])},
+            {"label": "Stocks + Sectors", "value": len([row for row in rows if row["page_type"] in {"stock", "stock_news", "stock_archive", "sector", "sector_archive"}])},
+        ],
+        "nav_items": get_keyword_planner_nav_items(),
+        "active_href": "/admin/keyword-planner",
+        "sections": [
+            {
+                "title": "Keyword Planning Queue",
+                "note": "Use this queue to move from generic titles toward cleaner page intent: one primary target, a small set of support terms, and a known search purpose.",
+                "columns": ["URL", "Type", "Current Title", "Suggested Primary", "Secondary Terms", "Intent", "Approved"],
+                "rows": [
+                    [
+                        f'<div class="mono">{row["url"]}</div>',
+                        f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
+                        html_lib.escape(row["current_title"]),
+                        html_lib.escape(row["suggested_primary"]),
+                        html_lib.escape(row["suggested_secondary"]),
+                        html_lib.escape(row["search_intent"]),
+                        html_lib.escape(row["approved_primary"] or "-"),
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "How To Approve",
+                "items": [
+                    'Use <span class="mono">/admin/keyword-planner/save?url=FULL_URL&primary=target%20query&secondary=support%20terms&note=editor%20note</span> to save a target.',
+                    "Keep one strong primary query per page. Use secondary terms for support, not stuffing.",
+                ],
+            },
+        ],
+    }
+
+
+def build_ipo_manager_dashboard_context():
+    index = get_ipo_phase1_index()
+    all_records = index.get("all") or []
+    staged_rows = [record for record in all_records if is_placeholder_ipo_record(record)]
+    current_rows = index.get("current") or []
+    upcoming_rows = index.get("upcoming") or []
+    listing_soon_rows = [record for record in all_records if record.get("status") == "Listing Soon"]
+    return {
+        "page_title": "IPO Manager Dashboard | TraderHub",
+        "page_description": "IPO feed and readiness management for TraderHub.",
+        "breadcrumb_text": "Admin > IPO Manager",
+        "breadcrumb_meta_text": f'IPO operations | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "IPO Manager",
+        "hero_subtitle": "The public IPO module already exists. This manager turns it into an operator surface: status mix, staged records, placeholder risk, and feed-readiness visibility before live data is connected.",
+        "kpis": [
+            {"label": "IPO Records", "value": len(all_records)},
+            {"label": "Current", "value": len(current_rows)},
+            {"label": "Upcoming", "value": len(upcoming_rows)},
+            {"label": "Listing Soon", "value": len(listing_soon_rows)},
+            {"label": "Staged / Placeholder", "value": len(staged_rows)},
+            {"label": "Unique Segments", "value": len(sorted({record.get("segment") or "-" for record in all_records}))},
+        ],
+        "nav_items": get_ipo_manager_nav_items(),
+        "active_href": "/admin/ipo-manager",
+        "sections": [
+            {
+                "title": "IPO Feed Status",
+                "note": "This table helps you see whether the current feed is still mostly staged/editorial or is moving toward a real public IPO layer.",
+                "columns": ["IPO", "Status", "Segment", "Open", "Close", "Listing", "Placeholder Risk"],
+                "rows": [
+                    [
+                        record.get("name") or "-",
+                        record.get("status") or "-",
+                        record.get("segment") or "-",
+                        record.get("open_date_label") or "-",
+                        record.get("close_date_label") or "-",
+                        record.get("listing_date_label") or "-",
+                        "Yes" if is_placeholder_ipo_record(record) else "No",
+                    ]
+                    for record in all_records
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Next IPO Layer",
+                "items": [
+                    "Replace seeded records with live issue data first.",
+                    "Only after that add subscription, allotment, GMP, or lead funnels.",
+                ],
+            },
+        ],
+    }
+
+
+def build_ipo_manager_feed_context():
+    index = get_ipo_phase1_index()
+    all_records = index.get("all") or []
+    feed_rows = []
+    for record in all_records:
+        issues = []
+        if is_placeholder_ipo_record(record):
+            issues.append("placeholder")
+        if not str(record.get("price_band") or "").strip():
+            issues.append("missing_price_band")
+        if not str(record.get("lot_size") or "").strip():
+            issues.append("missing_lot_size")
+        if not str(record.get("min_investment") or "").strip():
+            issues.append("missing_min_investment")
+        if not str(record.get("about") or "").strip():
+            issues.append("missing_about")
+        feed_rows.append(
+            {
+                "name": record.get("name") or "-",
+                "status": record.get("status") or "-",
+                "segment": record.get("segment") or "-",
+                "issues": ", ".join(issues) if issues else "clean",
+                "public_url": f"/ipo/{record.get('slug')}",
+                "editorial_note": record.get("editorial_note") or "-",
+            }
+        )
+    return {
+        "page_title": "IPO Manager Feed Review | TraderHub",
+        "page_description": "Feed-review checklist for TraderHub IPO records.",
+        "breadcrumb_text": "Admin > IPO Manager > Feed Review",
+        "breadcrumb_meta_text": f'IPO feed review | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "IPO Feed Review",
+        "hero_subtitle": "This view is the first editorial QA layer for IPO records: do the fields exist, are the records still staged, and which public pages still need real replacement data?",
+        "kpis": [
+            {"label": "Feed Rows", "value": len(feed_rows)},
+            {"label": "Clean Rows", "value": len([row for row in feed_rows if row["issues"] == "clean"])},
+            {"label": "Needs Review", "value": len([row for row in feed_rows if row["issues"] != "clean"])},
+            {"label": "Placeholder Rows", "value": len([row for row in feed_rows if "placeholder" in row["issues"]])},
+            {"label": "Current Rows", "value": len(index.get("current") or [])},
+            {"label": "Upcoming Rows", "value": len(index.get("upcoming") or [])},
+        ],
+        "nav_items": get_ipo_manager_nav_items(),
+        "active_href": "/admin/ipo-manager/feed",
+        "sections": [
+            {
+                "title": "Feed QA Table",
+                "note": "Use this table to decide which IPO records are still only structural placeholders and which ones are ready for real public growth work.",
+                "columns": ["IPO", "Status", "Segment", "Issues", "Public URL", "Editorial Note"],
+                "rows": [
+                    [
+                        row["name"],
+                        row["status"],
+                        row["segment"],
+                        html_lib.escape(row["issues"]),
+                        f'<div class="mono">{row["public_url"]}</div>',
+                        html_lib.escape(row["editorial_note"]),
+                    ]
+                    for row in feed_rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1 Rule",
+                "items": [
+                    "Keep the public IPO layer clean and trustworthy before adding more widgets.",
+                    "Feed review matters more than extra UI when the records are still partly staged.",
                 ],
             },
         ],
@@ -26802,6 +27469,11 @@ def news_manager_archive_screen():
     return render_seo_manager_screen(build_news_manager_archive_context())
 
 
+@app.route("/admin/news-manager/quality")
+def news_manager_quality_screen():
+    return render_seo_manager_screen(build_news_manager_quality_context())
+
+
 @app.route("/admin/news-manager/editor-summaries")
 def news_manager_editor_summaries_screen():
     try:
@@ -26879,6 +27551,74 @@ def mapping_manager_sectors_screen():
 @app.route("/admin/mapping-manager/public-routes")
 def mapping_manager_public_routes_screen():
     return render_seo_manager_screen(build_mapping_manager_routes_context())
+
+
+@app.route("/admin/mapping-manager/corrections")
+def mapping_manager_corrections_screen():
+    return render_seo_manager_screen(build_mapping_manager_corrections_context())
+
+
+@app.route("/admin/mapping-manager/corrections/save")
+def mapping_manager_corrections_save():
+    symbol = str(request.args.get("symbol", "") or "").strip().upper()
+    sector_key = str(request.args.get("sector", "") or "").strip().lower()
+    note = str(request.args.get("note", "") or "").strip()
+    if not symbol:
+        return jsonify({"status": "error", "message": "symbol is required"}), 400
+    if sector_key not in (SECTOR_GROUPS or {}):
+        return jsonify({"status": "error", "message": "sector must match an existing sector key"}), 400
+    state = load_mapping_manager_overrides()
+    overrides = state.setdefault("symbol_sector_overrides", {})
+    overrides[symbol] = {"sector_key": sector_key, "note": note, "updated_at": utcnow_iso()}
+    state = save_mapping_manager_overrides(state)
+    return jsonify({"status": "ok", "symbol": symbol, "override": state["symbol_sector_overrides"].get(symbol)})
+
+
+@app.route("/admin/mapping-manager/corrections/remove")
+def mapping_manager_corrections_remove():
+    symbol = str(request.args.get("symbol", "") or "").strip().upper()
+    if not symbol:
+        return jsonify({"status": "error", "message": "symbol is required"}), 400
+    state = load_mapping_manager_overrides()
+    overrides = state.setdefault("symbol_sector_overrides", {})
+    removed = overrides.pop(symbol, None)
+    state = save_mapping_manager_overrides(state)
+    return jsonify({"status": "ok", "symbol": symbol, "removed": removed is not None})
+
+
+@app.route("/admin/keyword-planner")
+def keyword_planner_screen():
+    return render_seo_manager_screen(build_keyword_planner_context())
+
+
+@app.route("/admin/keyword-planner/save")
+def keyword_planner_save():
+    url = str(request.args.get("url", "") or "").strip()
+    primary = str(request.args.get("primary", "") or "").strip()
+    secondary = str(request.args.get("secondary", "") or "").strip()
+    note = str(request.args.get("note", "") or "").strip()
+    if not url:
+        return jsonify({"status": "error", "message": "url is required"}), 400
+    state = load_keyword_planner_targets()
+    targets = state.setdefault("targets", {})
+    targets[url] = {
+        "primary_keyword": primary,
+        "secondary_keywords": secondary,
+        "note": note,
+        "updated_at": utcnow_iso(),
+    }
+    state = save_keyword_planner_targets(state)
+    return jsonify({"status": "ok", "url": url, "target": state["targets"].get(url)})
+
+
+@app.route("/admin/ipo-manager")
+def ipo_manager_dashboard_screen():
+    return render_seo_manager_screen(build_ipo_manager_dashboard_context())
+
+
+@app.route("/admin/ipo-manager/feed")
+def ipo_manager_feed_screen():
+    return render_seo_manager_screen(build_ipo_manager_feed_context())
 
 
 @app.route("/admin/search-ops")
