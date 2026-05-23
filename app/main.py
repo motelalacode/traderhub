@@ -70,6 +70,7 @@ IPO_PHASE1_FEED_PATH = DATA_DIR / "ipo_phase1_feed.json"
 MARKET_NEWS_PHASE1_FEED_PATH = DATA_DIR / "market_news_phase1_feed.json"
 DERIVATIVES_PHASE1_FEED_PATH = DATA_DIR / "derivatives_phase1_feed.json"
 DERIVATIVES_EXPIRY_WATCHLISTS_PATH = DATA_DIR / "derivatives_expiry_watchlists.json"
+DERIVATIVES_DELIVERY_PROFILES_PATH = DATA_DIR / "derivatives_delivery_profiles.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -8994,6 +8995,87 @@ def save_derivatives_watchlist_state(state):
     return normalized
 
 
+def build_default_derivatives_delivery_profiles():
+    return {
+        "profiles": [
+            {
+                "key": "desk_digest",
+                "name": "Desk Digest",
+                "channel": "dashboard",
+                "watch_keys": [],
+                "created_at": utcnow_iso(),
+            }
+        ]
+    }
+
+
+def normalize_derivatives_delivery_profiles(payload):
+    profiles = payload.get("profiles") or []
+    normalized_profiles = []
+    seen_keys = set()
+    allowed_channels = {"dashboard", "email", "telegram"}
+    for raw in profiles:
+        key = str((raw or {}).get("key") or "").strip().lower()
+        name = str((raw or {}).get("name") or "").strip()[:32]
+        channel = str((raw or {}).get("channel") or "dashboard").strip().lower()
+        created_at = str((raw or {}).get("created_at") or utcnow_iso()).strip()
+        watch_keys = []
+        for item in (raw or {}).get("watch_keys") or []:
+            watch_key = str(item or "").strip()
+            if ":" not in watch_key:
+                continue
+            index_slug, expiry = watch_key.split(":", 1)
+            if index_slug not in {"nifty-options", "banknifty-options"}:
+                continue
+            if not normalize_expiry_date(expiry):
+                continue
+            if watch_key not in watch_keys:
+                watch_keys.append(watch_key)
+        if not key:
+            key = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or f"profile_{len(normalized_profiles) + 1}"
+        if key in seen_keys:
+            continue
+        if not name:
+            name = "Delivery Profile"
+        if channel not in allowed_channels:
+            channel = "dashboard"
+        seen_keys.add(key)
+        normalized_profiles.append(
+            {
+                "key": key,
+                "name": name,
+                "channel": channel,
+                "watch_keys": watch_keys[:30],
+                "created_at": created_at,
+            }
+        )
+    if not normalized_profiles:
+        return build_default_derivatives_delivery_profiles()
+    return {"profiles": normalized_profiles[:8]}
+
+
+def load_derivatives_delivery_profiles():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DERIVATIVES_DELIVERY_PROFILES_PATH.exists():
+        state = build_default_derivatives_delivery_profiles()
+        DERIVATIVES_DELIVERY_PROFILES_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        return state
+    try:
+        payload = json.loads(DERIVATIVES_DELIVERY_PROFILES_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = build_default_derivatives_delivery_profiles()
+    normalized = normalize_derivatives_delivery_profiles(payload)
+    DERIVATIVES_DELIVERY_PROFILES_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_derivatives_delivery_profiles(state):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_derivatives_delivery_profiles(state)
+    DERIVATIVES_DELIVERY_PROFILES_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
 def get_manual_watchlist_options(state):
     return [
         {
@@ -10880,6 +10962,129 @@ def build_derivatives_watchlist_context(host_root):
         "side_box_title": "Current Rule",
         "side_box_copy": "Save the expiry rows that deserve a second look, then use the desk to reopen them quickly with live PCR, max-pain, cluster, and alert context already attached.",
         "why_page_works": "It turns page-level derivatives interpretation into a reusable product layer and gives TraderHub a clean path toward richer expiry alerts later.",
+        "market_error": None,
+    }
+
+
+def build_derivatives_delivery_context(host_root, active_profile_key=None):
+    watch_state = load_derivatives_watchlist_state()
+    all_watch_entries = watch_state.get("entries") or []
+    profile_state = load_derivatives_delivery_profiles()
+    profiles = profile_state.get("profiles") or []
+    active_profile = None
+    for profile in profiles:
+        if profile.get("key") == active_profile_key:
+            active_profile = profile
+            break
+    if not active_profile:
+        active_profile = profiles[0] if profiles else build_default_derivatives_delivery_profiles()["profiles"][0]
+
+    saved_watch_map = {
+        item.get("watch_key"): item
+        for item in all_watch_entries
+        if item.get("watch_key")
+    }
+    profile_watch_keys = [watch_key for watch_key in (active_profile.get("watch_keys") or []) if watch_key in saved_watch_map]
+    profile_rows = []
+    for watch_key in profile_watch_keys:
+        index_slug, expiry_value = watch_key.split(":", 1)
+        profile_rows.append(build_derivatives_watch_snapshot(index_slug, expiry_value, host_root))
+
+    all_watch_summaries = []
+    for entry in all_watch_entries:
+        summary = build_derivatives_watch_snapshot(entry["index_slug"], entry["expiry"], host_root)
+        summary["assigned_to_profile"] = summary["watch_key"] in profile_watch_keys
+        summary["toggle_url"] = f"{host_root.rstrip('/')}/admin/derivatives/delivery/toggle-watch?profile={active_profile.get('key')}&index={summary['index_slug']}&expiry={summary['expiry']}"
+        all_watch_summaries.append(summary)
+
+    channel_labels = {"dashboard": "Dashboard", "email": "Email", "telegram": "Telegram"}
+    digest_lines = [
+        f"{row['index_label']} {row['expiry']} | PCR {row['pcr']} | Max Pain {row['max_pain']} | {row['top_alert']}"
+        for row in profile_rows[:8]
+    ]
+    delivery_rows = [
+        {
+            "index": row["index_label"],
+            "dashboard_url": row["dashboard_url"],
+            "expiry": row["expiry"],
+            "alert_count": row["alert_count"],
+            "top_alert": row["top_alert"],
+            "channel_status": "Included" if row["watch_key"] in profile_watch_keys else "Available",
+            "toggle_action": "Remove" if row["watch_key"] in profile_watch_keys else "Add",
+            "toggle_url": row["toggle_url"],
+            "chain_link": "Open Chain",
+            "chain_url": row["chain_url"],
+        }
+        for row in all_watch_summaries
+    ]
+    profile_chips = [
+        {"label": f"{profile['name']} ({channel_labels.get(profile['channel'], profile['channel'].title())})", "href": f"/admin/derivatives/delivery?profile={profile['key']}"}
+        for profile in profiles
+    ]
+
+    return {
+        "page_mode": "derivatives_delivery",
+        "seo_title": "Derivatives Delivery Profiles | TraderHub",
+        "seo_description": "Manage named derivatives delivery profiles built from saved expiry watch rows and preview their live alert digest output.",
+        "canonical_url": f"{host_root.rstrip('/')}/admin/derivatives/delivery?profile={active_profile.get('key')}",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Derivatives Delivery Profiles | TraderHub", "description": "Named delivery profiles for saved derivatives expiry watch rows.", "url": f"{host_root.rstrip('/')}/admin/derivatives/delivery?profile={active_profile.get('key')}"}, indent=2),
+        "breadcrumb_text": "Admin > Derivatives > Delivery",
+        "breadcrumb_meta_text": f"Delivery preview desk | Last reviewed {get_today_ist().isoformat()}",
+        "hero_kicker": "TraderHub Derivatives Delivery",
+        "hero_title": active_profile.get("name", "Delivery Profile"),
+        "hero_subtitle": "This desk turns saved expiry rows into reusable delivery profiles. Phase 1 stays honest: it previews what a digest would contain right now without pretending email or Telegram delivery is already fully wired.",
+        "hero_metric_primary": str(len(profile_rows)),
+        "hero_metric_secondary": "rows in active profile",
+        "hero_badges": [
+            {"label": "Phase 1 Profiles", "kind": "tag-info"},
+            {"label": channel_labels.get(active_profile.get("channel"), active_profile.get("channel", "dashboard").title()), "kind": "tag-up"},
+            {"label": f"{sum(int(row.get('alert_count') or 0) for row in profile_rows)} Alerts", "kind": "tag-warn" if profile_rows else "tag-up"},
+        ],
+        "hero_stats": [
+            {"label": "Profiles", "value": len(profiles)},
+            {"label": "Rows In Profile", "value": len(profile_rows)},
+            {"label": "Available Rows", "value": len(all_watch_summaries)},
+            {"label": "Channel", "value": channel_labels.get(active_profile.get("channel"), active_profile.get("channel", "dashboard").title())},
+        ],
+        "nav_chips": [
+            {"label": "Watchlist Desk", "href": "/admin/derivatives/watchlist"},
+            {"label": "Delivery Profiles", "href": f"/admin/derivatives/delivery?profile={active_profile.get('key')}"},
+            *profile_chips,
+            {"label": "Add Dashboard Profile", "href": "/admin/derivatives/delivery/add-profile?name=Desk%20Digest&channel=dashboard"},
+        ],
+        "section_title": "Delivery Preview",
+        "section_note": "Pick a profile, then add or remove saved expiry rows. The digest preview below shows what that profile would send or display if delivery were triggered right now.",
+        "summary_cards": [
+            {"label": "Profile Rows", "value": len(profile_rows), "copy": "Saved expiry rows currently included in the active delivery profile."},
+            {"label": "Total Alerts", "value": sum(int(row.get("alert_count") or 0) for row in profile_rows), "copy": "Combined active alert count across the profile rows."},
+            {"label": "Top Digest Line", "value": digest_lines[0] if digest_lines else "No rows yet", "copy": "This is the first line that would appear in the current digest preview."},
+            {"label": "Available Watch Rows", "value": len(all_watch_summaries), "copy": "Saved expiry rows that can be added into this delivery profile."},
+        ],
+        "focus_title": None,
+        "focus_note": None,
+        "focus_cards": [],
+        "table_title": "Profile Assignment Table",
+        "table_note": "Use Add or Remove to decide which saved expiry rows belong to the active delivery profile.",
+        "table_columns": [
+            {"label": "Index", "key": "index", "link_key": "dashboard_url"},
+            {"label": "Expiry", "key": "expiry", "link_key": None},
+            {"label": "Alert Count", "key": "alert_count", "link_key": None},
+            {"label": "Top Alert", "key": "top_alert", "link_key": None},
+            {"label": "Profile Status", "key": "channel_status", "link_key": None},
+            {"label": "Toggle", "key": "toggle_action", "link_key": "toggle_url"},
+            {"label": "Chain", "key": "chain_link", "link_key": "chain_url"},
+        ],
+        "table_rows": delivery_rows,
+        "group_title": "Digest Notes",
+        "group_note": "These blocks preview what the active profile is really carrying right now.",
+        "group_blocks": [
+            {"title": "Current Digest Preview", "count": len(digest_lines), "copy": "A simple preview of the rows this profile would deliver right now.", "items": digest_lines or ["No rows have been assigned to this profile yet."]},
+            {"title": "Profile Rules", "count": 4, "copy": "Phase 1 keeps profiles deliberately simple and reusable.", "items": ["Profiles are named bundles of saved expiry rows", "Each profile can preview dashboard, email, or Telegram style delivery", "Rows stay live because the digest reuses current public derivatives signals", "Real outbound delivery can be added later without redesigning the desk"]},
+        ],
+        "public_note": "This is a delivery preview layer, not a messaging engine yet. It proves the product flow from saved expiry row to named digest without overbuilding the first release.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Keep profiles small and purposeful. A good expiry digest should reopen the best live setups quickly, not overwhelm the user with every saved row.",
+        "why_page_works": "It turns saved expiry rows into reusable product output and gives TraderHub a clean bridge from public page interpretation to future delivery systems.",
         "market_error": None,
     }
 
@@ -24798,6 +25003,80 @@ def derivatives_watchlist_remove():
             "status": "ok",
             "removed": before_count - len(state.get("entries") or []),
             "saved_count": len(state.get("entries") or []),
+        }
+    )
+
+
+@app.route("/admin/derivatives/delivery")
+def derivatives_delivery_desk():
+    profile_key = str(request.args.get("profile", "") or "").strip().lower()
+    context = build_derivatives_delivery_context(request.url_root.rstrip("/"), active_profile_key=profile_key or None)
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/derivatives/delivery/add-profile")
+def derivatives_delivery_add_profile():
+    name = str(request.args.get("name", "Delivery Profile") or "").strip()[:32]
+    channel = str(request.args.get("channel", "dashboard") or "dashboard").strip().lower()
+    state = load_derivatives_delivery_profiles()
+    profiles = state.get("profiles") or []
+    key = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or f"profile_{len(profiles) + 1}"
+    suffix = 2
+    existing_keys = {profile.get("key") for profile in profiles}
+    base_key = key
+    while key in existing_keys:
+        key = f"{base_key}_{suffix}"
+        suffix += 1
+    profiles.append(
+        {
+            "key": key,
+            "name": name or "Delivery Profile",
+            "channel": channel,
+            "watch_keys": [],
+            "created_at": utcnow_iso(),
+        }
+    )
+    state["profiles"] = profiles
+    state = save_derivatives_delivery_profiles(state)
+    return jsonify({"status": "ok", "profile": next((item for item in state.get("profiles") or [] if item.get("key") == key), None)})
+
+
+@app.route("/admin/derivatives/delivery/toggle-watch")
+def derivatives_delivery_toggle_watch():
+    profile_key = str(request.args.get("profile", "") or "").strip().lower()
+    index_slug = str(request.args.get("index", "") or "").strip().lower()
+    expiry_value = str(request.args.get("expiry", "") or "").strip()
+    watch_key = f"{index_slug}:{expiry_value}"
+    state = load_derivatives_delivery_profiles()
+    target_profile = None
+    for profile in state.get("profiles") or []:
+        if profile.get("key") == profile_key:
+            target_profile = profile
+            break
+    if not target_profile:
+        return jsonify({"status": "error", "message": "Please provide a valid delivery profile."}), 400
+    if index_slug not in {"nifty-options", "banknifty-options"} or not normalize_expiry_date(expiry_value):
+        return jsonify({"status": "error", "message": "Please provide a valid watch row."}), 400
+    watch_state = load_derivatives_watchlist_state()
+    available_watch_keys = {item.get("watch_key") for item in (watch_state.get("entries") or [])}
+    if watch_key not in available_watch_keys:
+        return jsonify({"status": "error", "message": "That expiry row is not currently saved in the watchlist desk."}), 400
+    watch_keys = list(target_profile.get("watch_keys") or [])
+    action = "added"
+    if watch_key in watch_keys:
+        watch_keys = [item for item in watch_keys if item != watch_key]
+        action = "removed"
+    else:
+        watch_keys.append(watch_key)
+    target_profile["watch_keys"] = watch_keys
+    state = save_derivatives_delivery_profiles(state)
+    return jsonify(
+        {
+            "status": "ok",
+            "action": action,
+            "profile": target_profile.get("key"),
+            "watch_key": watch_key,
+            "watch_count": len(target_profile.get("watch_keys") or []),
         }
     )
 
