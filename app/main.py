@@ -21108,6 +21108,237 @@ def get_mapping_manager_nav_items():
     ]
 
 
+def get_search_ops_nav_items():
+    return [
+        {"label": "Dashboard", "href": "/admin/search-ops"},
+        {"label": "Search", "href": "/admin/search-ops/search"},
+        {"label": "News", "href": "/admin/search-ops/news"},
+        {"label": "Measurement", "href": "/admin/search-ops/measurement"},
+    ]
+
+
+def get_search_ops_snapshot():
+    sitemap_index_path = SITEMAP_DIR / "sitemap.xml"
+    sitemap_exists = sitemap_index_path.exists()
+    sitemap_files = sorted(SITEMAP_DIR.glob("*.xml")) if SITEMAP_DIR.exists() else []
+    sitemap_file_count = len(sitemap_files)
+    search_console_verified = False
+    robots_route_live = False
+    google_news_article_schema = False
+    author_transparency_layer = False
+    ga4_installed = False
+    adsense_installed = False
+    bing_webmaster_ready = False
+    indexnow_ready = False
+    generic_schema_ready = True
+    return {
+        "sitemap_exists": sitemap_exists,
+        "sitemap_file_count": sitemap_file_count,
+        "search_console_verified": search_console_verified,
+        "robots_route_live": robots_route_live,
+        "google_news_article_schema": google_news_article_schema,
+        "author_transparency_layer": author_transparency_layer,
+        "ga4_installed": ga4_installed,
+        "adsense_installed": adsense_installed,
+        "bing_webmaster_ready": bing_webmaster_ready,
+        "indexnow_ready": indexnow_ready,
+        "generic_schema_ready": generic_schema_ready,
+        "search_ready_count": sum(
+            1
+            for item in [sitemap_exists, generic_schema_ready]
+            if item
+        ),
+    }
+
+
+def _search_ops_status_badge(is_ready, ready_label="Ready", pending_label="Pending"):
+    return f'<span class="tag {"tag-good" if is_ready else "tag-medium"}">{ready_label if is_ready else pending_label}</span>'
+
+
+def build_search_ops_dashboard_context():
+    snap = get_search_ops_snapshot()
+    return {
+        "page_title": "Search Ops Dashboard | TraderHub",
+        "page_description": "Search, news, analytics, and monetization operations dashboard for TraderHub.",
+        "breadcrumb_text": "Admin > Search Ops",
+        "breadcrumb_meta_text": f'Phase 1 checklist | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Search Ops",
+        "hero_subtitle": "This module turns search visibility, Google News readiness, measurement, and monetization preparation into an operator checklist instead of scattered TODOs.",
+        "kpis": [
+            {"label": "Sitemap Index", "value": "Yes" if snap["sitemap_exists"] else "No"},
+            {"label": "Sitemap Files", "value": snap["sitemap_file_count"]},
+            {"label": "Search Console", "value": "Verified" if snap["search_console_verified"] else "Pending"},
+            {"label": "Google News", "value": "Partial" if snap["generic_schema_ready"] else "Pending"},
+            {"label": "GA4", "value": "Installed" if snap["ga4_installed"] else "Pending"},
+            {"label": "AdSense", "value": "Installed" if snap["adsense_installed"] else "Pending"},
+            {"label": "Bing", "value": "Ready" if snap["bing_webmaster_ready"] else "Pending"},
+            {"label": "IndexNow", "value": "Ready" if snap["indexnow_ready"] else "Pending"},
+        ],
+        "nav_items": get_search_ops_nav_items(),
+        "active_href": "/admin/search-ops",
+        "sections": [
+            {
+                "title": "Workstream Status",
+                "note": "This is the current truth of the app: what is already wired, what is only partly ready, and what still needs a first implementation.",
+                "columns": ["Workstream", "Status", "Current State", "Next Build"],
+                "rows": [
+                    ["Search / Webmaster", _search_ops_status_badge(snap["sitemap_exists"], "Partial", "Pending"), "Sitemap generation is live, but Search Console verification and robots control are still missing.", "Add Search Console / Bing checklist and verification support."],
+                    ["Google News Readiness", _search_ops_status_badge(False, "Ready", "Pending"), "Generic schema is present on many public pages, but NewsArticle, byline, and publisher transparency are not formalized.", "Add article/news schema and author-publisher transparency layer."],
+                    ["Analytics", _search_ops_status_badge(snap["ga4_installed"]), "No GA4 installation or admin setup status is present yet.", "Add GA4 config and measurement readiness."],
+                    ["Monetization", _search_ops_status_badge(snap["adsense_installed"]), "Ad slots are reserved in places, but AdSense readiness and policy checks are not yet governed.", "Add AdSense readiness checklist and policy-page review."],
+                    ["Bing / IndexNow", _search_ops_status_badge(False, "Ready", "Pending"), "No Bing submission or IndexNow path is wired yet.", "Add Bing and IndexNow operator checklist."],
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Strongest Next Build",
+                "items": [
+                    "Search / Webmaster should go first because it turns the existing sitemap and SEO work into actual submission and indexing operations.",
+                    "Google News readiness should go next so the market/news surfaces are shaped around publisher requirements before growth hardens the wrong patterns.",
+                ],
+            }
+        ],
+    }
+
+
+def build_search_ops_search_context():
+    snap = get_search_ops_snapshot()
+    return {
+        "page_title": "Search Ops Search | TraderHub",
+        "page_description": "Search Console, sitemap, and webmaster readiness for TraderHub.",
+        "breadcrumb_text": "Admin > Search Ops > Search",
+        "breadcrumb_meta_text": f'Search operations | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Search / Webmaster Readiness",
+        "hero_subtitle": "This screen is the practical checklist for Google Search Console, sitemap submission, Bing Webmaster, and crawl control basics.",
+        "kpis": [
+            {"label": "Sitemap Index", "value": "Live" if snap["sitemap_exists"] else "Missing"},
+            {"label": "Sitemap Files", "value": snap["sitemap_file_count"]},
+            {"label": "Search Console Verification", "value": "Done" if snap["search_console_verified"] else "Pending"},
+            {"label": "robots.txt", "value": "Live" if snap["robots_route_live"] else "Missing"},
+            {"label": "Bing", "value": "Ready" if snap["bing_webmaster_ready"] else "Pending"},
+            {"label": "IndexNow", "value": "Ready" if snap["indexnow_ready"] else "Pending"},
+        ],
+        "nav_items": get_search_ops_nav_items(),
+        "active_href": "/admin/search-ops/search",
+        "sections": [
+            {
+                "title": "Submission Checklist",
+                "note": "These are the concrete operator tasks still pending before TraderHub has a real search-submission workflow.",
+                "columns": ["Item", "Status", "Current State", "Operator Action"],
+                "rows": [
+                    ["Google Search Console property", _search_ops_status_badge(snap["search_console_verified"]), "No verification status is stored in the app yet.", "Verify the domain property and record the method used."],
+                    ["Submit sitemap.xml", _search_ops_status_badge(snap["sitemap_exists"], "Ready", "Pending"), "Sitemap XML is generated and served publicly.", "Submit https://traderhub.in/sitemap.xml in Search Console."],
+                    ["robots.txt", _search_ops_status_badge(snap["robots_route_live"]), "No robots.txt route is currently present in the public app.", "Add a public robots.txt policy route."],
+                    ["Bing Webmaster Tools", _search_ops_status_badge(snap["bing_webmaster_ready"]), "No Bing operator state exists yet.", "Verify site and submit sitemap in Bing Webmaster Tools."],
+                    ["IndexNow", _search_ops_status_badge(snap["indexnow_ready"]), "No IndexNow key or ping path exists yet.", "Decide whether fast URL push matters enough to add IndexNow."],
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Immediate Wins",
+                "items": [
+                    f'Sitemap index: <span class="mono">{"/sitemap.xml" if snap["sitemap_exists"] else "not live yet"}</span>',
+                    "Search Console verification and robots.txt are the highest-value missing pieces in this workstream.",
+                ],
+            }
+        ],
+    }
+
+
+def build_search_ops_news_context():
+    snap = get_search_ops_snapshot()
+    return {
+        "page_title": "Search Ops News | TraderHub",
+        "page_description": "Google News readiness checklist for TraderHub.",
+        "breadcrumb_text": "Admin > Search Ops > News",
+        "breadcrumb_meta_text": f'News readiness | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Google News Readiness",
+        "hero_subtitle": "This screen focuses on the parts of the public news layer that matter for publisher-style visibility: article semantics, bylines, publisher trust, and stable linked sections.",
+        "kpis": [
+            {"label": "Generic Schema", "value": "Present" if snap["generic_schema_ready"] else "Missing"},
+            {"label": "NewsArticle Schema", "value": "Present" if snap["google_news_article_schema"] else "Pending"},
+            {"label": "Author Layer", "value": "Present" if snap["author_transparency_layer"] else "Pending"},
+            {"label": "Publisher Layer", "value": "Partial"},
+            {"label": "Market News Pages", "value": 3},
+            {"label": "Trend Pages", "value": 4},
+        ],
+        "nav_items": get_search_ops_nav_items(),
+        "active_href": "/admin/search-ops/news",
+        "sections": [
+            {
+                "title": "News Publisher Checklist",
+                "note": "This is not an old manual Google News submission workflow. The useful work now is article quality, transparency, and stable page structure.",
+                "columns": ["Item", "Status", "Current State", "Next Build"],
+                "rows": [
+                    ["Article / NewsArticle schema", _search_ops_status_badge(snap["google_news_article_schema"]), "Public pages mostly emit generic WebPage or CollectionPage schema.", "Add Article / NewsArticle JSON-LD on real story-like pages."],
+                    ["Author / byline transparency", _search_ops_status_badge(snap["author_transparency_layer"]), "No formal byline/author system is visible in the current public layer.", "Add author name, profile link, and update timestamps where relevant."],
+                    ["Publisher trust signals", _search_ops_status_badge(False, "Ready", "Pending"), "Publisher identity is implicit in branding, not explicit in a publisher/about layer.", "Add about, contact, editorial, and publisher transparency surfaces."],
+                    ["Stable linked news sections", _search_ops_status_badge(True, "Partial", "Pending"), "Market, trend, sector, and archive sections already exist and link publicly.", "Keep section pages crawlable and strengthen article-style detail pages."],
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Current Advantage",
+                "items": [
+                    "You already have multiple public news surfaces, archives, and grouped trend pages.",
+                    "The next gain is turning those pages into clearer publisher-style content, not building another feed first.",
+                ],
+            }
+        ],
+    }
+
+
+def build_search_ops_measurement_context():
+    snap = get_search_ops_snapshot()
+    return {
+        "page_title": "Search Ops Measurement | TraderHub",
+        "page_description": "Analytics and monetization readiness for TraderHub.",
+        "breadcrumb_text": "Admin > Search Ops > Measurement",
+        "breadcrumb_meta_text": f'Measurement and monetization | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Analytics + Monetization Readiness",
+        "hero_subtitle": "This screen keeps GA4 and AdSense honest: what is installed, what is only layout-prepared, and what policy work is still missing.",
+        "kpis": [
+            {"label": "GA4", "value": "Installed" if snap["ga4_installed"] else "Pending"},
+            {"label": "AdSense", "value": "Installed" if snap["adsense_installed"] else "Pending"},
+            {"label": "Reserved Ad Slots", "value": "Yes"},
+            {"label": "Policy Readiness", "value": "Partial"},
+            {"label": "Search + Analytics Link", "value": "Pending"},
+            {"label": "Conversion Events", "value": "Pending"},
+        ],
+        "nav_items": get_search_ops_nav_items(),
+        "active_href": "/admin/search-ops/measurement",
+        "sections": [
+            {
+                "title": "Measurement + Monetization Checklist",
+                "note": "This is where tracking and monetization stop being abstract and become concrete implementation tasks.",
+                "columns": ["Item", "Status", "Current State", "Next Build"],
+                "rows": [
+                    ["GA4 install", _search_ops_status_badge(snap["ga4_installed"]), "No gtag / GA4 measurement code is present in the app.", "Add GA4 config and page-view/event tracking."],
+                    ["Search Console + GA4 workflow", _search_ops_status_badge(False, "Ready", "Pending"), "No admin linkage or reporting layer exists yet.", "Record Search Console property and GA4 property in one ops module."],
+                    ["AdSense install", _search_ops_status_badge(snap["adsense_installed"]), "Reserved ad slots exist in templates, but no AdSense code is installed.", "Add AdSense only after policy/readiness review."],
+                    ["Policy pages / trust pages", _search_ops_status_badge(False, "Ready", "Pending"), "No explicit privacy/about/contact readiness view exists in the app.", "Audit and add trust/legal pages before monetization push."],
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Practical Order",
+                "items": [
+                    "GA4 should come before AdSense, because measurement helps you judge page quality and traffic shape first.",
+                    "AdSense should wait until trust pages, policy posture, and the public news/article layer feel more mature.",
+                ],
+            }
+        ],
+    }
+
+
 def get_mapping_manager_snapshot():
     master = load_symbol_master()
     by_symbol = master.get("by_symbol") or {}
@@ -26254,6 +26485,26 @@ def mapping_manager_sectors_screen():
 @app.route("/admin/mapping-manager/public-routes")
 def mapping_manager_public_routes_screen():
     return render_seo_manager_screen(build_mapping_manager_routes_context())
+
+
+@app.route("/admin/search-ops")
+def search_ops_dashboard_screen():
+    return render_seo_manager_screen(build_search_ops_dashboard_context())
+
+
+@app.route("/admin/search-ops/search")
+def search_ops_search_screen():
+    return render_seo_manager_screen(build_search_ops_search_context())
+
+
+@app.route("/admin/search-ops/news")
+def search_ops_news_screen():
+    return render_seo_manager_screen(build_search_ops_news_context())
+
+
+@app.route("/admin/search-ops/measurement")
+def search_ops_measurement_screen():
+    return render_seo_manager_screen(build_search_ops_measurement_context())
 
 
 @app.route("/admin/news-manager/snapshots/run")
