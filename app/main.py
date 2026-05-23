@@ -23420,6 +23420,191 @@ def get_derivatives_oi_diagnostics(sample_symbols=None):
     return diagnostics
 
 
+def build_expiry_strategy_context(index_slug, host_root):
+    config = DERIVATIVES_INDEX_CONFIG[index_slug]
+    today_iso = get_today_ist().isoformat()
+    creds = get_active_kite_credentials()
+    client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+    spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+    ohlc = (spot_quote or {}).get("ohlc") or {}
+    spot_value = float((spot_quote or {}).get("last_price") or 0)
+    prev_close = float(ohlc.get("close") or 0)
+    spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
+
+    chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+        strike_span=config.get("strike_span", 4),
+    )
+    future_snapshot = get_live_index_future_snapshot(
+        config["index_name"],
+        underlying_names=config.get("underlying_names"),
+    )
+    chain_available = bool(chain.get("available"))
+    future_available = bool(future_snapshot.get("available"))
+
+    support_zone = chain.get("support_zone") or "-"
+    resistance_zone = chain.get("resistance_zone") or "-"
+    max_pain = chain.get("max_pain") or "-"
+    pcr_numeric = chain.get("pcr_numeric")
+    pcr_display = chain.get("pcr_display", "Pending")
+    strongest_call_wall = chain.get("strongest_call_wall") or "-"
+    strongest_put_wall = chain.get("strongest_put_wall") or "-"
+    total_call_oi = chain.get("total_call_oi", "Pending")
+    total_put_oi = chain.get("total_put_oi", "Pending")
+    total_call_change = chain.get("total_call_change", "Pending")
+    total_put_change = chain.get("total_put_change", "Pending")
+    expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
+
+    premium_discount = None
+    if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
+        premium_discount = float(future_snapshot["price_numeric"]) - float(spot_value)
+
+    expiry_tone = "Balanced"
+    expiry_tone_copy = "The displayed expiry structure looks balanced right now."
+    if pcr_numeric is not None and pcr_numeric >= 1.10:
+        expiry_tone = "Put-Heavy Support"
+        expiry_tone_copy = f"PCR at {pcr_display} suggests a more defensive put-heavy structure around the displayed expiry window."
+    elif pcr_numeric is not None and pcr_numeric <= 0.85:
+        expiry_tone = "Call-Heavy Resistance"
+        expiry_tone_copy = f"PCR at {pcr_display} suggests a more call-heavy resistance structure around the displayed expiry window."
+    elif max_pain not in {"-", "Pending"} and spot_value > 0:
+        try:
+            if abs(float(max_pain) - float(spot_value)) <= config["strike_step"]:
+                expiry_tone = "Pin Risk"
+                expiry_tone_copy = f"Spot is still hovering close to max pain around {max_pain}, which keeps a pinning/range-style expiry read in play."
+        except Exception:
+            pass
+
+    if premium_discount is not None and premium_discount > 0 and expiry_tone == "Balanced":
+        expiry_tone = "Constructive Carry"
+        expiry_tone_copy = f"Futures are trading at a {premium_discount:+.2f} point premium with a balanced displayed chain, which supports a steadier constructive expiry read."
+    elif premium_discount is not None and premium_discount < 0 and expiry_tone == "Balanced":
+        expiry_tone = "Discount Caution"
+        expiry_tone_copy = f"Futures are trading at a {premium_discount:+.2f} point discount, which keeps some caution in the expiry tone even though the displayed chain looks balanced."
+
+    strategy_blocks = [
+        {
+            "title": "Range-Bound Bias",
+            "meta": "Max pain and walls",
+            "copy": f"Range traders should watch whether spot keeps gravitating toward max pain near {max_pain} while call resistance stays near {strongest_call_wall} and put support stays near {strongest_put_wall}.",
+        },
+        {
+            "title": "Breakout Bias",
+            "meta": "Resistance pressure",
+            "copy": f"A cleaner breakout case improves if spot starts clearing the strongest call wall near {strongest_call_wall} while futures stay firm and displayed call OI change stops expanding overhead.",
+        },
+        {
+            "title": "Breakdown Risk",
+            "meta": "Support pressure",
+            "copy": f"Breakdown risk matters more if spot starts losing the strongest put wall near {strongest_put_wall} while the displayed chain keeps building call-side pressure.",
+        },
+        {
+            "title": "Short Covering Risk",
+            "meta": "Futures premium + PCR",
+            "copy": f"If futures stay firm and PCR steadies near {pcr_display}, then a short-covering style expiry squeeze can still appear even without a full-chain terminal view.",
+        },
+    ]
+
+    what_changed_items = [
+        f"PCR is {pcr_display}.",
+        f"Strongest call wall: {strongest_call_wall}.",
+        f"Strongest put wall: {strongest_put_wall}.",
+        f"Max pain sits near {max_pain}.",
+        (
+            f"Futures premium/discount is {premium_discount:+.2f} points."
+            if premium_discount is not None
+            else "Nearest futures premium/discount is pending."
+        ),
+    ]
+
+    pressure_rows = []
+    for row in chain.get("rows") or []:
+        pressure_rows.append(
+            {
+                "strike": row.get("strike", "-"),
+                "call_oi": row.get("call_oi", "Pending"),
+                "call_oi_change": row.get("call_oi_change", "Pending"),
+                "put_oi": row.get("put_oi", "Pending"),
+                "put_oi_change": row.get("put_oi_change", "Pending"),
+                "read": row.get("read", "Pending"),
+            }
+        )
+
+    page_error = (None if chain_available else chain.get("error")) or (None if future_available else future_snapshot.get("error"))
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/expiry-strategy?index={index_slug}"
+    selector_label = "Nifty 50" if index_slug == "nifty-options" else "Bank Nifty"
+    return {
+        "page_mode": "expiry_strategy",
+        "seo_title": f"{selector_label} Expiry Strategy Dashboard, PCR, Max Pain & Walls | TraderHub",
+        "seo_description": f"Track TraderHub {selector_label.lower()} expiry strategy dashboard with live PCR, max pain, strongest walls, futures premium/discount, and displayed-chain pressure reads.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{selector_label} Expiry Strategy Dashboard | TraderHub", "description": f"Public expiry strategy dashboard for {selector_label}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"Derivatives > Expiry Strategy > {selector_label}",
+        "breadcrumb_meta_text": f"Phase 1 expiry dashboard | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Expiry Strategy",
+        "hero_title": f"{selector_label} Expiry Dashboard",
+        "hero_subtitle": f"This dashboard turns the live chain into a faster expiry read for {selector_label}. It is built for trader orientation first: PCR, max pain, support and resistance walls, and a clean strategy lens without pretending to be a full terminal.",
+        "hero_metric_primary": expiry_date,
+        "hero_metric_secondary": "nearest expiry in focus",
+        "hero_badges": [
+            {"label": "Phase 1 Dashboard", "kind": "tag-info"},
+            {"label": selector_label, "kind": "tag-up"},
+            {"label": "Real OI Live" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-warn"},
+            {"label": expiry_tone, "kind": "tag-up" if expiry_tone in {"Constructive Carry", "Put-Heavy Support"} else "tag-warn" if expiry_tone == "Balanced" else "tag-down"},
+        ],
+        "hero_stats": [
+            {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
+            {"label": "Futures", "value": future_snapshot.get("price_display", "Pending")},
+            {"label": "PCR", "value": pcr_display},
+            {"label": "Max Pain", "value": max_pain},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Index OI", "href": "/derivatives/index/oi-change"},
+            {"label": "Stock OI", "href": "/derivatives/stocks/oi-change"},
+        ],
+        "section_title": "Expiry Snapshot",
+        "section_note": "The dashboard stays public and readable on purpose. It uses the live displayed chain and nearest futures context to frame expiry pressure without forcing a full option-chain terminal layout.",
+        "summary_cards": [
+            {"label": "Expiry Tone", "value": expiry_tone, "copy": expiry_tone_copy},
+            {"label": "Support Zone", "value": support_zone, "copy": f"Nearest support shelf from the strongest put wall sits around {strongest_put_wall}."},
+            {"label": "Resistance Zone", "value": resistance_zone, "copy": f"Nearest resistance shelf from the strongest call wall sits around {strongest_call_wall}."},
+            {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest index future versus spot helps frame whether expiry carry still looks constructive or cautious."},
+        ],
+        "focus_title": "Strategy Lens",
+        "focus_note": "These blocks are interpretation aids, not auto trade calls. They turn the live displayed chain into a faster expiry read.",
+        "focus_cards": strategy_blocks,
+        "table_title": "Expiry Pressure Table",
+        "table_note": "This table reuses the live displayed strike window so the strongest expiry pressure points stay obvious without making the page feel like a cluttered terminal.",
+        "table_columns": [
+            {"label": "Strike", "key": "strike", "link_key": None},
+            {"label": "Call OI", "key": "call_oi", "link_key": None},
+            {"label": "Call OI Change", "key": "call_oi_change", "link_key": None},
+            {"label": "Put OI", "key": "put_oi", "link_key": None},
+            {"label": "Put OI Change", "key": "put_oi_change", "link_key": None},
+            {"label": "Read", "key": "read", "link_key": None},
+        ],
+        "table_rows": pressure_rows,
+        "group_title": "What Changed Today",
+        "group_note": "These notes make the page more habit-forming by translating the current expiry structure into a few quick changes worth watching.",
+        "group_blocks": [
+            {"title": "Expiry Structure", "count": len(what_changed_items), "copy": "Quick market-structure changes that matter first on expiry dashboards.", "items": what_changed_items},
+            {"title": "Next Clicks", "count": 4, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": ["Open the detailed index options page", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
+        ],
+        "public_note": "This expiry page is designed to sit between the current public OI pages and the later full option chain. It already uses live chain and futures inputs where available, while keeping the trader read fast and uncluttered.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": f"Start with {expiry_tone.lower()} tone, then compare max pain near {max_pain}, support at {support_zone}, and resistance at {resistance_zone} before opening deeper derivatives pages.",
+        "why_page_works": "It turns the live chain into a more actionable expiry read, creates a stronger trader habit page, and bridges today’s OI routes with the later full option chain.",
+        "market_error": page_error,
+    }
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -23753,6 +23938,15 @@ def derivatives_banknifty_options():
 @app.route("/derivatives/index/oi-change")
 def derivatives_index_oi_change():
     context = build_index_oi_change_context_v2(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/expiry-strategy")
+def derivatives_expiry_strategy():
+    index_slug = str(request.args.get("index", "nifty-options") or "nifty-options").strip()
+    if index_slug not in {"nifty-options", "banknifty-options"}:
+        index_slug = "nifty-options"
+    context = build_expiry_strategy_context(index_slug, request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
