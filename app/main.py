@@ -10510,6 +10510,54 @@ def build_cross_expiry_comparison(config, spot_value, selected_expiry, available
     }
 
 
+def summarize_strike_cluster(chain_rows, side_prefix, strike_step):
+    numeric_key = f"{side_prefix}_oi_numeric"
+    change_key = f"{side_prefix}_oi_change_numeric"
+    valid_rows = [row for row in (chain_rows or []) if row.get(numeric_key) is not None]
+    if not valid_rows:
+        return {
+            "band": "Pending",
+            "dominant_strike": "-",
+            "top_three": [],
+            "change_bias": "Pending",
+            "cluster_read": "Pending",
+        }
+
+    ranked_rows = sorted(valid_rows, key=lambda row: float(row.get(numeric_key) or 0), reverse=True)
+    top_rows = ranked_rows[:3]
+    dominant_row = top_rows[0]
+    dominant_strike = int(float(dominant_row.get("strike") or 0)) if str(dominant_row.get("strike") or "").strip() else None
+    strike_values = []
+    for row in top_rows:
+        try:
+            strike_values.append(int(float(row.get("strike") or 0)))
+        except Exception:
+            continue
+    band = "Pending"
+    if strike_values:
+        band = f"{min(strike_values)}-{max(strike_values)}"
+    total_change = sum(float(row.get(change_key) or 0) for row in top_rows)
+    change_bias = "Building"
+    if total_change < 0:
+        change_bias = "Cooling"
+    elif total_change == 0:
+        change_bias = "Flat"
+
+    cluster_read = f"{side_prefix.title()} pressure is concentrated around {band}."
+    if len(strike_values) >= 2 and max(strike_values) - min(strike_values) <= max(1, int(strike_step or 1)) * 2:
+        cluster_read = f"{side_prefix.title()} pressure is tightly stacked around {band}."
+    elif len(strike_values) >= 2:
+        cluster_read = f"{side_prefix.title()} pressure is spread across {band}."
+
+    return {
+        "band": band,
+        "dominant_strike": str(dominant_strike) if dominant_strike is not None else "-",
+        "top_three": [str(value) for value in strike_values[:3]],
+        "change_bias": change_bias,
+        "cluster_read": cluster_read,
+    }
+
+
 def get_nearest_index_future_instrument(index_name, underlying_names=None):
     today = get_today_ist()
     allowed_names = {str(item).strip().upper() for item in (underlying_names or []) if str(item).strip()}
@@ -23575,6 +23623,8 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
     expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
     available_expiries = chain.get("available_expiries") or []
     selected_expiry_value = chain.get("selected_expiry") or expiry_date
+    call_cluster = summarize_strike_cluster(chain.get("rows") or [], "call", config["strike_step"])
+    put_cluster = summarize_strike_cluster(chain.get("rows") or [], "put", config["strike_step"])
     cross_expiry = build_cross_expiry_comparison(
         config,
         spot_value,
@@ -23693,6 +23743,8 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
         what_changed_items.append(
             f"Next expiry compare for {cross_expiry.get('comparison_expiry')} is pending."
         )
+    what_changed_items.append(f"Call pressure band: {call_cluster.get('band')} ({call_cluster.get('change_bias')}).")
+    what_changed_items.append(f"Put pressure band: {put_cluster.get('band')} ({put_cluster.get('change_bias')}).")
 
     pressure_rows = []
     for row in chain.get("rows") or []:
@@ -23758,6 +23810,7 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
             {"label": "Resistance Zone", "value": resistance_zone, "copy": f"Nearest resistance shelf from the strongest call wall sits around {strongest_call_wall}."},
             {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest index future versus spot helps frame whether expiry carry still looks constructive or cautious."},
             {"label": "Next Expiry Compare", "value": cross_expiry.get("comparison_expiry", "Pending") if cross_expiry else "Pending", "copy": (f"Comparison expiry PCR is {cross_expiry.get('pcr_display')} with max pain near {cross_expiry.get('max_pain')}." if cross_expiry and cross_expiry.get("available") else "A second expiry is not available yet for comparison.")},
+            {"label": "Pressure Bands", "value": f"C {call_cluster.get('band')} / P {put_cluster.get('band')}", "copy": f"{call_cluster.get('cluster_read')} {put_cluster.get('cluster_read')}"},
         ],
         "focus_title": "Strategy Lens",
         "focus_note": "These blocks are interpretation aids, not auto trade calls. They turn the live displayed chain into a faster expiry read.",
@@ -23777,6 +23830,7 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
         "group_note": "These notes make the page more habit-forming by translating the current expiry structure into a few quick changes worth watching.",
         "group_blocks": [
             {"title": "Expiry Structure", "count": len(what_changed_items), "copy": "Quick market-structure changes that matter first on expiry dashboards.", "items": what_changed_items},
+            {"title": "Strike Clusters", "count": 4, "copy": "These clustering notes help traders see whether pressure is tightly stacked or more dispersed across the visible expiry band.", "items": [f"Call band: {call_cluster.get('band')}", f"Call bias: {call_cluster.get('change_bias')}", f"Put band: {put_cluster.get('band')}", f"Put bias: {put_cluster.get('change_bias')}"]},
             {"title": "Cross-Expiry Compare", "count": 4 if cross_expiry and cross_expiry.get("available") else 1, "copy": "This keeps the dashboard from becoming a manual tab-switching exercise when the next expiry structure matters too.", "items": ([f"Comparison expiry: {cross_expiry.get('comparison_expiry')}", f"PCR: {cross_expiry.get('pcr_display')}", f"Max pain: {cross_expiry.get('max_pain')}", f"Walls: C {cross_expiry.get('strongest_call_wall')} / P {cross_expiry.get('strongest_put_wall')}"] if cross_expiry and cross_expiry.get('available') else [cross_expiry.get('error') if cross_expiry else 'No additional active expiry is available yet.'])},
             {"title": "Next Clicks", "count": 5, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": [f"Open the {selector_label} options page for expiry {selected_expiry_value}", "Switch to the other expiry dashboard", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
         ],
@@ -23833,6 +23887,8 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
     strongest_call_wall = chain.get("strongest_call_wall", "-")
     strongest_put_wall = chain.get("strongest_put_wall", "-")
     max_pain = chain.get("max_pain", "-")
+    call_cluster = summarize_strike_cluster(chain.get("rows") or [], "call", config["strike_step"])
+    put_cluster = summarize_strike_cluster(chain.get("rows") or [], "put", config["strike_step"])
 
     chain_rows = chain.get("rows") or []
     highest_call_ltp = max((row.get("call_ltp_numeric") or 0) for row in chain_rows) if chain_rows else 0
@@ -23858,6 +23914,11 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
             "title": "Chain Read",
             "meta": "PCR and pain",
             "copy": f"PCR is {pcr_display} and max pain is near {max_pain}. This keeps the chain useful as a public read even before deeper Greeks and full expiry stacks are added.",
+        },
+        {
+            "title": "Strike Bands",
+            "meta": "Clustered pressure",
+            "copy": f"Call pressure is centered around {call_cluster.get('band')} while put pressure is centered around {put_cluster.get('band')}. This makes it easier to see whether the live chain is pinning tightly or spreading across a wider expiry band.",
         },
         {
             "title": "Cross-Expiry Compare",
@@ -23931,6 +23992,7 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
             {"label": "Strongest Walls", "value": f"C {strongest_call_wall} / P {strongest_put_wall}", "copy": "Nearest visible call and put walls in the current public chain window."},
             {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest futures versus spot keeps the option-chain read connected to carry and expiry tone."},
             {"label": "Next Expiry PCR", "value": cross_expiry.get("pcr_display", "Pending") if cross_expiry and cross_expiry.get("available") else "Pending", "copy": (f"Comparison expiry {cross_expiry.get('comparison_expiry')} keeps the chain honest across more than one expiry." if cross_expiry and cross_expiry.get("available") else "A second active expiry is not available for comparison yet.")},
+            {"label": "Strike Bands", "value": f"C {call_cluster.get('band')} / P {put_cluster.get('band')}", "copy": f"{call_cluster.get('cluster_read')} {put_cluster.get('cluster_read')}"},
         ],
         "focus_title": "Chain Lens",
         "focus_note": "Use these blocks to read the chain quickly before diving into the strike table.",
@@ -23952,6 +24014,7 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
         "group_note": "These notes explain what this public option-chain page solves today and what deeper chain tools can still add later.",
         "group_blocks": [
             {"title": "What Is Live", "count": 4, "copy": "The first public full-chain layer is already more than structural.", "items": ["Displayed calls and puts side by side", "Live OI and OI change across the visible band", "PCR and max-pain context", "Nearest futures carry context"]},
+            {"title": "Strike Cluster Notes", "count": 4, "copy": "These pressure bands help traders see where the live chain is actually clustering, not just where the single strongest wall sits.", "items": [f"Call band: {call_cluster.get('band')}", f"Call bias: {call_cluster.get('change_bias')}", f"Put band: {put_cluster.get('band')}", f"Put bias: {put_cluster.get('change_bias')}"]},
             {"title": "Cross-Expiry Notes", "count": 4 if cross_expiry and cross_expiry.get("available") else 1, "copy": "This keeps the chain page useful when traders want a quick next-expiry check without leaving the screen.", "items": ([f"Comparison expiry: {cross_expiry.get('comparison_expiry')}", f"PCR: {cross_expiry.get('pcr_display')}", f"Max pain: {cross_expiry.get('max_pain')}", f"Walls: C {cross_expiry.get('strongest_call_wall')} / P {cross_expiry.get('strongest_put_wall')}"] if cross_expiry and cross_expiry.get('available') else [cross_expiry.get('error') if cross_expiry else 'No additional active expiry is available yet.'])},
             {"title": "What Comes Later", "count": 4, "copy": "Phase 1 stops before turning this into a broker terminal clone.", "items": ["More strike depth", "Greeks and IV", "Deeper trader filters", "Cross-expiry comparison ladders"]},
         ],
