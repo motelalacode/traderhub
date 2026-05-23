@@ -21099,6 +21099,385 @@ def get_news_manager_nav_items():
     ]
 
 
+def get_mapping_manager_nav_items():
+    return [
+        {"label": "Dashboard", "href": "/admin/mapping-manager"},
+        {"label": "Stocks", "href": "/admin/mapping-manager/stocks"},
+        {"label": "Sectors", "href": "/admin/mapping-manager/sectors"},
+        {"label": "Public Routes", "href": "/admin/mapping-manager/public-routes"},
+    ]
+
+
+def get_mapping_manager_snapshot():
+    master = load_symbol_master()
+    by_symbol = master.get("by_symbol") or {}
+    sector_membership = {}
+    duplicate_membership = {}
+    for sector_key, symbol_list in (SECTOR_GROUPS or {}).items():
+        for symbol in symbol_list:
+            normalized_symbol = str(symbol or "").strip().upper()
+            if not normalized_symbol:
+                continue
+            if normalized_symbol in sector_membership:
+                duplicate_membership.setdefault(normalized_symbol, []).append(sector_key)
+                continue
+            sector_membership[normalized_symbol] = sector_key
+
+    stock_rows = []
+    for symbol, row in sorted(by_symbol.items()):
+        security_name = str((row or {}).get("security") or "").strip()
+        isin_value = str((row or {}).get("isin") or "").strip()
+        sector_key = sector_membership.get(symbol)
+        stock_slug = get_canonical_stock_slug(symbol)
+        stock_rows.append(
+            {
+                "symbol": symbol,
+                "security": security_name,
+                "isin": isin_value,
+                "stock_slug": stock_slug,
+                "sector_key": sector_key or "",
+                "sector_label": (sector_key.replace("_", " ").title() if sector_key else "Unassigned"),
+                "detail_url": f"/stocks/{stock_slug}",
+                "why_moving_url": f"/stocks/{stock_slug}/why-moving",
+                "archive_url": f"/stocks/{stock_slug}/news-archive",
+                "isin_present": bool(isin_value),
+                "curated": bool(sector_key),
+            }
+        )
+
+    sector_rows = []
+    for sector_key, symbol_list in sorted((SECTOR_GROUPS or {}).items()):
+        sector_slug = slugify_sector_key(sector_key)
+        sorted_symbols = sorted({str(symbol or "").strip().upper() for symbol in symbol_list if str(symbol or "").strip()})
+        sector_rows.append(
+            {
+                "sector_key": sector_key,
+                "sector_label": sector_key.replace("_", " ").title(),
+                "sector_slug": sector_slug,
+                "symbol_count": len(sorted_symbols),
+                "symbols_preview": ", ".join(sorted_symbols[:6]),
+                "detail_url": f"/sectors/{sector_slug}",
+                "archive_url": f"/sectors/{sector_slug}/news-archive",
+            }
+        )
+
+    market_routes = [
+        "/market/pre-market-news",
+        "/market/post-market-wrap",
+        "/market/sector-news",
+        "/market/alerts",
+        "/market/alerts/pre-market",
+        "/market/alerts/post-market",
+        "/market/alerts/stock-movers",
+        "/market/alerts/earnings-watch",
+        "/market/trends/bullish",
+        "/market/trends/bearish",
+        "/market/trends/earnings",
+        "/market/trends/sector-rotation",
+    ]
+    derivative_routes = [
+        "/derivatives",
+        "/derivatives/index/nifty-options",
+        "/derivatives/index/banknifty-options",
+        "/derivatives/index/oi-change",
+        "/derivatives/index/option-chain",
+        "/derivatives/expiry-strategy",
+        "/derivatives/stocks/oi-change",
+        "/derivatives/stocks/futures-buildup",
+    ]
+    route_rows = [
+        {
+            "family": "Stock Detail",
+            "pattern": "/stocks/<slug>",
+            "count": len(stock_rows),
+            "sample_url": stock_rows[0]["detail_url"] if stock_rows else "/stocks/itc",
+            "owner": "Stocks",
+        },
+        {
+            "family": "Stock Why Moving",
+            "pattern": "/stocks/<slug>/why-moving",
+            "count": len(stock_rows),
+            "sample_url": stock_rows[0]["why_moving_url"] if stock_rows else "/stocks/itc/why-moving",
+            "owner": "News / Stocks",
+        },
+        {
+            "family": "Stock Archive",
+            "pattern": "/stocks/<slug>/news-archive",
+            "count": len(stock_rows),
+            "sample_url": stock_rows[0]["archive_url"] if stock_rows else "/stocks/itc/news-archive",
+            "owner": "Archive",
+        },
+        {
+            "family": "Sector Detail",
+            "pattern": "/sectors/<slug>",
+            "count": len(sector_rows),
+            "sample_url": sector_rows[0]["detail_url"] if sector_rows else "/sectors/it",
+            "owner": "Sectors",
+        },
+        {
+            "family": "Sector Archive",
+            "pattern": "/sectors/<slug>/news-archive",
+            "count": len(sector_rows),
+            "sample_url": sector_rows[0]["archive_url"] if sector_rows else "/sectors/it/news-archive",
+            "owner": "Archive",
+        },
+        {
+            "family": "Market / Trend",
+            "pattern": "Named market and trend routes",
+            "count": len(market_routes),
+            "sample_url": market_routes[0],
+            "owner": "News",
+        },
+        {
+            "family": "Derivatives",
+            "pattern": "Named derivatives routes",
+            "count": len(derivative_routes),
+            "sample_url": derivative_routes[0],
+            "owner": "Derivatives",
+        },
+    ]
+    expected_public_routes = sum(int(row["count"]) for row in route_rows)
+    return {
+        "stock_rows": stock_rows,
+        "sector_rows": sector_rows,
+        "route_rows": route_rows,
+        "curated_symbol_count": len(sector_membership),
+        "duplicate_membership_count": len(duplicate_membership),
+        "duplicate_membership": duplicate_membership,
+        "expected_public_routes": expected_public_routes,
+        "market_route_count": len(market_routes),
+        "derivative_route_count": len(derivative_routes),
+    }
+
+
+def build_mapping_manager_dashboard_context():
+    snapshot = get_mapping_manager_snapshot()
+    stock_rows = snapshot["stock_rows"]
+    sector_rows = snapshot["sector_rows"]
+    route_rows = snapshot["route_rows"]
+    curated_symbol_count = snapshot["curated_symbol_count"]
+    stock_count = len(stock_rows)
+    curated_coverage = round((curated_symbol_count / stock_count) * 100, 1) if stock_count else 0
+    return {
+        "page_title": "Mapping Manager Dashboard | TraderHub",
+        "page_description": "Stock, sector, and public-route mapping overview for TraderHub.",
+        "breadcrumb_text": "Admin > Mapping Manager",
+        "breadcrumb_meta_text": f'Phase 1 visibility | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Mapping Manager",
+        "hero_subtitle": "This layer keeps stock slugs, sector membership, and public route families visible before mapping drift turns into SEO, archive, or news-layer debt.",
+        "kpis": [
+            {"label": "Tracked Stocks", "value": stock_count},
+            {"label": "Sector Groups", "value": len(sector_rows)},
+            {"label": "Curated Symbols", "value": curated_symbol_count},
+            {"label": "Unassigned Symbols", "value": max(stock_count - curated_symbol_count, 0)},
+            {"label": "Coverage", "value": f"{curated_coverage}%"},
+            {"label": "Expected Routes", "value": snapshot["expected_public_routes"]},
+            {"label": "Route Families", "value": len(route_rows)},
+            {"label": "Duplicate Memberships", "value": snapshot["duplicate_membership_count"]},
+        ],
+        "nav_items": get_mapping_manager_nav_items(),
+        "active_href": "/admin/mapping-manager",
+        "sections": [
+            {
+                "title": "Sector Coverage",
+                "note": "This shows which curated sector groups exist and how many mapped symbols each one currently carries.",
+                "columns": ["Sector", "Slug", "Mapped Symbols", "Public Detail", "Public Archive"],
+                "rows": [
+                    [
+                        row["sector_label"],
+                        row["sector_slug"],
+                        row["symbol_count"],
+                        f'<div class="mono">{row["detail_url"]}</div>',
+                        f'<div class="mono">{row["archive_url"]}</div>',
+                    ]
+                    for row in sector_rows
+                ],
+                "filters": [],
+            },
+            {
+                "title": "Public Route Families",
+                "note": "This is the first route-governance view: it tracks the route families that should stay stable as the public site expands.",
+                "columns": ["Family", "Pattern", "Expected Count", "Owner", "Sample"],
+                "rows": [
+                    [
+                        row["family"],
+                        f'<div class="mono">{row["pattern"]}</div>',
+                        row["count"],
+                        row["owner"],
+                        f'<div class="mono">{row["sample_url"]}</div>',
+                    ]
+                    for row in route_rows
+                ],
+                "filters": [],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1A Rule",
+                "items": [
+                    "Start with visibility first: show stock slugs, curated sector membership, and route-family counts before adding edit flows.",
+                    "This first pass is intentionally read-only so mapping problems become obvious without introducing another write path yet.",
+                ],
+            },
+        ],
+    }
+
+
+def build_mapping_manager_stocks_context():
+    snapshot = get_mapping_manager_snapshot()
+    curated_only = str(request.args.get("curated_only", "0") or "0").strip().lower() in {"1", "true", "yes"}
+    rows = snapshot["stock_rows"]
+    if curated_only:
+        rows = [row for row in rows if row["curated"]]
+    rows = rows[:150]
+    return {
+        "page_title": "Mapping Manager Stocks | TraderHub",
+        "page_description": "Stock slug and sector membership review for TraderHub.",
+        "breadcrumb_text": "Admin > Mapping Manager > Stocks",
+        "breadcrumb_meta_text": f'Stock mapping | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Stock Mapping Review",
+        "hero_subtitle": "This table keeps canonical stock slugs and curated sector membership visible so stock pages, why-moving pages, and stock archives stay aligned.",
+        "kpis": [
+            {"label": "Visible Rows", "value": len(rows)},
+            {"label": "Curated Only", "value": "Yes" if curated_only else "No"},
+            {"label": "ISIN Present", "value": len([row for row in rows if row["isin_present"]])},
+            {"label": "ISIN Missing", "value": len([row for row in rows if not row["isin_present"]])},
+            {"label": "Curated Rows", "value": len([row for row in rows if row["curated"]])},
+            {"label": "Unassigned Rows", "value": len([row for row in rows if not row["curated"]])},
+        ],
+        "nav_items": get_mapping_manager_nav_items(),
+        "active_href": "/admin/mapping-manager/stocks",
+        "sections": [
+            {
+                "title": "Stock Slug Table",
+                "note": "Each row shows the canonical stock slug and the three public route families built from it.",
+                "columns": ["Symbol", "Security", "Slug", "Sector", "ISIN", "Routes"],
+                "rows": [
+                    [
+                        row["symbol"],
+                        html_lib.escape(row["security"] or "-"),
+                        f'<div class="mono">{row["stock_slug"]}</div>',
+                        row["sector_label"],
+                        row["isin"] or "-",
+                        f'<div class="mono">{row["detail_url"]}</div><div class="mono">{row["why_moving_url"]}</div><div class="mono">{row["archive_url"]}</div>',
+                    ]
+                    for row in rows
+                ],
+                "filters": [f"curated_only={curated_only}"],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Review Goal",
+                "items": [
+                    "Stocks without curated sector membership are not broken by default, but they are outside the first mapping layer.",
+                    "Once this screen is stable, the next pass can add editable correction flows for slugs and sector assignments.",
+                ],
+            },
+        ],
+    }
+
+
+def build_mapping_manager_sectors_context():
+    snapshot = get_mapping_manager_snapshot()
+    rows = snapshot["sector_rows"]
+    return {
+        "page_title": "Mapping Manager Sectors | TraderHub",
+        "page_description": "Sector group and route review for TraderHub.",
+        "breadcrumb_text": "Admin > Mapping Manager > Sectors",
+        "breadcrumb_meta_text": f'Sector mapping | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Sector Membership Review",
+        "hero_subtitle": "This screen keeps curated sector groups readable: which symbols they include, which route slugs they own, and how the sector pages line up with archive pages.",
+        "kpis": [
+            {"label": "Sector Groups", "value": len(rows)},
+            {"label": "Mapped Symbols", "value": sum(int(row["symbol_count"]) for row in rows)},
+            {"label": "Largest Group", "value": max([row["symbol_count"] for row in rows], default=0)},
+            {"label": "Smallest Group", "value": min([row["symbol_count"] for row in rows], default=0)},
+            {"label": "Detail Routes", "value": len(rows)},
+            {"label": "Archive Routes", "value": len(rows)},
+        ],
+        "nav_items": get_mapping_manager_nav_items(),
+        "active_href": "/admin/mapping-manager/sectors",
+        "sections": [
+            {
+                "title": "Sector Groups",
+                "note": "This is the curated sector map that powers sector detail pages, archive pages, and cross-links into stock why-moving content.",
+                "columns": ["Sector", "Slug", "Mapped Symbols", "Preview", "Routes"],
+                "rows": [
+                    [
+                        row["sector_label"],
+                        f'<div class="mono">{row["sector_slug"]}</div>',
+                        row["symbol_count"],
+                        html_lib.escape(row["symbols_preview"] or "-"),
+                        f'<div class="mono">{row["detail_url"]}</div><div class="mono">{row["archive_url"]}</div>',
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Phase 1 Note",
+                "items": [
+                    "This view is intentionally curated rather than exhaustive.",
+                    "It helps you keep the public sector layer coherent before broader stock-to-sector automation is introduced.",
+                ],
+            },
+        ],
+    }
+
+
+def build_mapping_manager_routes_context():
+    snapshot = get_mapping_manager_snapshot()
+    rows = snapshot["route_rows"]
+    return {
+        "page_title": "Mapping Manager Public Routes | TraderHub",
+        "page_description": "Public route family coverage review for TraderHub.",
+        "breadcrumb_text": "Admin > Mapping Manager > Public Routes",
+        "breadcrumb_meta_text": f'Route coverage | Last reviewed {get_today_ist().isoformat()}',
+        "hero_title": "Public Route Coverage",
+        "hero_subtitle": "This screen turns route structure into an explicit contract: which public families exist, how many pages each one implies, and which product layer owns them.",
+        "kpis": [
+            {"label": "Route Families", "value": len(rows)},
+            {"label": "Expected Public Routes", "value": snapshot["expected_public_routes"]},
+            {"label": "Market Routes", "value": snapshot["market_route_count"]},
+            {"label": "Derivatives Routes", "value": snapshot["derivative_route_count"]},
+            {"label": "Stock Route Families", "value": 3},
+            {"label": "Sector Route Families", "value": 2},
+        ],
+        "nav_items": get_mapping_manager_nav_items(),
+        "active_href": "/admin/mapping-manager/public-routes",
+        "sections": [
+            {
+                "title": "Route Family Table",
+                "note": "These rows are the clean first route-governance view for TraderHub public pages.",
+                "columns": ["Family", "Pattern", "Expected Count", "Owner", "Sample Route"],
+                "rows": [
+                    [
+                        row["family"],
+                        f'<div class="mono">{row["pattern"]}</div>',
+                        row["count"],
+                        row["owner"],
+                        f'<div class="mono">{row["sample_url"]}</div>',
+                    ]
+                    for row in rows
+                ],
+                "filters": [],
+            }
+        ],
+        "side_blocks": [
+            {
+                "title": "Why It Matters",
+                "items": [
+                    "Broken mapping usually shows up first as route drift: missing archives, mismatched slugs, or links pointing at the wrong public family.",
+                    "This table gives that structure a home before you add correction workflows on top of it.",
+                ],
+            },
+        ],
+    }
+
+
 def _seo_health_badge(score):
     score = int(score or 0)
     if score >= 90:
@@ -25855,6 +26234,26 @@ def news_manager_editor_summaries_screen():
             ],
         }
         return render_seo_manager_screen(fallback_context)
+
+
+@app.route("/admin/mapping-manager")
+def mapping_manager_dashboard_screen():
+    return render_seo_manager_screen(build_mapping_manager_dashboard_context())
+
+
+@app.route("/admin/mapping-manager/stocks")
+def mapping_manager_stocks_screen():
+    return render_seo_manager_screen(build_mapping_manager_stocks_context())
+
+
+@app.route("/admin/mapping-manager/sectors")
+def mapping_manager_sectors_screen():
+    return render_seo_manager_screen(build_mapping_manager_sectors_context())
+
+
+@app.route("/admin/mapping-manager/public-routes")
+def mapping_manager_public_routes_screen():
+    return render_seo_manager_screen(build_mapping_manager_routes_context())
 
 
 @app.route("/admin/news-manager/snapshots/run")
