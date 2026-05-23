@@ -10656,12 +10656,16 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         rows.append(
             {
                 "strike": bucket["strike"],
+                "call_ltp": format_price(bucket["call_ltp_numeric"]) if bucket["call_ltp_numeric"] is not None else "Pending",
                 "call_oi": format_volume(bucket["call_oi_numeric"]),
                 "call_oi_change": f"{bucket['call_oi_change_numeric']:+,.0f}",
+                "put_ltp": format_price(bucket["put_ltp_numeric"]) if bucket["put_ltp_numeric"] is not None else "Pending",
                 "put_oi": format_volume(bucket["put_oi_numeric"]),
                 "put_oi_change": f"{bucket['put_oi_change_numeric']:+,.0f}",
                 "read": read_label if combined > 0 else "Thin activity",
                 "combined_oi": combined,
+                "call_ltp_numeric": bucket["call_ltp_numeric"],
+                "put_ltp_numeric": bucket["put_ltp_numeric"],
             }
         )
 
@@ -23641,6 +23645,155 @@ def build_expiry_strategy_context(index_slug, host_root):
     }
 
 
+def build_full_option_chain_context(index_slug, host_root):
+    config = DERIVATIVES_INDEX_CONFIG[index_slug]
+    today_iso = get_today_ist().isoformat()
+    creds = get_active_kite_credentials()
+    client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+    spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+    ohlc = (spot_quote or {}).get("ohlc") or {}
+    spot_value = float((spot_quote or {}).get("last_price") or 0)
+    prev_close = float(ohlc.get("close") or 0)
+    spot_change_pct = ((spot_value - prev_close) / prev_close * 100) if spot_value and prev_close else 0.0
+    chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+        strike_span=8,
+    )
+    future_snapshot = get_live_index_future_snapshot(
+        config["index_name"],
+        underlying_names=config.get("underlying_names"),
+    )
+    chain_available = bool(chain.get("available"))
+    future_available = bool(future_snapshot.get("available"))
+    expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
+    premium_discount = None
+    if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
+        premium_discount = float(future_snapshot["price_numeric"]) - float(spot_value)
+
+    selector_label = "Nifty 50" if index_slug == "nifty-options" else "Bank Nifty"
+    pcr_display = chain.get("pcr_display", "Pending")
+    total_call_oi = chain.get("total_call_oi", "Pending")
+    total_put_oi = chain.get("total_put_oi", "Pending")
+    strongest_call_wall = chain.get("strongest_call_wall", "-")
+    strongest_put_wall = chain.get("strongest_put_wall", "-")
+    max_pain = chain.get("max_pain", "-")
+
+    chain_rows = chain.get("rows") or []
+    highest_call_ltp = max((row.get("call_ltp_numeric") or 0) for row in chain_rows) if chain_rows else 0
+    highest_put_ltp = max((row.get("put_ltp_numeric") or 0) for row in chain_rows) if chain_rows else 0
+
+    focus_cards = [
+        {
+            "title": "Displayed Chain Window",
+            "meta": "Live nearest expiry",
+            "copy": f"The public chain is currently centered on the nearest expiry {expiry_date} with a wider strike band so users can read calls and puts side by side without opening a dealing terminal.",
+        },
+        {
+            "title": "Call Side",
+            "meta": "Resistance pressure",
+            "copy": f"Strongest displayed call wall is near {strongest_call_wall}. Highest visible call premium in this public window is {format_price(highest_call_ltp) if highest_call_ltp else 'Pending'}.",
+        },
+        {
+            "title": "Put Side",
+            "meta": "Support pressure",
+            "copy": f"Strongest displayed put wall is near {strongest_put_wall}. Highest visible put premium in this public window is {format_price(highest_put_ltp) if highest_put_ltp else 'Pending'}.",
+        },
+        {
+            "title": "Chain Read",
+            "meta": "PCR and pain",
+            "copy": f"PCR is {pcr_display} and max pain is near {max_pain}. This keeps the chain useful as a public read even before deeper Greeks and full expiry stacks are added.",
+        },
+    ]
+
+    chain_table_rows = [
+        {
+            "call_oi": row.get("call_oi", "Pending"),
+            "call_oi_change": row.get("call_oi_change", "Pending"),
+            "call_ltp": row.get("call_ltp", "Pending"),
+            "strike": row.get("strike", "-"),
+            "put_ltp": row.get("put_ltp", "Pending"),
+            "put_oi_change": row.get("put_oi_change", "Pending"),
+            "put_oi": row.get("put_oi", "Pending"),
+            "read": row.get("read", "Pending"),
+        }
+        for row in chain_rows
+    ]
+
+    page_error = (None if chain_available else chain.get("error")) or (None if future_available else future_snapshot.get("error"))
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/index/option-chain?index={index_slug}"
+    return {
+        "page_mode": "option_chain",
+        "seo_title": f"{selector_label} Option Chain, Live Calls & Puts Window | TraderHub",
+        "seo_description": f"Track TraderHub {selector_label.lower()} option chain with live displayed calls, puts, OI, OI change, PCR, and max-pain context in one public dashboard.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{selector_label} Option Chain | TraderHub", "description": f"Public option chain dashboard for {selector_label}.", "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"Derivatives > Option Chain > {selector_label}",
+        "breadcrumb_meta_text": f"Phase 1 full chain | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Option Chain",
+        "hero_title": f"{selector_label} Option Chain",
+        "hero_subtitle": "This is the first full public option-chain view in TraderHub. It keeps the screen disciplined: a wider live displayed-chain window, clear calls-versus-puts comparison, and direct expiry context without turning into a cluttered terminal.",
+        "hero_metric_primary": expiry_date,
+        "hero_metric_secondary": "nearest expiry in chain view",
+        "hero_badges": [
+            {"label": "Phase 1 Chain", "kind": "tag-info"},
+            {"label": selector_label, "kind": "tag-up"},
+            {"label": "Live Calls & Puts" if chain_available else "Chain Pending", "kind": "tag-up" if chain_available else "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Spot", "value": format_price(spot_value) if spot_value > 0 else "Pending"},
+            {"label": "Day Move", "value": f"{spot_change_pct:+.2f}%" if spot_value > 0 and prev_close > 0 else "Pending"},
+            {"label": "PCR", "value": pcr_display},
+            {"label": "Max Pain", "value": max_pain},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Option Chain", "href": f"/derivatives/index/option-chain?index={index_slug}"},
+            {"label": "Nifty Chain", "href": "/derivatives/index/option-chain?index=nifty-options"},
+            {"label": "Bank Nifty Chain", "href": "/derivatives/index/option-chain?index=banknifty-options"},
+            {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}"},
+            {"label": "Index OI", "href": "/derivatives/index/oi-change"},
+        ],
+        "section_title": "Chain Snapshot",
+        "section_note": "Phase 1 keeps the chain public and readable. It already uses live displayed calls and puts across a wider strike window, but still leaves deeper Greeks and full expiry stacks for later.",
+        "summary_cards": [
+            {"label": "Total Call OI", "value": total_call_oi, "copy": "Displayed-window call-side open interest across the current expiry band."},
+            {"label": "Total Put OI", "value": total_put_oi, "copy": "Displayed-window put-side open interest across the current expiry band."},
+            {"label": "Strongest Walls", "value": f"C {strongest_call_wall} / P {strongest_put_wall}", "copy": "Nearest visible call and put walls in the current public chain window."},
+            {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest futures versus spot keeps the option-chain read connected to carry and expiry tone."},
+        ],
+        "focus_title": "Chain Lens",
+        "focus_note": "Use these blocks to read the chain quickly before diving into the strike table.",
+        "focus_cards": focus_cards,
+        "table_title": "Calls vs Puts Table",
+        "table_note": "The table shows calls and puts side by side across a wider live displayed-chain window. It is intentionally wider than the expiry dashboard but still disciplined enough for public use.",
+        "table_columns": [
+            {"label": "Call OI", "key": "call_oi", "link_key": None},
+            {"label": "Call OI Change", "key": "call_oi_change", "link_key": None},
+            {"label": "Call LTP", "key": "call_ltp", "link_key": None},
+            {"label": "Strike", "key": "strike", "link_key": None},
+            {"label": "Put LTP", "key": "put_ltp", "link_key": None},
+            {"label": "Put OI Change", "key": "put_oi_change", "link_key": None},
+            {"label": "Put OI", "key": "put_oi", "link_key": None},
+            {"label": "Read", "key": "read", "link_key": None},
+        ],
+        "table_rows": chain_table_rows,
+        "group_title": "Chain Notes",
+        "group_note": "These notes explain what this public option-chain page solves today and what deeper chain tools can still add later.",
+        "group_blocks": [
+            {"title": "What Is Live", "count": 4, "copy": "The first public full-chain layer is already more than structural.", "items": ["Displayed calls and puts side by side", "Live OI and OI change across the visible band", "PCR and max-pain context", "Nearest futures carry context"]},
+            {"title": "What Comes Later", "count": 4, "copy": "Phase 1 stops before turning this into a broker terminal clone.", "items": ["More strike depth", "More expiries", "Greeks and IV", "Deeper trader filters"]},
+        ],
+        "public_note": "This option-chain page is the public chain layer, not the final terminal layer. It already gives users a live calls-versus-puts window they can trust, while keeping room for a much deeper derivatives stack later.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": f"Start with PCR {pcr_display}, then check max pain near {max_pain}, and finally compare the strongest call wall at {strongest_call_wall} versus the strongest put wall at {strongest_put_wall}.",
+        "why_page_works": "It completes the public derivatives journey, bridges expiry strategy and index OI pages, and gives TraderHub a real option-chain footprint without collapsing into clutter.",
+        "market_error": page_error,
+    }
+
+
 def build_futures_buildup_context(host_root):
     rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
     groups = {"Long Buildup": [], "Short Buildup": [], "Short Covering": [], "Long Unwinding": []}
@@ -23974,6 +24127,15 @@ def derivatives_banknifty_options():
 @app.route("/derivatives/index/oi-change")
 def derivatives_index_oi_change():
     context = build_index_oi_change_context_v2(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/index/option-chain")
+def derivatives_index_option_chain():
+    index_slug = str(request.args.get("index", "nifty-options") or "nifty-options").strip()
+    if index_slug not in {"nifty-options", "banknifty-options"}:
+        index_slug = "nifty-options"
+    context = build_full_option_chain_context(index_slug, request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
 
 
