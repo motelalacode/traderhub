@@ -9003,6 +9003,11 @@ def build_default_derivatives_delivery_profiles():
                 "name": "Desk Digest",
                 "channel": "dashboard",
                 "watch_keys": [],
+                "enabled": True,
+                "delivery_time": "09:20",
+                "timezone": "Asia/Kolkata",
+                "last_sent_on": "",
+                "last_trigger_at": "",
                 "created_at": utcnow_iso(),
             }
         ]
@@ -9019,6 +9024,11 @@ def normalize_derivatives_delivery_profiles(payload):
         name = str((raw or {}).get("name") or "").strip()[:32]
         channel = str((raw or {}).get("channel") or "dashboard").strip().lower()
         created_at = str((raw or {}).get("created_at") or utcnow_iso()).strip()
+        enabled = bool((raw or {}).get("enabled", True))
+        delivery_time = str((raw or {}).get("delivery_time") or "09:20").strip()
+        timezone_name = str((raw or {}).get("timezone") or "Asia/Kolkata").strip() or "Asia/Kolkata"
+        last_sent_on = str((raw or {}).get("last_sent_on") or "").strip()
+        last_trigger_at = str((raw or {}).get("last_trigger_at") or "").strip()
         watch_keys = []
         for item in (raw or {}).get("watch_keys") or []:
             watch_key = str(item or "").strip()
@@ -9039,6 +9049,10 @@ def normalize_derivatives_delivery_profiles(payload):
             name = "Delivery Profile"
         if channel not in allowed_channels:
             channel = "dashboard"
+        try:
+            delivery_time = parse_time(delivery_time, "09:20").strftime("%H:%M")
+        except Exception:
+            delivery_time = "09:20"
         seen_keys.add(key)
         normalized_profiles.append(
             {
@@ -9046,6 +9060,11 @@ def normalize_derivatives_delivery_profiles(payload):
                 "name": name,
                 "channel": channel,
                 "watch_keys": watch_keys[:30],
+                "enabled": enabled,
+                "delivery_time": delivery_time,
+                "timezone": timezone_name,
+                "last_sent_on": last_sent_on,
+                "last_trigger_at": last_trigger_at,
                 "created_at": created_at,
             }
         )
@@ -11005,6 +11024,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             break
     if not active_profile:
         active_profile = profiles[0] if profiles else build_default_derivatives_delivery_profiles()["profiles"][0]
+    schedule_status = get_profile_schedule_status(active_profile)
 
     saved_watch_map = {
         item.get("watch_key"): item
@@ -11071,6 +11091,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": channel_labels.get(active_profile.get("channel"), active_profile.get("channel", "dashboard").title()), "kind": "tag-up"},
             {"label": f"{sum(int(row.get('alert_count') or 0) for row in profile_rows)} Alerts", "kind": "tag-warn" if profile_rows else "tag-up"},
             {"label": delivery_mode, "kind": "tag-up" if delivery_mode == "Live Telegram ready" else "tag-warn"},
+            {"label": "Due now" if schedule_status["due_now"] else schedule_status["delivery_time"], "kind": "tag-up" if schedule_status["due_now"] else "tag-info"},
         ],
         "hero_stats": [
             {"label": "Profiles", "value": len(profiles)},
@@ -11084,8 +11105,10 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             *profile_chips,
             {"label": "Add Dashboard Profile", "href": "/admin/derivatives/delivery/add-profile?name=Desk%20Digest&channel=dashboard"},
             {"label": "Add Telegram Profile", "href": "/admin/derivatives/delivery/add-profile?name=Telegram%20Expiry&channel=telegram"},
+            {"label": f"Schedule {schedule_status['delivery_time']}", "href": f"/admin/derivatives/delivery/set-schedule?profile={active_profile.get('key')}&time={schedule_status['delivery_time']}&enabled=1"},
             {"label": "Preview Payload", "href": f"/admin/derivatives/delivery/preview?profile={active_profile.get('key')}"},
             {"label": "Trigger Test", "href": f"/admin/derivatives/delivery/trigger?profile={active_profile.get('key')}"},
+            {"label": "Run Due", "href": "/admin/derivatives/delivery/run-due"},
         ],
         "section_title": "Delivery Preview",
         "section_note": "Pick a profile, then add or remove saved expiry rows. The digest preview below shows what that profile would send or display if delivery were triggered right now.",
@@ -11095,6 +11118,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
             {"label": "Top Digest Line", "value": digest_lines[0] if digest_lines else "No rows yet", "copy": "This is the first line that would appear in the current digest preview."},
             {"label": "Available Watch Rows", "value": len(all_watch_summaries), "copy": "Saved expiry rows that can be added into this delivery profile."},
             {"label": "Transport", "value": delivery_mode, "copy": ("Telegram token and chat ID are configured for live sending." if telegram_ready else "Telegram transport is not fully configured yet, so trigger stays in preview mode.")},
+            {"label": "Schedule", "value": schedule_status["delivery_time"], "copy": f"Next run status: {schedule_status['next_run_label']}"},
         ],
         "focus_title": None,
         "focus_note": None,
@@ -11116,6 +11140,7 @@ def build_derivatives_delivery_context(host_root, active_profile_key=None):
         "group_blocks": [
             {"title": "Current Digest Preview", "count": len(digest_lines), "copy": "A simple preview of the rows this profile would deliver right now.", "items": digest_lines or ["No rows have been assigned to this profile yet."]},
             {"title": "Delivery Endpoints", "count": 3, "copy": "These routes expose the real payload without pretending the transport layer is already live.", "items": [f"Preview JSON: /admin/derivatives/delivery/preview?profile={active_profile.get('key')}", f"Trigger JSON: /admin/derivatives/delivery/trigger?profile={active_profile.get('key')}", f"Toggle rows from the assignment table to reshape the payload instantly"]},
+            {"title": "Schedule Status", "count": 4, "copy": "Phase 1 scheduling is cron-friendly: profiles know when they are due, and a run-due endpoint can trigger them safely once per day.", "items": [f"Enabled: {'Yes' if schedule_status['enabled'] else 'No'}", f"Time: {schedule_status['delivery_time']} IST", f"Last sent on: {schedule_status['last_sent_on'] or 'Never'}", f"Next status: {schedule_status['next_run_label']}"]},
             {"title": "Transport Status", "count": 3, "copy": "Phase 1 only turns on real sending for Telegram when credentials are present. Everything else stays preview-first on purpose.", "items": [f"Active channel: {channel_labels.get(active_channel, active_channel.title())}", f"Telegram ready: {'Yes' if telegram_ready else 'No'}", f"Mode: {delivery_mode}"]},
             {"title": "Profile Rules", "count": 4, "copy": "Phase 1 keeps profiles deliberately simple and reusable.", "items": ["Profiles are named bundles of saved expiry rows", "Each profile can preview dashboard, email, or Telegram style delivery", "Rows stay live because the digest reuses current public derivatives signals", "Real outbound delivery can be added later without redesigning the desk"]},
         ],
@@ -11178,6 +11203,58 @@ def build_derivatives_delivery_payload(host_root, profile_key):
         "body": body,
         "rows": rows,
     }
+
+
+def get_profile_schedule_status(profile):
+    enabled = bool((profile or {}).get("enabled", True))
+    delivery_time_value = str((profile or {}).get("delivery_time") or "09:20").strip() or "09:20"
+    last_sent_on = str((profile or {}).get("last_sent_on") or "").strip()
+    now_ist = datetime.datetime.now(APP_TZ)
+    today_iso = now_ist.date().isoformat()
+    try:
+        scheduled_time = parse_time(delivery_time_value, "09:20")
+    except Exception:
+        scheduled_time = parse_time("09:20", "09:20")
+        delivery_time_value = "09:20"
+    due_now = enabled and now_ist.time() >= scheduled_time and last_sent_on != today_iso
+    next_run_label = f"{today_iso} {delivery_time_value} IST"
+    if not enabled:
+        next_run_label = f"Paused at {delivery_time_value} IST"
+    elif now_ist.time() >= scheduled_time and last_sent_on == today_iso:
+        next_run_label = f"Sent today at {delivery_time_value} IST"
+    elif now_ist.time() >= scheduled_time:
+        next_day = (now_ist.date() + datetime.timedelta(days=1)).isoformat()
+        next_run_label = f"{next_day} {delivery_time_value} IST"
+    return {
+        "enabled": enabled,
+        "delivery_time": delivery_time_value,
+        "last_sent_on": last_sent_on,
+        "due_now": due_now,
+        "next_run_label": next_run_label,
+        "today_iso": today_iso,
+    }
+
+
+def trigger_derivatives_delivery_profile(profile, host_root):
+    payload = build_derivatives_delivery_payload(host_root, profile.get("key"))
+    if not payload:
+        return {"status": "error", "message": "Profile payload could not be built."}
+    if payload["channel"] == "telegram":
+        try:
+            telegram_response = send_telegram_message(payload["body"])
+            payload["trigger_status"] = "sent"
+            payload["trigger_message"] = "Telegram delivery sent successfully."
+            payload["transport_response"] = telegram_response
+        except Exception as exc:
+            payload["trigger_status"] = "transport_error"
+            payload["trigger_message"] = f"Telegram delivery failed: {exc}"
+    else:
+        payload["trigger_status"] = "preview_only"
+        payload["trigger_message"] = (
+            f"{payload['channel_label']} delivery is not wired to an external transport yet. "
+            "This trigger confirms the live payload that would be sent right now."
+        )
+    return payload
 
 
 def get_nearest_index_future_instrument(index_name, underlying_names=None):
@@ -25172,6 +25249,38 @@ def derivatives_delivery_toggle_watch():
     )
 
 
+@app.route("/admin/derivatives/delivery/set-schedule")
+def derivatives_delivery_set_schedule():
+    profile_key = str(request.args.get("profile", "") or "").strip().lower()
+    delivery_time = str(request.args.get("time", "09:20") or "09:20").strip()
+    enabled_value = str(request.args.get("enabled", "1") or "1").strip().lower()
+    enabled = enabled_value not in {"0", "false", "off", "no"}
+    try:
+        delivery_time = parse_time(delivery_time, "09:20").strftime("%H:%M")
+    except Exception:
+        return jsonify({"status": "error", "message": "Please provide time in HH:MM format."}), 400
+    state = load_derivatives_delivery_profiles()
+    target_profile = None
+    for profile in state.get("profiles") or []:
+        if profile.get("key") == profile_key:
+            target_profile = profile
+            break
+    if not target_profile:
+        return jsonify({"status": "error", "message": "Please provide a valid delivery profile."}), 400
+    target_profile["delivery_time"] = delivery_time
+    target_profile["enabled"] = enabled
+    target_profile["last_trigger_at"] = utcnow_iso()
+    state = save_derivatives_delivery_profiles(state)
+    return jsonify(
+        {
+            "status": "ok",
+            "profile": target_profile.get("key"),
+            "delivery_time": target_profile.get("delivery_time"),
+            "enabled": target_profile.get("enabled"),
+        }
+    )
+
+
 @app.route("/admin/derivatives/delivery/preview")
 def derivatives_delivery_preview():
     profile_key = str(request.args.get("profile", "") or "").strip().lower()
@@ -25202,7 +25311,54 @@ def derivatives_delivery_trigger():
             f"{payload['channel_label']} delivery is not wired to an external transport yet. "
             "This trigger confirms the live payload that would be sent right now."
         )
+    state = load_derivatives_delivery_profiles()
+    for profile in state.get("profiles") or []:
+        if profile.get("key") == profile_key:
+            profile["last_trigger_at"] = utcnow_iso()
+            if payload.get("trigger_status") in {"sent", "preview_only"}:
+                profile["last_sent_on"] = get_today_ist().isoformat()
+            break
+    save_derivatives_delivery_profiles(state)
     return jsonify(payload)
+
+
+@app.route("/admin/derivatives/delivery/run-due")
+def derivatives_delivery_run_due():
+    state = load_derivatives_delivery_profiles()
+    results = []
+    due_count = 0
+    sent_count = 0
+    for profile in state.get("profiles") or []:
+        schedule_status = get_profile_schedule_status(profile)
+        if not schedule_status["due_now"]:
+            continue
+        due_count += 1
+        payload = trigger_derivatives_delivery_profile(profile, request.url_root.rstrip("/"))
+        profile["last_trigger_at"] = utcnow_iso()
+        if payload.get("trigger_status") in {"sent", "preview_only"}:
+            profile["last_sent_on"] = get_today_ist().isoformat()
+            sent_count += 1
+        results.append(
+            {
+                "profile": profile.get("key"),
+                "name": profile.get("name"),
+                "channel": profile.get("channel"),
+                "trigger_status": payload.get("trigger_status"),
+                "trigger_message": payload.get("trigger_message"),
+                "alert_total": payload.get("alert_total"),
+                "row_count": payload.get("row_count"),
+            }
+        )
+    save_derivatives_delivery_profiles(state)
+    return jsonify(
+        {
+            "status": "ok",
+            "due_profiles": due_count,
+            "completed_profiles": sent_count,
+            "results": results,
+            "checked_at": utcnow_iso(),
+        }
+    )
 
 
 @app.route("/admin/derivatives/oi-feed-status")
