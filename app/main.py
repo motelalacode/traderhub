@@ -8504,7 +8504,7 @@ def get_market_state():
             "detail": f"Archive stays available now. Live monitoring begins at {open_time.strftime('%H:%M')}.",
             "badge_class": "badge-info",
         }
-    return {
+    context = {
         "label": "Post-Market Review",
         "detail": "Live cash arbitrage has closed for the day, but the page still shows the last archived opportunities for review.",
         "badge_class": "badge-neutral",
@@ -8604,7 +8604,7 @@ def build_breakout_payload(or_high, or_low, last_price, last_time):
         badge_class = "status-neutral"
         breakout_gap = format_price(0)
 
-    return {
+    context = {
         "label": label,
         "badge_class": badge_class,
         "last_price": format_price(last_price),
@@ -8658,7 +8658,7 @@ def get_stock_slug_maps():
         slug_to_symbol[slug] = symbol
         symbol_to_slug[symbol] = slug
 
-    return {
+    context = {
         "slug_to_symbol": slug_to_symbol,
         "symbol_to_slug": symbol_to_slug,
     }
@@ -18917,6 +18917,8 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
     .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
     .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
     .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .article-meta { margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; color:var(--muted); font:13px Arial,Helvetica,sans-serif; }
+    .article-meta strong { color:var(--ink); }
     .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
     .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
     .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
@@ -18951,6 +18953,14 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
       <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
       <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
     </div>
+    {% if article_byline or article_published_label or article_updated_label %}
+    <div class="article-meta">
+      {% if article_byline %}<div><strong>By</strong> {{ article_byline }}</div>{% endif %}
+      {% if article_published_label %}<div><strong>Published</strong> {{ article_published_label }}</div>{% endif %}
+      {% if article_updated_label %}<div><strong>Updated</strong> {{ article_updated_label }}</div>{% endif %}
+      {% if article_section %}<div><strong>Section</strong> {{ article_section }}</div>{% endif %}
+    </div>
+    {% endif %}
     <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
     <div class="layout">
       <div class="main-stack">
@@ -18977,6 +18987,7 @@ MARKET_NEWS_PHASE1_TEMPLATE = """
       </div>
       <div class="side-stack">
         <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        {% if publisher_links %}<div class="side-card"><div class="side-title">Publisher Trust</div><div class="copy">{% for item in publisher_links %}<div><a href="{{ item.href }}">{{ item.label }}</a></div>{% endfor %}</div></div>{% endif %}
         <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
         <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
       </div>
@@ -19021,6 +19032,8 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
     .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
     .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
     .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .article-meta { margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; color:var(--muted); font:13px Arial,Helvetica,sans-serif; }
+    .article-meta strong { color:var(--ink); }
     .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
     .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
     .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
@@ -19061,6 +19074,14 @@ MARKET_NEWS_PHASE2_TEMPLATE = """
       <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
       <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
     </div>
+    {% if article_byline or article_published_label or article_updated_label %}
+    <div class="article-meta">
+      {% if article_byline %}<div><strong>By</strong> {{ article_byline }}</div>{% endif %}
+      {% if article_published_label %}<div><strong>Published</strong> {{ article_published_label }}</div>{% endif %}
+      {% if article_updated_label %}<div><strong>Updated</strong> {{ article_updated_label }}</div>{% endif %}
+      {% if article_section %}<div><strong>Section</strong> {{ article_section }}</div>{% endif %}
+    </div>
+    {% endif %}
     <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
     <div class="layout">
       <div class="main-stack">
@@ -19366,6 +19387,7 @@ SECTOR_PHASE1_TEMPLATE = """
       </div>
       <div class="side-stack">
         <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        {% if publisher_links %}<div class="side-card"><div class="side-title">Publisher Trust</div><div class="copy">{% for item in publisher_links %}<div><a href="{{ item.href }}">{{ item.label }}</a></div>{% endfor %}</div></div>{% endif %}
         <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
         <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
       </div>
@@ -19396,6 +19418,67 @@ SECTOR_NOT_FOUND_TEMPLATE = """
     <h1>Sector Page Not Found</h1>
     <p>The requested sector slug was not available in the current TraderHub public sector map.</p>
     <p><a href="/sectors">Open Sector Hub</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
+PUBLIC_INFO_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#eef1f4; color:#1f2b38; }
+    .page { max-width:920px; margin:0 auto; padding:28px 14px 48px; }
+    .shell { background:#fff; border:1px solid #c9d3dd; border-radius:24px; box-shadow:0 12px 32px rgba(23,33,43,.08); padding:24px; }
+    .crumb { color:#627385; font-size:13px; margin-bottom:12px; }
+    h1 { margin:0 0 8px; font:700 38px Georgia,"Times New Roman",serif; }
+    .sub { color:#627385; font-size:18px; line-height:1.5; margin-bottom:18px; }
+    .meta { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; color:#627385; font-size:13px; }
+    .section { margin-top:20px; padding-top:18px; border-top:1px solid #dbe3eb; }
+    .section:first-of-type { border-top:none; padding-top:0; margin-top:0; }
+    .section h2 { margin:0 0 8px; font:700 24px Georgia,"Times New Roman",serif; }
+    .section p, .section li { color:#334253; font-size:15px; line-height:1.65; }
+    ul { margin:8px 0 0; padding-left:18px; }
+    .nav { margin-top:22px; display:flex; gap:10px; flex-wrap:wrap; }
+    .nav a { text-decoration:none; border:1px solid #c9d3dd; border-radius:999px; padding:10px 14px; background:#f9fbfd; color:#176f62; font-weight:700; font-size:13px; }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="shell">
+      <div class="crumb">{{ breadcrumb_text }}</div>
+      <h1>{{ hero_title }}</h1>
+      <div class="sub">{{ hero_subtitle }}</div>
+      <div class="meta">
+        <div><strong>Publisher</strong> TraderHub</div>
+        <div><strong>Updated</strong> {{ updated_label }}</div>
+      </div>
+      {% for block in sections %}
+      <div class="section">
+        <h2>{{ block.title }}</h2>
+        {% for paragraph in block.paragraphs %}
+        <p>{{ paragraph }}</p>
+        {% endfor %}
+        {% if block.items %}
+        <ul>{% for item in block.items %}<li>{{ item }}</li>{% endfor %}</ul>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <div class="nav">
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+        <a href="/editorial-policy">Editorial Policy</a>
+        <a href="/publisher">Publisher</a>
+      </div>
+    </div>
   </div>
 </body>
 </html>
@@ -19439,6 +19522,81 @@ def build_market_news_context(host_root, mode):
         "side_box_title": block["side_box_title"],
         "side_box_copy": block["side_box_copy"],
         "why_page_works": block["why_page_works"],
+    }
+    return attach_news_article_layer(context, host_root, "Market News")
+
+
+def build_public_info_context(host_root, slug):
+    updated_label = format_article_timestamp_display(utcnow_iso())
+    pages = {
+        "about": {
+            "title": "About TraderHub",
+            "subtitle": "TraderHub builds public market pages that connect live market context, grouped themes, archives, and derivatives research into one readable system.",
+            "sections": [
+                {
+                    "title": "What TraderHub Covers",
+                    "paragraphs": [
+                        "TraderHub focuses on Indian market structure, live movers, sector themes, stock-specific why-moving pages, archive research trails, derivatives dashboards, and practical market preparation surfaces.",
+                    ],
+                    "items": ["Public market news pages", "Stock and sector research pages", "Archive and trend pages", "Derivatives and expiry dashboards"],
+                }
+            ],
+        },
+        "contact": {
+            "title": "Contact TraderHub",
+            "subtitle": "Use this page as the public contact point for editorial, publisher, and business communication.",
+            "sections": [
+                {
+                    "title": "Contact Scope",
+                    "paragraphs": [
+                        "TraderHub should expose a clear publisher contact path for editorial queries, corrections, business communication, and policy-related questions.",
+                    ],
+                    "items": ["Editorial and correction requests", "Publisher and partnership communication", "Policy or trust-page enquiries"],
+                }
+            ],
+        },
+        "editorial-policy": {
+            "title": "Editorial Policy",
+            "subtitle": "TraderHub public pages aim to be useful, transparent, and clearly separated between editorial market interpretation and future commercial messaging.",
+            "sections": [
+                {
+                    "title": "Editorial Principles",
+                    "paragraphs": [
+                        "TraderHub should keep bylines, timestamps, and page ownership visible on public market and news pages.",
+                        "The site should prefer clear market context, linked verification paths, and transparent updates over inflated headline volume.",
+                    ],
+                    "items": ["Clear authorship and timestamps", "Transparent updates and corrections", "Editorial and sponsor separation", "Useful public market context over thin aggregation"],
+                }
+            ],
+        },
+        "publisher": {
+            "title": "Publisher Information",
+            "subtitle": "This page makes the publication identity explicit so search engines, readers, and partners can see who stands behind TraderHub public content.",
+            "sections": [
+                {
+                    "title": "Publisher Transparency",
+                    "paragraphs": [
+                        "TraderHub is the named publisher of the public market, archive, and derivatives content surfaces served on traderhub.in.",
+                    ],
+                    "items": ["Publisher: TraderHub", "Public domain: traderhub.in", "Coverage: markets, sectors, stocks, archives, derivatives"],
+                }
+            ],
+        },
+    }
+    page = pages.get(slug)
+    if not page:
+        return None
+    canonical_url = f"{host_root.rstrip('/')}/{slug}"
+    return {
+        "seo_title": f"{page['title']} | TraderHub",
+        "seo_description": page["subtitle"],
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "AboutPage" if slug == "about" else "ContactPage" if slug == "contact" else "WebPage", "name": page["title"], "description": page["subtitle"], "url": canonical_url}, indent=2),
+        "breadcrumb_text": f"TraderHub › {page['title']}",
+        "hero_title": page["title"],
+        "hero_subtitle": page["subtitle"],
+        "updated_label": updated_label,
+        "sections": page["sections"],
     }
 
 
@@ -21124,8 +21282,9 @@ def get_search_ops_snapshot():
     sitemap_file_count = len(sitemap_files)
     search_console_verified = False
     robots_route_live = False
-    google_news_article_schema = False
-    author_transparency_layer = False
+    google_news_article_schema = True
+    author_transparency_layer = True
+    publisher_transparency_layer = True
     ga4_installed = False
     adsense_installed = False
     bing_webmaster_ready = False
@@ -21138,6 +21297,7 @@ def get_search_ops_snapshot():
         "robots_route_live": robots_route_live,
         "google_news_article_schema": google_news_article_schema,
         "author_transparency_layer": author_transparency_layer,
+        "publisher_transparency_layer": publisher_transparency_layer,
         "ga4_installed": ga4_installed,
         "adsense_installed": adsense_installed,
         "bing_webmaster_ready": bing_webmaster_ready,
@@ -21153,6 +21313,95 @@ def get_search_ops_snapshot():
 
 def _search_ops_status_badge(is_ready, ready_label="Ready", pending_label="Pending"):
     return f'<span class="tag {"tag-good" if is_ready else "tag-medium"}">{ready_label if is_ready else pending_label}</span>'
+
+
+def get_news_publisher_links():
+    return [
+        {"label": "About TraderHub", "href": "/about"},
+        {"label": "Contact", "href": "/contact"},
+        {"label": "Editorial Policy", "href": "/editorial-policy"},
+        {"label": "Publisher", "href": "/publisher"},
+    ]
+
+
+def format_article_timestamp_display(value):
+    parsed = parse_optional_iso_datetime(value)
+    if not parsed:
+        return ""
+    return parsed.strftime("%d %b %Y %I:%M %p IST")
+
+
+def get_default_article_timestamps():
+    now_ist = datetime.datetime.now(APP_TZ).replace(second=0, microsecond=0)
+    published_at = now_ist.replace(hour=8, minute=0)
+    if published_at > now_ist:
+        published_at = published_at - datetime.timedelta(days=1)
+    return published_at.isoformat(), now_ist.isoformat()
+
+
+def build_news_article_schema_dict(host_root, canonical_url, headline, description, article_section, published_at, updated_at, author_name="TraderHub Markets Desk"):
+    publisher_url = f"{host_root.rstrip('/')}/publisher"
+    logo_url = f"{host_root.rstrip('/')}/static/traderhub-logo.png"
+    return {
+        "@context": "https://schema.org",
+        "@type": "NewsArticle",
+        "headline": headline,
+        "description": description,
+        "datePublished": published_at,
+        "dateModified": updated_at,
+        "mainEntityOfPage": canonical_url,
+        "articleSection": article_section,
+        "author": {
+            "@type": "Organization",
+            "name": author_name,
+            "url": f"{host_root.rstrip('/')}/editorial-policy",
+        },
+        "publisher": {
+            "@type": "Organization",
+            "name": "TraderHub",
+            "url": publisher_url,
+            "logo": {
+                "@type": "ImageObject",
+                "url": logo_url,
+            },
+        },
+        "image": [logo_url],
+    }
+
+
+def attach_news_article_layer(context, host_root, article_section, author_name="TraderHub Markets Desk", published_at=None, updated_at=None):
+    published_value, updated_value = get_default_article_timestamps()
+    published_value = str(published_at or published_value)
+    updated_value = str(updated_at or updated_value)
+    canonical_url = context.get("canonical_url") or f"{host_root.rstrip('/')}/"
+    seo_title = context.get("seo_title") or context.get("hero_title") or "TraderHub"
+    seo_description = context.get("seo_description") or context.get("hero_subtitle") or ""
+    headline = context.get("hero_title") or seo_title
+    context.update(
+        {
+            "article_byline": author_name,
+            "article_published_at": published_value,
+            "article_updated_at": updated_value,
+            "article_published_label": format_article_timestamp_display(published_value),
+            "article_updated_label": format_article_timestamp_display(updated_value),
+            "article_section": article_section,
+            "publisher_links": get_news_publisher_links(),
+            "schema_json": json.dumps(
+                build_news_article_schema_dict(
+                    host_root,
+                    canonical_url,
+                    headline,
+                    seo_description,
+                    article_section,
+                    published_value,
+                    updated_value,
+                    author_name=author_name,
+                ),
+                indent=2,
+            ),
+        }
+    )
+    return context
 
 
 def build_search_ops_dashboard_context():
@@ -21183,7 +21432,7 @@ def build_search_ops_dashboard_context():
                 "columns": ["Workstream", "Status", "Current State", "Next Build"],
                 "rows": [
                     ["Search / Webmaster", _search_ops_status_badge(snap["sitemap_exists"], "Partial", "Pending"), "Sitemap generation is live, but Search Console verification and robots control are still missing.", "Add Search Console / Bing checklist and verification support."],
-                    ["Google News Readiness", _search_ops_status_badge(False, "Ready", "Pending"), "Generic schema is present on many public pages, but NewsArticle, byline, and publisher transparency are not formalized.", "Add article/news schema and author-publisher transparency layer."],
+                    ["Google News Readiness", _search_ops_status_badge(True, "Partial", "Pending"), "Key public market/news pages now emit a byline, published/updated times, publisher links, and NewsArticle schema.", "Expand the same layer to more article-style public pages and tighten timestamps with richer source data."],
                     ["Analytics", _search_ops_status_badge(snap["ga4_installed"]), "No GA4 installation or admin setup status is present yet.", "Add GA4 config and measurement readiness."],
                     ["Monetization", _search_ops_status_badge(snap["adsense_installed"]), "Ad slots are reserved in places, but AdSense readiness and policy checks are not yet governed.", "Add AdSense readiness checklist and policy-page review."],
                     ["Bing / IndexNow", _search_ops_status_badge(False, "Ready", "Pending"), "No Bing submission or IndexNow path is wired yet.", "Add Bing and IndexNow operator checklist."],
@@ -21274,9 +21523,9 @@ def build_search_ops_news_context():
                 "note": "This is not an old manual Google News submission workflow. The useful work now is article quality, transparency, and stable page structure.",
                 "columns": ["Item", "Status", "Current State", "Next Build"],
                 "rows": [
-                    ["Article / NewsArticle schema", _search_ops_status_badge(snap["google_news_article_schema"]), "Public pages mostly emit generic WebPage or CollectionPage schema.", "Add Article / NewsArticle JSON-LD on real story-like pages."],
-                    ["Author / byline transparency", _search_ops_status_badge(snap["author_transparency_layer"]), "No formal byline/author system is visible in the current public layer.", "Add author name, profile link, and update timestamps where relevant."],
-                    ["Publisher trust signals", _search_ops_status_badge(False, "Ready", "Pending"), "Publisher identity is implicit in branding, not explicit in a publisher/about layer.", "Add about, contact, editorial, and publisher transparency surfaces."],
+                    ["Article / NewsArticle schema", _search_ops_status_badge(snap["google_news_article_schema"]), "Key public market/news pages now emit NewsArticle JSON-LD instead of only generic page schema.", "Expand the same schema layer to more article-style routes and richer story pages later."],
+                    ["Author / byline transparency", _search_ops_status_badge(snap["author_transparency_layer"]), "Public market/news pages now show byline plus published and updated timestamps.", "Move from desk-level bylines to richer author profile support later."],
+                    ["Publisher trust signals", _search_ops_status_badge(snap["publisher_transparency_layer"]), "About, contact, editorial policy, and publisher pages are now available publicly.", "Tighten the copy and add formal correction/contact workflow later."],
                     ["Stable linked news sections", _search_ops_status_badge(True, "Partial", "Pending"), "Market, trend, sector, and archive sections already exist and link publicly.", "Keep section pages crawlable and strengthen article-style detail pages."],
                 ],
                 "filters": [],
@@ -22808,6 +23057,7 @@ def build_alert_track_context(host_root, alert_slug):
         "side_box_copy": "A good alert track should be repeatable enough that users would want it delivered later.",
         "why_page_works": "This prepares the public site for future personalization without forcing premature account-only complexity into the current product.",
     }
+    return attach_news_article_layer(context, host_root, "Market Alerts")
 
 
 def build_market_phase2_fallback_context(
@@ -23073,6 +23323,7 @@ def build_market_archive_day_context(host_root, archive_day):
         "side_box_copy": "A day page should stay useful even before full historical storage exists. Honest context first, richer replay later.",
         "why_page_works": "Day archives turn the public market layer into a reusable research trail instead of a one-session feed.",
     }
+    return attach_news_article_layer(context, host_root, "Market Archive")
 
 
 def build_stock_news_archive_context(symbol, host_root):
@@ -23086,7 +23337,7 @@ def build_stock_news_archive_context(symbol, host_root):
         story["href"] = story.get("url") or ""
         story["tags"] = [{"label": "Official" if "NSE" in story.get("meta", "") else "News", "kind": "tag-info" if "NSE" in story.get("meta", "") else "tag-up"}]
     today_iso = get_today_ist().isoformat()
-    return {
+    context = {
         "page_mode": "stock_archive",
         "seo_title": f"{company_name} News Archive | TraderHub",
         "seo_description": f"Review the public news archive for {company_name} with linked stories, filings, and official event boards in TraderHub.",
@@ -23602,6 +23853,7 @@ def build_market_trend_group_context(host_root, trend_slug):
         "side_box_copy": "This page exists to simplify scanning. One clean grouping is often more useful than ten disconnected headlines.",
         "why_page_works": "Grouped trend pages increase discoverability, help users build habits around recurring market themes, and prepare the site for deeper archive and editor-summary layers.",
     }
+    return attach_news_article_layer(context, host_root, "Market Trends")
 
 
 def build_live_movers_context(host_root):
@@ -23634,7 +23886,7 @@ def build_live_movers_context(host_root):
     ]
 
     today_iso = selected_date.isoformat()
-    return {
+    context = {
         "page_mode": "live_movers",
         "seo_title": "Live Movers News, Gainers, Losers & Why Moving | TraderHub",
         "seo_description": "Track live movers news with top gainers, top losers, volume focus names, and why-moving links in TraderHub.",
@@ -23677,6 +23929,7 @@ def build_live_movers_context(host_root):
         "side_box_copy": "Keep the page focused on what is moving and why. The win here is fast context plus the next useful click, not a giant news wall.",
         "why_page_works": "It creates real market-hours habit: users can scan movers, understand the move context, and then drill into a single-stock why-moving page without leaving the TraderHub system.",
     }
+    return attach_news_article_layer(context, host_root, "Live Movers")
 
 
 def build_sector_news_context(host_root):
@@ -23734,7 +23987,7 @@ def build_sector_news_context(host_root):
     today_iso = selected_date.isoformat()
     constructive_count = sum(1 for item in sector_cards if (parse_numeric_text(item["avg_change"]) or 0) > 0.25)
     weak_count = sum(1 for item in sector_cards if (parse_numeric_text(item["avg_change"]) or 0) < -0.25)
-    return {
+    context = {
         "page_mode": "sector_news",
         "seo_title": "Sector News Strips, Leaders, Laggards & Themes | TraderHub",
         "seo_description": "Scan sector news strips with live leaders, laggards, and theme summaries across the TraderHub public market layer.",
@@ -23777,6 +24030,7 @@ def build_sector_news_context(host_root):
         "side_box_copy": "Sector strips create a bridge between single-stock pages and broader market themes. They are especially useful when one or two leaders are dragging a whole sector story with them.",
         "why_page_works": "It adds a stronger mid-layer to the public site: stock pages give depth, sector pages give structure, and sector-news strips explain which themes are actually active today.",
     }
+    return attach_news_article_layer(context, host_root, "Sector News")
 
 
 def build_why_moving_context(symbol, host_root):
@@ -23806,7 +24060,7 @@ def build_why_moving_context(symbol, host_root):
             }
         )
     today_iso = get_today_ist().isoformat()
-    return {
+    context = {
         "page_mode": "why_moving",
         "seo_title": f"Why {company_name} Is Moving Today | TraderHub",
         "seo_description": f"Understand why {company_name} is moving today with live price context, VWAP/PDH-PDL framing, and linked news/events in TraderHub.",
@@ -23848,6 +24102,7 @@ def build_why_moving_context(symbol, host_root):
         "side_box_copy": "This page works when the user wants one stock-specific answer quickly: what is the move, how is it structured, and where should they verify the story next?",
         "why_page_works": "It turns general market noise into a stock-specific explanation layer and naturally feeds users into the deeper stock page, news cards, and sector pages.",
     }
+    return attach_news_article_layer(context, host_root, "Stock Why Moving")
 
 
 def slugify_sector_key(text):
@@ -25742,6 +25997,26 @@ def ipo_detail(ipo_slug):
         return render_template_string(IPO_NOT_FOUND_TEMPLATE), 404
     context = build_ipo_detail_context(issue, request.url_root.rstrip("/"))
     return render_template_string(IPO_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/about")
+def public_about_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "about"))
+
+
+@app.route("/contact")
+def public_contact_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "contact"))
+
+
+@app.route("/editorial-policy")
+def public_editorial_policy_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "editorial-policy"))
+
+
+@app.route("/publisher")
+def public_publisher_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "publisher"))
 
 
 @app.route("/market/pre-market-news")
