@@ -69,6 +69,7 @@ STOCK_ISIN_CACHE_PATH = DATA_DIR / "stock_isin_map.json"
 IPO_PHASE1_FEED_PATH = DATA_DIR / "ipo_phase1_feed.json"
 MARKET_NEWS_PHASE1_FEED_PATH = DATA_DIR / "market_news_phase1_feed.json"
 DERIVATIVES_PHASE1_FEED_PATH = DATA_DIR / "derivatives_phase1_feed.json"
+DERIVATIVES_EXPIRY_WATCHLISTS_PATH = DATA_DIR / "derivatives_expiry_watchlists.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 MANUAL_WATCHLIST_LIMIT = 5
 MANUAL_WATCHLIST_STOCK_LIMIT = 25
@@ -8937,6 +8938,62 @@ def save_manual_watchlists_state(state):
     return normalized
 
 
+def build_default_derivatives_watchlist_state():
+    return {"entries": []}
+
+
+def normalize_derivatives_watchlist_state(payload):
+    entries = payload.get("entries") or []
+    normalized_entries = []
+    seen_keys = set()
+    for raw in entries:
+        index_slug = str((raw or {}).get("index_slug") or "").strip().lower()
+        expiry = str((raw or {}).get("expiry") or "").strip()
+        note = str((raw or {}).get("note") or "").strip()[:140]
+        created_at = str((raw or {}).get("created_at") or utcnow_iso()).strip()
+        if index_slug not in {"nifty-options", "banknifty-options"}:
+            continue
+        if not normalize_expiry_date(expiry):
+            continue
+        watch_key = f"{index_slug}:{expiry}"
+        if watch_key in seen_keys:
+            continue
+        seen_keys.add(watch_key)
+        normalized_entries.append(
+            {
+                "watch_key": watch_key,
+                "index_slug": index_slug,
+                "expiry": expiry,
+                "note": note,
+                "created_at": created_at,
+            }
+        )
+    normalized_entries.sort(key=lambda item: (item["index_slug"], item["expiry"]))
+    return {"entries": normalized_entries[:40]}
+
+
+def load_derivatives_watchlist_state():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not DERIVATIVES_EXPIRY_WATCHLISTS_PATH.exists():
+        state = build_default_derivatives_watchlist_state()
+        DERIVATIVES_EXPIRY_WATCHLISTS_PATH.write_text(json.dumps(state, indent=2), encoding="utf-8")
+        return state
+    try:
+        payload = json.loads(DERIVATIVES_EXPIRY_WATCHLISTS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = build_default_derivatives_watchlist_state()
+    normalized = normalize_derivatives_watchlist_state(payload)
+    DERIVATIVES_EXPIRY_WATCHLISTS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
+def save_derivatives_watchlist_state(state):
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_derivatives_watchlist_state(state)
+    DERIVATIVES_EXPIRY_WATCHLISTS_PATH.write_text(json.dumps(normalized, indent=2), encoding="utf-8")
+    return normalized
+
+
 def get_manual_watchlist_options(state):
     return [
         {
@@ -10645,6 +10702,186 @@ def build_expiry_alert_signals(
         })
 
     return alerts[:5]
+
+
+def build_derivatives_watch_snapshot(index_slug, selected_expiry, host_root):
+    config = DERIVATIVES_INDEX_CONFIG[index_slug]
+    creds = get_active_kite_credentials()
+    client = build_kite_client(with_access_token=True) if creds["api_key"] and creds["access_token"] else None
+    spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+    spot_value = float((spot_quote or {}).get("last_price") or 0)
+    chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+        strike_span=8,
+        selected_expiry=selected_expiry,
+    )
+    future_snapshot = get_live_index_future_snapshot(
+        config["index_name"],
+        underlying_names=config.get("underlying_names"),
+    )
+    chain_available = bool(chain.get("available"))
+    future_available = bool(future_snapshot.get("available"))
+    effective_expiry = chain.get("selected_expiry") or selected_expiry or future_snapshot.get("expiry_date") or "Pending"
+    pcr_numeric = chain.get("pcr_numeric")
+    pcr_display = chain.get("pcr_display", "Pending")
+    max_pain = chain.get("max_pain", "-")
+    support_zone = chain.get("support_zone", "-")
+    resistance_zone = chain.get("resistance_zone", "-")
+    call_cluster = summarize_strike_cluster(chain.get("rows") or [], "call", config["strike_step"])
+    put_cluster = summarize_strike_cluster(chain.get("rows") or [], "put", config["strike_step"])
+    premium_discount = None
+    if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
+        premium_discount = float(future_snapshot["price_numeric"]) - float(spot_value)
+    alert_signals = build_expiry_alert_signals(
+        spot_value,
+        config["strike_step"],
+        pcr_numeric,
+        pcr_display,
+        max_pain,
+        support_zone,
+        resistance_zone,
+        premium_discount,
+        call_cluster,
+        put_cluster,
+    )
+    tone = get_pcr_interpretation(pcr_numeric)
+    if max_pain not in {"-", "Pending"} and spot_value > 0:
+        try:
+            if abs(float(max_pain) - float(spot_value)) <= config["strike_step"]:
+                tone = "Pin-risk structure"
+        except Exception:
+            pass
+    status = "Live"
+    if not chain_available:
+        status = "Chain Pending"
+    elif not future_available:
+        status = "Futures Pending"
+    return {
+        "watch_key": f"{index_slug}:{effective_expiry}",
+        "index_slug": index_slug,
+        "index_label": "Nifty 50" if index_slug == "nifty-options" else "Bank Nifty",
+        "expiry": effective_expiry,
+        "spot": format_price(spot_value) if spot_value > 0 else "Pending",
+        "pcr": pcr_display,
+        "max_pain": str(max_pain),
+        "tone": tone,
+        "pressure_bands": f"C {call_cluster.get('band')} / P {put_cluster.get('band')}",
+        "alert_count": len(alert_signals),
+        "top_alert": alert_signals[0]["label"] if alert_signals else "No active alert",
+        "top_alert_copy": alert_signals[0]["copy"] if alert_signals else "No high-priority expiry watch alert is active right now.",
+        "status": status,
+        "dashboard_url": f"{host_root.rstrip('/')}/derivatives/expiry-strategy?index={index_slug}&expiry={effective_expiry}" if effective_expiry and effective_expiry != "Pending" else f"{host_root.rstrip('/')}/derivatives/expiry-strategy?index={index_slug}",
+        "chain_url": f"{host_root.rstrip('/')}/derivatives/index/option-chain?index={index_slug}&expiry={effective_expiry}" if effective_expiry and effective_expiry != "Pending" else f"{host_root.rstrip('/')}/derivatives/index/option-chain?index={index_slug}",
+        "remove_url": f"{host_root.rstrip('/')}/admin/derivatives/watchlist/remove?index={index_slug}&expiry={effective_expiry}",
+        "alerts": alert_signals,
+        "market_error": (None if chain_available else chain.get("error")) or (None if future_available else future_snapshot.get("error")),
+    }
+
+
+def build_derivatives_watchlist_context(host_root):
+    state = load_derivatives_watchlist_state()
+    rows = []
+    for entry in state.get("entries") or []:
+        rows.append(build_derivatives_watch_snapshot(entry["index_slug"], entry["expiry"], host_root))
+
+    live_rows = [row for row in rows if row.get("status") == "Live"]
+    total_alerts = sum(int(row.get("alert_count") or 0) for row in rows)
+    highest_alert_row = max(rows, key=lambda row: int(row.get("alert_count") or 0), default=None)
+    focus_items = []
+    for row in rows[:8]:
+        focus_items.append(f"{row['index_label']} | {row['expiry']} | {row['top_alert']}")
+
+    table_rows = [
+        {
+            "index": row["index_label"],
+            "dashboard_url": row["dashboard_url"],
+            "expiry": row["expiry"],
+            "tone": row["tone"],
+            "pcr": row["pcr"],
+            "max_pain": row["max_pain"],
+            "bands": row["pressure_bands"],
+            "alert": row["top_alert"],
+            "status": row["status"],
+            "open_chain": "Open Chain",
+            "chain_url": row["chain_url"],
+            "remove": "Remove",
+            "remove_url": row["remove_url"],
+        }
+        for row in rows
+    ]
+
+    return {
+        "page_mode": "derivatives_watchlist",
+        "seo_title": "Derivatives Expiry Watchlist | TraderHub",
+        "seo_description": "Track saved derivatives expiry watch rows with live PCR, max pain, clustered pressure bands, and expiry-aware alert signals.",
+        "canonical_url": f"{host_root.rstrip('/')}/admin/derivatives/watchlist",
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Derivatives Expiry Watchlist | TraderHub", "description": "Saved derivatives expiry watchlist for TraderHub.", "url": f"{host_root.rstrip('/')}/admin/derivatives/watchlist"}, indent=2),
+        "breadcrumb_text": "Admin > Derivatives > Watchlist",
+        "breadcrumb_meta_text": f"Expiry watch desk | Last reviewed {get_today_ist().isoformat()}",
+        "hero_kicker": "TraderHub Derivatives Watchlist",
+        "hero_title": "Expiry Watchlist Desk",
+        "hero_subtitle": "This desk saves expiry setups worth revisiting. Each row keeps the live public alert stack close at hand without turning the derivatives product into a full terminal or portfolio tracker.",
+        "hero_metric_primary": str(len(rows)),
+        "hero_metric_secondary": "saved expiry rows",
+        "hero_badges": [
+            {"label": "Phase 1 Desk", "kind": "tag-info"},
+            {"label": f"{len(live_rows)} Live", "kind": "tag-up"},
+            {"label": f"{total_alerts} Alerts", "kind": "tag-warn" if total_alerts else "tag-up"},
+        ],
+        "hero_stats": [
+            {"label": "Saved Rows", "value": len(rows)},
+            {"label": "Live Rows", "value": len(live_rows)},
+            {"label": "Total Alerts", "value": total_alerts},
+            {"label": "Top Focus", "value": highest_alert_row["index_label"] if highest_alert_row else "Pending"},
+        ],
+        "nav_chips": [
+            {"label": "Watchlist Desk", "href": "/admin/derivatives/watchlist"},
+            {"label": "OI Feed Status", "href": "/admin/derivatives/oi-feed-status"},
+            {"label": "OI Diagnostics", "href": "/admin/derivatives/oi-diagnostics"},
+            {"label": "Nifty Expiry", "href": "/derivatives/expiry-strategy?index=nifty-options"},
+            {"label": "Bank Nifty Expiry", "href": "/derivatives/expiry-strategy?index=banknifty-options"},
+        ],
+        "section_title": "Desk Snapshot",
+        "section_note": "Use the add links from expiry pages and option-chain pages to save a setup here. Each row keeps the latest public interpretation close by so the user can return to an expiry idea without rebuilding context from zero.",
+        "summary_cards": [
+            {"label": "Watch Rows", "value": len(rows), "copy": "Saved index-plus-expiry combinations currently tracked by the desk."},
+            {"label": "Live Rows", "value": len(live_rows), "copy": "Rows where the current public chain and futures layers are live right now."},
+            {"label": "Total Alerts", "value": total_alerts, "copy": "Combined active watch alerts across the saved expiry rows."},
+            {"label": "Top Alert", "value": highest_alert_row["top_alert"] if highest_alert_row else "No rows", "copy": highest_alert_row["top_alert_copy"] if highest_alert_row else "Save an expiry row from the public derivatives pages to start the desk."},
+        ],
+        "focus_title": None,
+        "focus_note": None,
+        "focus_cards": [],
+        "table_title": "Saved Expiry Rows",
+        "table_note": "Open the dashboard or chain view from any row, or remove it once the setup is no longer worth tracking.",
+        "table_columns": [
+            {"label": "Index", "key": "index", "link_key": "dashboard_url"},
+            {"label": "Expiry", "key": "expiry", "link_key": None},
+            {"label": "Tone", "key": "tone", "link_key": None},
+            {"label": "PCR", "key": "pcr", "link_key": None},
+            {"label": "Max Pain", "key": "max_pain", "link_key": None},
+            {"label": "Bands", "key": "bands", "link_key": None},
+            {"label": "Top Alert", "key": "alert", "link_key": None},
+            {"label": "Status", "key": "status", "link_key": None},
+            {"label": "Chain", "key": "open_chain", "link_key": "chain_url"},
+            {"label": "Remove", "key": "remove", "link_key": "remove_url"},
+        ],
+        "table_rows": table_rows,
+        "group_title": "Desk Notes",
+        "group_note": "These blocks keep the desk useful even before a richer multi-user derivatives watchlist system exists.",
+        "group_blocks": [
+            {"title": "Current Focus", "count": len(focus_items), "copy": "A quick read of the saved expiry rows that currently matter most.", "items": focus_items or ["No rows saved yet. Open an expiry dashboard or option chain and save the current expiry to start the desk."]},
+            {"title": "How To Use", "count": 4, "copy": "Phase 1 keeps the desk deliberately simple and reusable.", "items": ["Save an expiry from the public expiry dashboard or option chain", "Use the row links to reopen the live page context", "Watch the alert count and top alert label first", "Remove stale rows once the setup is no longer relevant"]},
+        ],
+        "public_note": "This desk is a saved-setup layer, not a trading blotter. It keeps the live expiry interpretation reusable without overbuilding the first derivatives watchlist system.",
+        "side_box_title": "Current Rule",
+        "side_box_copy": "Save the expiry rows that deserve a second look, then use the desk to reopen them quickly with live PCR, max-pain, cluster, and alert context already attached.",
+        "why_page_works": "It turns page-level derivatives interpretation into a reusable product layer and gives TraderHub a clean path toward richer expiry alerts later.",
+        "market_error": None,
+    }
 
 
 def get_nearest_index_future_instrument(index_name, underlying_names=None):
@@ -23891,6 +24128,8 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
             {"label": "Nifty Expiry", "href": "/derivatives/expiry-strategy?index=nifty-options"},
             {"label": "Bank Nifty Expiry", "href": "/derivatives/expiry-strategy?index=banknifty-options"},
             *expiry_nav_chips,
+            {"label": "Save This Expiry", "href": f"/admin/derivatives/watchlist/add?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != 'Pending' else "/admin/derivatives/watchlist"},
+            {"label": "Watchlist Desk", "href": "/admin/derivatives/watchlist"},
             {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
             {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
             {"label": "Index OI", "href": "/derivatives/index/oi-change"},
@@ -24090,6 +24329,8 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
             {"label": "Nifty Chain", "href": "/derivatives/index/option-chain?index=nifty-options"},
             {"label": "Bank Nifty Chain", "href": "/derivatives/index/option-chain?index=banknifty-options"},
             *expiry_nav_chips,
+            {"label": "Save This Expiry", "href": f"/admin/derivatives/watchlist/add?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != 'Pending' else "/admin/derivatives/watchlist"},
+            {"label": "Watchlist Desk", "href": "/admin/derivatives/watchlist"},
             {"label": "Expiry Dashboard", "href": f"/derivatives/expiry-strategy?index={index_slug}&expiry={selected_expiry_value}" if selected_expiry_value and selected_expiry_value != "Pending" else f"/derivatives/expiry-strategy?index={index_slug}"},
             {"label": "Index OI", "href": "/derivatives/index/oi-change"},
         ],
@@ -24503,6 +24744,62 @@ def derivatives_stock_hub():
 def derivatives_stock_oi_change():
     context = build_stock_oi_change_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/derivatives/watchlist")
+def derivatives_watchlist_desk():
+    context = build_derivatives_watchlist_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/derivatives/watchlist/add")
+def derivatives_watchlist_add():
+    index_slug = str(request.args.get("index", "") or "").strip().lower()
+    expiry_value = str(request.args.get("expiry", "") or "").strip()
+    note = str(request.args.get("note", "") or "").strip()
+    if index_slug not in {"nifty-options", "banknifty-options"}:
+        return jsonify({"status": "error", "message": "Please provide a valid index slug."}), 400
+    if not normalize_expiry_date(expiry_value):
+        return jsonify({"status": "error", "message": "Please provide a valid expiry date."}), 400
+    state = load_derivatives_watchlist_state()
+    entries = state.get("entries") or []
+    watch_key = f"{index_slug}:{expiry_value}"
+    if not any(item.get("watch_key") == watch_key for item in entries):
+        entries.append(
+            {
+                "watch_key": watch_key,
+                "index_slug": index_slug,
+                "expiry": expiry_value,
+                "note": note,
+                "created_at": utcnow_iso(),
+            }
+        )
+    state["entries"] = entries
+    state = save_derivatives_watchlist_state(state)
+    payload = build_derivatives_watch_snapshot(index_slug, expiry_value, request.url_root.rstrip("/"))
+    payload["saved_count"] = len(state.get("entries") or [])
+    return jsonify({"status": "ok", "payload": payload})
+
+
+@app.route("/admin/derivatives/watchlist/remove")
+def derivatives_watchlist_remove():
+    index_slug = str(request.args.get("index", "") or "").strip().lower()
+    expiry_value = str(request.args.get("expiry", "") or "").strip()
+    state = load_derivatives_watchlist_state()
+    before_count = len(state.get("entries") or [])
+    state["entries"] = [
+        item
+        for item in (state.get("entries") or [])
+        if not (item.get("index_slug") == index_slug and item.get("expiry") == expiry_value)
+    ]
+    state = save_derivatives_watchlist_state(state)
+    return jsonify(
+        {
+            "status": "ok",
+            "removed": before_count - len(state.get("entries") or []),
+            "saved_count": len(state.get("entries") or []),
+        }
+    )
 
 
 @app.route("/admin/derivatives/oi-feed-status")
