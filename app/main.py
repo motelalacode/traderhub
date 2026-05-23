@@ -10453,6 +10453,63 @@ def build_derivatives_expiry_nav(index_slug, available_expiries, selected_expiry
     return chips
 
 
+def choose_comparison_expiry(available_expiries, selected_expiry):
+    selected_date = normalize_expiry_date(selected_expiry)
+    expiry_dates = [normalize_expiry_date(value) for value in (available_expiries or [])]
+    expiry_dates = [value for value in expiry_dates if value]
+    if not selected_date or len(expiry_dates) <= 1:
+        return None
+
+    later_dates = sorted(value for value in expiry_dates if value > selected_date)
+    if later_dates:
+        return later_dates[0].isoformat()
+
+    earlier_dates = sorted((value for value in expiry_dates if value < selected_date), reverse=True)
+    if earlier_dates:
+        return earlier_dates[0].isoformat()
+    return None
+
+
+def build_cross_expiry_comparison(config, spot_value, selected_expiry, available_expiries, strike_span=None):
+    comparison_expiry = choose_comparison_expiry(available_expiries, selected_expiry)
+    if not comparison_expiry:
+        return None
+
+    comparison_chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+        strike_span=strike_span if strike_span is not None else config.get("strike_span", 4),
+        selected_expiry=comparison_expiry,
+    )
+    if not comparison_chain.get("available"):
+        return {
+            "comparison_expiry": comparison_expiry,
+            "comparison_label": f"Compare vs {comparison_expiry}",
+            "available": False,
+            "error": comparison_chain.get("error") or "Comparison expiry data is unavailable right now.",
+        }
+
+    selected_label = str(selected_expiry or "Pending")
+    comparison_label = str(comparison_chain.get("selected_expiry") or comparison_expiry)
+
+    return {
+        "available": True,
+        "comparison_expiry": comparison_label,
+        "comparison_label": f"{selected_label} vs {comparison_label}",
+        "pcr_display": comparison_chain.get("pcr_display", "Pending"),
+        "max_pain": comparison_chain.get("max_pain", "-"),
+        "support_zone": comparison_chain.get("support_zone", "-"),
+        "resistance_zone": comparison_chain.get("resistance_zone", "-"),
+        "strongest_call_wall": comparison_chain.get("strongest_call_wall", "-"),
+        "strongest_put_wall": comparison_chain.get("strongest_put_wall", "-"),
+        "total_call_oi": comparison_chain.get("total_call_oi", "Pending"),
+        "total_put_oi": comparison_chain.get("total_put_oi", "Pending"),
+        "chain": comparison_chain,
+    }
+
+
 def get_nearest_index_future_instrument(index_name, underlying_names=None):
     today = get_today_ist()
     allowed_names = {str(item).strip().upper() for item in (underlying_names or []) if str(item).strip()}
@@ -23518,6 +23575,20 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
     expiry_date = chain.get("expiry_date") or future_snapshot.get("expiry_date") or "Pending"
     available_expiries = chain.get("available_expiries") or []
     selected_expiry_value = chain.get("selected_expiry") or expiry_date
+    cross_expiry = build_cross_expiry_comparison(
+        config,
+        spot_value,
+        selected_expiry_value,
+        available_expiries,
+        strike_span=config.get("strike_span", 4),
+    )
+    cross_expiry = build_cross_expiry_comparison(
+        config,
+        spot_value,
+        selected_expiry_value,
+        available_expiries,
+        strike_span=8,
+    )
 
     premium_discount = None
     if future_available and future_snapshot.get("price_numeric") is not None and spot_value > 0:
@@ -23614,6 +23685,14 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
             else "Nearest futures premium/discount is pending."
         ),
     ]
+    if cross_expiry and cross_expiry.get("available"):
+        what_changed_items.append(
+            f"Next expiry compare: PCR {cross_expiry.get('pcr_display')} with max pain near {cross_expiry.get('max_pain')} for {cross_expiry.get('comparison_expiry')}."
+        )
+    elif cross_expiry and cross_expiry.get("comparison_expiry"):
+        what_changed_items.append(
+            f"Next expiry compare for {cross_expiry.get('comparison_expiry')} is pending."
+        )
 
     pressure_rows = []
     for row in chain.get("rows") or []:
@@ -23678,6 +23757,7 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
             {"label": "Support Zone", "value": support_zone, "copy": f"Nearest support shelf from the strongest put wall sits around {strongest_put_wall}."},
             {"label": "Resistance Zone", "value": resistance_zone, "copy": f"Nearest resistance shelf from the strongest call wall sits around {strongest_call_wall}."},
             {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest index future versus spot helps frame whether expiry carry still looks constructive or cautious."},
+            {"label": "Next Expiry Compare", "value": cross_expiry.get("comparison_expiry", "Pending") if cross_expiry else "Pending", "copy": (f"Comparison expiry PCR is {cross_expiry.get('pcr_display')} with max pain near {cross_expiry.get('max_pain')}." if cross_expiry and cross_expiry.get("available") else "A second expiry is not available yet for comparison.")},
         ],
         "focus_title": "Strategy Lens",
         "focus_note": "These blocks are interpretation aids, not auto trade calls. They turn the live displayed chain into a faster expiry read.",
@@ -23697,6 +23777,7 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
         "group_note": "These notes make the page more habit-forming by translating the current expiry structure into a few quick changes worth watching.",
         "group_blocks": [
             {"title": "Expiry Structure", "count": len(what_changed_items), "copy": "Quick market-structure changes that matter first on expiry dashboards.", "items": what_changed_items},
+            {"title": "Cross-Expiry Compare", "count": 4 if cross_expiry and cross_expiry.get("available") else 1, "copy": "This keeps the dashboard from becoming a manual tab-switching exercise when the next expiry structure matters too.", "items": ([f"Comparison expiry: {cross_expiry.get('comparison_expiry')}", f"PCR: {cross_expiry.get('pcr_display')}", f"Max pain: {cross_expiry.get('max_pain')}", f"Walls: C {cross_expiry.get('strongest_call_wall')} / P {cross_expiry.get('strongest_put_wall')}"] if cross_expiry and cross_expiry.get('available') else [cross_expiry.get('error') if cross_expiry else 'No additional active expiry is available yet.'])},
             {"title": "Next Clicks", "count": 5, "copy": "Use these links when you want to drill deeper than the dashboard.", "items": [f"Open the {selector_label} options page for expiry {selected_expiry_value}", "Switch to the other expiry dashboard", "Review the combined index OI change dashboard", "Compare with stock OI pressure", "Open the derivatives hub for the broader F&O layer"]},
         ],
         "public_note": "This expiry page is designed to sit between the current public OI pages and the later full option chain. It already uses live chain and futures inputs where available, while keeping the trader read fast and uncluttered.",
@@ -23771,6 +23852,15 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
             "meta": "PCR and pain",
             "copy": f"PCR is {pcr_display} and max pain is near {max_pain}. This keeps the chain useful as a public read even before deeper Greeks and full expiry stacks are added.",
         },
+        {
+            "title": "Cross-Expiry Compare",
+            "meta": "Next active expiry",
+            "copy": (
+                f"Next expiry {cross_expiry.get('comparison_expiry')} shows PCR {cross_expiry.get('pcr_display')} with max pain near {cross_expiry.get('max_pain')}, so users can compare whether the structure steepens or relaxes beyond the selected expiry."
+                if cross_expiry and cross_expiry.get("available")
+                else (cross_expiry.get("error") if cross_expiry else "No additional active expiry is available for comparison right now.")
+            ),
+        },
     ]
 
     chain_table_rows = [
@@ -23833,6 +23923,7 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
             {"label": "Total Put OI", "value": total_put_oi, "copy": "Displayed-window put-side open interest across the current expiry band."},
             {"label": "Strongest Walls", "value": f"C {strongest_call_wall} / P {strongest_put_wall}", "copy": "Nearest visible call and put walls in the current public chain window."},
             {"label": "Premium / Discount", "value": format_signed_price(premium_discount) if premium_discount is not None else "Pending", "copy": "Nearest futures versus spot keeps the option-chain read connected to carry and expiry tone."},
+            {"label": "Next Expiry PCR", "value": cross_expiry.get("pcr_display", "Pending") if cross_expiry and cross_expiry.get("available") else "Pending", "copy": (f"Comparison expiry {cross_expiry.get('comparison_expiry')} keeps the chain honest across more than one expiry." if cross_expiry and cross_expiry.get("available") else "A second active expiry is not available for comparison yet.")},
         ],
         "focus_title": "Chain Lens",
         "focus_note": "Use these blocks to read the chain quickly before diving into the strike table.",
@@ -23854,6 +23945,7 @@ def build_full_option_chain_context(index_slug, host_root, selected_expiry=None)
         "group_note": "These notes explain what this public option-chain page solves today and what deeper chain tools can still add later.",
         "group_blocks": [
             {"title": "What Is Live", "count": 4, "copy": "The first public full-chain layer is already more than structural.", "items": ["Displayed calls and puts side by side", "Live OI and OI change across the visible band", "PCR and max-pain context", "Nearest futures carry context"]},
+            {"title": "Cross-Expiry Notes", "count": 4 if cross_expiry and cross_expiry.get("available") else 1, "copy": "This keeps the chain page useful when traders want a quick next-expiry check without leaving the screen.", "items": ([f"Comparison expiry: {cross_expiry.get('comparison_expiry')}", f"PCR: {cross_expiry.get('pcr_display')}", f"Max pain: {cross_expiry.get('max_pain')}", f"Walls: C {cross_expiry.get('strongest_call_wall')} / P {cross_expiry.get('strongest_put_wall')}"] if cross_expiry and cross_expiry.get('available') else [cross_expiry.get('error') if cross_expiry else 'No additional active expiry is available yet.'])},
             {"title": "What Comes Later", "count": 4, "copy": "Phase 1 stops before turning this into a broker terminal clone.", "items": ["More strike depth", "Greeks and IV", "Deeper trader filters", "Cross-expiry comparison ladders"]},
         ],
         "public_note": "This option-chain page is the public chain layer, not the final terminal layer. It already gives users a live calls-versus-puts window they can trust, while keeping room for a much deeper derivatives stack later.",
