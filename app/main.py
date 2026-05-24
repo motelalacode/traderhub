@@ -672,6 +672,36 @@ PAGE_TEMPLATE = """
 </html>
 """
 
+
+HOME_BLANK_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TraderHub</title>
+  <meta name="description" content="TraderHub">
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #ffffff;
+    }
+    body {
+      font-family: Georgia, "Times New Roman", serif;
+      color: #13202c;
+    }
+    main {
+      min-height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <main aria-label="TraderHub home placeholder"></main>
+</body>
+</html>
+"""
+
 SCANNER_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -14251,7 +14281,7 @@ def inject_search_ops_head_tags(response):
 
 @app.route("/")
 def home():
-    return redirect("/equity-ohlc")
+    return render_template_string(HOME_BLANK_TEMPLATE)
 
 
 @app.route("/login")
@@ -14422,7 +14452,16 @@ def ltp():
 
 
 @app.route("/equity-ohlc")
-def equity_ohlc():
+def equity_ohlc_legacy():
+    query_string = request.query_string.decode().strip()
+    target = "/stocks/equity-stock-page"
+    if query_string:
+        target = f"{target}?{query_string}"
+    return redirect(target)
+
+
+@app.route("/stocks/equity-stock-page")
+def equity_stock_page():
     raw_symbols = request.args.get("symbols", ",".join(DEFAULT_SYMBOLS))
     raw_date = request.args.get("date", get_today_ist().isoformat())
     raw_start = request.args.get("start", DEFAULT_START)
