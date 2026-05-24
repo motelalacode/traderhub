@@ -24882,6 +24882,7 @@ def build_sector_news_context(host_root):
                 "sector_slug": get_public_sector_slug(next((key for key, symbols in SECTOR_GROUPS.items() if sector_label.lower() == key.replace('_', ' ').title().lower()), "")) if any(sector_label.lower() == key.replace('_', ' ').title().lower() for key in SECTOR_GROUPS.keys()) else "",
                 "sector_href": get_public_sector_route_for_label(sector_label),
                 "avg_change": f"{avg_change:+.2f}%",
+                "avg_change_numeric": avg_change,
                 "leaders": ", ".join(row["symbol"] for row in sector_rows[:3]),
                 "story": build_sector_strip_story(sector_label, sector_rows),
                 "strongest": strongest,
