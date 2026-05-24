@@ -10333,6 +10333,66 @@ def build_public_ops_head_injection():
     return "\n".join(fragments)
 
 
+def get_public_ad_runtime_state():
+    runtime = get_runtime_config()
+    return {
+        "adsense_client": str(runtime.get("ADSENSE_CLIENT") or "").strip(),
+        "adsense_slot_inline": str(runtime.get("ADSENSE_SLOT_INLINE") or "").strip(),
+        "adsense_slot_sidebar": str(runtime.get("ADSENSE_SLOT_SIDEBAR") or "").strip(),
+        "sponsor_name": str(runtime.get("SPONSOR_NAME") or "").strip(),
+        "sponsor_label": str(runtime.get("SPONSOR_LABEL") or "Sponsored").strip() or "Sponsored",
+        "sponsor_copy": str(runtime.get("SPONSOR_COPY") or "").strip(),
+        "sponsor_url": str(runtime.get("SPONSOR_URL") or "").strip(),
+        "sponsor_cta": str(runtime.get("SPONSOR_CTA") or "Visit Sponsor").strip() or "Visit Sponsor",
+        "sponsor_image_url": str(runtime.get("SPONSOR_IMAGE_URL") or "").strip(),
+        "sponsor_embed_html": str(runtime.get("SPONSOR_EMBED_HTML") or "").strip(),
+    }
+
+
+def build_adsense_slot_html(slot_id, layout_hint="auto"):
+    state = get_public_ad_runtime_state()
+    adsense_client = state["adsense_client"]
+    slot_value = str(slot_id or "").strip()
+    if not adsense_client or not slot_value:
+        return ""
+    layout_attr = ' data-ad-layout="in-article"' if layout_hint == "in-article" else ""
+    return (
+        f'<ins class="adsbygoogle" style="display:block" data-ad-client="{html_lib.escape(adsense_client, quote=True)}" '
+        f'data-ad-slot="{html_lib.escape(slot_value, quote=True)}" data-ad-format="auto" '
+        f'data-full-width-responsive="true"{layout_attr}></ins>'
+        "<script>(adsbygoogle = window.adsbygoogle || []).push({});</script>"
+    )
+
+
+def build_public_ad_context(page_title, page_family="public"):
+    state = get_public_ad_runtime_state()
+    sponsor_name = state["sponsor_name"] or "Featured Partner"
+    sponsor_copy = state["sponsor_copy"] or (
+        f"{page_title} is supported by a direct sponsor placement. Keep sponsor messages separate from TraderHub's editorial research and use your own judgment before acting."
+    )
+    sponsor_ad = None
+    if state["sponsor_url"] or state["sponsor_embed_html"] or state["sponsor_copy"] or state["sponsor_name"]:
+        sponsor_ad = {
+            "label": state["sponsor_label"],
+            "name": sponsor_name,
+            "copy": sponsor_copy,
+            "url": state["sponsor_url"],
+            "cta": state["sponsor_cta"],
+            "image_url": state["sponsor_image_url"],
+            "embed_html": state["sponsor_embed_html"],
+            "disclaimer": "Paid sponsor placement. TraderHub editorial views stay separate.",
+        }
+    google_inline_ad_html = build_adsense_slot_html(state["adsense_slot_inline"], layout_hint="in-article")
+    google_sidebar_ad_html = build_adsense_slot_html(state["adsense_slot_sidebar"], layout_hint="auto")
+    return {
+        "ad_page_family": page_family,
+        "sponsor_ad": sponsor_ad,
+        "google_inline_ad_html": google_inline_ad_html,
+        "google_sidebar_ad_html": google_sidebar_ad_html,
+        "adsense_ready": bool(state["adsense_client"]),
+    }
+
+
 def send_telegram_message(message_text, chat_id=None):
     creds = get_active_telegram_credentials()
     token = creds["token"]
@@ -27023,9 +27083,25 @@ def maybe_enrich_high_dividend_rows_from_upstox(rows, enabled=False, live_limit=
     if not enabled:
         return rows
 
+    quote_map = {}
+    now_iso = get_today_ist().isoformat()
+    try:
+        quote_symbols = [f"NSE:{str(row.get('symbol') or '').strip().upper()}" for row in rows if str(row.get("symbol") or "").strip()]
+        if quote_symbols:
+            client = build_kite_client(with_access_token=True)
+            quote_map = fetch_quote_map(client, quote_symbols)
+    except Exception:
+        quote_map = {}
+
     enriched_rows = []
     for index, row in enumerate(rows):
         enriched_row = dict(row)
+        symbol = str(row.get("symbol") or "").strip().upper()
+        live_quote = quote_map.get(f"NSE:{symbol}") if symbol else None
+        live_price = parse_numeric_text((live_quote or {}).get("last_price"))
+        if live_price not in (None, 0):
+            enriched_row["current_price"] = live_price
+            enriched_row["last_updated"] = now_iso
         if index >= live_limit:
             enriched_rows.append(enriched_row)
             continue
@@ -27314,7 +27390,7 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
         },
         indent=2,
     )
-    return {
+    context = {
         "seo_title": config["seo_title"],
         "seo_description": config["seo_description"],
         "canonical_url": canonical_url,
@@ -27347,6 +27423,8 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
         "sibling_label": config["sibling_label"],
         "hub_href": "/stocks/dividend-stocks",
     }
+    context.update(build_public_ad_context(config["page_title"], page_family="dividend"))
+    return context
 
 
 HIGH_DIVIDEND_STOCKS_TEMPLATE = """
@@ -27490,12 +27568,63 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
     .faq-card h3 { margin: 0 0 8px; font-size: 20px; }
     .faq-card p { margin: 0; color: var(--muted); font: 14px/1.7 Arial, Helvetica, sans-serif; }
     .footer-note { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--danger-bg); color: var(--danger-ink); font: 700 14px/1.6 Arial, Helvetica, sans-serif; }
+    .ad-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+    .ad-panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f8fb 100%);
+      padding: 18px;
+      box-shadow: 0 14px 30px rgba(19,32,44,0.06);
+    }
+    .ad-label {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      background: #ebf1f7;
+      color: var(--muted);
+      font: 700 11px/1 Arial, Helvetica, sans-serif;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .ad-panel h3 { margin: 12px 0 8px; font-size: 24px; }
+    .ad-panel p { margin: 0; color: var(--muted); font: 14px/1.7 Arial, Helvetica, sans-serif; }
+    .ad-cta {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 14px;
+      border-radius: 999px;
+      padding: 11px 16px;
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      font: 700 14px/1 Arial, Helvetica, sans-serif;
+    }
+    .ad-disclaimer { margin-top: 10px; color: var(--muted); font: 12px/1.6 Arial, Helvetica, sans-serif; }
+    .ad-embed { margin-top: 14px; overflow: hidden; }
+    .ad-media {
+      width: 100%;
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      display: block;
+    }
+    .google-ad-shell {
+      margin-top: 14px;
+      min-height: 140px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: #fff;
+      padding: 12px;
+    }
     .empty-state { padding: 22px; text-align: center; color: var(--muted); font: 15px/1.7 Arial, Helvetica, sans-serif; }
     @media (max-width: 1080px) {
       .grid { grid-template-columns: 1fr; }
       .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .faq-grid { grid-template-columns: 1fr; }
       .link-strip { grid-template-columns: 1fr; }
+      .ad-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
       .page { padding: 12px 10px 30px; }
@@ -27541,6 +27670,35 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
       </div>
     </section>
 
+    {% if sponsor_ad or google_inline_ad_html %}
+    <div class="ad-band">
+      {% if sponsor_ad %}
+      <section class="ad-card">
+        <div class="ad-label">{{ sponsor_ad.label }}</div>
+        <h2>{{ sponsor_ad.name }}</h2>
+        <p>{{ sponsor_ad.copy }}</p>
+        {% if sponsor_ad.image_url %}
+        <img class="ad-media" src="{{ sponsor_ad.image_url }}" alt="{{ sponsor_ad.name }}">
+        {% endif %}
+        {% if sponsor_ad.embed_html %}
+        <div class="ad-embed">{{ sponsor_ad.embed_html|safe }}</div>
+        {% elif sponsor_ad.url %}
+        <a class="cta" style="margin-top:14px;" href="{{ sponsor_ad.url }}" target="_blank" rel="sponsored noopener">{{ sponsor_ad.cta }}</a>
+        {% endif %}
+        <div class="ad-disclaimer">{{ sponsor_ad.disclaimer }}</div>
+      </section>
+      {% endif %}
+      {% if google_inline_ad_html %}
+      <section class="ad-card">
+        <div class="ad-label">Ad by Google</div>
+        <h2>Automated marketplace ads</h2>
+        <p>Google ads can run beside the direct sponsor block without affecting TraderHub's scoring, ranking, or editorial logic.</p>
+        <div class="google-ad-shell">{{ google_inline_ad_html|safe }}</div>
+        <div class="ad-disclaimer">Automated ad serving. Not investment advice and not a TraderHub recommendation.</div>
+      </section>
+      {% endif %}
+    </div>
+    {% endif %}
     <div class="grid">
       <div>
         <section class="panel">
@@ -27615,6 +27773,23 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
             <span>Use the same page in a different data mode when you want a stricter or more resilient read.</span>
           </a>
         </div>
+
+        {% if sponsor_ad %}
+        <section class="ad-panel" style="margin-top:16px;">
+          <div class="ad-label">{{ sponsor_ad.label }}</div>
+          <h3>{{ sponsor_ad.name }}</h3>
+          <p>{{ sponsor_ad.copy }}</p>
+          {% if sponsor_ad.image_url %}
+          <img class="ad-media" src="{{ sponsor_ad.image_url }}" alt="{{ sponsor_ad.name }}">
+          {% endif %}
+          {% if sponsor_ad.embed_html %}
+          <div class="ad-embed">{{ sponsor_ad.embed_html|safe }}</div>
+          {% elif sponsor_ad.url %}
+          <a class="ad-cta" href="{{ sponsor_ad.url }}" target="_blank" rel="sponsored noopener">{{ sponsor_ad.cta }}</a>
+          {% endif %}
+          <div class="ad-disclaimer">{{ sponsor_ad.disclaimer }}</div>
+        </section>
+        {% endif %}
 
         <section class="panel" style="margin-top:16px;">
           <h2>{{ page_title }}</h2>
@@ -27715,6 +27890,15 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
           </div>
         </div>
         {% endif %}
+        {% if google_sidebar_ad_html %}
+        <div class="ad-panel" style="margin-top:16px;">
+          <div class="ad-label">Ad by Google</div>
+          <h3>Market tools support slot</h3>
+          <p>Automated marketplace ads help keep TraderHub's public research pages free to access while editorial content stays separate.</p>
+          <div class="google-ad-shell">{{ google_sidebar_ad_html|safe }}</div>
+          <div class="ad-disclaimer">Automated ad serving. Not investment advice and not a TraderHub recommendation.</div>
+        </div>
+        {% endif %}
       </aside>
     </div>
   </div>
@@ -27798,13 +27982,15 @@ def build_dividend_stocks_hub_context(host_root):
         },
         indent=2,
     )
-    return {
+    context = {
         "seo_title": "Dividend Stocks Hub in India | TraderHub",
         "seo_description": "Explore TraderHub dividend stock screens for yield, valuation, and entry-price opportunity in India.",
         "canonical_url": canonical_url,
         "schema_json": schema_json,
         "pages": pages,
     }
+    context.update(build_public_ad_context("Dividend Stocks Hub", page_family="dividend"))
+    return context
 
 
 DIVIDEND_STOCKS_HUB_TEMPLATE = """
@@ -27835,12 +28021,22 @@ DIVIDEND_STOCKS_HUB_TEMPLATE = """
     .card p { margin:0 0 14px; color:var(--muted); font:14px/1.7 Arial, Helvetica, sans-serif; }
     .cta { display:inline-flex; align-items:center; padding:10px 14px; border-radius:999px; background:var(--accent); color:#fff; font:700 14px/1 Arial, Helvetica, sans-serif; text-decoration:none; }
     .note { margin-top:18px; color:var(--muted); font:14px/1.7 Arial, Helvetica, sans-serif; }
+    .ad-band { margin-top:16px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; }
+    .ad-card { padding:20px; background:var(--paper); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); }
+    .ad-label { display:inline-flex; align-items:center; border-radius:999px; padding:5px 10px; background:#ebf1f7; color:var(--muted); font:700 11px/1 Arial, Helvetica, sans-serif; letter-spacing:.08em; text-transform:uppercase; }
+    .ad-card h2 { margin:12px 0 8px; font-size:28px; }
+    .ad-card p { margin:0; color:var(--muted); font:14px/1.7 Arial, Helvetica, sans-serif; }
+    .ad-media { width:100%; margin-top:14px; border-radius:18px; border:1px solid var(--line); display:block; }
+    .ad-embed { margin-top:14px; overflow:hidden; }
+    .ad-disclaimer { margin-top:10px; color:var(--muted); font:12px/1.6 Arial, Helvetica, sans-serif; }
+    .google-ad-shell { margin-top:14px; min-height:140px; border:1px dashed var(--line); border-radius:18px; background:#fff; padding:12px; }
     @media (max-width: 760px) {
       .page { padding:12px 10px 28px; }
       h1 { font-size:32px; }
       .sub { font-size:16px; }
       .grid { grid-template-columns:1fr; }
-      .hero, .card { border-radius:18px; }
+      .ad-band { grid-template-columns:1fr; }
+      .hero, .card, .ad-card { border-radius:18px; }
     }
   </style>
 </head>
