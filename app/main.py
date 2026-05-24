@@ -25023,7 +25023,12 @@ def build_sector_detail_context(sector_key, host_root):
             {"label": "Below PDL", "value": below_pdl},
             {"label": "Above VWAP", "value": above_vwap},
         ],
-        "nav_chips": [{"label": "Sector Hub", "href": "/sectors"}, {"label": "Stocks", "href": "/stocks/itc"}, {"label": "Pre-Market News", "href": "/market/pre-market-news"}],
+        "nav_chips": [
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "News Archive", "href": f"/sectors/{get_public_sector_slug(sector_key)}/news-archive"},
+            {"label": "Stocks", "href": "/stocks/itc"},
+            {"label": "Pre-Market News", "href": "/market/pre-market-news"},
+        ],
         "section_title": "Sector Stock Table",
         "section_note": "This table uses the same market-language logic as the rest of TraderHub: current price, day move, VWAP state, and previous-day level context. It is a public sector lens, not a cluttered scanner clone.",
         "sector_rows": sorted_rows,
