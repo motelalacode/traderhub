@@ -1755,12 +1755,12 @@ def get_news_manager_summary_overview(limit=120):
             f"""
             SELECT
                 COUNT(*) AS total_pages,
-                SUM(CASE WHEN title IS NOT NULL AND TRIM(title) != '' THEN 1 ELSE 0 END) AS titled_pages,
-                SUM(CASE WHEN meta_description IS NOT NULL AND TRIM(meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
-                SUM(CASE WHEN h1 IS NOT NULL AND TRIM(h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
-                SUM(CASE WHEN canonical_url IS NOT NULL AND TRIM(canonical_url) != '' THEN 1 ELSE 0 END) AS canonical_pages,
-                SUM(CASE WHEN status_code = 200 THEN 1 ELSE 0 END) AS ok_pages,
-                SUM(CASE WHEN health_score = 100 THEN 1 ELSE 0 END) AS clean_pages,
+                SUM(CASE WHEN seo_pages.title IS NOT NULL AND TRIM(seo_pages.title) != '' THEN 1 ELSE 0 END) AS titled_pages,
+                SUM(CASE WHEN seo_pages.meta_description IS NOT NULL AND TRIM(seo_pages.meta_description) != '' THEN 1 ELSE 0 END) AS meta_pages,
+                SUM(CASE WHEN seo_pages.h1 IS NOT NULL AND TRIM(seo_pages.h1) != '' THEN 1 ELSE 0 END) AS h1_pages,
+                SUM(CASE WHEN seo_pages.canonical_url IS NOT NULL AND TRIM(seo_pages.canonical_url) != '' THEN 1 ELSE 0 END) AS canonical_pages,
+                SUM(CASE WHEN seo_pages.status_code = 200 THEN 1 ELSE 0 END) AS ok_pages,
+                SUM(CASE WHEN seo_pages.health_score = 100 THEN 1 ELSE 0 END) AS clean_pages,
                 SUM(CASE WHEN nps.page_id IS NOT NULL THEN 1 ELSE 0 END) AS snapshot_pages,
                 SUM(CASE WHEN nps.summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
                 SUM(CASE WHEN nps.fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
@@ -1768,9 +1768,9 @@ def get_news_manager_summary_overview(limit=120):
                 SUM(CASE WHEN nps.shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
             FROM seo_pages
             LEFT JOIN news_page_snapshots nps ON nps.page_id = seo_pages.id
-            WHERE is_active = 1
-              AND domain = 'traderhub.in'
-              AND page_type IN ({placeholders})
+            WHERE seo_pages.is_active = 1
+              AND seo_pages.domain = 'traderhub.in'
+              AND seo_pages.page_type IN ({placeholders})
             """,
             summary_page_types,
         ).fetchone()
