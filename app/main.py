@@ -10575,12 +10575,31 @@ def get_upstox_ratio_row(ratio_map, candidate_names):
     return {}
 
 
-def get_upstox_balance_sheet_bundle(isin):
+def get_upstox_balance_sheet_bundle(isin, time_period="yearly"):
     balance_payload = upstox_api_get(
         f"/fundamentals/{isin}/balance-sheet",
-        params={"type": "consolidated", "fs": "true"},
+        params={"type": "consolidated", "fs": "true", "time_period": time_period},
     )
     return (balance_payload or {}).get("data") or {}
+
+
+def get_upstox_income_statement_bundle(isin, time_period="yearly"):
+    income_payload = upstox_api_get(
+        f"/fundamentals/{isin}/income-statement",
+        params={"type": "consolidated", "time_period": time_period},
+    )
+    return ((income_payload or {}).get("data") or {}).get("income_statement") or []
+
+
+def get_upstox_cash_flow_bundle(isin, time_period="yearly"):
+    cash_flow_payload = upstox_api_get(
+        f"/fundamentals/{isin}/cash-flow",
+        params={"type": "consolidated", "time_period": time_period},
+    )
+    payload_data = (cash_flow_payload or {}).get("data") or {}
+    if isinstance(payload_data, dict):
+        return payload_data.get("cash_flow") or payload_data.get("cashflow") or payload_data.get("cash_flow_statement") or []
+    return []
 
 
 def get_upstox_statement_value(statement_map, candidate_labels):
@@ -10601,22 +10620,30 @@ def get_upstox_statement_value(statement_map, candidate_labels):
 def get_upstox_fundamentals_bundle(isin):
     profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
     key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
-    income_payload = upstox_api_get(
-        f"/fundamentals/{isin}/income-statement",
-        params={"type": "consolidated", "time_period": "yearly"},
-    )
     holdings_payload = upstox_api_get(f"/fundamentals/{isin}/share-holdings")
     balance_sheet_data = {}
+    quarterly_income_rows = []
+    cash_flow_rows = []
     try:
         balance_sheet_data = get_upstox_balance_sheet_bundle(isin)
     except Exception:
         balance_sheet_data = {}
+    try:
+        quarterly_income_rows = get_upstox_income_statement_bundle(isin, time_period="quarterly")
+    except Exception:
+        quarterly_income_rows = []
+    try:
+        cash_flow_rows = get_upstox_cash_flow_bundle(isin, time_period="yearly")
+    except Exception:
+        cash_flow_rows = []
     return {
         "profile": (profile_payload or {}).get("data") or {},
         "key_ratios": (key_ratios_payload or {}).get("data") or [],
-        "income_statement": ((income_payload or {}).get("data") or {}).get("income_statement") or [],
+        "income_statement": get_upstox_income_statement_bundle(isin, time_period="yearly"),
+        "quarterly_income_statement": quarterly_income_rows,
         "share_holdings": (holdings_payload or {}).get("data") or [],
         "balance_sheet": balance_sheet_data,
+        "cash_flow": cash_flow_rows,
     }
 
 
@@ -10890,6 +10917,318 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
 
     sector_override = profile_data.get("sector")
     return financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, note
+
+
+def format_statement_cell(value, suffix=""):
+    if value in (None, ""):
+        return "-"
+    if isinstance(value, str):
+        text = value.strip()
+        if text:
+            return text
+        return "-"
+    if isinstance(value, (int, float)):
+        if suffix == "%":
+            return f"{value:.2f}%"
+        if abs(float(value)) >= 1000:
+            return f"{value:,.2f}".rstrip("0").rstrip(".")
+        return f"{value:.2f}".rstrip("0").rstrip(".")
+    return str(value)
+
+
+def build_periodic_statement_table(raw_rows, row_defs, key_field="category", limit=8):
+    row_map = {str(row.get(key_field) or "").strip().lower(): row for row in (raw_rows or [])}
+    periods = []
+    for row_def in row_defs:
+        matched_row = None
+        for candidate in row_def["candidates"]:
+            matched_row = row_map.get(str(candidate or "").strip().lower())
+            if matched_row:
+                break
+        if matched_row:
+            periods = [str(item.get("period") or "").strip() for item in (matched_row.get("history") or []) if str(item.get("period") or "").strip()]
+            if periods:
+                break
+    periods = periods[:limit]
+    if not periods:
+        return {"columns": [], "rows": [], "empty_message": "Source pending for this statement right now."}
+
+    table_rows = []
+    for row_def in row_defs:
+        matched_row = None
+        for candidate in row_def["candidates"]:
+            matched_row = row_map.get(str(candidate or "").strip().lower())
+            if matched_row:
+                break
+        history_map = {
+            str(item.get("period") or "").strip(): item
+            for item in (matched_row.get("history") or [])
+            if str(item.get("period") or "").strip()
+        } if matched_row else {}
+        values = []
+        for period in periods:
+            entry = history_map.get(period) or {}
+            raw_value = entry.get("value")
+            numeric_value = parse_numeric_text(raw_value)
+            display_value = format_statement_cell(numeric_value if numeric_value is not None else raw_value, row_def.get("suffix", ""))
+            values.append(display_value)
+        table_rows.append({"label": row_def["label"], "values": values})
+    return {"columns": periods, "rows": table_rows, "empty_message": ""}
+
+
+def build_shareholding_pattern_table(holdings_rows, limit=8):
+    row_defs = [
+        {"label": "Promoters", "candidates": ["promoters", "promoter"]},
+        {"label": "FIIs", "candidates": ["fii", "foreign_institutional_investors"]},
+        {"label": "DIIs", "candidates": ["dii", "other_dii", "domestic_institutional_investors"]},
+        {"label": "Mutual Funds", "candidates": ["mutual_funds", "mutual fund"]},
+        {"label": "Public / Retail", "candidates": ["retail_and_other", "retail", "public"]},
+        {"label": "Pledged Shares", "candidates": ["pledged", "pledge", "promoter_pledge", "pledged_shares"]},
+    ]
+    row_map = {str(row.get("category") or "").strip().lower(): row for row in (holdings_rows or [])}
+    periods = []
+    for row_def in row_defs:
+        matched_row = None
+        for candidate in row_def["candidates"]:
+            matched_row = row_map.get(str(candidate or "").strip().lower())
+            if matched_row:
+                break
+        if matched_row:
+            periods = [str(item.get("period") or "").strip() for item in (matched_row.get("history") or []) if str(item.get("period") or "").strip()]
+            if periods:
+                break
+    periods = periods[:limit]
+    if not periods:
+        return {"columns": [], "rows": [], "empty_message": "Quarterly shareholding pattern is pending from the current fundamentals source."}
+
+    pattern_rows = []
+    for row_def in row_defs:
+        matched_row = None
+        for candidate in row_def["candidates"]:
+            matched_row = row_map.get(str(candidate or "").strip().lower())
+            if matched_row:
+                break
+        history_map = {
+            str(item.get("period") or "").strip(): item
+            for item in (matched_row.get("history") or [])
+            if str(item.get("period") or "").strip()
+        } if matched_row else {}
+        values = []
+        for period in periods:
+            entry = history_map.get(period) or {}
+            raw_value = entry.get("value")
+            numeric_value = parse_numeric_text(raw_value)
+            display_value = f"{numeric_value:.2f}%" if numeric_value is not None else (str(raw_value).strip() or "-")
+            values.append(display_value)
+        pattern_rows.append({"label": row_def["label"], "values": values})
+    return {"columns": periods, "rows": pattern_rows, "empty_message": ""}
+
+
+def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fundamentals_bundle):
+    ratio_rows = (fundamentals_bundle or {}).get("key_ratios") or []
+    quarterly_income_rows = (fundamentals_bundle or {}).get("quarterly_income_statement") or []
+    profile_data = (fundamentals_bundle or {}).get("profile") or {}
+    ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
+
+    def get_latest_row_value(category_names, field="value"):
+        row_map = {str(row.get("category") or "").strip().lower(): row for row in quarterly_income_rows}
+        for category_name in category_names:
+            row = row_map.get(str(category_name or "").strip().lower())
+            if not row:
+                continue
+            history = row.get("history") or []
+            if not history:
+                continue
+            entry = history[0]
+            return entry.get(field), entry
+        return None, {}
+
+    pe_value = parse_numeric_text((ratio_map.get("P/E") or {}).get("company_value"))
+    roce_value = parse_numeric_text((ratio_map.get("ROCE") or {}).get("company_value"))
+    dividend_yield_value = parse_numeric_text(
+        (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIV YIELD", "DIVIDEND YIELD %"]) or {}).get("company_value")
+    )
+    market_cap_value = parse_numeric_text(
+        get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
+    )
+    np_value, np_entry = get_latest_row_value(["net_profit", "profit_after_tax", "pat"])
+    sales_value, sales_entry = get_latest_row_value(["revenue", "sales"])
+
+    return {
+        "company": company_name,
+        "cmp": format_price(last_price_numeric) if last_price_numeric not in (None, 0) else "-",
+        "pe": f"{pe_value:.2f}" if pe_value is not None else "-",
+        "market_cap": format_crore_display(market_cap_value / 10000000.0) if market_cap_value is not None else "Source Pending",
+        "dividend_yield": f"{dividend_yield_value:.2f}%" if dividend_yield_value is not None else "-",
+        "np_qtr": format_statement_cell(np_value),
+        "np_qtr_change": str((np_entry or {}).get("change") or "-"),
+        "sales_qtr": format_statement_cell(sales_value),
+        "sales_qtr_change": str((sales_entry or {}).get("change") or "-"),
+        "roce": f"{roce_value:.2f}%" if roce_value is not None else "-",
+    }
+
+
+def build_upstox_stock_research_tables(isin, symbol, company_name, fundamentals_bundle=None):
+    empty_table = {"columns": [], "rows": [], "empty_message": "Source pending right now."}
+    fallback_links = [
+        {
+            "title": f"Official NSE announcements for {symbol}",
+            "meta": "Exchange filings",
+            "url": f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+        },
+        {
+            "title": f"Official NSE corporate actions for {symbol}",
+            "meta": "Dividend, split, bonus, rights",
+            "url": f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+        },
+    ]
+    if not isin:
+        return {
+            "quarterly_results_table": dict(empty_table, empty_message="ISIN is pending, so quarterly statement data cannot be loaded yet."),
+            "annual_profit_loss_table": empty_table,
+            "balance_sheet_table": empty_table,
+            "cash_flow_table": empty_table,
+            "ratios_table": empty_table,
+            "shareholding_pattern_table": dict(empty_table, empty_message="ISIN is pending, so shareholding trend data cannot be loaded yet."),
+            "disclosure_links": fallback_links,
+            "research_notes": ["ISIN mapping is still missing for this stock, so the deeper phase-2 research sections are waiting on fundamentals linkage."],
+        }
+
+    bundle = fundamentals_bundle or get_upstox_fundamentals_bundle(isin)
+    profile_data = bundle.get("profile") or {}
+    ratio_rows = bundle.get("key_ratios") or []
+    yearly_income_rows = bundle.get("income_statement") or []
+    quarterly_income_rows = bundle.get("quarterly_income_statement") or []
+    holdings_rows = bundle.get("share_holdings") or []
+    cash_flow_rows = bundle.get("cash_flow") or []
+    balance_bundle = bundle.get("balance_sheet") or {}
+    ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
+
+    quarterly_results_table = build_periodic_statement_table(
+        quarterly_income_rows,
+        [
+            {"label": "Sales", "candidates": ["revenue", "sales"]},
+            {"label": "Expenses", "candidates": ["expenses", "total_expense", "operating_expense"]},
+            {"label": "Operating Profit", "candidates": ["operating_profit", "ebitda", "operating_income"]},
+            {"label": "OPM %", "candidates": ["operating_margin", "opm"]},
+            {"label": "Other Income", "candidates": ["other_income"]},
+            {"label": "Interest", "candidates": ["interest", "finance_cost"]},
+            {"label": "Depreciation", "candidates": ["depreciation", "depreciation_and_amortization"]},
+            {"label": "Profit Before Tax", "candidates": ["profit_before_tax", "pbt"]},
+            {"label": "Tax %", "candidates": ["tax", "tax_expense", "tax_rate"], "suffix": "%"},
+            {"label": "Net Profit", "candidates": ["net_profit", "profit_after_tax", "pat"]},
+            {"label": "EPS", "candidates": ["eps", "earnings_per_share"]},
+        ],
+        limit=8,
+    )
+    annual_profit_loss_table = build_periodic_statement_table(
+        yearly_income_rows,
+        [
+            {"label": "Sales", "candidates": ["revenue", "sales"]},
+            {"label": "Expenses", "candidates": ["expenses", "total_expense", "operating_expense"]},
+            {"label": "Operating Profit", "candidates": ["operating_profit", "ebitda", "operating_income"]},
+            {"label": "OPM %", "candidates": ["operating_margin", "opm"]},
+            {"label": "Other Income", "candidates": ["other_income"]},
+            {"label": "Interest", "candidates": ["interest", "finance_cost"]},
+            {"label": "Depreciation", "candidates": ["depreciation", "depreciation_and_amortization"]},
+            {"label": "Profit Before Tax", "candidates": ["profit_before_tax", "pbt"]},
+            {"label": "Tax %", "candidates": ["tax", "tax_expense", "tax_rate"], "suffix": "%"},
+            {"label": "Net Profit", "candidates": ["net_profit", "profit_after_tax", "pat"]},
+            {"label": "EPS", "candidates": ["eps", "earnings_per_share"]},
+        ],
+        limit=12,
+    )
+    balance_sheet_table = build_periodic_statement_table(
+        (balance_bundle.get("full_statement") or []),
+        [
+            {"label": "Equity Capital", "candidates": ["EQUITY SHARE CAPITAL", "EQUITY CAPITAL", "SHARE CAPITAL"]},
+            {"label": "Reserves", "candidates": ["RESERVES AND SURPLUS", "OTHER EQUITY", "RESERVES"]},
+            {"label": "Borrowings", "candidates": ["TOTAL BORROWINGS", "BORROWINGS", "TOTAL DEBT"]},
+            {"label": "Other Liabilities", "candidates": ["TOTAL LIABILITIES", "OTHER LIABILITIES", "NON-CURRENT LIABILITIES", "CURRENT LIABILITIES"]},
+            {"label": "Total Liabilities", "candidates": ["TOTAL LIABILITIES AND EQUITY", "TOTAL LIABILITIES & EQUITY", "TOTAL EQUITY AND LIABILITIES"]},
+            {"label": "Fixed Assets", "candidates": ["PROPERTY PLANT AND EQUIPMENT", "FIXED ASSETS", "NET BLOCK"]},
+            {"label": "CWIP", "candidates": ["CAPITAL WORK IN PROGRESS", "CWIP"]},
+            {"label": "Investments", "candidates": ["INVESTMENTS", "NON CURRENT INVESTMENTS", "CURRENT INVESTMENTS"]},
+            {"label": "Other Assets", "candidates": ["OTHER ASSETS", "OTHER NON CURRENT ASSETS", "CURRENT ASSETS"]},
+            {"label": "Total Assets", "candidates": ["TOTAL ASSETS"]},
+        ],
+        key_field="particular",
+        limit=12,
+    )
+    cash_flow_table = build_periodic_statement_table(
+        cash_flow_rows,
+        [
+            {"label": "Cash from Operating Activity", "candidates": ["cash_from_operating_activity", "operating_cash_flow", "cash_flow_from_operations"]},
+            {"label": "Cash from Investing Activity", "candidates": ["cash_from_investing_activity", "investing_cash_flow"]},
+            {"label": "Cash from Financing Activity", "candidates": ["cash_from_financing_activity", "financing_cash_flow"]},
+            {"label": "Net Cash Flow", "candidates": ["net_cash_flow", "net_increase_in_cash"]},
+            {"label": "Free Cash Flow", "candidates": ["free_cash_flow", "fcf"]},
+            {"label": "CFO / OP", "candidates": ["cfo_op", "cash_flow_to_operating_profit"], "suffix": "%"},
+        ],
+        limit=12,
+    )
+    ratios_history_rows = []
+    for row_name, label in [
+        ("ROCE", "ROCE %"),
+        ("ROE", "ROE %"),
+        ("DEBT/EQUITY", "Debt / Equity"),
+        ("CURRENT RATIO", "Current Ratio"),
+        ("INTEREST COVERAGE", "Interest Coverage"),
+    ]:
+        ratio_row = ratio_map.get(row_name) or get_upstox_ratio_row(ratio_map, [row_name])
+        if not ratio_row:
+            continue
+        histories = ratio_row.get("history") or []
+        if not histories:
+            continue
+        if not ratios_history_rows:
+            ratio_periods = [str(item.get("period") or "").strip() for item in histories if str(item.get("period") or "").strip()][:12]
+        ratios_history_rows.append(
+            {
+                "label": label,
+                "history": histories,
+            }
+        )
+    if ratios_history_rows:
+        ratios_table = {"columns": ratio_periods, "rows": [], "empty_message": ""}
+        for item in ratios_history_rows:
+            history_map = {str(entry.get("period") or "").strip(): entry for entry in item["history"] if str(entry.get("period") or "").strip()}
+            values = []
+            for period in ratio_periods:
+                entry = history_map.get(period) or {}
+                raw_value = entry.get("value") if "value" in entry else entry.get("company_value")
+                numeric_value = parse_numeric_text(raw_value)
+                if item["label"].endswith("%"):
+                    display = f"{numeric_value:.2f}%" if numeric_value is not None else (str(raw_value).strip() or "-")
+                else:
+                    display = format_statement_cell(numeric_value if numeric_value is not None else raw_value)
+                values.append(display)
+            ratios_table["rows"].append({"label": item["label"], "values": values})
+    else:
+        ratios_table = dict(empty_table, empty_message="Ratio history is pending from the current fundamentals source.")
+
+    shareholding_pattern_table = build_shareholding_pattern_table(holdings_rows, limit=8)
+    website_url = str(profile_data.get("website") or profile_data.get("company_website") or "").strip()
+    disclosure_links = []
+    if website_url:
+        disclosure_links.append({"title": f"{company_name} investor website", "meta": "Company website", "url": website_url})
+    disclosure_links.extend(fallback_links)
+    disclosure_links.append({"title": f"{company_name} annual reports", "meta": "Investor documents", "url": website_url or f"https://www.google.com/search?q={urllib.parse.quote(company_name + ' annual report investor relations')}"})
+    disclosure_links.append({"title": f"{company_name} results and presentations", "meta": "Results / concalls / PPT", "url": website_url or f"https://www.google.com/search?q={urllib.parse.quote(company_name + ' results presentation investor relations')}"})
+    research_notes = [
+        "Quarterly and annual tables are sourced from the current fundamentals connector where available, and fall back cleanly when the source is thin.",
+        "Peer comparison stays sector-first so users can judge valuation and quality in context, not in isolation.",
+    ]
+    return {
+        "quarterly_results_table": quarterly_results_table,
+        "annual_profit_loss_table": annual_profit_loss_table,
+        "balance_sheet_table": balance_sheet_table,
+        "cash_flow_table": cash_flow_table,
+        "ratios_table": ratios_table,
+        "shareholding_pattern_table": shareholding_pattern_table,
+        "disclosure_links": disclosure_links,
+        "research_notes": research_notes,
+    }
 
 
 def load_stock_isin_cache():
@@ -17385,8 +17724,11 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       <a class="nav-chip" href="#overview">Overview</a>
       <a class="nav-chip" href="#technical">Technical</a>
       <a class="nav-chip" href="#financials">Financials</a>
+      <a class="nav-chip" href="#quarterly-results">Quarterly</a>
+      <a class="nav-chip" href="#annual-statements">Statements</a>
       <a class="nav-chip" href="#peers">Peers</a>
       <a class="nav-chip" href="#ownership">Ownership & Deals</a>
+      <a class="nav-chip" href="#disclosures">Disclosures</a>
       <a class="nav-chip" href="#news">News & Events</a>
     </div>
 
@@ -17473,6 +17815,150 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
             </div>
             {% endfor %}
           </div>
+          {% if research_notes %}
+          <div class="footer-note">
+            {% for note in research_notes %}
+            <div>{{ note }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </section>
+
+        <section class="section" id="quarterly-results">
+          <h2>Quarterly Results</h2>
+          <div class="section-note">This table turns the stock page into a real research surface by showing periodic operating performance instead of only a summary card layer.</div>
+          {% if quarterly_results_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {% for column in quarterly_results_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in quarterly_results_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ quarterly_results_table.empty_message }}</div>
+          {% endif %}
+        </section>
+
+        <section class="section" id="annual-statements">
+          <h2>Annual Statements</h2>
+          <div class="section-note">These sections are laid out like a compact research workbook: annual profit and loss, balance sheet, cash flow, and ratios.</div>
+          <h3 style="margin:0 0 10px; font-size:20px;">Profit &amp; Loss</h3>
+          {% if annual_profit_loss_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {% for column in annual_profit_loss_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in annual_profit_loss_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ annual_profit_loss_table.empty_message }}</div>
+          {% endif %}
+          <div style="height:14px;"></div>
+          <h3 style="margin:0 0 10px; font-size:20px;">Balance Sheet</h3>
+          {% if balance_sheet_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {% for column in balance_sheet_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in balance_sheet_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ balance_sheet_table.empty_message }}</div>
+          {% endif %}
+          <div style="height:14px;"></div>
+          <h3 style="margin:0 0 10px; font-size:20px;">Cash Flow</h3>
+          {% if cash_flow_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {% for column in cash_flow_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in cash_flow_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ cash_flow_table.empty_message }}</div>
+          {% endif %}
+          <div style="height:14px;"></div>
+          <h3 style="margin:0 0 10px; font-size:20px;">Ratios</h3>
+          {% if ratios_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Metric</th>
+                {% for column in ratios_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in ratios_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ ratios_table.empty_message }}</div>
+          {% endif %}
         </section>
 
         <section class="section" id="peers">
@@ -17483,24 +17969,30 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               <thead>
                 <tr>
                   <th>Company</th>
-                  <th>Current Price</th>
-                  <th>Day Change</th>
-                  <th>1Y Return</th>
-                  <th>VWAP</th>
-                  <th>52W Context</th>
-                  <th>Status</th>
+                  <th>CMP</th>
+                  <th>P/E</th>
+                  <th>Mar Cap</th>
+                  <th>Div Yld %</th>
+                  <th>NP Qtr</th>
+                  <th>Qtr Profit Var %</th>
+                  <th>Sales Qtr</th>
+                  <th>Qtr Sales Var %</th>
+                  <th>ROCE %</th>
                 </tr>
               </thead>
               <tbody>
-                {% for peer in peers %}
+                {% for peer in peer_comparison_rows %}
                 <tr>
                   <td>{{ peer.company }}</td>
-                  <td>{{ peer.current_price }}</td>
-                  <td>{{ peer.day_change }}</td>
-                  <td>{{ peer.return_1y }}</td>
-                  <td>{{ peer.vwap }}</td>
-                  <td>{{ peer.range_52w }}</td>
-                  <td>{{ peer.status }}</td>
+                  <td>{{ peer.cmp }}</td>
+                  <td>{{ peer.pe }}</td>
+                  <td>{{ peer.market_cap }}</td>
+                  <td>{{ peer.dividend_yield }}</td>
+                  <td>{{ peer.np_qtr }}</td>
+                  <td>{{ peer.np_qtr_change }}</td>
+                  <td>{{ peer.sales_qtr }}</td>
+                  <td>{{ peer.sales_qtr_change }}</td>
+                  <td>{{ peer.roce }}</td>
                 </tr>
                 {% endfor %}
               </tbody>
@@ -17553,6 +18045,48 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% endfor %}
             </tbody>
           </table>
+          <div style="height:14px;"></div>
+          <h3 style="margin:0 0 8px; font-size:18px;">Shareholding Pattern</h3>
+          {% if shareholding_pattern_table.rows %}
+          <table class="list-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                {% for column in shareholding_pattern_table.columns %}
+                <th>{{ column }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in shareholding_pattern_table.rows %}
+              <tr>
+                <td>{{ row.label }}</td>
+                {% for value in row.values %}
+                <td>{{ value }}</td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          {% else %}
+          <div class="footer-note">{{ shareholding_pattern_table.empty_message }}</div>
+          {% endif %}
+        </section>
+
+        <section class="section" id="disclosures">
+          <h2>Documents &amp; Disclosures</h2>
+          <div class="section-note">This section keeps the stock page useful for deeper verification: official boards, corporate actions, annual reports, and investor-presentation paths.</div>
+          {% if disclosure_links %}
+          {% for item in disclosure_links %}
+          <div class="story-card">
+            <div class="story-title"><a href="{{ item.url }}" target="_blank" rel="noopener noreferrer">{{ item.title }}</a></div>
+            <div class="story-meta">{{ item.meta }}</div>
+            <div class="story-copy">Use this link when you want official disclosures or a more primary-source document trail beyond the summary tables above.</div>
+          </div>
+          {% endfor %}
+          {% else %}
+          <div class="footer-note">Document links are still being connected for this stock.</div>
+          {% endif %}
         </section>
 
         <section class="section" id="news">
@@ -18407,6 +18941,26 @@ def build_stock_page_context(symbol, host_root):
     holdings_deals = build_placeholder_holdings_deals(symbol)
     ownership_watch_rows = build_placeholder_ownership_watch()
     news_items = build_stock_news_items(symbol, breadcrumb_sector, stock_isin)
+    quarterly_results_table = {"columns": [], "rows": [], "empty_message": "Quarterly results will appear here once the fundamentals source is available."}
+    annual_profit_loss_table = {"columns": [], "rows": [], "empty_message": "Annual profit and loss history is pending from the current source."}
+    balance_sheet_table = {"columns": [], "rows": [], "empty_message": "Balance sheet history is pending from the current source."}
+    cash_flow_table = {"columns": [], "rows": [], "empty_message": "Cash flow history is pending from the current source."}
+    ratios_table = {"columns": [], "rows": [], "empty_message": "Ratio history is pending from the current source."}
+    shareholding_pattern_table = {"columns": [], "rows": [], "empty_message": "Shareholding pattern will appear once the source is connected."}
+    disclosure_links = [
+        {
+            "title": f"Official NSE announcements for {symbol}",
+            "meta": "Exchange filings",
+            "url": f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+        },
+        {
+            "title": f"Official NSE corporate actions for {symbol}",
+            "meta": "Dividend, split, bonus, rights",
+            "url": f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+        },
+    ]
+    research_notes = ["Phase 2A starts by pulling whichever financial sections are trustworthy today and leaves the rest cleanly staged instead of faking completeness."]
+    peer_comparison_rows = []
     technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
     news_section_note = "This section now mixes stock-specific market stories with direct official filing boards, so the page stays useful even before the full events pipeline is expanded."
@@ -18655,17 +19209,61 @@ def build_stock_page_context(symbol, host_root):
         ]
 
         if stock_isin:
+            fundamentals_bundle = get_upstox_fundamentals_bundle(stock_isin)
             financial_metrics, holdings_deals, ownership_watch_rows, market_cap_display, sector_override, fundamentals_note = build_upstox_financial_sections(
                 stock_isin,
                 symbol,
                 live_row["last_price_numeric"],
             )
+            research_tables = build_upstox_stock_research_tables(
+                stock_isin,
+                symbol,
+                company_name,
+                fundamentals_bundle=fundamentals_bundle,
+            )
+            quarterly_results_table = research_tables["quarterly_results_table"]
+            annual_profit_loss_table = research_tables["annual_profit_loss_table"]
+            balance_sheet_table = research_tables["balance_sheet_table"]
+            cash_flow_table = research_tables["cash_flow_table"]
+            ratios_table = research_tables["ratios_table"]
+            shareholding_pattern_table = research_tables["shareholding_pattern_table"]
+            disclosure_links = research_tables["disclosure_links"]
+            research_notes = research_tables["research_notes"]
             if market_cap_display and market_cap_display != "Source Pending":
                 stock["market_cap"] = market_cap_display
             if sector_override:
                 quick_stats[3] = {"label": "Sector", "value": sector_override}
             if fundamentals_note:
                 page_alert = f"{page_alert} {fundamentals_note}".strip()
+
+            try:
+                peer_comparison_rows.append(
+                    build_stock_peer_comparison_row(symbol, company_name, live_row["last_price_numeric"], fundamentals_bundle)
+                )
+            except Exception:
+                pass
+            for peer in peers:
+                peer_name = peer.get("company") or ""
+                peer_match_symbol = ""
+                for peer_symbol in peer_symbols:
+                    peer_master = master.get("by_symbol", {}).get(peer_symbol) or {}
+                    candidate_name = prettify_company_name(peer_master.get("security") or peer_symbol, peer_symbol)
+                    if candidate_name == peer_name:
+                        peer_match_symbol = peer_symbol
+                        break
+                if not peer_match_symbol or peer_match_symbol == symbol:
+                    continue
+                try:
+                    peer_isin = resolve_stock_isin(peer_match_symbol, peer_name)
+                    if not peer_isin:
+                        continue
+                    peer_bundle = get_upstox_fundamentals_bundle(peer_isin)
+                    peer_price_numeric = parse_numeric_text(str(peer.get("current_price") or "").replace("₹", "").replace(",", ""))
+                    peer_comparison_rows.append(
+                        build_stock_peer_comparison_row(peer_match_symbol, peer_name, peer_price_numeric, peer_bundle)
+                    )
+                except Exception:
+                    continue
     except Exception as exc:
         page_alert = str(exc)
         overview_metrics = [
@@ -18719,8 +19317,17 @@ def build_stock_page_context(symbol, host_root):
         "study_cards": study_cards,
         "financial_metrics": financial_metrics,
         "peers": peers,
+        "peer_comparison_rows": peer_comparison_rows,
         "holdings_deals": holdings_deals,
         "ownership_watch_rows": ownership_watch_rows,
+        "quarterly_results_table": quarterly_results_table,
+        "annual_profit_loss_table": annual_profit_loss_table,
+        "balance_sheet_table": balance_sheet_table,
+        "cash_flow_table": cash_flow_table,
+        "ratios_table": ratios_table,
+        "shareholding_pattern_table": shareholding_pattern_table,
+        "disclosure_links": disclosure_links,
+        "research_notes": research_notes,
         "news_items": news_items,
         "quick_stats": quick_stats,
         "breadcrumb_sector": breadcrumb_sector,
@@ -18738,8 +19345,8 @@ def build_stock_page_context(symbol, host_root):
         "chart_price_points": chart_price_points,
         "chart_ma_points": chart_ma_points,
         "studies_section_note": studies_section_note,
-        "financial_section_note": "This financial block stays intentionally summary-first: show the strongest usable quality and profitability signals now, and add deeper balance-sheet detail only when the source is trustworthy.",
-        "peers_section_note": "Peer rows are sourced from your existing sector-group mappings first, giving a real comparable universe without inventing manual per-stock peer lists.",
+        "financial_section_note": "The financial snapshot stays summary-first, but phase 2A now opens the door to deeper quarterly, annual, balance-sheet, and cash-flow reads where the source is available.",
+        "peers_section_note": "Peer comparison now tries to combine live price context with valuation, dividend, quarterly profit, sales, and ROCE, while still falling back safely when one peer is thin on data.",
         "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and deal activity stays reserved for the next integration pass.",
         "news_section_note": news_section_note,
         "why_page_works_title": "Why This Page Works",
