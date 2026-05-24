@@ -23912,7 +23912,7 @@ def build_market_phase2_fallback_context(
 
 
 def build_market_archive_hub_context(host_root):
-    recent_days = build_archive_recent_days(total_days=7)
+    recent_days = build_archive_recent_days(total_days=10)
     archive_cards = []
     for item in recent_days:
         archive_cards.append(
