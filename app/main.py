@@ -27115,16 +27115,50 @@ def apply_high_dividend_filters(rows, filter_state):
     return filtered_rows
 
 
-def build_high_dividend_page_context(host_root):
+def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
     live_arg = str(request.args.get("live", "1") or "1").strip().lower()
     enable_live = live_arg not in {"0", "false", "no"}
     all_rows = build_high_dividend_stock_rows(enable_live=enable_live)
+    screen_configs = {
+        "high-dividend": {
+            "canonical_path": "/stocks/high-dividend-paying-stocks",
+            "seo_title": "High Dividend Stocks at Attractive Price in India",
+            "seo_description": "Find Indian stocks with high dividend yield, attractive valuation, strong fundamentals and price opportunity.",
+            "page_title": "High Dividend + Attractive Price Stocks",
+            "page_subtitle": "A dividend page built for quality, not bait. Screen Indian stocks for yield, valuation comfort, financial strength, and price opportunity in one place.",
+            "page_kicker": "TraderHub Dividend Screen",
+            "hero_label": "Average Yield",
+            "hero_label_copy": "Yield should be judged with business quality, not alone.",
+            "default_filters": {"yield_min": 2, "pe_below_industry": 0, "below_high_20": 0, "roe_above_12": 0, "de_below_1": 0},
+            "data_source_note": "Current release uses a seeded dividend universe with an optional Upstox fundamentals enrichment hook already wired into the codebase.",
+            "warning_copy": "High dividend yield does not always mean good investment. Sometimes yield is high because price has fallen due to weak business. Please check fundamentals before investing.",
+            "sibling_href": "/stocks/undervalued-dividend-stocks",
+            "sibling_label": "Open undervalued dividend view",
+        },
+        "undervalued-dividend": {
+            "canonical_path": "/stocks/undervalued-dividend-stocks",
+            "seo_title": "Undervalued Dividend Stocks in India | TraderHub",
+            "seo_description": "Screen Indian dividend stocks for below-industry valuation, strong ROE, manageable debt and better entry price opportunities.",
+            "page_title": "Undervalued Dividend Stocks",
+            "page_subtitle": "A more valuation-first dividend screen for users who want income plus price discipline. This view leans toward sensible valuation, stronger balance sheets, and better entry zones.",
+            "page_kicker": "TraderHub Value Dividend Screen",
+            "hero_label": "Average Score",
+            "hero_label_copy": "This view starts from valuation discipline and then keeps dividend quality in the mix.",
+            "default_filters": {"yield_min": 2, "pe_below_industry": 1, "below_high_20": 1, "roe_above_12": 1, "de_below_1": 1},
+            "data_source_note": "This sibling screen reuses the same dividend universe, but starts from a more valuation-sensitive posture before ranking the final shortlist.",
+            "warning_copy": "Undervalued-looking dividend stocks can still stay cheap for good reasons. Check business quality, payout sustainability, and balance-sheet risk before investing.",
+            "sibling_href": "/stocks/high-dividend-paying-stocks",
+            "sibling_label": "Open high dividend screen",
+        },
+    }
+    config = screen_configs.get(screen_key, screen_configs["high-dividend"])
+    default_filters = config["default_filters"]
     filter_state = {
-        "yield_min": float(request.args.get("yield_min", "2") or 2),
-        "pe_below_industry": str(request.args.get("pe_below_industry", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
-        "below_high_20": str(request.args.get("below_high_20", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
-        "roe_above_12": str(request.args.get("roe_above_12", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
-        "de_below_1": str(request.args.get("de_below_1", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
+        "yield_min": float(request.args.get("yield_min", str(default_filters["yield_min"])) or default_filters["yield_min"]),
+        "pe_below_industry": str(request.args.get("pe_below_industry", str(default_filters["pe_below_industry"])) or str(default_filters["pe_below_industry"])).strip().lower() in {"1", "true", "yes", "on"},
+        "below_high_20": str(request.args.get("below_high_20", str(default_filters["below_high_20"])) or str(default_filters["below_high_20"])).strip().lower() in {"1", "true", "yes", "on"},
+        "roe_above_12": str(request.args.get("roe_above_12", str(default_filters["roe_above_12"])) or str(default_filters["roe_above_12"])).strip().lower() in {"1", "true", "yes", "on"},
+        "de_below_1": str(request.args.get("de_below_1", str(default_filters["de_below_1"])) or str(default_filters["de_below_1"])).strip().lower() in {"1", "true", "yes", "on"},
         "market_cap": str(request.args.get("market_cap", "All") or "All").strip().title() or "All",
         "sector": str(request.args.get("sector", "All") or "All").strip() or "All",
     }
@@ -27155,15 +27189,15 @@ def build_high_dividend_page_context(host_root):
             "answer": "No. Dividend alone is not enough. Total return depends on business quality, capital allocation, balance-sheet discipline, and whether the stock is bought at a sensible valuation.",
         },
     ]
-    canonical_url = f"{host_root.rstrip('/')}/stocks/high-dividend-paying-stocks"
+    canonical_url = f"{host_root.rstrip('/')}{config['canonical_path']}"
     schema_json = json.dumps(
         {
             "@context": "https://schema.org",
             "@graph": [
                 {
                     "@type": "CollectionPage",
-                    "name": "High Dividend Stocks at Attractive Price in India",
-                    "description": "Find Indian stocks with high dividend yield, attractive valuation, strong fundamentals and price opportunity.",
+                    "name": config["seo_title"],
+                    "description": config["seo_description"],
                     "url": canonical_url,
                     "mainEntity": {
                         "@type": "ItemList",
@@ -27194,13 +27228,13 @@ def build_high_dividend_page_context(host_root):
         indent=2,
     )
     return {
-        "seo_title": "High Dividend Stocks at Attractive Price in India",
-        "seo_description": "Find Indian stocks with high dividend yield, attractive valuation, strong fundamentals and price opportunity.",
+        "seo_title": config["seo_title"],
+        "seo_description": config["seo_description"],
         "canonical_url": canonical_url,
         "schema_json": schema_json,
-        "page_title": "High Dividend + Attractive Price Stocks",
-        "page_subtitle": "A dividend page built for quality, not bait. Screen Indian stocks for yield, valuation comfort, financial strength, and price opportunity in one place.",
-        "page_kicker": "TraderHub Dividend Screen",
+        "page_title": config["page_title"],
+        "page_subtitle": config["page_subtitle"],
+        "page_kicker": config["page_kicker"],
         "last_refresh": max((row["last_updated_display"] for row in all_rows), default="Source Pending"),
         "rows": filtered_rows,
         "all_rows_count": len(all_rows),
@@ -27215,10 +27249,15 @@ def build_high_dividend_page_context(host_root):
         "faq_items": faq_items,
         "live_mode": enable_live,
         "live_mode_label": "Seeded + selective live enrichment" if enable_live else "Seeded dataset only",
-        "mode_switch_href": "/stocks/high-dividend-paying-stocks?live=0" if enable_live else "/stocks/high-dividend-paying-stocks?live=1",
+        "mode_switch_href": f"{config['canonical_path']}?live=0" if enable_live else f"{config['canonical_path']}?live=1",
         "mode_switch_label": "Use seeded-only mode" if enable_live else "Enable live enrichment",
-        "data_source_note": "Current release uses a seeded dividend universe with an optional Upstox fundamentals enrichment hook already wired into the codebase.",
-        "warning_copy": "High dividend yield does not always mean good investment. Sometimes yield is high because price has fallen due to weak business. Please check fundamentals before investing.",
+        "data_source_note": config["data_source_note"],
+        "warning_copy": config["warning_copy"],
+        "reset_href": config["canonical_path"],
+        "hero_focus_label": config["hero_label"],
+        "hero_focus_copy": config["hero_label_copy"],
+        "sibling_href": config["sibling_href"],
+        "sibling_label": config["sibling_label"],
     }
 
 
@@ -27387,9 +27426,9 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
           <span>Out of {{ all_rows_count }} current seeded rows.</span>
         </div>
         <div class="hero-stat">
-          <div class="label">Average Yield</div>
-          <strong>{{ avg_yield_display }}</strong>
-          <span>Yield should be judged with business quality, not alone.</span>
+          <div class="label">{{ hero_focus_label }}</div>
+          <strong>{{ avg_yield_display if hero_focus_label == "Average Yield" else avg_score_display }}</strong>
+          <span>{{ hero_focus_copy }}</span>
         </div>
         <div class="hero-stat">
           <div class="label">Average Score</div>
@@ -27454,7 +27493,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
             </div>
             <div class="filter-actions">
               <button class="btn btn-primary" type="submit">Apply filters</button>
-              <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Reset</a>
+              <a class="btn btn-secondary" href="{{ reset_href }}">Reset</a>
             </div>
           </form>
         </section>
@@ -27465,9 +27504,9 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
         </div>
 
         <section class="panel" style="margin-top:16px;">
-          <h2>High dividend stocks at attractive price</h2>
+          <h2>{{ page_title }}</h2>
           <div class="mini-note">Click any column heading to sort the table. Default ranking uses the Dividend Attractiveness Score.</div>
-          <div class="mini-note"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a></div>
+          <div class="mini-note"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a> · <a href="{{ sibling_href }}">{{ sibling_label }}</a></div>
           <div class="table-wrap">
             {% if rows %}
             <table id="dividend-table">
@@ -27609,7 +27648,13 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
 
 @app.route("/stocks/high-dividend-paying-stocks")
 def high_dividend_paying_stocks():
-    context = build_high_dividend_page_context(request.url_root.rstrip("/"))
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="high-dividend")
+    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+
+
+@app.route("/stocks/undervalued-dividend-stocks")
+def undervalued_dividend_stocks():
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="undervalued-dividend")
     return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
 
 
