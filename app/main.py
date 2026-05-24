@@ -22532,8 +22532,17 @@ def build_mapping_manager_corrections_context():
 def build_news_manager_quality_context():
     data = get_news_manager_summary_overview(limit=180)
     totals = data.get("totals", {}) or {}
-    quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
-    quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
+    all_quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
+    all_quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
+    view_mode = str(request.args.get("view", "review-ready") or "review-ready").strip().lower()
+    if view_mode not in {"review-ready", "all", "unscanned"}:
+        view_mode = "review-ready"
+    if view_mode == "unscanned":
+        quality_rows = [row for row in all_quality_rows if not row.get("snapshot_checked_at")]
+    elif view_mode == "all":
+        quality_rows = all_quality_rows
+    else:
+        quality_rows = [row for row in all_quality_rows if row.get("snapshot_checked_at")]
     grouped = {}
     issue_counter = {}
     for row in quality_rows:
@@ -22561,7 +22570,10 @@ def build_news_manager_quality_context():
         "breadcrumb_text": "Admin > News Manager > Quality",
         "breadcrumb_meta_text": f'Quality scoring | Last reviewed {get_today_ist().isoformat()}',
         "hero_title": "News Quality Scoring",
-        "hero_subtitle": "This layer turns snapshot signals into a usable quality queue: summary presence, structure depth, fallback risk, shell risk, and technical readiness in one score.",
+        "hero_subtitle": (
+            "This layer turns snapshot signals into a usable quality queue: summary presence, structure depth, fallback risk, shell risk, and technical readiness in one score. "
+            f"Current view: {'review-ready scanned pages' if view_mode == 'review-ready' else 'all rows' if view_mode == 'all' else 'unscanned rows only'}."
+        ),
         "kpis": [
             {"label": "Rows", "value": len(quality_rows)},
             {"label": "Strong", "value": len([row for row in quality_rows if row["quality_score"] >= 85])},
@@ -22592,14 +22604,30 @@ def build_news_manager_quality_context():
                         row.get("snapshot_checked_at") or row.get("last_checked_at") or "-",
                     ]
                     for row in quality_rows[:140]
+                ] or [["-", "-", "-", "-", "No rows in this view yet.", "-", "-", "-"]],
+                "filters": [
+                    {
+                        "label": "Review-Ready",
+                        "href": "/admin/news-manager/quality?view=review-ready",
+                        "active": view_mode == "review-ready",
+                    },
+                    {
+                        "label": "All Rows",
+                        "href": "/admin/news-manager/quality?view=all",
+                        "active": view_mode == "all",
+                    },
+                    {
+                        "label": "Unscanned",
+                        "href": "/admin/news-manager/quality?view=unscanned",
+                        "active": view_mode == "unscanned",
+                    },
                 ],
-                "filters": [],
             },
             {
                 "title": "Quality By Page Type",
                 "note": "This table helps you see whether archive, trend, alerts, or live-market pages are currently dragging the public content layer down.",
                 "columns": ["Page Type", "Rows", "Avg Score", "Fallback Rows", "Shell Rows", "No Snapshot"],
-                "rows": by_type_rows,
+                "rows": by_type_rows or [["-", 0, "-", 0, 0, 0]],
                 "filters": [],
             },
             {
