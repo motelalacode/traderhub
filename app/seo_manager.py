@@ -130,6 +130,26 @@ def init_seo_manager_db():
     conn = get_connection()
     try:
         conn.executescript(SEO_MANAGER_SCHEMA)
+        existing_snapshot_columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(news_page_snapshots)").fetchall()
+        }
+        snapshot_column_defs = {
+            "stock_link_count": "INTEGER NOT NULL DEFAULT 0",
+            "section_count": "INTEGER NOT NULL DEFAULT 0",
+            "bullet_count": "INTEGER NOT NULL DEFAULT 0",
+            "summary_present": "INTEGER NOT NULL DEFAULT 0",
+            "fallback_active": "INTEGER NOT NULL DEFAULT 0",
+            "market_error_present": "INTEGER NOT NULL DEFAULT 0",
+            "shell_only": "INTEGER NOT NULL DEFAULT 0",
+            "checked_at": "TEXT",
+            "notes": "TEXT",
+        }
+        for column_name, column_sql in snapshot_column_defs.items():
+            if column_name not in existing_snapshot_columns:
+                conn.execute(
+                    f"ALTER TABLE news_page_snapshots ADD COLUMN {column_name} {column_sql}"
+                )
         conn.commit()
     finally:
         conn.close()
