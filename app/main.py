@@ -28153,6 +28153,32 @@ def news_manager_snapshots_summary():
     return jsonify({"status": "ok", "summary": get_news_snapshot_run_summary()})
 
 
+@app.route("/admin/news-manager/snapshots/refresh")
+def news_manager_snapshots_refresh():
+    refresh_url = str(request.args.get("url", "") or "").strip()
+    if not refresh_url:
+        return Response(
+            json.dumps({"status": "error", "message": "Please provide ?url=https://..."}),
+            mimetype="application/json",
+            status=400,
+        )
+    page_row = fetch_seo_page_by_url(refresh_url)
+    if not page_row:
+        return Response(
+            json.dumps({"status": "error", "message": f"No SEO page found for {refresh_url}"}),
+            mimetype="application/json",
+            status=404,
+        )
+    try:
+        render_payload = fetch_internal_seo_page_render(page_row)
+        snapshot = extract_news_page_snapshot_from_html(page_row, render_payload.get("html_text", ""))
+        upsert_news_page_snapshot(page_row, snapshot)
+        return jsonify({"status": "ok", "payload": {"page": page_row, "snapshot": snapshot}})
+    except BaseException as exc:
+        payload = {"status": "error", "message": str(exc), "error_type": type(exc).__name__, "url": refresh_url}
+        return Response(json.dumps(payload), mimetype="application/json", status=500)
+
+
 @app.route("/sitemap.xml")
 def public_sitemap_index():
     sitemap_path = SITEMAP_DIR / "sitemap.xml"
