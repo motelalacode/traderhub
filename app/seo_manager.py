@@ -1737,10 +1737,13 @@ def upsert_news_page_snapshot(page_row, snapshot):
         conn.close()
 
 
-def get_news_manager_summary_overview(limit=120):
+def get_news_manager_summary_overview(limit=120, snapshot_mode="all"):
     init_seo_manager_db()
     conn = get_connection()
     try:
+        snapshot_mode = str(snapshot_mode or "all").strip().lower()
+        if snapshot_mode not in {"all", "scanned", "unscanned"}:
+            snapshot_mode = "all"
         summary_page_types = (
             "market_news",
             "alerts_prep",
@@ -1799,6 +1802,11 @@ def get_news_manager_summary_overview(limit=120):
                 summary_page_types,
             ).fetchall()
         ]
+        snapshot_filter_sql = ""
+        if snapshot_mode == "scanned":
+            snapshot_filter_sql = " AND nps.page_id IS NOT NULL"
+        elif snapshot_mode == "unscanned":
+            snapshot_filter_sql = " AND nps.page_id IS NULL"
         rows = [
             dict(row)
             for row in conn.execute(
@@ -1816,6 +1824,7 @@ def get_news_manager_summary_overview(limit=120):
                 WHERE p.is_active = 1
                   AND p.domain = 'traderhub.in'
                   AND p.page_type IN ({placeholders})
+                  {snapshot_filter_sql}
                 GROUP BY p.id
                 ORDER BY
                   CASE WHEN p.health_score < 100 THEN 0 ELSE 1 END,

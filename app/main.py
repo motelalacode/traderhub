@@ -22530,19 +22530,18 @@ def build_mapping_manager_corrections_context():
 
 
 def build_news_manager_quality_context():
-    data = get_news_manager_summary_overview(limit=180)
-    totals = data.get("totals", {}) or {}
-    all_quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
-    all_quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
     view_mode = str(request.args.get("view", "review-ready") or "review-ready").strip().lower()
     if view_mode not in {"review-ready", "all", "unscanned"}:
         view_mode = "review-ready"
-    if view_mode == "unscanned":
-        quality_rows = [row for row in all_quality_rows if not row.get("snapshot_checked_at")]
-    elif view_mode == "all":
-        quality_rows = all_quality_rows
-    else:
-        quality_rows = [row for row in all_quality_rows if row.get("snapshot_checked_at")]
+    snapshot_mode = "all"
+    if view_mode == "review-ready":
+        snapshot_mode = "scanned"
+    elif view_mode == "unscanned":
+        snapshot_mode = "unscanned"
+    data = get_news_manager_summary_overview(limit=180, snapshot_mode=snapshot_mode)
+    totals = data.get("totals", {}) or {}
+    quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
+    quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
     grouped = {}
     issue_counter = {}
     for row in quality_rows:
