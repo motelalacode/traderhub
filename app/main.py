@@ -8664,6 +8664,7 @@ def get_stock_slug_maps():
         "slug_to_symbol": slug_to_symbol,
         "symbol_to_slug": symbol_to_slug,
     }
+    return context
 
 
 def resolve_stock_symbol_from_slug(stock_slug):
