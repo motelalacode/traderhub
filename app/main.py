@@ -19952,7 +19952,8 @@ def build_sector_cards_from_live_rows(rows):
     sector_cards = []
     for sector_label, sector_rows in grouped.items():
         sector_rows = sorted(sector_rows, key=lambda item: item["change_pct_numeric"], reverse=True)
-        avg_change = sum(row["change_pct_numeric"] for row in sector_rows) / len(sector_rows)
+        valid_changes = [row.get("change_pct_numeric") for row in sector_rows if row.get("change_pct_numeric") is not None]
+        avg_change = (sum(valid_changes) / len(valid_changes)) if valid_changes else 0.0
         strongest = sector_rows[0]
         weakest = min(sector_rows, key=lambda item: item["change_pct_numeric"])
         sector_cards.append(
@@ -20036,7 +20037,7 @@ def build_market_archive_editor_summary(archive_day, is_live_day, real_story_cou
         [
             {
                 "label": "Archive Day",
-                "copy": f"{archive_day.strftime('%d %b %Y')} is {'a live archive day with real current-session context' if is_live_day else 'shown as a structured archive shell while TraderHub expands its stored dated snapshots'}."
+                "copy": f"{archive_day.strftime('%d %b %Y')} is {'a live archive day with real current-session context' if is_live_day else 'shown as a structured archive starter while TraderHub expands its stored dated snapshots'}."
             },
             {
                 "label": "Story Load",
@@ -20687,7 +20688,7 @@ def extract_news_page_snapshot_from_html(page_row, html_text):
     )
     fallback_active = bool(
         re.search(
-            r"\b(source pending|waiting for a stronger|structured archive shell|archive shell|placeholder|temporarily unavailable|safe fallback|fallback mode|fallback view)\b",
+            r"\b(source pending|waiting for a stronger|placeholder|temporarily unavailable|safe fallback|fallback mode|fallback view)\b",
             text_content,
             flags=re.IGNORECASE,
         )
@@ -24169,11 +24170,11 @@ def build_market_archive_day_context(host_root, archive_day):
     else:
         rows.append(
             {
-                "title": f"{archive_day.strftime('%d %b %Y')} archive shell",
+                "title": f"{archive_day.strftime('%d %b %Y')} archive starter",
                 "meta": "Archive structure | Historical expansion in progress",
                 "copy": "This dated page is already part of the public archive structure. Richer day-specific market snapshots will deepen as TraderHub stores more session-level records.",
                 "href": "",
-                "tags": [{"label": "Archive Shell", "kind": "tag-info"}],
+                "tags": [{"label": "Archive Starter", "kind": "tag-info"}],
             }
         )
 
@@ -24209,7 +24210,7 @@ def build_market_archive_day_context(host_root, archive_day):
         "section_note": "Archive day pages pull the public market system into a dated format. Today is the fullest version; older days stay structurally ready while stored market history expands.",
         "summary_cards": [
             {"label": "Archive Day", "value": archive_day_label, "copy": "The dated anchor for this public market page."},
-            {"label": "Live-linked", "value": "Yes" if is_live_day else "Partial", "copy": "Today uses the richest live-linked market layer. Older days remain honest archive shells until stored session history deepens."},
+            {"label": "Live-linked", "value": "Yes" if is_live_day else "Partial", "copy": "Today uses the richest live-linked market layer. Older days remain honest archive starters until stored session history deepens."},
             {"label": "Story Cards", "value": real_story_count, "copy": "Cards linking market notes, movers, and event-led context."},
             {"label": "Best Use", "value": "Revisit", "copy": "Best used when you want to reconnect one session with a later stock or sector question."},
         ],
@@ -24324,11 +24325,11 @@ def build_sector_news_archive_context(sector_key, host_root):
     if not rows:
         rows.append(
             {
-                "title": f"{sector_label} archive shell",
+                "title": f"{sector_label} archive starter",
                 "meta": "Sector archive | Research structure live",
                 "copy": "This sector archive is ready and will deepen as more company-level dated stories and theme storage accumulate across the TraderHub public system.",
                 "href": f"/sectors/{sector_slug}",
-                "tags": [{"label": "Archive Shell", "kind": "tag-info"}],
+                "tags": [{"label": "Archive Starter", "kind": "tag-info"}],
             }
         )
     today_iso = get_today_ist().isoformat()
@@ -24849,15 +24850,32 @@ def build_sector_news_context(host_root):
     lookup = get_symbol_sector_lookup()
     grouped = {}
     for row in rows:
-        broad_sector = (lookup.get(row["symbol"], "General").split(" / ")[0]).strip()
-        grouped.setdefault(broad_sector, []).append(row)
+        if not isinstance(row, dict):
+            continue
+        symbol = (row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        broad_sector = (lookup.get(symbol, "General").split(" / ")[0]).strip()
+        normalized_row = dict(row)
+        normalized_row["symbol"] = symbol
+        normalized_row["change_pct_numeric"] = parse_numeric_text(row.get("change_pct_numeric"))
+        grouped.setdefault(broad_sector, []).append(normalized_row)
 
     sector_cards = []
     for sector_label, sector_rows in grouped.items():
-        sector_rows = sorted(sector_rows, key=lambda item: item["change_pct_numeric"], reverse=True)
+        if not sector_rows:
+            continue
+        sector_rows = sorted(
+            sector_rows,
+            key=lambda item: item.get("change_pct_numeric") if item.get("change_pct_numeric") is not None else -9999,
+            reverse=True,
+        )
         avg_change = sum(row["change_pct_numeric"] for row in sector_rows) / len(sector_rows)
         strongest = sector_rows[0]
-        weakest = min(sector_rows, key=lambda item: item["change_pct_numeric"])
+        weakest = min(
+            sector_rows,
+            key=lambda item: item.get("change_pct_numeric") if item.get("change_pct_numeric") is not None else 9999,
+        )
         sector_cards.append(
             {
                 "sector": sector_label,
