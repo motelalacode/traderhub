@@ -26929,17 +26929,21 @@ def market_archive_day(archive_day):
 
 @app.route("/stocks/<stock_slug>/why-moving")
 def stock_why_moving(stock_slug):
-    symbol = resolve_stock_symbol_from_slug(stock_slug)
-    master = load_symbol_master()
-    if not symbol or symbol not in master.get("by_symbol", {}):
-        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
-    canonical_slug = get_canonical_stock_slug(symbol)
-    if stock_slug.strip().lower() != canonical_slug:
-        return redirect(f"/stocks/{canonical_slug}/why-moving")
     try:
+        symbol = resolve_stock_symbol_from_slug(stock_slug)
+        master = load_symbol_master()
+        if not symbol or symbol not in master.get("by_symbol", {}):
+            return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+        canonical_slug = get_canonical_stock_slug(symbol)
+        if stock_slug.strip().lower() != canonical_slug:
+            return redirect(f"/stocks/{canonical_slug}/why-moving")
         context = build_why_moving_context(symbol, request.url_root.rstrip("/"))
     except Exception as exc:
-        app.logger.exception("Failed to render why-moving page: %s", symbol)
+        safe_symbol = str(stock_slug or "").strip().upper().replace("-", " ")
+        app.logger.exception("Failed to render why-moving page: %s", stock_slug)
+        symbol = locals().get("symbol") or safe_symbol or "Stock"
+        canonical_slug = locals().get("canonical_slug") or str(stock_slug or "").strip().lower()
+        master = locals().get("master") or load_symbol_master()
         master_row = master.get("by_symbol", {}).get(symbol) or {}
         company_name = prettify_company_name((master_row.get("security") or symbol), symbol)
         fallback_context = build_market_phase2_fallback_context(
