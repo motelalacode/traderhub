@@ -27166,6 +27166,38 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
             "sibling_href": "/stocks/high-dividend-paying-stocks",
             "sibling_label": "Open high dividend screen",
         },
+        "mid-cap-dividend": {
+            "canonical_path": "/stocks/mid-cap-high-dividend-stocks",
+            "seo_title": "Mid Cap High Dividend Stocks in India | TraderHub",
+            "seo_description": "Explore mid cap Indian dividend stocks with yield, valuation context, and balance-sheet filters for better shortlist quality.",
+            "page_title": "Mid Cap High Dividend Stocks",
+            "page_subtitle": "A mid-cap income screen for readers who want more growth optionality than large caps, but still want dividend support and cleaner financial filters.",
+            "page_kicker": "TraderHub Mid Cap Dividend Screen",
+            "hero_label": "Average Yield",
+            "hero_label_copy": "This view keeps the income angle but narrows the shortlist to mid-cap businesses by default.",
+            "default_filters": {"yield_min": 2, "pe_below_industry": 0, "below_high_20": 0, "roe_above_12": 1, "de_below_1": 1},
+            "default_market_cap": "Mid",
+            "data_source_note": "This sibling screen uses the same dividend universe, but starts from the mid-cap bucket so users can compare income ideas with more expansion potential and still keep balance-sheet discipline.",
+            "warning_copy": "Mid cap dividend stocks can be less stable than larger names. Dividend history should be checked alongside cash-flow durability and leverage quality.",
+            "sibling_href": "/stocks/large-cap-dividend-stocks",
+            "sibling_label": "Open large cap dividend screen",
+        },
+        "small-cap-dividend": {
+            "canonical_path": "/stocks/small-cap-high-dividend-stocks",
+            "seo_title": "Small Cap High Dividend Stocks in India | TraderHub",
+            "seo_description": "Explore small cap Indian dividend stocks with yield, valuation context, and tighter caution on debt and payout quality.",
+            "page_title": "Small Cap High Dividend Stocks",
+            "page_subtitle": "A smaller-company dividend screen for readers who want higher upside potential, but still need payout, leverage, and entry-price discipline front and center.",
+            "page_kicker": "TraderHub Small Cap Dividend Screen",
+            "hero_label": "Average Yield",
+            "hero_label_copy": "This view narrows the shortlist to small-cap names, where yield needs even more business-quality caution.",
+            "default_filters": {"yield_min": 3, "pe_below_industry": 1, "below_high_20": 0, "roe_above_12": 1, "de_below_1": 1},
+            "default_market_cap": "Small",
+            "data_source_note": "This sibling screen uses the same dividend universe, but starts from the small-cap bucket so readers can isolate riskier income ideas without losing the shared scoring framework.",
+            "warning_copy": "Small cap dividend stocks can be volatile and less predictable. A high yield in a small company can become a trap quickly if earnings or cash flows weaken.",
+            "sibling_href": "/stocks/mid-cap-high-dividend-stocks",
+            "sibling_label": "Open mid cap dividend screen",
+        },
     }
     config = screen_configs.get(screen_key, screen_configs["high-dividend"])
     default_filters = config["default_filters"]
@@ -27706,6 +27738,16 @@ def build_dividend_stocks_hub_context(host_root):
             "href": "/stocks/large-cap-dividend-stocks",
             "copy": "The large-cap sibling. Best for readers who want dividend ideas from bigger, more liquid companies first.",
         },
+        {
+            "title": "Mid Cap High Dividend Stocks",
+            "href": "/stocks/mid-cap-high-dividend-stocks",
+            "copy": "The mid-cap sibling. Best for readers who want dividend ideas from growing mid-sized companies with better balance-sheet filters.",
+        },
+        {
+            "title": "Small Cap High Dividend Stocks",
+            "href": "/stocks/small-cap-high-dividend-stocks",
+            "copy": "The small-cap sibling. Best for readers who want smaller-company dividend ideas, but still need stronger caution around leverage and payout quality.",
+        },
     ]
     schema_json = json.dumps(
         {
@@ -27807,6 +27849,18 @@ def undervalued_dividend_stocks():
 @app.route("/stocks/large-cap-dividend-stocks")
 def large_cap_dividend_stocks():
     context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="large-cap-dividend")
+    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+
+
+@app.route("/stocks/mid-cap-high-dividend-stocks")
+def mid_cap_high_dividend_stocks():
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="mid-cap-dividend")
+    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+
+
+@app.route("/stocks/small-cap-high-dividend-stocks")
+def small_cap_high_dividend_stocks():
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="small-cap-dividend")
     return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
 
 
