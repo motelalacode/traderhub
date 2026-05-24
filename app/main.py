@@ -18345,6 +18345,44 @@ def get_stock_hub_sample_context():
             {"company": "Vodafone Idea", "current_price": "8.70", "day_change": "-0.82%", "return_1y": "-22.4%", "vwap": "8.63", "range_52w": "Mid-range", "status": "Inside Day"},
             {"company": "Tata Communications", "current_price": "2,012.10", "day_change": "+0.64%", "return_1y": "+12.5%", "vwap": "1,998.30", "range_52w": "Constructive", "status": "Above VWAP"},
         ],
+        "peer_comparison_rows": [
+            {
+                "company": "Bharti Airtel",
+                "cmp": "1,768.40",
+                "pe": "55.40",
+                "market_cap": "10.6 L Cr",
+                "dividend_yield": "0.45%",
+                "np_qtr": "4,295.3",
+                "np_qtr_change": "+14.20%",
+                "sales_qtr": "37,440.8",
+                "sales_qtr_change": "+10.80%",
+                "roce": "15.90%",
+            },
+            {
+                "company": "Vodafone Idea",
+                "cmp": "8.70",
+                "pe": "-",
+                "market_cap": "89.7 K Cr",
+                "dividend_yield": "-",
+                "np_qtr": "Pending",
+                "np_qtr_change": "Pending",
+                "sales_qtr": "Pending",
+                "sales_qtr_change": "Pending",
+                "roce": "-",
+            },
+            {
+                "company": "Tata Communications",
+                "cmp": "2,012.10",
+                "pe": "41.80",
+                "market_cap": "52.1 K Cr",
+                "dividend_yield": "1.10%",
+                "np_qtr": "1,093.2",
+                "np_qtr_change": "+8.10%",
+                "sales_qtr": "5,680.4",
+                "sales_qtr_change": "+9.60%",
+                "roce": "18.10%",
+            },
+        ],
         "holdings_deals": [
             {"label": "Promoter Holding", "value": "53.1%", "note": "Stable promoter control profile"},
             {"label": "FII Holding", "value": "21.8%", "note": "Useful when foreign ownership trends are available"},
@@ -18383,8 +18421,77 @@ def get_stock_hub_sample_context():
         "peers_section_note": "This comparison section is one of the biggest practical wins. It helps users understand whether the stock is expensive, stronger, or weaker than close competitors without leaving the page.",
         "holdings_section_note": "This section combines ownership quality and market activity. It is inspired by India-focused stock pages, but presented in a cleaner layout.",
         "news_section_note": "This is where earnings, management commentary, block deals, and major business updates should live. For the sample, it shows the intended card structure.",
+        "quarterly_results_table": {
+            "columns": ["Jun 2025", "Sep 2025", "Dec 2025", "Mar 2026"],
+            "rows": [
+                {"label": "Sales", "values": ["35,842", "30,187", "34,924", "46,490"]},
+                {"label": "Operating Profit", "values": ["12,521", "6,716", "9,331", "12,673"]},
+                {"label": "Net Profit", "values": ["8,734", "4,263", "7,166", "10,908"]},
+                {"label": "EPS", "values": ["14.19", "7.07", "11.61", "17.59"]},
+            ],
+            "empty_message": "",
+        },
+        "annual_profit_loss_table": {
+            "columns": ["Mar 2023", "Mar 2024", "Mar 2025", "Mar 2026"],
+            "rows": [
+                {"label": "Sales", "values": ["138,252", "144,762", "143,369", "168,400"]},
+                {"label": "Operating Profit", "values": ["44,232", "47,971", "47,064", "41,242"]},
+                {"label": "Net Profit", "values": ["31,723", "37,369", "35,302", "31,071"]},
+                {"label": "Dividend Payout", "values": ["47%", "42%", "46%", "53%"]},
+            ],
+            "empty_message": "",
+        },
+        "balance_sheet_table": {
+            "columns": ["Mar 2023", "Mar 2024", "Mar 2025", "Mar 2026"],
+            "rows": [
+                {"label": "Equity Capital", "values": ["6,163", "6,163", "6,163", "6,163"]},
+                {"label": "Reserves", "values": ["54,680", "76,567", "92,942", "112,939"]},
+                {"label": "Borrowings", "values": ["4,331", "6,523", "9,146", "14,072"]},
+                {"label": "Total Assets", "values": ["221,396", "236,470", "258,985", "285,660"]},
+            ],
+            "empty_message": "",
+        },
+        "cash_flow_table": {
+            "columns": ["Mar 2023", "Mar 2024", "Mar 2025", "Mar 2026"],
+            "rows": [
+                {"label": "Cash from Operating Activity", "values": ["35,734", "18,103", "29,200", "43,215"]},
+                {"label": "Cash from Investing Activity", "values": ["-23,465", "-4,486", "-10,076", "-33,955"]},
+                {"label": "Cash from Financing Activity", "values": ["-13,704", "-13,899", "-13,308", "-11,801"]},
+                {"label": "Free Cash Flow", "values": ["20,523", "1,353", "15,960", "31,191"]},
+            ],
+            "empty_message": "",
+        },
+        "ratios_table": {
+            "columns": ["Mar 2023", "Mar 2024", "Mar 2025", "Mar 2026"],
+            "rows": [
+                {"label": "ROCE %", "values": ["78%", "64%", "48%", "35%"]},
+                {"label": "ROE %", "values": ["52%", "61%", "43%", "29%"]},
+                {"label": "Debt / Equity", "values": ["0.08", "0.09", "0.10", "0.12"]},
+            ],
+            "empty_message": "",
+        },
+        "shareholding_pattern_table": {
+            "columns": ["Sep 2025", "Dec 2025", "Mar 2026"],
+            "rows": [
+                {"label": "Promoters", "values": ["53.13%", "53.13%", "53.13%"]},
+                {"label": "FIIs", "values": ["7.96%", "8.22%", "8.38%"]},
+                {"label": "DIIs", "values": ["22.80%", "22.53%", "22.76%"]},
+                {"label": "Public / Retail", "values": ["5.98%", "5.98%", "5.62%"]},
+            ],
+            "empty_message": "",
+        },
+        "disclosure_links": [
+            {"title": "Bharti Airtel investor relations", "meta": "Company website", "url": "https://www.airtel.in/investors/"},
+            {"title": "Bharti Airtel annual reports", "meta": "Investor documents", "url": "https://www.airtel.in/investors/annual-reports"},
+            {"title": "Bharti Airtel results and presentations", "meta": "Results / concalls / PPT", "url": "https://www.airtel.in/investors/results"},
+        ],
+        "research_notes": [
+            "This sample shows the intended phase-2A research layout with peer context, financial statements, ownership trend, and disclosure links.",
+            "Live pages use best-available market data first and then attach financial research sections only when the source is trustworthy.",
+        ],
         "why_page_works_title": "Why This Page Works",
         "why_page_works_text": "It blends the breadth expected from Indian stock portals with the cleaner section hierarchy used by research-first platforms. The idea is to make one company page feel useful for both traders and investors.",
+        "stock_slug": "bharti-airtel",
     }
 
 
@@ -28803,6 +28910,7 @@ def stock_hub_public(stock_slug):
             "technical_metrics": [],
             "study_cards": [],
             "peers": [],
+            "peer_comparison_rows": [],
             "quick_stats": [
                 {"label": "Stock Page", "value": "Fallback"},
                 {"label": "News Archive", "value": "Available"},
@@ -28812,6 +28920,52 @@ def stock_hub_public(stock_slug):
             "financial_metrics": build_placeholder_financial_metrics("Fallback Coverage"),
             "holdings_deals": build_placeholder_holdings_deals(safe_symbol),
             "ownership_watch_rows": build_placeholder_ownership_watch(),
+            "quarterly_results_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Quarterly results are temporarily unavailable while the stock research layer is retried.",
+            },
+            "annual_profit_loss_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Annual profit and loss history is temporarily unavailable while the stock research layer is retried.",
+            },
+            "balance_sheet_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Balance sheet history is temporarily unavailable while the stock research layer is retried.",
+            },
+            "cash_flow_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Cash flow history is temporarily unavailable while the stock research layer is retried.",
+            },
+            "ratios_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Ratio history is temporarily unavailable while the stock research layer is retried.",
+            },
+            "shareholding_pattern_table": {
+                "columns": [],
+                "rows": [],
+                "empty_message": "Shareholding pattern is temporarily unavailable while the stock research layer is retried.",
+            },
+            "disclosure_links": [
+                {
+                    "title": f"Official NSE announcements for {safe_symbol}",
+                    "meta": "Exchange filings",
+                    "url": f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={urllib.parse.quote(safe_symbol)}&tabIndex=equity",
+                },
+                {
+                    "title": f"Official NSE corporate actions for {safe_symbol}",
+                    "meta": "Dividend, split, bonus, rights",
+                    "url": f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={urllib.parse.quote(safe_symbol)}&tabIndex=equity",
+                },
+            ],
+            "research_notes": [
+                "The page is in safe fallback mode while TraderHub retries the deeper stock research build.",
+                "Linked public routes stay available so the stock remains discoverable even during temporary source errors.",
+            ],
             "news_items": [
                 {
                     "title": f"Why {company_name} Is Moving",
@@ -28831,8 +28985,15 @@ def stock_hub_public(stock_slug):
             "chart_ma_points": "0,72 10,71 20,69 30,68 40,67 50,66 60,64 70,63 80,62 90,61 100,60",
             "chart_subtitle": "Fallback chart shell while the live stock build is retried.",
             "chart_note": "This placeholder keeps the public route alive while TraderHub retries the deeper stock context build.",
+            "stock_slug": safe_slug,
+            "breadcrumb_sector": "Research Layer Pending",
+            "breadcrumb_symbol_label": safe_symbol,
+            "breadcrumb_meta_text": f"Fallback stock page | Last reviewed {get_today_ist().isoformat()}",
             "technical_section_note": "Technical detail is temporarily unavailable, but the stock URL remains valid and connected to its public news routes.",
             "studies_section_note": "Study cards will repopulate once the full stock build succeeds again.",
+            "financial_section_note": "The deeper financial research block is staged safely, but live/source-backed line items are temporarily unavailable.",
+            "peers_section_note": "Peer comparison will repopulate automatically when the stock research layer succeeds again.",
+            "holdings_section_note": "Ownership and disclosures are staged safely so the route stays stable during retries.",
             "news_section_note": "Fallback mode keeps the linked news and archive paths available so the stock stays discoverable.",
         }
     return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **context)
