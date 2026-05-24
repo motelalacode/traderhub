@@ -17939,10 +17939,27 @@ def build_placeholder_ownership_watch():
 
 def build_placeholder_news_items(symbol, sector_label):
     sector_copy = sector_label or "the sector"
+    stock_slug = get_canonical_stock_slug(symbol)
+    sector_href = get_public_sector_route_for_label(sector_copy)
+    sector_archive_href = f"{sector_href}/news-archive" if sector_href.startswith("/sectors/") else "/market/archive"
     return [
-        {"title": f"{symbol} event feed will appear here", "meta": "Phase 1 placeholder | News and events", "copy": "This section is ready for earnings notes, management commentary, and major business updates once the news/event source is finalized."},
-        {"title": f"{sector_copy} sector context will support this page", "meta": "Phase 1 placeholder | Sector research", "copy": "Future versions will connect this stock page to sector-wide developments so users can move from single-stock analysis to broader industry context."},
-        {"title": "Deals and institutional activity are planned next", "meta": "Phase 1 placeholder | Holdings and flows", "copy": "Bulk deals, block deals, and ownership movements are intentionally reserved for the next data-source integration instead of being guessed."},
+        {
+            "title": f"Open the {symbol} news archive",
+            "meta": "Phase 2 linked context | Stock archive",
+            "copy": "Use the stock archive to follow older company-specific headlines, recurring triggers, and the research trail beyond the current session.",
+            "url": f"/stocks/{stock_slug}/news-archive",
+        },
+        {
+            "title": f"Read the {sector_copy} research path",
+            "meta": "Phase 2 linked context | Sector research",
+            "copy": "Move from a single-stock view into the broader sector page or archive so users can compare whether the move is company-specific or part of a wider theme.",
+            "url": sector_archive_href,
+        },
+        {
+            "title": "Deals and institutional activity are planned next",
+            "meta": "Phase 1 placeholder | Holdings and flows",
+            "copy": "Bulk deals, block deals, and ownership movements are intentionally reserved for the next data-source integration instead of being guessed.",
+        },
     ]
 
 
@@ -18064,6 +18081,9 @@ def build_stock_news_items(symbol, sector_label, isin):
     announcements_url = f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={encoded_symbol}&tabIndex=equity"
     actions_url = f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={encoded_symbol}&tabIndex=equity"
     sector_copy = sector_label or "the sector"
+    stock_slug = get_canonical_stock_slug(symbol)
+    sector_href = get_public_sector_route_for_label(sector_copy)
+    sector_archive_href = f"{sector_href}/news-archive" if sector_href.startswith("/sectors/") else "/market/archive"
 
     stories.append(
         {
@@ -18085,10 +18105,19 @@ def build_stock_news_items(symbol, sector_label, isin):
     if len(stories) < 4:
         stories.append(
             {
-                "title": f"{sector_copy} sector context will support this page",
-                "meta": "Phase 1 linked context | Sector research",
-                "copy": "Future versions will connect this stock page to sector-wide developments so users can move from single-stock analysis to broader industry context.",
-                "url": "",
+                "title": f"Open the {symbol} stock archive",
+                "meta": "Phase 2 linked context | Stock archive",
+                "copy": "Review the stock archive to connect today's move with earlier news, recurring headlines, and the company-specific research trail.",
+                "url": f"/stocks/{stock_slug}/news-archive",
+            }
+        )
+    if len(stories) < 4:
+        stories.append(
+            {
+                "title": f"Open the {sector_copy} sector archive",
+                "meta": "Phase 2 linked context | Sector research",
+                "copy": "Use the sector archive to judge whether the move is isolated to this stock or part of a broader sector pattern that has been repeating.",
+                "url": sector_archive_href,
             }
         )
     return stories[:4]
