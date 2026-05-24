@@ -21133,15 +21133,15 @@ def run_seo_crawlability_scan(limit=100, domain=None, profile="graph-core", offs
     requested_limit = int(limit)
     effective_limit = requested_limit
     if profile == "full":
-        effective_limit = min(requested_limit, 30)
+        effective_limit = min(requested_limit, 30 if only_unlinked else 8)
     elif profile == "graph-wide":
-        effective_limit = min(requested_limit, 35)
+        effective_limit = min(requested_limit, 35 if only_unlinked else 10)
     elif profile == "graph-core":
-        effective_limit = min(requested_limit, 40)
+        effective_limit = min(requested_limit, 40 if only_unlinked else 12)
     elif profile == "public-plus":
-        effective_limit = min(requested_limit, 40)
+        effective_limit = min(requested_limit, 40 if only_unlinked else 12)
     else:
-        effective_limit = min(requested_limit, 60)
+        effective_limit = min(requested_limit, 60 if only_unlinked else 12)
     check_id = start_check(
         "crawlability_scan",
         notes=f"Crawlability link scan | domain={domain or 'all'} | limit={effective_limit} | offset={offset} | profile={profile} | only_unlinked={int(bool(only_unlinked))}",
