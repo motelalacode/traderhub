@@ -20687,7 +20687,7 @@ def extract_news_page_snapshot_from_html(page_row, html_text):
     )
     fallback_active = bool(
         re.search(
-            r"\b(source pending|waiting for a stronger|structured archive shell|placeholder|pending\b|fallback)\b",
+            r"\b(source pending|waiting for a stronger|structured archive shell|archive shell|placeholder|temporarily unavailable|safe fallback|fallback mode|fallback view)\b",
             text_content,
             flags=re.IGNORECASE,
         )
