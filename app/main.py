@@ -21964,6 +21964,20 @@ def get_keyword_planner_snapshot(limit=140):
 def compute_news_quality_row(row):
     score = 100
     issues = []
+    snapshot_checked_at = str(row.get("snapshot_checked_at") or "").strip()
+    last_checked_at = str(row.get("last_checked_at") or "").strip()
+    snapshot_age_days = None
+    page_age_days = None
+    try:
+        if snapshot_checked_at:
+            snapshot_age_days = (get_today_ist() - datetime.datetime.fromisoformat(snapshot_checked_at).date()).days
+    except Exception:
+        snapshot_age_days = None
+    try:
+        if last_checked_at:
+            page_age_days = (get_today_ist() - datetime.datetime.fromisoformat(last_checked_at).date()).days
+    except Exception:
+        page_age_days = None
     if int(row.get("status_code") or 0) != 200:
         score -= 25
         issues.append("non_200")
@@ -21976,16 +21990,29 @@ def compute_news_quality_row(row):
     if not str(row.get("h1") or "").strip():
         score -= 10
         issues.append("missing_h1")
+    if not str(row.get("canonical_url") or "").strip():
+        score -= 6
+        issues.append("missing_canonical")
+    if not snapshot_checked_at:
+        score -= 18
+        issues.append("no_snapshot")
     if not row.get("summary_present"):
         score -= 15
         issues.append("no_summary")
-    if int(row.get("story_link_count") or 0) < 3:
+    story_link_count = int(row.get("story_link_count") or 0)
+    section_count = int(row.get("section_count") or 0)
+    bullet_count = int(row.get("bullet_count") or 0)
+    active_issue_count = int(row.get("active_issue_count") or 0)
+    if story_link_count == 0:
+        score -= 12
+        issues.append("no_story_links")
+    elif story_link_count < 3:
         score -= 8
         issues.append("thin_story_links")
-    if int(row.get("section_count") or 0) < 2:
+    if section_count < 2:
         score -= 6
         issues.append("thin_sections")
-    if int(row.get("bullet_count") or 0) < 3:
+    if bullet_count < 3:
         score -= 6
         issues.append("thin_bullets")
     if row.get("fallback_active"):
@@ -21997,12 +22024,40 @@ def compute_news_quality_row(row):
     if row.get("shell_only"):
         score -= 22
         issues.append("shell_only")
+    if active_issue_count > 0:
+        score -= min(18, active_issue_count * 4)
+        issues.append("active_seo_issues")
+    if snapshot_age_days is not None and snapshot_age_days >= 3:
+        score -= 8
+        issues.append("stale_snapshot")
+    if page_age_days is not None and page_age_days >= 7:
+        score -= 5
+        issues.append("stale_extract")
     score = max(0, score)
     quality_band = "Strong" if score >= 85 else "Watch" if score >= 65 else "Weak"
+    if row.get("fallback_active"):
+        focus_label = "Retire fallback"
+    elif row.get("shell_only"):
+        focus_label = "Add real content"
+    elif not row.get("summary_present"):
+        focus_label = "Add summary"
+    elif not snapshot_checked_at:
+        focus_label = "Scan snapshot"
+    elif story_link_count == 0:
+        focus_label = "Add story links"
+    elif active_issue_count > 0:
+        focus_label = "Fix SEO issues"
+    elif snapshot_age_days is not None and snapshot_age_days >= 3:
+        focus_label = "Refresh snapshot"
+    else:
+        focus_label = "Monitor"
     enriched = dict(row)
     enriched["quality_score"] = score
     enriched["quality_band"] = quality_band
     enriched["quality_issues"] = ", ".join(issues) if issues else "clean"
+    enriched["quality_focus"] = focus_label
+    enriched["snapshot_age_days"] = snapshot_age_days
+    enriched["page_age_days"] = page_age_days
     return enriched
 
 
@@ -22476,12 +22531,26 @@ def build_news_manager_quality_context():
     quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
     quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
     grouped = {}
+    issue_counter = {}
     for row in quality_rows:
         grouped.setdefault(row.get("page_type") or "other", []).append(row)
+        for issue in [part.strip() for part in str(row.get("quality_issues") or "").split(",") if part.strip() and part.strip() != "clean"]:
+            issue_counter[issue] = issue_counter.get(issue, 0) + 1
     by_type_rows = []
     for page_type, rows in sorted(grouped.items(), key=lambda item: (sum(row["quality_score"] for row in item[1]) / max(len(item[1]), 1), item[0])):
         avg_score = round(sum(row["quality_score"] for row in rows) / max(len(rows), 1), 1)
-        by_type_rows.append([page_type, len(rows), avg_score, len([row for row in rows if row.get("fallback_active")]), len([row for row in rows if row.get("shell_only")])])
+        by_type_rows.append([
+            page_type,
+            len(rows),
+            avg_score,
+            len([row for row in rows if row.get("fallback_active")]),
+            len([row for row in rows if row.get("shell_only")]),
+            len([row for row in rows if not row.get("snapshot_checked_at")]),
+        ])
+    issue_rows = [
+        [issue, count]
+        for issue, count in sorted(issue_counter.items(), key=lambda item: (-item[1], item[0]))
+    ]
     return {
         "page_title": "News Manager Quality | TraderHub",
         "page_description": "Content quality scoring for TraderHub public news pages.",
@@ -22494,8 +22563,11 @@ def build_news_manager_quality_context():
             {"label": "Strong", "value": len([row for row in quality_rows if row["quality_score"] >= 85])},
             {"label": "Watch", "value": len([row for row in quality_rows if 65 <= row["quality_score"] < 85])},
             {"label": "Weak", "value": len([row for row in quality_rows if row["quality_score"] < 65])},
+            {"label": "No Snapshot", "value": len([row for row in quality_rows if not row.get("snapshot_checked_at")])},
+            {"label": "Stale Snapshots", "value": len([row for row in quality_rows if (row.get("snapshot_age_days") or 0) >= 3])},
             {"label": "Fallback Pages", "value": len([row for row in quality_rows if row.get("fallback_active")])},
             {"label": "Shell Pages", "value": len([row for row in quality_rows if row.get("shell_only")])},
+            {"label": "SEO-Issue Rows", "value": len([row for row in quality_rows if int(row.get("active_issue_count") or 0) > 0])},
         ],
         "nav_items": get_news_manager_nav_items(),
         "active_href": "/admin/news-manager/quality",
@@ -22503,13 +22575,14 @@ def build_news_manager_quality_context():
             {
                 "title": "Lowest Quality Queue",
                 "note": "The weakest pages should be reviewed first because they combine technical readiness with thin summary structure or fallback-heavy content.",
-                "columns": ["URL", "Type", "Score", "Band", "Stories", "Flags", "Last Snapshot"],
+                "columns": ["URL", "Type", "Score", "Band", "Focus", "Stories", "Flags", "Last Snapshot"],
                 "rows": [
                     [
                         f'<div class="mono">{row["url"]}</div>',
                         f'{row["page_type"]}<div class="muted">{row.get("page_subtype") or ""}</div>',
                         row["quality_score"],
                         row["quality_band"],
+                        html_lib.escape(row["quality_focus"]),
                         row.get("story_link_count", 0),
                         html_lib.escape(row["quality_issues"]),
                         row.get("snapshot_checked_at") or row.get("last_checked_at") or "-",
@@ -22521,8 +22594,15 @@ def build_news_manager_quality_context():
             {
                 "title": "Quality By Page Type",
                 "note": "This table helps you see whether archive, trend, alerts, or live-market pages are currently dragging the public content layer down.",
-                "columns": ["Page Type", "Rows", "Avg Score", "Fallback Rows", "Shell Rows"],
+                "columns": ["Page Type", "Rows", "Avg Score", "Fallback Rows", "Shell Rows", "No Snapshot"],
                 "rows": by_type_rows,
+                "filters": [],
+            },
+            {
+                "title": "Quality Issue Breakdown",
+                "note": "This is the fastest way to see whether the cleanup queue is mostly about missing summaries, stale snapshots, shell content, or fallback-heavy pages.",
+                "columns": ["Issue", "Rows"],
+                "rows": issue_rows or [["clean", len(quality_rows)]],
                 "filters": [],
             },
         ],
@@ -22532,6 +22612,15 @@ def build_news_manager_quality_context():
                 "items": [
                     "Missing title, meta, H1, or summary signals reduce score quickly.",
                     "Fallback and shell flags are treated as stronger quality penalties than light structural gaps.",
+                    "No snapshot, stale snapshot, and active SEO issues now count as quality debt too.",
+                ],
+            },
+            {
+                "title": "Review Order",
+                "items": [
+                    "Retire fallback pages first.",
+                    "Then add real content to shell-like pages.",
+                    "Then fill summary gaps and refresh stale snapshot rows.",
                 ],
             },
         ],
