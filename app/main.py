@@ -27258,6 +27258,7 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
         "hero_focus_copy": config["hero_label_copy"],
         "sibling_href": config["sibling_href"],
         "sibling_label": config["sibling_label"],
+        "hub_href": "/stocks/dividend-stocks",
     }
 
 
@@ -27311,6 +27312,15 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
     .hero, .panel, .table-wrap, .faq-card, .notice {
       background: var(--paper); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow);
     }
+    .link-strip {
+      margin-top: 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;
+    }
+    .link-tile {
+      display: block; padding: 16px; border-radius: 18px; border: 1px solid var(--line);
+      background: linear-gradient(180deg, #fbfcfd, #f2f7fa);
+    }
+    .link-tile strong { display: block; font-size: 18px; margin-bottom: 6px; }
+    .link-tile span { display: block; color: var(--muted); font: 13px/1.6 Arial, Helvetica, sans-serif; }
     .hero {
       padding: 22px;
       background: linear-gradient(145deg, #163347, #1f5960 68%, #4c857b 100%);
@@ -27398,6 +27408,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
       .grid { grid-template-columns: 1fr; }
       .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .faq-grid { grid-template-columns: 1fr; }
+      .link-strip { grid-template-columns: 1fr; }
     }
     @media (max-width: 680px) {
       .page { padding: 12px 10px 30px; }
@@ -27501,6 +27512,21 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
         <div class="notice" style="margin-top:16px;">
           <strong>Important warning</strong>
           <div>{{ warning_copy }}</div>
+        </div>
+
+        <div class="link-strip">
+          <a class="link-tile" href="{{ hub_href }}">
+            <strong>Dividend Ideas Hub</strong>
+            <span>See the full family of TraderHub dividend pages in one place.</span>
+          </a>
+          <a class="link-tile" href="{{ sibling_href }}">
+            <strong>{{ sibling_label }}</strong>
+            <span>Switch to the sibling screen without rebuilding the research context from scratch.</span>
+          </a>
+          <a class="link-tile" href="{{ mode_switch_href }}">
+            <strong>{{ mode_switch_label }}</strong>
+            <span>Use the same page in a different data mode when you want a stricter or more resilient read.</span>
+          </a>
         </div>
 
         <section class="panel" style="margin-top:16px;">
@@ -27644,6 +27670,105 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
 </body>
 </html>
 """
+
+
+def build_dividend_stocks_hub_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/stocks/dividend-stocks"
+    pages = [
+        {
+            "title": "High Dividend + Attractive Price Stocks",
+            "href": "/stocks/high-dividend-paying-stocks",
+            "copy": "The broader income-first screen. Start here if you want yield, valuation, strength, and price opportunity on one table.",
+        },
+        {
+            "title": "Undervalued Dividend Stocks",
+            "href": "/stocks/undervalued-dividend-stocks",
+            "copy": "The stricter value-first sibling. Best for readers who want dividend plus valuation discipline before anything else.",
+        },
+    ]
+    schema_json = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "CollectionPage",
+            "name": "Dividend Stocks Hub | TraderHub",
+            "description": "Explore TraderHub dividend stock screens for yield, valuation, and entry-price opportunity in India.",
+            "url": canonical_url,
+        },
+        indent=2,
+    )
+    return {
+        "seo_title": "Dividend Stocks Hub in India | TraderHub",
+        "seo_description": "Explore TraderHub dividend stock screens for yield, valuation, and entry-price opportunity in India.",
+        "canonical_url": canonical_url,
+        "schema_json": schema_json,
+        "pages": pages,
+    }
+
+
+DIVIDEND_STOCKS_HUB_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --bg:#edf2f5; --paper:#ffffff; --line:#cfdae3; --ink:#13202c; --muted:#607180; --accent:#0f5f5a; --shadow:0 16px 34px rgba(20,31,41,0.08);
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Georgia, "Times New Roman", serif; color:var(--ink); background:linear-gradient(180deg, #f6f7f2 0%, var(--bg) 100%); }
+    .page { max-width:1120px; margin:0 auto; padding:18px 14px 40px; }
+    .hero, .card { background:var(--paper); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); }
+    .hero { padding:24px; background:linear-gradient(145deg, #163347, #1f5960 68%, #4c857b 100%); color:#fff; }
+    .kicker { font:12px/1.4 Arial, Helvetica, sans-serif; letter-spacing:.16em; text-transform:uppercase; opacity:.84; }
+    h1 { margin:10px 0 8px; font-size:40px; line-height:1; }
+    .sub { max-width:760px; color:rgba(255,255,255,.86); font-size:18px; line-height:1.55; }
+    .grid { margin-top:16px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; }
+    .card { padding:20px; }
+    .card h2 { margin:0 0 8px; font-size:28px; }
+    .card p { margin:0 0 14px; color:var(--muted); font:14px/1.7 Arial, Helvetica, sans-serif; }
+    .cta { display:inline-flex; align-items:center; padding:10px 14px; border-radius:999px; background:var(--accent); color:#fff; font:700 14px/1 Arial, Helvetica, sans-serif; text-decoration:none; }
+    .note { margin-top:18px; color:var(--muted); font:14px/1.7 Arial, Helvetica, sans-serif; }
+    @media (max-width: 760px) {
+      .page { padding:12px 10px 28px; }
+      h1 { font-size:32px; }
+      .sub { font-size:16px; }
+      .grid { grid-template-columns:1fr; }
+      .hero, .card { border-radius:18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="kicker">TraderHub Dividend Ideas</div>
+      <h1>Dividend Stocks Hub</h1>
+      <div class="sub">Use this hub to compare TraderHub’s dividend-focused stock screens. One page leans broader and income-first, while the other starts from valuation discipline and stronger balance-sheet filters.</div>
+    </section>
+    <div class="grid">
+      {% for item in pages %}
+      <section class="card">
+        <h2>{{ item.title }}</h2>
+        <p>{{ item.copy }}</p>
+        <a class="cta" href="{{ item.href }}">Open screen</a>
+      </section>
+      {% endfor %}
+    </div>
+    <div class="note">Not investment advice. These screens are shortlist builders, not final buy lists.</div>
+  </div>
+</body>
+</html>
+"""
+
+
+@app.route("/stocks/dividend-stocks")
+def dividend_stocks_hub():
+    context = build_dividend_stocks_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(DIVIDEND_STOCKS_HUB_TEMPLATE, **context)
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
