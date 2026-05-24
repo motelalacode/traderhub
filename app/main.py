@@ -27150,6 +27150,22 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
             "sibling_href": "/stocks/high-dividend-paying-stocks",
             "sibling_label": "Open high dividend screen",
         },
+        "large-cap-dividend": {
+            "canonical_path": "/stocks/large-cap-dividend-stocks",
+            "seo_title": "Large Cap Dividend Stocks in India | TraderHub",
+            "seo_description": "Explore large cap Indian dividend stocks with yield, stronger balance-sheet filters, and more stable valuation context.",
+            "page_title": "Large Cap Dividend Stocks",
+            "page_subtitle": "A stability-first dividend screen for readers who prefer larger businesses, steadier balance sheets, and income ideas with broader institutional acceptance.",
+            "page_kicker": "TraderHub Large Cap Dividend Screen",
+            "hero_label": "Average Yield",
+            "hero_label_copy": "This view keeps the income focus but limits the shortlist to large-cap names by default.",
+            "default_filters": {"yield_min": 2, "pe_below_industry": 0, "below_high_20": 0, "roe_above_12": 1, "de_below_1": 1},
+            "default_market_cap": "Large",
+            "data_source_note": "This sibling screen uses the same dividend universe, but starts from large-cap businesses so readers can focus on scale, liquidity, and steadier operating quality.",
+            "warning_copy": "Large cap dividend stocks can still underperform if earnings weaken or payout quality deteriorates. Size alone is not a safety guarantee.",
+            "sibling_href": "/stocks/high-dividend-paying-stocks",
+            "sibling_label": "Open high dividend screen",
+        },
     }
     config = screen_configs.get(screen_key, screen_configs["high-dividend"])
     default_filters = config["default_filters"]
@@ -27159,7 +27175,7 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
         "below_high_20": str(request.args.get("below_high_20", str(default_filters["below_high_20"])) or str(default_filters["below_high_20"])).strip().lower() in {"1", "true", "yes", "on"},
         "roe_above_12": str(request.args.get("roe_above_12", str(default_filters["roe_above_12"])) or str(default_filters["roe_above_12"])).strip().lower() in {"1", "true", "yes", "on"},
         "de_below_1": str(request.args.get("de_below_1", str(default_filters["de_below_1"])) or str(default_filters["de_below_1"])).strip().lower() in {"1", "true", "yes", "on"},
-        "market_cap": str(request.args.get("market_cap", "All") or "All").strip().title() or "All",
+        "market_cap": str(request.args.get("market_cap", config.get("default_market_cap", "All")) or config.get("default_market_cap", "All")).strip().title() or "All",
         "sector": str(request.args.get("sector", "All") or "All").strip() or "All",
     }
     filtered_rows = apply_high_dividend_filters(all_rows, filter_state)
@@ -27685,6 +27701,11 @@ def build_dividend_stocks_hub_context(host_root):
             "href": "/stocks/undervalued-dividend-stocks",
             "copy": "The stricter value-first sibling. Best for readers who want dividend plus valuation discipline before anything else.",
         },
+        {
+            "title": "Large Cap Dividend Stocks",
+            "href": "/stocks/large-cap-dividend-stocks",
+            "copy": "The large-cap sibling. Best for readers who want dividend ideas from bigger, more liquid companies first.",
+        },
     ]
     schema_json = json.dumps(
         {
@@ -27780,6 +27801,12 @@ def high_dividend_paying_stocks():
 @app.route("/stocks/undervalued-dividend-stocks")
 def undervalued_dividend_stocks():
     context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="undervalued-dividend")
+    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+
+
+@app.route("/stocks/large-cap-dividend-stocks")
+def large_cap_dividend_stocks():
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="large-cap-dividend")
     return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
 
 
