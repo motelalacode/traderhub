@@ -24146,6 +24146,7 @@ def build_stock_news_archive_context(symbol, host_root):
         "side_box_copy": "A stock archive should stay compact. It is a research trail, not a cluttered feed.",
         "why_page_works": "Stock archives keep company-specific context persistent across market sessions and improve the bridge from live tape to longer research.",
     }
+    return attach_news_article_layer(context, host_root, "Stock Archive")
 
 
 def build_sector_news_archive_context(sector_key, host_root):
