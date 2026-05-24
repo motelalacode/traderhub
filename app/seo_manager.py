@@ -1842,8 +1842,18 @@ def get_news_snapshot_run_summary():
     close_stale_running_checks("news_snapshot_scan", older_than_minutes=3, status="timed_out")
     conn = get_connection()
     try:
+        summary_page_types = (
+            "market_news",
+            "alerts_prep",
+            "stock_news",
+            "trend",
+            "archive",
+            "stock_archive",
+            "sector_archive",
+        )
+        placeholders = ",".join("?" for _ in summary_page_types)
         totals = conn.execute(
-            """
+            f"""
             SELECT
                 COUNT(*) AS snapshot_pages,
                 SUM(CASE WHEN summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
@@ -1853,18 +1863,41 @@ def get_news_snapshot_run_summary():
             FROM news_page_snapshots
             """
         ).fetchone()
+        coverage = conn.execute(
+            f"""
+            SELECT
+                COUNT(*) AS eligible_pages,
+                SUM(CASE WHEN nps.page_id IS NOT NULL THEN 1 ELSE 0 END) AS snapshot_pages,
+                SUM(CASE WHEN nps.page_id IS NULL THEN 1 ELSE 0 END) AS no_snapshot_pages
+            FROM seo_pages p
+            LEFT JOIN news_page_snapshots nps ON nps.page_id = p.id
+            WHERE p.is_active = 1
+              AND p.domain = 'traderhub.in'
+              AND p.page_type IN ({placeholders})
+            """,
+            summary_page_types,
+        ).fetchone()
         by_type = [
             dict(row)
             for row in conn.execute(
-                """
-                SELECT page_type, COUNT(*) AS page_count,
-                       SUM(CASE WHEN summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
-                       SUM(CASE WHEN fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
-                       SUM(CASE WHEN shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
-                FROM news_page_snapshots
-                GROUP BY page_type
-                ORDER BY page_count DESC, page_type
-                """
+                f"""
+                SELECT
+                    p.page_type,
+                    COUNT(*) AS eligible_pages,
+                    SUM(CASE WHEN nps.page_id IS NOT NULL THEN 1 ELSE 0 END) AS page_count,
+                    SUM(CASE WHEN nps.page_id IS NULL THEN 1 ELSE 0 END) AS no_snapshot_pages,
+                    SUM(CASE WHEN nps.summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
+                    SUM(CASE WHEN nps.fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
+                    SUM(CASE WHEN nps.shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
+                FROM seo_pages p
+                LEFT JOIN news_page_snapshots nps ON nps.page_id = p.id
+                WHERE p.is_active = 1
+                  AND p.domain = 'traderhub.in'
+                  AND p.page_type IN ({placeholders})
+                GROUP BY p.page_type
+                ORDER BY eligible_pages DESC, p.page_type
+                """,
+                summary_page_types,
             ).fetchall()
         ]
         latest_check = conn.execute(
@@ -1878,6 +1911,7 @@ def get_news_snapshot_run_summary():
         ).fetchone()
         return {
             "totals": dict(totals) if totals else {},
+            "coverage": dict(coverage) if coverage else {},
             "by_type": by_type,
             "latest_check": dict(latest_check) if latest_check else None,
         }

@@ -21057,6 +21057,7 @@ def get_news_snapshot_profiles():
         "summary-core": ["trend", "archive", "sector_archive"],
         "summary-wide": ["trend", "archive", "sector_archive", "stock_archive", "stock_news"],
         "summary-live": ["market_news", "alerts_prep"],
+        "summary-balance": ["market_news", "alerts_prep", "trend", "archive", "sector_archive", "stock_archive", "stock_news"],
         "summary-full": [],
     }
 
@@ -21067,6 +21068,8 @@ def run_news_snapshot_scan(limit=40, domain=None, profile="summary-core", offset
     close_stale_running_checks("news_snapshot_scan", older_than_minutes=3, status="timed_out")
     if profile == "summary-live":
         effective_limit = min(requested_limit, 6)
+    elif profile == "summary-balance":
+        effective_limit = min(requested_limit, 12)
     elif profile == "summary-full":
         effective_limit = min(requested_limit, 8)
     else:
@@ -22624,6 +22627,14 @@ def build_news_manager_quality_context():
                     "Then fill summary gaps and refresh stale snapshot rows.",
                 ],
             },
+            {
+                "title": "Coverage Push",
+                "items": [
+                    'Run summary-balance scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-balance&only_missing=1</span>',
+                    'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-wide&only_missing=1</span>',
+                    'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
+                ],
+            },
         ],
     }
 
@@ -23621,6 +23632,7 @@ def build_news_manager_editor_summaries_context():
                 "title": "Quick Actions",
                 "items": [
                     'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-core&only_missing=1</span>',
+                    'Run summary-balance scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-balance&only_missing=1</span>',
                     'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-wide&only_missing=1</span>',
                     'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
                     'View snapshot totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
@@ -27892,6 +27904,7 @@ def news_manager_editor_summaries_screen():
                     "title": "Quick Actions",
                     "items": [
                         'Run summary-core scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-core&only_missing=1</span>',
+                        'Run summary-balance scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-balance&only_missing=1</span>',
                         'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
                         'View raw totals: <span class="mono">/admin/news-manager/snapshots/summary</span>',
                     ],
