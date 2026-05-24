@@ -74,6 +74,7 @@ DERIVATIVES_DELIVERY_PROFILES_PATH = DATA_DIR / "derivatives_delivery_profiles.j
 DERIVATIVES_DELIVERY_HISTORY_PATH = DATA_DIR / "derivatives_delivery_history.json"
 MAPPING_MANAGER_OVERRIDES_PATH = DATA_DIR / "mapping_manager_overrides.json"
 KEYWORD_PLANNER_TARGETS_PATH = DATA_DIR / "keyword_planner_targets.json"
+HIGH_DIVIDEND_STOCKS_PATH = DATA_DIR / "high_dividend_stocks.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS = 14
 MANUAL_WATCHLIST_LIMIT = 5
@@ -26878,6 +26879,720 @@ def build_futures_buildup_context(host_root):
         "why_page_works": "It turns the derivatives module into something scannable and habit-forming immediately, while preserving room for a deeper F&O engine later.",
         "market_error": error,
     }
+
+
+def load_high_dividend_stock_seed_rows():
+    try:
+        return json.loads(HIGH_DIVIDEND_STOCKS_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+
+
+def get_high_dividend_market_cap_bucket(market_cap_cr):
+    if market_cap_cr is None:
+        return "Unknown"
+    if market_cap_cr >= 50000:
+        return "Large"
+    if market_cap_cr >= 10000:
+        return "Mid"
+    return "Small"
+
+
+def compute_dividend_attractiveness_score(row):
+    dividend_yield = row.get("dividend_yield_pct") or 0.0
+    pe_ratio = row.get("pe_ratio")
+    industry_pe_avg = row.get("industry_pe_avg")
+    pb_ratio = row.get("pb_ratio")
+    roe_pct = row.get("roe_pct") or 0.0
+    debt_to_equity = row.get("debt_to_equity")
+    below_high_pct = row.get("below_52w_high_pct") or 0.0
+    near_low_pct = row.get("price_near_52w_low_pct")
+
+    dividend_score = min(max(dividend_yield, 0.0), 8.0) / 8.0 * 30.0
+
+    pe_score = 0.0
+    if pe_ratio not in (None, 0) and industry_pe_avg not in (None, 0):
+        if pe_ratio <= industry_pe_avg:
+            pe_score = min(((industry_pe_avg - pe_ratio) / industry_pe_avg) + 0.55, 1.0) * 15.0
+        else:
+            pe_score = max(0.0, 1.0 - ((pe_ratio - industry_pe_avg) / industry_pe_avg)) * 8.0
+
+    if pb_ratio is None:
+        pb_score = 3.0
+    elif pb_ratio <= 1.5:
+        pb_score = 10.0
+    elif pb_ratio <= 2.5:
+        pb_score = 8.0
+    elif pb_ratio <= 4.0:
+        pb_score = 5.0
+    else:
+        pb_score = 2.0
+    valuation_score = min(pe_score + pb_score, 25.0)
+
+    roe_score = min(max(roe_pct, 0.0), 24.0) / 24.0 * 15.0
+    if debt_to_equity is None:
+        debt_score = 4.0
+    elif debt_to_equity <= 0.25:
+        debt_score = 10.0
+    elif debt_to_equity <= 0.6:
+        debt_score = 8.0
+    elif debt_to_equity <= 1.0:
+        debt_score = 6.0
+    elif debt_to_equity <= 1.5:
+        debt_score = 3.0
+    else:
+        debt_score = 1.0
+    financial_strength_score = min(roe_score + debt_score, 25.0)
+
+    below_high_score = min(max(below_high_pct, 0.0), 35.0) / 35.0 * 12.0
+    if near_low_pct is None:
+        near_low_score = 2.0
+    elif near_low_pct <= 8:
+        near_low_score = 8.0
+    elif near_low_pct <= 15:
+        near_low_score = 6.0
+    elif near_low_pct <= 25:
+        near_low_score = 4.0
+    else:
+        near_low_score = 2.0
+    price_attractiveness_score = min(below_high_score + near_low_score, 20.0)
+
+    total_score = round(dividend_score + valuation_score + financial_strength_score + price_attractiveness_score, 1)
+    return {
+        "dividend_score": round(dividend_score, 1),
+        "valuation_score": round(valuation_score, 1),
+        "financial_strength_score": round(financial_strength_score, 1),
+        "price_attractiveness_score": round(price_attractiveness_score, 1),
+        "total_score": total_score,
+        "score_band": "Strong" if total_score >= 78 else "Watch" if total_score >= 60 else "Caution",
+    }
+
+
+def maybe_enrich_high_dividend_rows_from_upstox(rows, enabled=False, live_limit=4):
+    if not enabled:
+        return rows
+
+    enriched_rows = []
+    for index, row in enumerate(rows):
+        enriched_row = dict(row)
+        if index >= live_limit:
+            enriched_rows.append(enriched_row)
+            continue
+        try:
+            isin = resolve_stock_isin(row.get("symbol"), row.get("company_name"))
+            if not isin:
+                enriched_rows.append(enriched_row)
+                continue
+            bundle = get_upstox_fundamentals_bundle(isin)
+            profile_data = bundle.get("profile") or {}
+            ratio_map = {
+                str(item.get("name") or "").strip().upper(): item
+                for item in (bundle.get("key_ratios") or [])
+            }
+            pe_value = parse_numeric_text((ratio_map.get("P/E") or {}).get("company_value"))
+            pb_value = parse_numeric_text((ratio_map.get("P/B") or {}).get("company_value"))
+            roe_value = parse_numeric_text((ratio_map.get("ROE") or {}).get("company_value"))
+            de_row = get_upstox_ratio_row(ratio_map, ["DEBT/EQUITY", "DEBT / EQUITY", "DEBT TO EQUITY"])
+            de_value = parse_numeric_text((de_row or {}).get("company_value"))
+            market_cap_value = parse_numeric_text(
+                get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
+            )
+            if pe_value is not None:
+                enriched_row["pe_ratio"] = pe_value
+            if pb_value is not None:
+                enriched_row["pb_ratio"] = pb_value
+            if roe_value is not None:
+                enriched_row["roe_pct"] = roe_value
+            if de_value is not None:
+                enriched_row["debt_to_equity"] = de_value
+            if market_cap_value is not None:
+                enriched_row["market_cap_cr"] = market_cap_value / 10000000.0
+        except Exception:
+            pass
+        enriched_rows.append(enriched_row)
+    return enriched_rows
+
+
+def build_high_dividend_stock_rows(enable_live=False):
+    seed_rows = load_high_dividend_stock_seed_rows()
+    seed_rows = maybe_enrich_high_dividend_rows_from_upstox(seed_rows, enabled=enable_live)
+    prepared_rows = []
+    for raw_row in seed_rows:
+        company_name = str(raw_row.get("company_name") or "").strip()
+        symbol = str(raw_row.get("symbol") or "").strip().upper()
+        current_price = parse_numeric_text(raw_row.get("current_price"))
+        week_52_high = parse_numeric_text(raw_row.get("week_52_high"))
+        week_52_low = parse_numeric_text(raw_row.get("week_52_low"))
+        market_cap_cr = parse_numeric_text(raw_row.get("market_cap_cr"))
+        below_high_pct = None
+        if current_price not in (None, 0) and week_52_high not in (None, 0):
+            below_high_pct = ((week_52_high - current_price) / week_52_high) * 100.0
+        near_low_pct = None
+        if current_price not in (None, 0) and week_52_low not in (None, 0):
+            near_low_pct = ((current_price - week_52_low) / week_52_low) * 100.0
+        last_updated_raw = str(raw_row.get("last_updated") or "").strip()
+        try:
+            last_updated_dt = datetime.datetime.fromisoformat(last_updated_raw)
+        except Exception:
+            last_updated_dt = None
+        row = {
+            "company_name": company_name,
+            "symbol": symbol,
+            "stock_url": f"/stocks/{get_canonical_stock_slug(symbol)}" if symbol else "",
+            "current_price": current_price,
+            "current_price_display": f"₹{current_price:,.2f}" if current_price is not None else "Source Pending",
+            "dividend_yield_pct": parse_numeric_text(raw_row.get("dividend_yield_pct")) or 0.0,
+            "dividend_per_share": parse_numeric_text(raw_row.get("dividend_per_share")),
+            "pe_ratio": parse_numeric_text(raw_row.get("pe_ratio")),
+            "industry_pe_avg": parse_numeric_text(raw_row.get("industry_pe_avg")),
+            "pb_ratio": parse_numeric_text(raw_row.get("pb_ratio")),
+            "roe_pct": parse_numeric_text(raw_row.get("roe_pct")) or 0.0,
+            "debt_to_equity": parse_numeric_text(raw_row.get("debt_to_equity")),
+            "week_52_high": week_52_high,
+            "week_52_low": week_52_low,
+            "below_52w_high_pct": below_high_pct,
+            "price_near_52w_low_pct": near_low_pct,
+            "market_cap_cr": market_cap_cr,
+            "market_cap_bucket": get_high_dividend_market_cap_bucket(market_cap_cr),
+            "market_cap_display": format_crore_display(market_cap_cr),
+            "sector": str(raw_row.get("sector") or "General").strip() or "General",
+            "last_updated": last_updated_raw,
+            "last_updated_display": last_updated_dt.astimezone(APP_TZ).strftime("%d %b %Y %H:%M IST") if last_updated_dt else "Source Pending",
+        }
+        score_payload = compute_dividend_attractiveness_score(row)
+        row.update(score_payload)
+        row["dividend_yield_display"] = f"{row['dividend_yield_pct']:.2f}%"
+        row["dividend_per_share_display"] = f"₹{row['dividend_per_share']:.2f}" if row["dividend_per_share"] is not None else "Source Pending"
+        row["pe_ratio_display"] = f"{row['pe_ratio']:.1f}" if row["pe_ratio"] is not None else "Source Pending"
+        row["industry_pe_avg_display"] = f"{row['industry_pe_avg']:.1f}" if row["industry_pe_avg"] is not None else "Source Pending"
+        row["pb_ratio_display"] = f"{row['pb_ratio']:.2f}" if row["pb_ratio"] is not None else "Source Pending"
+        row["roe_display"] = f"{row['roe_pct']:.1f}%"
+        row["debt_to_equity_display"] = f"{row['debt_to_equity']:.2f}" if row["debt_to_equity"] is not None else "Source Pending"
+        row["week_52_high_display"] = f"₹{row['week_52_high']:,.2f}" if row["week_52_high"] is not None else "Source Pending"
+        row["week_52_low_display"] = f"₹{row['week_52_low']:,.2f}" if row["week_52_low"] is not None else "Source Pending"
+        row["below_52w_high_display"] = f"{row['below_52w_high_pct']:.1f}%" if row["below_52w_high_pct"] is not None else "Source Pending"
+        row["price_near_52w_low_display"] = f"{row['price_near_52w_low_pct']:.1f}%" if row["price_near_52w_low_pct"] is not None else "Source Pending"
+        prepared_rows.append(row)
+    return sorted(prepared_rows, key=lambda item: (-item["total_score"], -item["dividend_yield_pct"], item["company_name"]))
+
+
+def apply_high_dividend_filters(rows, filter_state):
+    filtered_rows = []
+    for row in rows:
+        if row["dividend_yield_pct"] < filter_state["yield_min"]:
+            continue
+        if filter_state["pe_below_industry"] and (
+            row.get("pe_ratio") is None
+            or row.get("industry_pe_avg") is None
+            or row["pe_ratio"] >= row["industry_pe_avg"]
+        ):
+            continue
+        if filter_state["below_high_20"] and ((row.get("below_52w_high_pct") or 0.0) < 20.0):
+            continue
+        if filter_state["roe_above_12"] and (row.get("roe_pct") or 0.0) <= 12.0:
+            continue
+        if filter_state["de_below_1"] and (
+            row.get("debt_to_equity") is None or row.get("debt_to_equity") >= 1.0
+        ):
+            continue
+        if filter_state["market_cap"] != "All" and row.get("market_cap_bucket") != filter_state["market_cap"]:
+            continue
+        if filter_state["sector"] != "All" and row.get("sector") != filter_state["sector"]:
+            continue
+        filtered_rows.append(row)
+    return filtered_rows
+
+
+def build_high_dividend_page_context(host_root):
+    enable_live = str(request.args.get("live", "0") or "0").strip().lower() in {"1", "true", "yes"}
+    all_rows = build_high_dividend_stock_rows(enable_live=enable_live)
+    filter_state = {
+        "yield_min": float(request.args.get("yield_min", "2") or 2),
+        "pe_below_industry": str(request.args.get("pe_below_industry", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
+        "below_high_20": str(request.args.get("below_high_20", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
+        "roe_above_12": str(request.args.get("roe_above_12", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
+        "de_below_1": str(request.args.get("de_below_1", "0") or "0").strip().lower() in {"1", "true", "yes", "on"},
+        "market_cap": str(request.args.get("market_cap", "All") or "All").strip().title() or "All",
+        "sector": str(request.args.get("sector", "All") or "All").strip() or "All",
+    }
+    filtered_rows = apply_high_dividend_filters(all_rows, filter_state)
+    sectors = sorted({row["sector"] for row in all_rows})
+    avg_yield = sum(row["dividend_yield_pct"] for row in filtered_rows) / len(filtered_rows) if filtered_rows else 0.0
+    avg_score = sum(row["total_score"] for row in filtered_rows) / len(filtered_rows) if filtered_rows else 0.0
+    best_row = filtered_rows[0] if filtered_rows else (all_rows[0] if all_rows else None)
+    faq_items = [
+        {
+            "question": "What is dividend yield?",
+            "answer": "Dividend yield is the annual dividend per share divided by the current share price. It shows the cash return percentage a stock is paying at the current market price.",
+        },
+        {
+            "question": "Are high dividend stocks safe?",
+            "answer": "Not always. A very high yield can also happen when the share price falls sharply because the business is under pressure. Yield should be checked alongside debt, profitability, and valuation.",
+        },
+        {
+            "question": "How to find undervalued dividend stocks?",
+            "answer": "Look for a combination of reasonable valuation, sustainable return ratios, manageable debt, and a price that is below its recent highs without serious business deterioration.",
+        },
+        {
+            "question": "What is a good dividend yield in India?",
+            "answer": "There is no single perfect number, but many investors start paying attention once yield moves above 2% or 3% and then compare that with earnings quality and balance-sheet strength.",
+        },
+        {
+            "question": "Should I buy only for dividend?",
+            "answer": "No. Dividend alone is not enough. Total return depends on business quality, capital allocation, balance-sheet discipline, and whether the stock is bought at a sensible valuation.",
+        },
+    ]
+    canonical_url = f"{host_root.rstrip('/')}/stocks/high-dividend-paying-stocks"
+    schema_json = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "CollectionPage",
+                    "name": "High Dividend Stocks at Attractive Price in India",
+                    "description": "Find Indian stocks with high dividend yield, attractive valuation, strong fundamentals and price opportunity.",
+                    "url": canonical_url,
+                    "mainEntity": {
+                        "@type": "ItemList",
+                        "itemListElement": [
+                            {
+                                "@type": "ListItem",
+                                "position": index + 1,
+                                "name": row["company_name"],
+                                "url": f"{host_root.rstrip('/')}{row['stock_url']}",
+                            }
+                            for index, row in enumerate(filtered_rows[:10])
+                        ],
+                    },
+                },
+                {
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": item["question"],
+                            "acceptedAnswer": {"@type": "Answer", "text": item["answer"]},
+                        }
+                        for item in faq_items
+                    ],
+                },
+            ],
+        },
+        indent=2,
+    )
+    return {
+        "seo_title": "High Dividend Stocks at Attractive Price in India",
+        "seo_description": "Find Indian stocks with high dividend yield, attractive valuation, strong fundamentals and price opportunity.",
+        "canonical_url": canonical_url,
+        "schema_json": schema_json,
+        "page_title": "High Dividend + Attractive Price Stocks",
+        "page_subtitle": "A dividend page built for quality, not bait. Screen Indian stocks for yield, valuation comfort, financial strength, and price opportunity in one place.",
+        "page_kicker": "TraderHub Dividend Screen",
+        "last_refresh": max((row["last_updated_display"] for row in all_rows), default="Source Pending"),
+        "rows": filtered_rows,
+        "all_rows_count": len(all_rows),
+        "filtered_rows_count": len(filtered_rows),
+        "avg_yield_display": f"{avg_yield:.2f}%",
+        "avg_score_display": f"{avg_score:.1f}",
+        "best_row": best_row,
+        "filter_state": filter_state,
+        "sector_options": sectors,
+        "market_cap_options": ["All", "Large", "Mid", "Small"],
+        "yield_options": [2, 3, 5, 7],
+        "faq_items": faq_items,
+        "live_mode": enable_live,
+        "data_source_note": "Current release uses a seeded dividend universe with an optional Upstox fundamentals enrichment hook already wired into the codebase.",
+        "warning_copy": "High dividend yield does not always mean good investment. Sometimes yield is high because price has fallen due to weak business. Please check fundamentals before investing.",
+    }
+
+
+HIGH_DIVIDEND_STOCKS_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --bg: #edf2f5;
+      --paper: #ffffff;
+      --panel: #f7fafc;
+      --line: #cfdae3;
+      --ink: #13202c;
+      --muted: #607180;
+      --accent: #0f5f5a;
+      --accent-strong: #0b4844;
+      --warn-bg: #fce9d7;
+      --warn-ink: #8a4d11;
+      --danger-bg: #f8dddf;
+      --danger-ink: #923841;
+      --soft: #edf4f8;
+      --shadow: 0 16px 34px rgba(20, 31, 41, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(15,95,90,0.10), transparent 24%),
+        linear-gradient(180deg, #f6f7f2 0%, var(--bg) 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page { max-width: 1440px; margin: 0 auto; padding: 18px 14px 42px; }
+    .topline {
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      color: var(--muted); font: 13px/1.5 Arial, Helvetica, sans-serif; margin-bottom: 14px;
+    }
+    .hero, .panel, .table-wrap, .faq-card, .notice {
+      background: var(--paper); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 22px;
+      background: linear-gradient(145deg, #163347, #1f5960 68%, #4c857b 100%);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -45px;
+      top: -25px;
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .kicker { font: 12px/1.4 Arial, Helvetica, sans-serif; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.84; }
+    h1 { margin: 10px 0 8px; font-size: 42px; line-height: 0.98; }
+    .subtitle { max-width: 760px; color: rgba(255,255,255,0.86); font-size: 18px; line-height: 1.5; }
+    .hero-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; position: relative; z-index: 1; }
+    .hero-stat { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.14); border-radius: 18px; padding: 14px; }
+    .hero-stat .label { font: 12px/1.4 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: 0.12em; opacity: 0.78; }
+    .hero-stat strong { display: block; margin-top: 8px; font-size: 28px; line-height: 1; }
+    .hero-stat span { display: block; margin-top: 6px; color: rgba(255,255,255,0.78); font: 13px/1.5 Arial, Helvetica, sans-serif; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; margin-top: 16px; }
+    .panel { padding: 18px; }
+    .panel h2, .panel h3 { margin: 0 0 12px; }
+    .filter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; font: 14px/1.5 Arial, Helvetica, sans-serif; color: var(--muted); }
+    .field label { font-weight: 700; color: var(--ink); }
+    select, .toggle-shell {
+      width: 100%; border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+      padding: 10px 12px; color: var(--ink); font: 14px/1.4 Arial, Helvetica, sans-serif;
+    }
+    .toggle-shell { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+    .toggle-shell input { margin: 0; }
+    .filter-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .btn {
+      border: none; border-radius: 999px; padding: 10px 16px; cursor: pointer;
+      font: 700 14px/1 Arial, Helvetica, sans-serif;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--soft); color: var(--ink); border: 1px solid var(--line); }
+    .notice { padding: 16px 18px; background: linear-gradient(135deg, #fff8ef, var(--warn-bg)); color: var(--warn-ink); }
+    .notice strong { display: block; margin-bottom: 6px; font-size: 18px; }
+    .sidebar-copy { font: 14px/1.65 Arial, Helvetica, sans-serif; color: var(--muted); }
+    .best-card {
+      margin-top: 16px; padding: 16px; border-radius: 18px; border: 1px solid var(--line); background: linear-gradient(180deg, #fbfcfd, #f3f7fa);
+    }
+    .best-card .eyebrow { font: 12px/1.4 Arial, Helvetica, sans-serif; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); }
+    .best-card h3 { margin: 8px 0 6px; font-size: 24px; }
+    .best-meta { display: flex; flex-wrap: wrap; gap: 10px; font: 13px/1.4 Arial, Helvetica, sans-serif; color: var(--muted); }
+    .score-badge {
+      display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 7px 11px;
+      font: 700 12px/1 Arial, Helvetica, sans-serif; letter-spacing: 0.08em; text-transform: uppercase;
+      background: #dbece8; color: #0d6558;
+    }
+    .table-wrap { margin-top: 16px; padding: 12px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 1460px; font: 14px/1.45 Arial, Helvetica, sans-serif; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th {
+      position: sticky; top: 0; background: #f4f8fb; color: var(--ink); font-size: 12px; letter-spacing: 0.08em;
+      text-transform: uppercase; cursor: pointer; white-space: nowrap;
+    }
+    td { color: var(--ink); }
+    tbody tr:hover { background: #f9fbfc; }
+    .company-cell strong { display: block; font-size: 15px; }
+    .company-cell span, .muted { color: var(--muted); }
+    .chip {
+      display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 9px;
+      background: #edf3f7; color: #425768; font-size: 12px; font-weight: 700;
+    }
+    .band-Strong { background: #dceee2; color: #0f6b4a; }
+    .band-Watch { background: #f6ebca; color: #8b6500; }
+    .band-Caution { background: #f8dedd; color: #96363b; }
+    .mini-note { margin-top: 12px; color: var(--muted); font: 13px/1.6 Arial, Helvetica, sans-serif; }
+    .faq-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+    .faq-card { padding: 18px; }
+    .faq-card h3 { margin: 0 0 8px; font-size: 20px; }
+    .faq-card p { margin: 0; color: var(--muted); font: 14px/1.7 Arial, Helvetica, sans-serif; }
+    .footer-note { margin-top: 18px; padding: 14px 16px; border-radius: 18px; background: var(--danger-bg); color: var(--danger-ink); font: 700 14px/1.6 Arial, Helvetica, sans-serif; }
+    .empty-state { padding: 22px; text-align: center; color: var(--muted); font: 15px/1.7 Arial, Helvetica, sans-serif; }
+    @media (max-width: 1080px) {
+      .grid { grid-template-columns: 1fr; }
+      .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .faq-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .page { padding: 12px 10px 30px; }
+      h1 { font-size: 32px; }
+      .subtitle { font-size: 16px; }
+      .hero-grid, .filter-grid { grid-template-columns: 1fr; }
+      .hero, .panel, .table-wrap, .faq-card, .notice { border-radius: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topline">
+      <span>Collection Page · India Equity Income Screen</span>
+      <span>Last data refresh: {{ last_refresh }}</span>
+    </div>
+
+    <section class="hero">
+      <div class="kicker">{{ page_kicker }}</div>
+      <h1>{{ page_title }}</h1>
+      <div class="subtitle">{{ page_subtitle }}</div>
+      <div class="hero-grid">
+        <div class="hero-stat">
+          <div class="label">Filtered Stocks</div>
+          <strong>{{ filtered_rows_count }}</strong>
+          <span>Out of {{ all_rows_count }} current seeded rows.</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Average Yield</div>
+          <strong>{{ avg_yield_display }}</strong>
+          <span>Yield should be judged with business quality, not alone.</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Average Score</div>
+          <strong>{{ avg_score_display }}</strong>
+          <span>Dividend attractiveness score out of 100.</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Filter View</div>
+          <strong>{{ filter_state.market_cap }}</strong>
+          <span>{{ filter_state.sector }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div>
+        <section class="panel">
+          <h2>Filter the screen</h2>
+          <form method="get">
+            <div class="filter-grid">
+              <div class="field">
+                <label for="yield_min">Dividend yield minimum</label>
+                <select id="yield_min" name="yield_min">
+                  {% for option in yield_options %}
+                  <option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label for="market_cap">Market cap bucket</label>
+                <select id="market_cap" name="market_cap">
+                  {% for option in market_cap_options %}
+                  <option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label for="sector">Sector</label>
+                <select id="sector" name="sector">
+                  <option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>
+                  {% for option in sector_options %}
+                  <option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label>Valuation</label>
+                <div class="toggle-shell"><input type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}> P/E below industry average</div>
+              </div>
+              <div class="field">
+                <label>Price opportunity</label>
+                <div class="toggle-shell"><input type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}> Price below 52-week high by 20%+</div>
+              </div>
+              <div class="field">
+                <label>Financial strength</label>
+                <div class="toggle-shell"><input type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}> ROE above 12%</div>
+              </div>
+              <div class="field">
+                <label>Balance sheet</label>
+                <div class="toggle-shell"><input type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}> Debt to equity below 1</div>
+              </div>
+            </div>
+            <div class="filter-actions">
+              <button class="btn btn-primary" type="submit">Apply filters</button>
+              <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Reset</a>
+            </div>
+          </form>
+        </section>
+
+        <div class="notice" style="margin-top:16px;">
+          <strong>Important warning</strong>
+          <div>{{ warning_copy }}</div>
+        </div>
+
+        <section class="panel" style="margin-top:16px;">
+          <h2>High dividend stocks at attractive price</h2>
+          <div class="mini-note">Click any column heading to sort the table. Default ranking uses the Dividend Attractiveness Score.</div>
+          <div class="table-wrap">
+            {% if rows %}
+            <table id="dividend-table">
+              <thead>
+                <tr>
+                  <th data-sort-type="text">Company name</th>
+                  <th data-sort-type="text">NSE symbol</th>
+                  <th data-sort-type="number">Score</th>
+                  <th data-sort-type="number">Current price</th>
+                  <th data-sort-type="number">Dividend yield %</th>
+                  <th data-sort-type="number">Dividend per share</th>
+                  <th data-sort-type="number">P/E ratio</th>
+                  <th data-sort-type="number">P/B ratio</th>
+                  <th data-sort-type="number">ROE %</th>
+                  <th data-sort-type="number">Debt to equity</th>
+                  <th data-sort-type="number">52-week high</th>
+                  <th data-sort-type="number">52-week low</th>
+                  <th data-sort-type="number">Price near 52-week low %</th>
+                  <th data-sort-type="number">Price below 52-week high %</th>
+                  <th data-sort-type="number">Market cap</th>
+                  <th data-sort-type="text">Sector</th>
+                  <th data-sort-type="text">Last updated time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                <tr>
+                  <td data-sort="{{ row.company_name }}">
+                    <div class="company-cell">
+                      <strong><a href="{{ row.stock_url }}">{{ row.company_name }}</a></strong>
+                      <span>{{ row.market_cap_bucket }} cap · Industry P/E {{ row.industry_pe_avg_display }}</span>
+                    </div>
+                  </td>
+                  <td data-sort="{{ row.symbol }}"><a href="{{ row.stock_url }}">{{ row.symbol }}</a></td>
+                  <td data-sort="{{ row.total_score }}"><span class="chip band-{{ row.score_band }}">{{ row.total_score }} · {{ row.score_band }}</span></td>
+                  <td data-sort="{{ row.current_price }}">{{ row.current_price_display }}</td>
+                  <td data-sort="{{ row.dividend_yield_pct }}">{{ row.dividend_yield_display }}</td>
+                  <td data-sort="{{ row.dividend_per_share or -1 }}">{{ row.dividend_per_share_display }}</td>
+                  <td data-sort="{{ row.pe_ratio or 999999 }}">{{ row.pe_ratio_display }}</td>
+                  <td data-sort="{{ row.pb_ratio or 999999 }}">{{ row.pb_ratio_display }}</td>
+                  <td data-sort="{{ row.roe_pct }}">{{ row.roe_display }}</td>
+                  <td data-sort="{{ row.debt_to_equity or 999999 }}">{{ row.debt_to_equity_display }}</td>
+                  <td data-sort="{{ row.week_52_high or -1 }}">{{ row.week_52_high_display }}</td>
+                  <td data-sort="{{ row.week_52_low or -1 }}">{{ row.week_52_low_display }}</td>
+                  <td data-sort="{{ row.price_near_52w_low_pct or 999999 }}">{{ row.price_near_52w_low_display }}</td>
+                  <td data-sort="{{ row.below_52w_high_pct or -1 }}">{{ row.below_52w_high_display }}</td>
+                  <td data-sort="{{ row.market_cap_cr or -1 }}">{{ row.market_cap_display }}</td>
+                  <td data-sort="{{ row.sector }}">{{ row.sector }}</td>
+                  <td data-sort="{{ row.last_updated }}">{{ row.last_updated_display }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">No stocks match the current filters. Loosen one or two conditions and rerun the screen.</div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="panel" style="margin-top:16px;">
+          <h2>FAQ</h2>
+          <div class="faq-grid">
+            {% for item in faq_items %}
+            <div class="faq-card">
+              <h3>{{ item.question }}</h3>
+              <p>{{ item.answer }}</p>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="footer-note">Not investment advice. Use this page as a shortlist, then review payout sustainability, business quality, cash flows, capital allocation, and sector risk before acting.</div>
+        </section>
+      </div>
+
+      <aside class="panel">
+        <h2>How the score works</h2>
+        <div class="sidebar-copy">
+          <p><strong>Dividend Attractiveness Score</strong> ranks each row out of 100 so users do not chase dividend yield blindly.</p>
+          <p>Dividend yield contributes <strong>30</strong> marks, valuation comfort contributes <strong>25</strong>, financial strength contributes <strong>25</strong>, and price attractiveness contributes <strong>20</strong>.</p>
+          <p>{{ data_source_note }}</p>
+        </div>
+        {% if best_row %}
+        <div class="best-card">
+          <div class="eyebrow">Current top-ranked name</div>
+          <h3><a href="{{ best_row.stock_url }}">{{ best_row.company_name }}</a></h3>
+          <div class="best-meta">
+            <span>{{ best_row.symbol }}</span>
+            <span>Yield {{ best_row.dividend_yield_display }}</span>
+            <span>Score {{ best_row.total_score }}/100</span>
+          </div>
+          <div class="mini-note">
+            Valuation {{ best_row.valuation_score }}/25 · Financial strength {{ best_row.financial_strength_score }}/25 · Price attractiveness {{ best_row.price_attractiveness_score }}/20
+          </div>
+        </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const table = document.getElementById("dividend-table");
+      if (!table) return;
+      const headers = Array.from(table.querySelectorAll("th"));
+      const tbody = table.querySelector("tbody");
+      let sortState = { index: 2, dir: "desc" };
+
+      function sortRows(index, type, dir) {
+        const rows = Array.from(tbody.querySelectorAll("tr"));
+        rows.sort((a, b) => {
+          const av = a.children[index].dataset.sort || "";
+          const bv = b.children[index].dataset.sort || "";
+          if (type === "number") {
+            const an = Number(av);
+            const bn = Number(bv);
+            return dir === "asc" ? an - bn : bn - an;
+          }
+          return dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+        });
+        rows.forEach((row) => tbody.appendChild(row));
+      }
+
+      headers.forEach((header, index) => {
+        header.addEventListener("click", () => {
+          const type = header.dataset.sortType || "text";
+          const dir = sortState.index === index && sortState.dir === "desc" ? "asc" : "desc";
+          sortState = { index, dir };
+          sortRows(index, type, dir);
+        });
+      });
+
+      sortRows(sortState.index, headers[sortState.index].dataset.sortType || "number", sortState.dir);
+    }());
+  </script>
+</body>
+</html>
+"""
+
+
+@app.route("/stocks/high-dividend-paying-stocks")
+def high_dividend_paying_stocks():
+    context = build_high_dividend_page_context(request.url_root.rstrip("/"))
+    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
 
 
 @app.route("/stocks/<stock_slug>")
