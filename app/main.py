@@ -17476,7 +17476,11 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
       <aside class="section-aside">
         <div class="quick-box">
           <h3>Quick Stats</h3>
-          <div style="margin-bottom:12px;"><a class="nav-chip" href="/stocks/{{ stock_slug }}/why-moving">Why Moving</a></div>
+          <div style="margin-bottom:12px; display:flex; gap:8px; flex-wrap:wrap;">
+            <a class="nav-chip" href="/stocks/{{ stock_slug }}/why-moving">Why Moving</a>
+            <a class="nav-chip" href="/stocks/{{ stock_slug }}/news-archive">News Archive</a>
+            <a class="nav-chip" href="/stocks/high-dividend-paying-stocks">High Dividend Screen</a>
+          </div>
           <div class="quick-list">
             {% for item in quick_stats %}
             <div class="quick-row">
@@ -24267,6 +24271,7 @@ def build_stock_news_archive_context(symbol, host_root):
             {"label": "Stock Page", "href": f"/stocks/{get_canonical_stock_slug(symbol)}"},
             {"label": "Why Moving", "href": f"/stocks/{get_canonical_stock_slug(symbol)}/why-moving"},
             {"label": "News Archive", "href": f"/stocks/{get_canonical_stock_slug(symbol)}/news-archive"},
+            {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
             {"label": "Archive Hub", "href": "/market/archive"},
         ],
         "section_title": "Stock Archive",
@@ -25007,6 +25012,7 @@ def build_why_moving_context(symbol, host_root):
         ],
         "nav_chips": [
             {"label": "Stock Page", "href": f"/stocks/{get_canonical_stock_slug(symbol)}"},
+            {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
             {"label": "Live Movers", "href": "/market/live-movers"},
             {"label": "Sector News", "href": "/market/sector-news"},
             {"label": "Pre-Market", "href": "/market/pre-market-news"},
@@ -25141,7 +25147,12 @@ def build_sectors_hub_context(host_root):
             {"label": "Use Case", "value": "Public SEO"},
             {"label": "Next Layer", "value": "Sector News"},
         ],
-        "nav_chips": [{"label": "Sector Hub", "href": "/sectors"}, {"label": "Market Watch", "href": "/market-watch"}, {"label": "Pre-Market News", "href": "/market/pre-market-news"}],
+        "nav_chips": [
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
+            {"label": "Market Watch", "href": "/market-watch"},
+            {"label": "Pre-Market News", "href": "/market/pre-market-news"},
+        ],
         "section_title": "Tracked Sectors",
         "section_note": "Phase 1 keeps the sector module focused: public entry pages, stock links, and market context first. Breadth, deep research, and sector news streams can come next without changing the page framework.",
         "sector_cards": sector_cards,
@@ -25188,6 +25199,7 @@ def build_sector_detail_context(sector_key, host_root):
         "nav_chips": [
             {"label": "Sector Hub", "href": "/sectors"},
             {"label": "News Archive", "href": f"/sectors/{get_public_sector_slug(sector_key)}/news-archive"},
+            {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
             {"label": "Stocks", "href": "/stocks/itc"},
             {"label": "Pre-Market News", "href": "/market/pre-market-news"},
         ],
@@ -26968,7 +26980,7 @@ def compute_dividend_attractiveness_score(row):
     }
 
 
-def maybe_enrich_high_dividend_rows_from_upstox(rows, enabled=False, live_limit=4):
+def maybe_enrich_high_dividend_rows_from_upstox(rows, enabled=False, live_limit=8):
     if not enabled:
         return rows
 
@@ -27104,7 +27116,8 @@ def apply_high_dividend_filters(rows, filter_state):
 
 
 def build_high_dividend_page_context(host_root):
-    enable_live = str(request.args.get("live", "0") or "0").strip().lower() in {"1", "true", "yes"}
+    live_arg = str(request.args.get("live", "1") or "1").strip().lower()
+    enable_live = live_arg not in {"0", "false", "no"}
     all_rows = build_high_dividend_stock_rows(enable_live=enable_live)
     filter_state = {
         "yield_min": float(request.args.get("yield_min", "2") or 2),
@@ -27201,6 +27214,9 @@ def build_high_dividend_page_context(host_root):
         "yield_options": [2, 3, 5, 7],
         "faq_items": faq_items,
         "live_mode": enable_live,
+        "live_mode_label": "Seeded + selective live enrichment" if enable_live else "Seeded dataset only",
+        "mode_switch_href": "/stocks/high-dividend-paying-stocks?live=0" if enable_live else "/stocks/high-dividend-paying-stocks?live=1",
+        "mode_switch_label": "Use seeded-only mode" if enable_live else "Enable live enrichment",
         "data_source_note": "Current release uses a seeded dividend universe with an optional Upstox fundamentals enrichment hook already wired into the codebase.",
         "warning_copy": "High dividend yield does not always mean good investment. Sometimes yield is high because price has fallen due to weak business. Please check fundamentals before investing.",
     }
@@ -27357,7 +27373,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
   <div class="page">
     <div class="topline">
       <span>Collection Page · India Equity Income Screen</span>
-      <span>Last data refresh: {{ last_refresh }}</span>
+      <span>Last data refresh: {{ last_refresh }} · {{ live_mode_label }}</span>
     </div>
 
     <section class="hero">
@@ -27451,6 +27467,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
         <section class="panel" style="margin-top:16px;">
           <h2>High dividend stocks at attractive price</h2>
           <div class="mini-note">Click any column heading to sort the table. Default ranking uses the Dividend Attractiveness Score.</div>
+          <div class="mini-note"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a></div>
           <div class="table-wrap">
             {% if rows %}
             <table id="dividend-table">
@@ -27530,6 +27547,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
           <p><strong>Dividend Attractiveness Score</strong> ranks each row out of 100 so users do not chase dividend yield blindly.</p>
           <p>Dividend yield contributes <strong>30</strong> marks, valuation comfort contributes <strong>25</strong>, financial strength contributes <strong>25</strong>, and price attractiveness contributes <strong>20</strong>.</p>
           <p>{{ data_source_note }}</p>
+          <p>Current mode: <strong>{{ live_mode_label }}</strong>. The page keeps working even if deeper fundamentals are temporarily unavailable, because the seeded dataset stays in place as the resilient base layer.</p>
         </div>
         {% if best_row %}
         <div class="best-card">
