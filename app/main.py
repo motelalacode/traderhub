@@ -28996,7 +28996,57 @@ def stock_hub_public(stock_slug):
             "holdings_section_note": "Ownership and disclosures are staged safely so the route stays stable during retries.",
             "news_section_note": "Fallback mode keeps the linked news and archive paths available so the stock stays discoverable.",
         }
-    return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **context)
+    try:
+        return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **context)
+    except Exception as exc:
+        app.logger.exception("Failed to render stock hub template: %s", stock_slug)
+        safe_symbol = str(locals().get("symbol") or stock_slug or "stock").strip().upper().replace("-", " ")
+        safe_slug = str(locals().get("canonical_slug") or stock_slug or "stock").strip().lower()
+        company_name = "TraderHub Stock Page"
+        try:
+            safe_master = locals().get("master") or load_symbol_master()
+            master_row = safe_master.get("by_symbol", {}).get(safe_symbol) or {}
+            company_name = prettify_company_name((master_row.get("security") or safe_symbol), safe_symbol)
+        except Exception:
+            company_name = safe_symbol or company_name
+        escaped_alert = html.escape(str(exc))
+        escaped_company = html.escape(company_name)
+        escaped_safe_slug = html.escape(safe_slug)
+        escaped_root = html.escape(request.url_root.rstrip("/"))
+        return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escaped_company} | TraderHub</title>
+  <meta name="description" content="TraderHub stock page fallback view.">
+  <link rel="canonical" href="{escaped_root}/stocks/{escaped_safe_slug}">
+  <style>
+    body {{ margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef1f4; color: #1f2b38; }}
+    .shell {{ max-width: 860px; margin: 40px auto; padding: 20px; }}
+    .card {{ background: #fff; border: 1px solid #c9d3dd; border-radius: 20px; padding: 24px; box-shadow: 0 12px 32px rgba(23,33,43,0.08); }}
+    h1 {{ margin: 0 0 10px; font-size: 34px; }}
+    p {{ line-height: 1.65; color: #4f6273; }}
+    .alert {{ margin: 16px 0; padding: 12px 14px; border-radius: 14px; background: #f8e2df; color: #8a3b12; border: 1px solid rgba(138,59,18,0.16); }}
+    .links {{ display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }}
+    .links a {{ text-decoration: none; color: #176f62; font-weight: 700; background: #f5faf8; border: 1px solid #c9d3dd; border-radius: 999px; padding: 10px 14px; }}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="card">
+      <h1>{escaped_company}</h1>
+      <p>The full TraderHub stock research layout is temporarily unavailable, but the public route is still alive.</p>
+      <div class="alert">Fallback detail: {escaped_alert}</div>
+      <div class="links">
+        <a href="/stocks/{escaped_safe_slug}/why-moving">Why Moving</a>
+        <a href="/stocks/{escaped_safe_slug}/news-archive">News Archive</a>
+        <a href="/stocks/high-dividend-paying-stocks">High Dividend Screen</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>""", 200
 
 
 @app.route("/stock-hub-sample")
