@@ -26936,7 +26936,32 @@ def stock_why_moving(stock_slug):
     canonical_slug = get_canonical_stock_slug(symbol)
     if stock_slug.strip().lower() != canonical_slug:
         return redirect(f"/stocks/{canonical_slug}/why-moving")
-    context = build_why_moving_context(symbol, request.url_root.rstrip("/"))
+    try:
+        context = build_why_moving_context(symbol, request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render why-moving page: %s", symbol)
+        master_row = master.get("by_symbol", {}).get(symbol) or {}
+        company_name = prettify_company_name((master_row.get("security") or symbol), symbol)
+        fallback_context = build_market_phase2_fallback_context(
+            request.url_root.rstrip("/"),
+            "why_moving",
+            f"Why {company_name} Is Moving Today | TraderHub",
+            f"Understand why {company_name} is moving today with linked context, public research paths, and a safe fallback view in TraderHub.",
+            f"/stocks/{canonical_slug}/why-moving",
+            f"Stocks > {symbol} > Why Moving",
+            f"Phase 2 why-moving fallback | Last reviewed {get_today_ist().isoformat()}",
+            "TraderHub Why Moving",
+            f"Why {symbol} Is Moving",
+            company_name,
+            f"Why-moving detail is temporarily unavailable: {exc}",
+            [
+                {"label": "Stock Page", "href": f"/stocks/{canonical_slug}"},
+                {"label": "News Archive", "href": f"/stocks/{canonical_slug}/news-archive"},
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+            ],
+        )
+        context = attach_news_article_layer(fallback_context, request.url_root.rstrip("/"), "Stock Why Moving")
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
