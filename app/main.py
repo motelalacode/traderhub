@@ -17841,7 +17841,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in quarterly_results_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
@@ -17871,7 +17871,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in annual_profit_loss_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
@@ -17897,7 +17897,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in balance_sheet_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
@@ -17923,7 +17923,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in cash_flow_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
@@ -17949,7 +17949,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in ratios_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
@@ -18061,7 +18061,7 @@ STOCK_HUB_SAMPLE_TEMPLATE = """
               {% for row in shareholding_pattern_table.rows %}
               <tr>
                 <td>{{ row.label }}</td>
-                {% for value in row.values %}
+                {% for value in row["values"] %}
                 <td>{{ value }}</td>
                 {% endfor %}
               </tr>
