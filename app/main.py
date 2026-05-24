@@ -29009,10 +29009,10 @@ def stock_hub_public(stock_slug):
             company_name = prettify_company_name((master_row.get("security") or safe_symbol), safe_symbol)
         except Exception:
             company_name = safe_symbol or company_name
-        escaped_alert = html.escape(str(exc))
-        escaped_company = html.escape(company_name)
-        escaped_safe_slug = html.escape(safe_slug)
-        escaped_root = html.escape(request.url_root.rstrip("/"))
+        escaped_alert = html_lib.escape(str(exc))
+        escaped_company = html_lib.escape(company_name)
+        escaped_safe_slug = html_lib.escape(safe_slug)
+        escaped_root = html_lib.escape(request.url_root.rstrip("/"))
         return f"""<!doctype html>
 <html lang="en">
 <head>
