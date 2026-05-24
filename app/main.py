@@ -20606,6 +20606,10 @@ def get_seo_extractor_profiles():
             "derivatives",
             "stock_news",
         ],
+        "stock-tail": [
+            "stock_archive",
+            "stock_news",
+        ],
         "full": [],
     }
 
@@ -22042,6 +22046,14 @@ def compute_news_quality_row(row):
         focus_label = "Retire fallback"
     elif row.get("shell_only"):
         focus_label = "Add real content"
+    elif (
+        snapshot_checked_at
+        and (row.get("page_type") in {"stock_archive", "stock_news"})
+        and not str(row.get("title") or "").strip()
+        and not str(row.get("meta_description") or "").strip()
+        and not str(row.get("h1") or "").strip()
+    ):
+        focus_label = "Run metadata extract"
     elif not row.get("summary_present"):
         focus_label = "Add summary"
     elif not snapshot_checked_at:
@@ -22660,6 +22672,7 @@ def build_news_manager_quality_context():
                     'Run summary-balance scan: <span class="mono">/admin/news-manager/snapshots/run?limit=12&profile=summary-balance&only_missing=1</span>',
                     'Run summary-wide scan: <span class="mono">/admin/news-manager/snapshots/run?limit=10&profile=summary-wide&only_missing=1</span>',
                     'Run summary-live scan: <span class="mono">/admin/news-manager/snapshots/run?limit=6&profile=summary-live&only_missing=1</span>',
+                    'Run stock-tail metadata extract: <span class="mono">/admin/seo-manager/extractor/run?limit=40&domain=traderhub.in&only_missing=1&profile=stock-tail</span>',
                 ],
             },
         ],
