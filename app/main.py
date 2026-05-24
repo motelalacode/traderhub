@@ -26714,16 +26714,104 @@ def build_futures_buildup_context(host_root):
 
 @app.route("/stocks/<stock_slug>")
 def stock_hub_public(stock_slug):
-    symbol = resolve_stock_symbol_from_slug(stock_slug)
-    master = load_symbol_master()
-    if not symbol or symbol not in master.get("by_symbol", {}):
-        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+    try:
+        symbol = resolve_stock_symbol_from_slug(stock_slug)
+        master = load_symbol_master()
+        if not symbol or symbol not in master.get("by_symbol", {}):
+            return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
 
-    canonical_slug = get_canonical_stock_slug(symbol)
-    if stock_slug.strip().lower() != canonical_slug:
-        return redirect(f"/stocks/{canonical_slug}")
+        canonical_slug = get_canonical_stock_slug(symbol)
+        if stock_slug.strip().lower() != canonical_slug:
+            return redirect(f"/stocks/{canonical_slug}")
 
-    context = build_stock_page_context(symbol, request.url_root.rstrip("/"))
+        context = build_stock_page_context(symbol, request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render stock hub page: %s", stock_slug)
+        safe_symbol = str(locals().get("symbol") or stock_slug or "Stock").strip().upper().replace("-", " ")
+        safe_slug = str(locals().get("canonical_slug") or stock_slug or "stock").strip().lower()
+        safe_master = locals().get("master") or load_symbol_master()
+        master_row = safe_master.get("by_symbol", {}).get(safe_symbol) or {}
+        company_name = prettify_company_name((master_row.get("security") or safe_symbol), safe_symbol)
+        context = {
+            "seo_title": f"{company_name} Share Price, Research & Market Context | TraderHub",
+            "seo_description": f"Review {company_name} with TraderHub stock context, linked news paths, and a safe fallback view while live page assembly is retried.",
+            "canonical_url": f"{request.url_root.rstrip('/')}/stocks/{safe_slug}",
+            "schema_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": f"{company_name} | TraderHub",
+                    "description": f"Public stock page for {company_name}.",
+                    "url": f"{request.url_root.rstrip('/')}/stocks/{safe_slug}",
+                },
+                indent=2,
+            ),
+            "page_alert": f"Stock detail is temporarily unavailable: {exc}",
+            "market_mode_label": "Fallback View",
+            "hero_badges": [
+                {"label": "Fallback Active", "kind": "tag-warn"},
+                {"label": "Public Stock Page", "kind": "tag-info"},
+            ],
+            "stock": {
+                "symbol": safe_symbol,
+                "company_name": company_name,
+                "exchange": "NSE",
+                "series": master_row.get("series", "EQ"),
+                "sector": "Research Layer Pending",
+                "industry": "Public View",
+                "ltp": "-",
+                "change_rupees": "-",
+                "change_pct": "-",
+                "market_cap": "Retry Pending",
+                "range_52w": "Retry Pending",
+                "vwap": "-",
+                "prev_close": "-",
+            },
+            "hero_stat_cards": [
+                {"label": "Mode", "value": "Fallback"},
+                {"label": "Route", "value": "Stock Detail"},
+                {"label": "News", "value": "Available"},
+                {"label": "Archive", "value": "Linked"},
+            ],
+            "overview_metrics": [
+                {"label": "Route Status", "value": "Safe", "badge_class": "badge-info", "context": "The public stock page stayed online with a fallback shell."},
+                {"label": "Retry State", "value": "Pending", "badge_class": "badge-warn", "context": "Underlying stock data assembly can be retried without losing the URL."},
+            ],
+            "technical_metrics": [],
+            "study_cards": [],
+            "peers": [],
+            "quick_stats": [
+                {"label": "Stock Page", "value": "Fallback"},
+                {"label": "News Archive", "value": "Available"},
+                {"label": "Why Moving", "value": "Available"},
+                {"label": "Reviewed", "value": get_today_ist().isoformat()},
+            ],
+            "financial_metrics": build_placeholder_financial_metrics("Fallback Coverage"),
+            "holdings_deals": build_placeholder_holdings_deals(safe_symbol),
+            "ownership_watch_rows": build_placeholder_ownership_watch(),
+            "news_items": [
+                {
+                    "title": f"Why {company_name} Is Moving",
+                    "meta": "Public market context",
+                    "copy": "Use the why-moving route for the linked public context while the full stock dashboard is retried.",
+                    "href": f"/stocks/{safe_slug}/why-moving",
+                },
+                {
+                    "title": f"{company_name} News Archive",
+                    "meta": "Archive path",
+                    "copy": "The archive route stays useful for historical story review even when the main stock detail page is in fallback mode.",
+                    "href": f"/stocks/{safe_slug}/news-archive",
+                },
+            ],
+            "chart_title": f"{safe_symbol} Price Trend",
+            "chart_price_points": "0,70 10,68 20,66 30,64 40,62 50,61 60,60 70,59 80,58 90,57 100,56",
+            "chart_ma_points": "0,72 10,71 20,69 30,68 40,67 50,66 60,64 70,63 80,62 90,61 100,60",
+            "chart_subtitle": "Fallback chart shell while the live stock build is retried.",
+            "chart_note": "This placeholder keeps the public route alive while TraderHub retries the deeper stock context build.",
+            "technical_section_note": "Technical detail is temporarily unavailable, but the stock URL remains valid and connected to its public news routes.",
+            "studies_section_note": "Study cards will repopulate once the full stock build succeeds again.",
+            "news_section_note": "Fallback mode keeps the linked news and archive paths available so the stock stays discoverable.",
+        }
     return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **context)
 
 
@@ -26794,7 +26882,30 @@ def market_post_market_wrap():
 
 @app.route("/market/live-movers")
 def market_live_movers():
-    context = build_live_movers_context(request.url_root.rstrip("/"))
+    try:
+        context = build_live_movers_context(request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render live movers page")
+        context = build_market_phase2_fallback_context(
+            request.url_root.rstrip("/"),
+            "market_news",
+            "Live Movers, Relative Strength & Intraday Setups | TraderHub",
+            "Track live movers, relative strength, and intraday setup paths with a safe fallback view in TraderHub.",
+            "/market/live-movers",
+            "Market > Live Movers",
+            f"Phase 2 live movers fallback | Last reviewed {get_today_ist().isoformat()}",
+            "TraderHub Live Movers",
+            "Live Movers",
+            "A safe fallback view while the live mover builder is retried.",
+            f"Live movers are temporarily unavailable: {exc}",
+            [
+                {"label": "Pre-Market", "href": "/market/pre-market-news"},
+                {"label": "Post-Market", "href": "/market/post-market-wrap"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+                {"label": "Trend Hub", "href": "/market/trends"},
+            ],
+        )
+        context = attach_news_article_layer(context, request.url_root.rstrip("/"), "Market Live Movers")
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
@@ -26971,14 +27082,42 @@ def stock_why_moving(stock_slug):
 
 @app.route("/stocks/<stock_slug>/news-archive")
 def stock_news_archive(stock_slug):
-    symbol = resolve_stock_symbol_from_slug(stock_slug)
-    master = load_symbol_master()
-    if not symbol or symbol not in master.get("by_symbol", {}):
-        return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
-    canonical_slug = get_canonical_stock_slug(symbol)
-    if stock_slug.strip().lower() != canonical_slug:
-        return redirect(f"/stocks/{canonical_slug}/news-archive")
-    context = build_stock_news_archive_context(symbol, request.url_root.rstrip("/"))
+    try:
+        symbol = resolve_stock_symbol_from_slug(stock_slug)
+        master = load_symbol_master()
+        if not symbol or symbol not in master.get("by_symbol", {}):
+            return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
+        canonical_slug = get_canonical_stock_slug(symbol)
+        if stock_slug.strip().lower() != canonical_slug:
+            return redirect(f"/stocks/{canonical_slug}/news-archive")
+        context = build_stock_news_archive_context(symbol, request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render stock news archive: %s", stock_slug)
+        safe_symbol = str(locals().get("symbol") or stock_slug or "Stock").strip().upper().replace("-", " ")
+        safe_slug = str(locals().get("canonical_slug") or stock_slug or "stock").strip().lower()
+        safe_master = locals().get("master") or load_symbol_master()
+        master_row = safe_master.get("by_symbol", {}).get(safe_symbol) or {}
+        company_name = prettify_company_name((master_row.get("security") or safe_symbol), safe_symbol)
+        context = build_market_phase2_fallback_context(
+            request.url_root.rstrip("/"),
+            "stock_archive",
+            f"{company_name} News Archive | TraderHub",
+            f"Review the public archive for {company_name} with linked story paths and a safe fallback archive view in TraderHub.",
+            f"/stocks/{safe_slug}/news-archive",
+            f"Stocks > {safe_symbol} > News Archive",
+            f"Phase 2 stock archive fallback | Last reviewed {get_today_ist().isoformat()}",
+            "TraderHub Stock Archive",
+            f"{safe_symbol} Archive",
+            "A safe fallback archive view while stock-level story assembly is retried.",
+            f"Stock archive is temporarily unavailable: {exc}",
+            [
+                {"label": "Stock Page", "href": f"/stocks/{safe_slug}"},
+                {"label": "Why Moving", "href": f"/stocks/{safe_slug}/why-moving"},
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Trend Hub", "href": "/market/trends"},
+            ],
+        )
+        context = attach_news_article_layer(context, request.url_root.rstrip("/"), "Stock Archive")
     return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
@@ -26990,10 +27129,63 @@ def sectors_hub():
 
 @app.route("/sectors/<sector_slug>")
 def sector_detail(sector_slug):
-    sector_key = resolve_public_sector_slug(sector_slug)
-    if not sector_key:
-        return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
-    context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
+    try:
+        sector_key = resolve_public_sector_slug(sector_slug)
+        if not sector_key:
+            return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
+        context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
+    except Exception as exc:
+        app.logger.exception("Failed to render sector detail page: %s", sector_slug)
+        safe_sector_key = locals().get("sector_key") or str(sector_slug or "sector").strip().replace("-", "_").lower()
+        sector_label = safe_sector_key.replace("_", " ").title()
+        context = {
+            "page_mode": "detail",
+            "seo_title": f"{sector_label} Stocks, Leaders, Laggards & Sector View | TraderHub",
+            "seo_description": f"Track {sector_label.lower()} stocks and sector context with a safe fallback view in TraderHub.",
+            "canonical_url": f"{request.url_root.rstrip('/')}/sectors/{get_public_sector_slug(safe_sector_key)}",
+            "schema_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": f"{sector_label} Sector Page | TraderHub",
+                    "description": f"Public sector page for {sector_label}.",
+                    "url": f"{request.url_root.rstrip('/')}/sectors/{get_public_sector_slug(safe_sector_key)}",
+                },
+                indent=2,
+            ),
+            "breadcrumb_text": f"Sectors > {sector_label}",
+            "breadcrumb_meta_text": f"Phase 1 sector fallback | Last reviewed {get_today_ist().isoformat()}",
+            "hero_kicker": "TraderHub Sector Research",
+            "hero_title": sector_label,
+            "hero_subtitle": "A safe sector fallback view while the live sector detail builder is retried.",
+            "hero_metric_primary": "Fallback",
+            "hero_metric_secondary": "sector detail temporarily unavailable",
+            "hero_badges": [
+                {"label": "Fallback Active", "kind": "tag-warn"},
+                {"label": "Public Sector Page", "kind": "tag-info"},
+            ],
+            "hero_stats": [
+                {"label": "Tracked Stocks", "value": "Retry Pending"},
+                {"label": "Route", "value": "Sector Detail"},
+                {"label": "Archive", "value": "Available"},
+                {"label": "Status", "value": "Safe"},
+            ],
+            "nav_chips": [
+                {"label": "Sector Hub", "href": "/sectors"},
+                {"label": "Sector Archive", "href": f"/sectors/{get_public_sector_slug(safe_sector_key)}/news-archive"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+            ],
+            "section_title": "Sector Stock Table",
+            "section_note": "The public sector detail page stayed online with a fallback shell while TraderHub retries the deeper market-data build.",
+            "sector_rows": [],
+            "strongest": None,
+            "weakest": None,
+            "market_error": f"Sector detail is temporarily unavailable: {exc}",
+            "missing_symbols": [],
+            "side_box_title": "Sector Story",
+            "side_box_copy": "Fallback mode keeps the sector URL, archive path, and internal linking intact while the live detail table is retried.",
+            "why_page_works": "Sector pages still support SEO structure and route stability even when live detail assembly is temporarily unavailable.",
+        }
     return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
