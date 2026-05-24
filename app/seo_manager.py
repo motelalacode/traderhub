@@ -1765,7 +1765,8 @@ def get_news_manager_summary_overview(limit=120):
                 SUM(CASE WHEN nps.summary_present = 1 THEN 1 ELSE 0 END) AS summary_pages,
                 SUM(CASE WHEN nps.fallback_active = 1 THEN 1 ELSE 0 END) AS fallback_pages,
                 SUM(CASE WHEN nps.market_error_present = 1 THEN 1 ELSE 0 END) AS market_error_pages,
-                SUM(CASE WHEN nps.shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages
+                SUM(CASE WHEN nps.shell_only = 1 THEN 1 ELSE 0 END) AS shell_pages,
+                SUM(CASE WHEN nps.page_id IS NULL THEN 1 ELSE 0 END) AS no_snapshot_pages
             FROM seo_pages
             LEFT JOIN news_page_snapshots nps ON nps.page_id = seo_pages.id
             WHERE seo_pages.is_active = 1

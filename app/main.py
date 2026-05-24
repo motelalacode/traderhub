@@ -22528,6 +22528,7 @@ def build_mapping_manager_corrections_context():
 
 def build_news_manager_quality_context():
     data = get_news_manager_summary_overview(limit=180)
+    totals = data.get("totals", {}) or {}
     quality_rows = [compute_news_quality_row(row) for row in (data.get("rows") or [])]
     quality_rows.sort(key=lambda row: (row["quality_score"], row.get("page_type") or "", row.get("url") or ""))
     grouped = {}
@@ -22563,7 +22564,7 @@ def build_news_manager_quality_context():
             {"label": "Strong", "value": len([row for row in quality_rows if row["quality_score"] >= 85])},
             {"label": "Watch", "value": len([row for row in quality_rows if 65 <= row["quality_score"] < 85])},
             {"label": "Weak", "value": len([row for row in quality_rows if row["quality_score"] < 65])},
-            {"label": "No Snapshot", "value": len([row for row in quality_rows if not row.get("snapshot_checked_at")])},
+            {"label": "No Snapshot", "value": totals.get("no_snapshot_pages", 0)},
             {"label": "Stale Snapshots", "value": len([row for row in quality_rows if (row.get("snapshot_age_days") or 0) >= 3])},
             {"label": "Fallback Pages", "value": len([row for row in quality_rows if row.get("fallback_active")])},
             {"label": "Shell Pages", "value": len([row for row in quality_rows if row.get("shell_only")])},
