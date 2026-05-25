@@ -22217,6 +22217,421 @@ def _build_sitemap_index_xml(sitemap_entries):
     return "\n".join(lines)
 
 
+HTML_SITEMAP_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --bg: #eef1f4;
+      --paper: #ffffff;
+      --panel: #f7fafc;
+      --line: #c9d3dd;
+      --ink: #1f2b38;
+      --muted: #627385;
+      --accent: #176f62;
+      --accent-soft: #dff1eb;
+      --shadow: 0 12px 32px rgba(23,33,43,0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%),
+        linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%);
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .page { max-width: 1280px; margin: 0 auto; padding: 18px 14px 34px; }
+    .microbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 14px;
+    }
+    .hero, .section, .stat-card, .xml-box {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 24px 24px 20px;
+      background: linear-gradient(145deg, #21465c, #2b7d72 72%, #4e9a8a 100%);
+      color: #fff;
+    }
+    .hero-kicker {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      opacity: 0.82;
+      margin-bottom: 10px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: 42px;
+      line-height: 0.96;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .hero-copy {
+      max-width: 860px;
+      font-size: 17px;
+      line-height: 1.65;
+      color: rgba(255,255,255,0.88);
+    }
+    .hero-tags {
+      margin-top: 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      background: rgba(255,255,255,0.14);
+      color: #fff;
+    }
+    .stats-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .stat-card {
+      padding: 16px;
+      background: var(--panel);
+    }
+    .stat-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .stat-note {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .section {
+      margin-top: 18px;
+      padding: 18px;
+    }
+    .section h2 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .section-note {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 14px;
+    }
+    .xml-box {
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #f7fafc, #eef3f7);
+      margin-bottom: 16px;
+    }
+    .xml-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .xml-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .group-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .group-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      padding: 14px;
+    }
+    .group-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      margin-bottom: 10px;
+    }
+    .group-title {
+      font-size: 20px;
+      font-weight: 700;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .group-meta {
+      font-size: 12px;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .group-tools {
+      margin-bottom: 12px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .group-tools a {
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .url-list {
+      display: grid;
+      gap: 9px;
+    }
+    .url-row {
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: #fff;
+      border: 1px solid rgba(201,211,221,0.86);
+    }
+    .url-label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 1.4;
+      margin-bottom: 4px;
+    }
+    .url-meta {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.45;
+      word-break: break-all;
+    }
+    .footer-note {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.88);
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.65;
+    }
+    @media (max-width: 920px) {
+      .stats-grid, .group-grid { grid-template-columns: 1fr; }
+      h1 { font-size: 34px; }
+    }
+    @media (max-width: 620px) {
+      .page { padding: 12px 10px 24px; }
+      .hero, .section, .stat-card, .xml-box { border-radius: 18px; }
+      h1 { font-size: 30px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>TraderHub › Sitemap</div>
+      <div>Public HTML sitemap | Last reviewed {{ today_date }}</div>
+    </div>
+
+    <section class="hero">
+      <div class="hero-kicker">TraderHub Site Guide</div>
+      <h1>{{ hero_title }}</h1>
+      <div class="hero-copy">{{ hero_subtitle }}</div>
+      <div class="hero-tags">
+        <span class="tag">{{ total_urls }} indexed URLs</span>
+        <span class="tag">{{ group_count }} sitemap groups</span>
+        <span class="tag">Auto-generated from SEO inventory</span>
+      </div>
+    </section>
+
+    <div class="stats-grid">
+      {% for card in stat_cards %}
+      <div class="stat-card">
+        <div class="stat-label">{{ card.label }}</div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-note">{{ card.note }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <section class="section">
+      <h2>XML Sitemaps</h2>
+      <div class="section-note">This HTML sitemap is for readers and crawlers that benefit from a browsable page map. The XML sitemaps remain the primary machine-readable submission files.</div>
+      <div class="xml-box">
+        <div><strong>Index sitemap:</strong> <a href="/sitemap.xml">/sitemap.xml</a></div>
+        <div class="xml-links">
+          {% for item in xml_groups %}
+          <a class="xml-chip" href="{{ item.href }}">{{ item.label }} · {{ item.count }}</a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Browse By Group</h2>
+      <div class="section-note">Pages are grouped the same way TraderHub publishes XML sitemap files, so users and search engines see a consistent public structure.</div>
+      <div class="group-grid">
+        {% for group in groups %}
+        <div class="group-card">
+          <div class="group-head">
+            <div class="group-title">{{ group.label }}</div>
+            <div class="group-meta">{{ group.count }} URLs</div>
+          </div>
+          <div class="group-tools">
+            <a href="{{ group.xml_href }}">Open XML</a>
+          </div>
+          <div class="url-list">
+            {% for row in group.rows %}
+            <div class="url-row">
+              <a class="url-label" href="{{ row.url }}">{{ row.label }}</a>
+              <div class="url-meta">{{ row.path }}{% if row.lastmod %} · Updated {{ row.lastmod }}{% endif %}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="footer-note">This page is auto-generated from the same indexed public URL inventory that feeds TraderHub's XML sitemaps. If a page is removed from the indexed inventory, it will disappear here automatically as well.</div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
+
+def _prettify_sitemap_group_name(group_name):
+    text = str(group_name or "").strip().replace("_", " ").replace("-", " ")
+    return text.title() or "General"
+
+
+def _prettify_sitemap_path_label(path_value):
+    path_text = str(path_value or "/").strip() or "/"
+    if path_text == "/":
+        return "Home"
+    parts = [part for part in path_text.strip("/").split("/") if part]
+    if not parts:
+        return "Home"
+    pretty_parts = []
+    for part in parts:
+        pretty_parts.append(part.replace("-", " ").title())
+    return " / ".join(pretty_parts)
+
+
+def build_html_sitemap_context(host_root):
+    eligible_pages = fetch_sitemap_eligible_pages()
+    grouped = {}
+    for row in eligible_pages:
+        grouped.setdefault(str(row.get("sitemap_group") or "").strip() or "general", []).append(row)
+
+    group_cards = []
+    xml_groups = []
+    for sitemap_group, rows in sorted(grouped.items()):
+        xml_href = f"/sitemaps/{sitemap_group}.xml"
+        xml_groups.append(
+            {
+                "label": _prettify_sitemap_group_name(sitemap_group),
+                "href": xml_href,
+                "count": len(rows),
+            }
+        )
+        group_cards.append(
+            {
+                "label": _prettify_sitemap_group_name(sitemap_group),
+                "count": len(rows),
+                "xml_href": xml_href,
+                "rows": [
+                    {
+                        "url": row["url"],
+                        "path": row.get("path") or "/",
+                        "label": _prettify_sitemap_path_label(row.get("path")),
+                        "lastmod": _format_sitemap_lastmod(row.get("last_checked_at")),
+                    }
+                    for row in rows
+                ],
+            }
+        )
+
+    total_urls = len(eligible_pages)
+    today_iso = get_today_ist().isoformat()
+    canonical_url = f"{host_root.rstrip('/')}/sitemap.html"
+    return {
+        "seo_title": "HTML Sitemap | TraderHub",
+        "seo_description": "Browse TraderHub's indexed public pages in one HTML sitemap, grouped by section and kept in sync with the XML sitemap inventory.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": "TraderHub HTML Sitemap",
+                "description": "Browsable HTML sitemap for TraderHub public pages.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "today_date": today_iso,
+        "hero_title": "HTML Sitemap",
+        "hero_subtitle": "A browsable map of TraderHub's indexed public pages, automatically generated from the same inventory that powers the XML sitemap files.",
+        "total_urls": total_urls,
+        "group_count": len(group_cards),
+        "stat_cards": [
+            {
+                "label": "Indexed Public URLs",
+                "value": total_urls,
+                "note": "These are the active, indexed TraderHub pages currently eligible for sitemap publication.",
+            },
+            {
+                "label": "Sitemap Groups",
+                "value": len(group_cards),
+                "note": "Groups mirror the XML sitemap files so readers and crawlers see the same public structure.",
+            },
+            {
+                "label": "XML Index",
+                "value": "/sitemap.xml",
+                "note": "Use the XML index for Search Console and crawler submission, and this HTML page for browsing.",
+            },
+        ],
+        "xml_groups": xml_groups,
+        "groups": group_cards,
+    }
+
+
 def run_seo_sitemap_generation():
     check_id = start_check("sitemap_build", notes="Generate sitemap XML from eligible public SEO pages")
     try:
@@ -30369,6 +30784,12 @@ def public_sitemap_index():
     if not sitemap_path.exists():
         return Response("Sitemap index has not been generated yet.", mimetype="text/plain", status=404)
     return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
+
+
+@app.route("/sitemap.html")
+def public_html_sitemap():
+    context = build_html_sitemap_context(request.url_root.rstrip("/"))
+    return render_template_string(HTML_SITEMAP_TEMPLATE, **context)
 
 
 @app.route("/sitemaps/<sitemap_name>")
