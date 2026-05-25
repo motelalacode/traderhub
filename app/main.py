@@ -10736,16 +10736,33 @@ def get_upstox_statement_value(statement_map, candidate_labels):
 
 
 def get_upstox_fundamentals_bundle(isin):
-    profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
-    key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
-    holdings_payload = upstox_api_get(f"/fundamentals/{isin}/share-holdings")
+    profile_payload = {}
+    key_ratios_payload = {}
+    holdings_payload = {}
     balance_sheet_data = {}
+    yearly_income_rows = []
     quarterly_income_rows = []
     cash_flow_rows = []
+    try:
+        profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
+    except Exception:
+        profile_payload = {}
+    try:
+        key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
+    except Exception:
+        key_ratios_payload = {}
+    try:
+        holdings_payload = upstox_api_get(f"/fundamentals/{isin}/share-holdings")
+    except Exception:
+        holdings_payload = {}
     try:
         balance_sheet_data = get_upstox_balance_sheet_bundle(isin)
     except Exception:
         balance_sheet_data = {}
+    try:
+        yearly_income_rows = get_upstox_income_statement_bundle(isin, time_period="yearly")
+    except Exception:
+        yearly_income_rows = []
     try:
         quarterly_income_rows = get_upstox_income_statement_bundle(isin, time_period="quarterly")
     except Exception:
@@ -10757,7 +10774,7 @@ def get_upstox_fundamentals_bundle(isin):
     return {
         "profile": (profile_payload or {}).get("data") or {},
         "key_ratios": (key_ratios_payload or {}).get("data") or [],
-        "income_statement": get_upstox_income_statement_bundle(isin, time_period="yearly"),
+        "income_statement": yearly_income_rows,
         "quarterly_income_statement": quarterly_income_rows,
         "share_holdings": (holdings_payload or {}).get("data") or [],
         "balance_sheet": balance_sheet_data,
