@@ -30717,14 +30717,13 @@ def search_ops_measurement_screen():
 @app.route("/robots.txt")
 def public_robots_txt():
     host_root = request.url_root.rstrip("/")
-    lines = [
-        "User-agent: *",
-        "Allow: /",
-        "Disallow: /admin/",
-        "",
-        f"Sitemap: {host_root}/sitemap.xml",
-    ]
-    return Response("\n".join(lines) + "\n", mimetype="text/plain")
+    robots_path = Path(__file__).resolve().parent.parent / "robots.txt"
+    robots_text = (
+        robots_path.read_text(encoding="utf-8")
+        if robots_path.exists()
+        else "User-agent: *\nAllow: /\nDisallow: /admin/\n\nSitemap: {{HOST_ROOT}}/sitemap.xml\n"
+    )
+    return Response(robots_text.replace("{{HOST_ROOT}}", host_root), mimetype="text/plain")
 
 
 @app.route("/admin/news-manager/snapshots/run")
