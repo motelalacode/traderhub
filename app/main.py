@@ -11054,15 +11054,64 @@ def format_statement_cell(value, suffix=""):
     return str(value)
 
 
+def normalize_financial_label(value):
+    text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return " ".join(text.split())
+
+
+def build_financial_row_lookup(raw_rows, key_field="category"):
+    lookup = {}
+    for row in raw_rows or []:
+        raw_key = row.get(key_field)
+        normalized_key = normalize_financial_label(raw_key)
+        if normalized_key:
+            lookup.setdefault(normalized_key, row)
+    return lookup
+
+
+def find_financial_row(row_lookup, candidate_labels):
+    normalized_candidates = [normalize_financial_label(item) for item in (candidate_labels or []) if normalize_financial_label(item)]
+    for candidate in normalized_candidates:
+        row = row_lookup.get(candidate)
+        if row:
+            return row
+    for candidate in normalized_candidates:
+        for row_key, row in row_lookup.items():
+            if row_key == candidate:
+                return row
+            if candidate and (candidate in row_key or row_key in candidate):
+                return row
+    return None
+
+
+def format_percent_change_display(value):
+    numeric_value = parse_numeric_text(value)
+    if numeric_value is not None:
+        return f"{numeric_value:+.2f}%"
+    text = str(value or "").strip()
+    if not text:
+        return "-"
+    if text.endswith("%") or text.startswith("+") or text.startswith("-"):
+        return text
+    return text
+
+
+def compute_numeric_median(values):
+    usable = sorted(value for value in (values or []) if isinstance(value, (int, float)))
+    if not usable:
+        return None
+    midpoint = len(usable) // 2
+    if len(usable) % 2 == 1:
+        return usable[midpoint]
+    return (usable[midpoint - 1] + usable[midpoint]) / 2.0
+
+
 def build_periodic_statement_table(raw_rows, row_defs, key_field="category", limit=8):
-    row_map = {str(row.get(key_field) or "").strip().lower(): row for row in (raw_rows or [])}
+    row_map = build_financial_row_lookup(raw_rows, key_field=key_field)
     periods = []
     for row_def in row_defs:
-        matched_row = None
-        for candidate in row_def["candidates"]:
-            matched_row = row_map.get(str(candidate or "").strip().lower())
-            if matched_row:
-                break
+        matched_row = find_financial_row(row_map, row_def["candidates"])
         if matched_row:
             periods = [str(item.get("period") or "").strip() for item in (matched_row.get("history") or []) if str(item.get("period") or "").strip()]
             if periods:
@@ -11073,11 +11122,7 @@ def build_periodic_statement_table(raw_rows, row_defs, key_field="category", lim
 
     table_rows = []
     for row_def in row_defs:
-        matched_row = None
-        for candidate in row_def["candidates"]:
-            matched_row = row_map.get(str(candidate or "").strip().lower())
-            if matched_row:
-                break
+        matched_row = find_financial_row(row_map, row_def["candidates"])
         history_map = {
             str(item.get("period") or "").strip(): item
             for item in (matched_row.get("history") or [])
@@ -11103,14 +11148,10 @@ def build_shareholding_pattern_table(holdings_rows, limit=8):
         {"label": "Public / Retail", "candidates": ["retail_and_other", "retail", "public"]},
         {"label": "Pledged Shares", "candidates": ["pledged", "pledge", "promoter_pledge", "pledged_shares"]},
     ]
-    row_map = {str(row.get("category") or "").strip().lower(): row for row in (holdings_rows or [])}
+    row_map = build_financial_row_lookup(holdings_rows, key_field="category")
     periods = []
     for row_def in row_defs:
-        matched_row = None
-        for candidate in row_def["candidates"]:
-            matched_row = row_map.get(str(candidate or "").strip().lower())
-            if matched_row:
-                break
+        matched_row = find_financial_row(row_map, row_def["candidates"])
         if matched_row:
             periods = [str(item.get("period") or "").strip() for item in (matched_row.get("history") or []) if str(item.get("period") or "").strip()]
             if periods:
@@ -11121,11 +11162,7 @@ def build_shareholding_pattern_table(holdings_rows, limit=8):
 
     pattern_rows = []
     for row_def in row_defs:
-        matched_row = None
-        for candidate in row_def["candidates"]:
-            matched_row = row_map.get(str(candidate or "").strip().lower())
-            if matched_row:
-                break
+        matched_row = find_financial_row(row_map, row_def["candidates"])
         history_map = {
             str(item.get("period") or "").strip(): item
             for item in (matched_row.get("history") or [])
@@ -11140,6 +11177,42 @@ def build_shareholding_pattern_table(holdings_rows, limit=8):
             values.append(display_value)
         pattern_rows.append({"label": row_def["label"], "values": values})
     return {"columns": periods, "rows": pattern_rows, "empty_message": ""}
+
+
+def build_stock_disclosure_links(symbol, company_name, profile_data, fallback_links):
+    website_url = str(profile_data.get("website") or profile_data.get("company_website") or "").strip()
+    links = []
+    seen = set()
+
+    def add_link(title, meta, url):
+        clean_url = str(url or "").strip()
+        if not clean_url or clean_url in seen:
+            return
+        seen.add(clean_url)
+        links.append({"title": title, "meta": meta, "url": clean_url})
+
+    if website_url:
+        add_link(f"{company_name} investor website", "Company website", website_url)
+        add_link(f"{company_name} annual reports", "Annual reports", website_url.rstrip("/") + "/investor-relations")
+        add_link(f"{company_name} results and presentations", "Investor presentations", website_url.rstrip("/") + "/investors")
+    add_link(
+        f"Official NSE announcements for {symbol}",
+        "Exchange filings",
+        f"https://www.nseindia.com/companies-listing/corporate-filings-announcements?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+    )
+    add_link(
+        f"Official NSE corporate actions for {symbol}",
+        "Dividend, split, bonus, rights",
+        f"https://www.nseindia.com/companies-listing/corporate-filings-actions?symbol={urllib.parse.quote(symbol)}&tabIndex=equity",
+    )
+    add_link(
+        f"{company_name} on Screener",
+        "Financial reference",
+        f"https://www.google.com/search?q={urllib.parse.quote('site:screener.in ' + company_name + ' ' + symbol)}",
+    )
+    for item in fallback_links or []:
+        add_link(item.get("title") or "Reference link", item.get("meta") or "Reference", item.get("url"))
+    return links
 
 
 def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fundamentals_bundle):
@@ -11179,10 +11252,14 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
         "market_cap": format_crore_display(market_cap_value / 10000000.0) if market_cap_value is not None else "Source Pending",
         "dividend_yield": f"{dividend_yield_value:.2f}%" if dividend_yield_value is not None else "-",
         "np_qtr": format_statement_cell(np_value),
-        "np_qtr_change": str((np_entry or {}).get("change") or "-"),
+        "np_qtr_change": format_percent_change_display((np_entry or {}).get("change")),
         "sales_qtr": format_statement_cell(sales_value),
-        "sales_qtr_change": str((sales_entry or {}).get("change") or "-"),
+        "sales_qtr_change": format_percent_change_display((sales_entry or {}).get("change")),
         "roce": f"{roce_value:.2f}%" if roce_value is not None else "-",
+        "pe_numeric": pe_value,
+        "roce_numeric": roce_value,
+        "market_cap_numeric": market_cap_value,
+        "dividend_yield_numeric": dividend_yield_value,
     }
 
 
@@ -11326,13 +11403,7 @@ def build_upstox_stock_research_tables(isin, symbol, company_name, fundamentals_
         ratios_table = dict(empty_table, empty_message="Ratio history is pending from the current fundamentals source.")
 
     shareholding_pattern_table = build_shareholding_pattern_table(holdings_rows, limit=8)
-    website_url = str(profile_data.get("website") or profile_data.get("company_website") or "").strip()
-    disclosure_links = []
-    if website_url:
-        disclosure_links.append({"title": f"{company_name} investor website", "meta": "Company website", "url": website_url})
-    disclosure_links.extend(fallback_links)
-    disclosure_links.append({"title": f"{company_name} annual reports", "meta": "Investor documents", "url": website_url or f"https://www.google.com/search?q={urllib.parse.quote(company_name + ' annual report investor relations')}"})
-    disclosure_links.append({"title": f"{company_name} results and presentations", "meta": "Results / concalls / PPT", "url": website_url or f"https://www.google.com/search?q={urllib.parse.quote(company_name + ' results presentation investor relations')}"})
+    disclosure_links = build_stock_disclosure_links(symbol, company_name, profile_data, fallback_links)
     research_notes = [
         "Quarterly and annual tables are sourced from the current fundamentals connector where available, and fall back cleanly when the source is thin.",
         "Peer comparison stays sector-first so users can judge valuation and quality in context, not in isolation.",
@@ -19188,6 +19259,7 @@ def build_stock_page_context(symbol, host_root):
     peer_comparison_rows = []
     technical_section_note = "Use this section to combine TraderHub strengths: price context, levels, studies, and a light chart built from available market data."
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
+    peers_section_note = "Peer comparison now tries to combine live price context with valuation, dividend, quarterly profit, sales, and ROCE, while still falling back safely when one peer is thin on data."
     news_section_note = "This section now mixes stock-specific market stories with direct official filing boards, so the page stays useful even before the full events pipeline is expanded."
 
     def build_row_from_available_data(row_symbol, row_security, row_quote, row_daily_candles, row_intraday_candles):
@@ -19489,6 +19561,21 @@ def build_stock_page_context(symbol, host_root):
                     )
                 except Exception:
                     continue
+            if peer_comparison_rows:
+                peer_pe_median = compute_numeric_median([row.get("pe_numeric") for row in peer_comparison_rows])
+                peer_roce_median = compute_numeric_median([row.get("roce_numeric") for row in peer_comparison_rows])
+                company_peer_row = peer_comparison_rows[0]
+                comparison_bits = []
+                company_pe_numeric = company_peer_row.get("pe_numeric")
+                company_roce_numeric = company_peer_row.get("roce_numeric")
+                if company_pe_numeric is not None and peer_pe_median is not None:
+                    valuation_side = "below" if company_pe_numeric < peer_pe_median else "above" if company_pe_numeric > peer_pe_median else "in line with"
+                    comparison_bits.append(f"P/E is {valuation_side} the peer median of {peer_pe_median:.2f}")
+                if company_roce_numeric is not None and peer_roce_median is not None:
+                    quality_side = "above" if company_roce_numeric > peer_roce_median else "below" if company_roce_numeric < peer_roce_median else "in line with"
+                    comparison_bits.append(f"ROCE is {quality_side} the peer median of {peer_roce_median:.2f}%")
+                if comparison_bits:
+                    peers_section_note = "Peer comparison now adds quick relative context: " + ". ".join(comparison_bits) + "."
     except Exception as exc:
         page_alert = str(exc)
         overview_metrics = [
@@ -19571,7 +19658,7 @@ def build_stock_page_context(symbol, host_root):
         "chart_ma_points": chart_ma_points,
         "studies_section_note": studies_section_note,
         "financial_section_note": "The financial snapshot stays summary-first, but phase 2A now opens the door to deeper quarterly, annual, balance-sheet, and cash-flow reads where the source is available.",
-        "peers_section_note": "Peer comparison now tries to combine live price context with valuation, dividend, quarterly profit, sales, and ROCE, while still falling back safely when one peer is thin on data.",
+        "peers_section_note": peers_section_note,
         "holdings_section_note": "This block now mixes real ownership snapshot data with a deeper quarterly ownership watch. Available holding categories are shown directly, quarter-on-quarter changes are surfaced where possible, and deal activity stays reserved for the next integration pass.",
         "news_section_note": news_section_note,
         "why_page_works_title": "Why This Page Works",
