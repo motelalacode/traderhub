@@ -10294,7 +10294,69 @@ def get_search_ops_runtime_state():
     }
 
 
-def build_public_ops_head_injection():
+def get_public_page_tracking_context(path):
+    clean_path = str(path or "/").strip() or "/"
+    normalized = clean_path.rstrip("/") or "/"
+    page_type = "public_page"
+    page_group = "public"
+
+    if normalized == "/":
+        page_type = "home"
+        page_group = "home"
+    elif normalized == "/stocks/dividend-stocks":
+        page_type = "dividend_hub"
+        page_group = "dividend"
+    elif normalized in {
+        "/stocks/high-dividend-paying-stocks",
+        "/stocks/undervalued-dividend-stocks",
+        "/stocks/large-cap-dividend-stocks",
+        "/stocks/mid-cap-high-dividend-stocks",
+        "/stocks/small-cap-high-dividend-stocks",
+    }:
+        page_type = "dividend_screen"
+        page_group = "dividend"
+    elif normalized.startswith("/stocks/") and normalized.endswith("/why-moving"):
+        page_type = "stock_why_moving"
+        page_group = "stocks"
+    elif normalized.startswith("/stocks/") and normalized.endswith("/news-archive"):
+        page_type = "stock_news_archive"
+        page_group = "stocks"
+    elif normalized.startswith("/stocks/"):
+        page_type = "stock_detail"
+        page_group = "stocks"
+    elif normalized.startswith("/sectors/") and normalized.endswith("/news-archive"):
+        page_type = "sector_news_archive"
+        page_group = "sectors"
+    elif normalized.startswith("/sectors/"):
+        page_type = "sector_detail"
+        page_group = "sectors"
+    elif normalized.startswith("/market/archive/"):
+        page_type = "market_archive_day"
+        page_group = "market"
+    elif normalized == "/market/archive":
+        page_type = "market_archive_hub"
+        page_group = "market"
+    elif normalized.startswith("/market/alerts/"):
+        page_type = "market_alerts"
+        page_group = "market"
+    elif normalized.startswith("/market/"):
+        page_type = "market_news"
+        page_group = "market"
+    elif normalized.startswith("/ipo/") or normalized == "/ipo":
+        page_type = "ipo"
+        page_group = "ipo"
+    elif normalized.startswith("/derivatives/"):
+        page_type = "derivatives"
+        page_group = "derivatives"
+
+    return {
+        "page_path": clean_path,
+        "page_type": page_type,
+        "page_group": page_group,
+    }
+
+
+def build_public_ops_head_injection(path="/"):
     state = get_search_ops_runtime_state()
     fragments = ["<!-- traderhub-ops-head -->"]
     if state["google_site_verification"]:
@@ -10307,6 +10369,8 @@ def build_public_ops_head_injection():
         )
     if state["ga4_measurement_id"]:
         ga4_id = html_lib.escape(state["ga4_measurement_id"], quote=True)
+        tracking_meta = get_public_page_tracking_context(path)
+        tracking_meta_json = json.dumps(tracking_meta, separators=(",", ":"))
         fragments.extend(
             [
                 f'<script async src="https://www.googletagmanager.com/gtag/js?id={ga4_id}"></script>',
@@ -10315,11 +10379,65 @@ def build_public_ops_head_injection():
                 "function gtag(){dataLayer.push(arguments);}",
                 "gtag('js', new Date());",
                 f"gtag('config', '{ga4_id}', {{ send_page_view: true }});",
+                f"window.traderhubPageMeta = {tracking_meta_json};",
                 "window.traderhubTrackEvent = function(eventName, eventParams) {",
                 "  if (typeof gtag === 'function' && eventName) {",
                 "    gtag('event', eventName, eventParams || {});",
                 "  }",
                 "};",
+                "(function(){",
+                "  var pageMeta = window.traderhubPageMeta || {};",
+                "  var pageViewSent = false;",
+                "  function sendPageView(){",
+                "    if (pageViewSent || typeof window.traderhubTrackEvent !== 'function') { return; }",
+                "    pageViewSent = true;",
+                "    window.traderhubTrackEvent('public_page_view', {",
+                "      page_type: pageMeta.page_type || 'public_page',",
+                "      page_group: pageMeta.page_group || 'public',",
+                "      page_path: pageMeta.page_path || window.location.pathname || '/',",
+                "      page_title: document.title || ''",
+                "    });",
+                "  }",
+                "  if (document.readyState === 'loading') {",
+                "    document.addEventListener('DOMContentLoaded', sendPageView, { once: true });",
+                "  } else {",
+                "    sendPageView();",
+                "  }",
+                "  document.addEventListener('click', function(event){",
+                "    var link = event.target && event.target.closest ? event.target.closest('a[href]') : null;",
+                "    if (!link) { return; }",
+                "    var href = link.getAttribute('href') || '';",
+                "    if (!href || href.charAt(0) === '#') { return; }",
+                "    var absoluteHref = link.href || href;",
+                "    var destinationPath = '';",
+                "    var isOutbound = false;",
+                "    try {",
+                "      var url = new URL(absoluteHref, window.location.origin);",
+                "      destinationPath = url.pathname || href;",
+                "      isOutbound = url.origin !== window.location.origin;",
+                "    } catch (error) {",
+                "      destinationPath = href;",
+                "    }",
+                "    window.traderhubTrackEvent(isOutbound ? 'public_outbound_click' : 'public_internal_click', {",
+                "      page_type: pageMeta.page_type || 'public_page',",
+                "      page_group: pageMeta.page_group || 'public',",
+                "      link_text: (link.textContent || '').trim().slice(0, 120),",
+                "      link_url: absoluteHref,",
+                "      link_path: destinationPath",
+                "    });",
+                "  }, true);",
+                "  document.addEventListener('submit', function(event){",
+                "    var form = event.target;",
+                "    if (!form) { return; }",
+                "    var action = form.getAttribute('action') || window.location.pathname || '/';",
+                "    window.traderhubTrackEvent('public_form_submit', {",
+                "      page_type: pageMeta.page_type || 'public_page',",
+                "      page_group: pageMeta.page_group || 'public',",
+                "      form_action: action,",
+                "      form_method: (form.getAttribute('method') || 'get').toLowerCase()",
+                "    });",
+                "  }, true);",
+                "})();",
                 "</script>",
             ]
         )
@@ -14671,7 +14789,7 @@ def inject_search_ops_head_tags(response):
         return response
     if not response_text or "</head>" not in response_text or "<!-- traderhub-ops-head -->" in response_text:
         return response
-    head_injection = build_public_ops_head_injection()
+    head_injection = build_public_ops_head_injection(request.path)
     if not head_injection:
         return response
     response.set_data(response_text.replace("</head>", f"{head_injection}\n</head>", 1))
