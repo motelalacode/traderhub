@@ -21004,6 +21004,135 @@ SECTOR_PHASE1_TEMPLATE = """
 """
 
 
+SECTOR_PHASE2_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.table-wrap,.notice,.story-card,.group-shell,.sector-card { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; } .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.focus-grid,.group-grid,.sector-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .focus-grid,.group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .sector-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .summary-card,.story-card,.group-shell,.sector-card,.notice { padding:14px; background:var(--panel); }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .story-title { font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; }
+    .story-meta { color:var(--muted); font-size:12px; margin-bottom:7px; font-family:Arial,Helvetica,sans-serif; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(215,203,180,0.72); font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; border:1px solid var(--line); border-radius:22px; }
+    .ad-slot.tall { min-height:220px; }
+    .notice { border-style:dashed; }
+    .group-shell ul { margin:0; padding-left:18px; } .group-shell li { font-family:Arial,Helvetica,sans-serif; color:#334253; font-size:14px; line-height:1.55; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.focus-grid,.group-grid,.sector-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.table-wrap,.notice,.story-card,.group-shell,.sector-card,.ad-slot { border-radius:18px; } .hero-grid,.summary-grid,.focus-grid,.group-grid,.sector-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% if focus_cards %}
+        <section class="section">
+          <h2>{{ focus_title }}</h2>
+          <div class="section-note">{{ focus_note }}</div>
+          <div class="focus-grid">{% for card in focus_cards %}<div class="story-card"><div class="story-title">{{ card.title }}</div><div class="story-meta">{{ card.meta }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+        {% if table_rows %}
+        <section class="section">
+          <h2>{{ table_title }}</h2>
+          <div class="section-note">{{ table_note }}</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>{% for column in table_columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in table_rows %}
+                <tr>
+                  {% for column in table_columns %}
+                  <td>{% if column.link_key and row[column.link_key] %}<a href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>{% else %}{{ row[column.key] }}{% endif %}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+        {% if group_blocks %}
+        <section class="section">
+          <h2>{{ group_title }}</h2>
+          <div class="section-note">{{ group_note }}</div>
+          <div class="group-grid">{% for block in group_blocks %}<div class="group-shell"><div class="metric-label">{{ block.title }}</div><div class="metric-value">{{ block.count }}</div><div class="copy" style="margin-bottom:10px;">{{ block["copy"] }}</div><ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        {% if publisher_links %}<div class="side-card"><div class="side-title">Publisher Trust</div><div class="copy">{% for item in publisher_links %}<div><a href="{{ item.href }}">{{ item.label }}</a></div>{% endfor %}</div></div>{% endif %}
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 SECTOR_NOT_FOUND_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -26722,6 +26851,136 @@ def build_public_sector_story(sector_label, rows):
     return f"{sector_label} is mixed right now. Stock selection matters more than broad sector chasing until a clearer leader/laggard pattern appears."
 
 
+def _compute_median(values):
+    clean_values = [float(value) for value in values if value is not None]
+    if not clean_values:
+        return 0.0
+    ordered = sorted(clean_values)
+    mid = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[mid]
+    return (ordered[mid - 1] + ordered[mid]) / 2
+
+
+def build_sector_participation_label(advancing_count, declining_count, above_vwap_count, total_count):
+    if total_count <= 0:
+        return "No Participation"
+    if advancing_count >= max(2, declining_count + 2) and above_vwap_count >= max(1, total_count // 2):
+        return "Broad Strength"
+    if declining_count >= max(2, advancing_count + 2) and above_vwap_count <= max(0, total_count // 3):
+        return "Broad Weakness"
+    if advancing_count > declining_count:
+        return "Narrow Strength"
+    if declining_count > advancing_count:
+        return "Narrow Weakness"
+    return "Mixed Participation"
+
+
+def build_sector_rotation_label(avg_change, median_change, advancing_count, declining_count):
+    if avg_change > 0.35 and median_change > 0.2 and advancing_count > declining_count:
+        return "Improving"
+    if avg_change < -0.35 and median_change < -0.2 and declining_count > advancing_count:
+        return "Fading"
+    if avg_change > 0.2 and advancing_count <= max(1, declining_count + 1):
+        return "Leader Driven"
+    if avg_change < -0.2 and declining_count <= max(1, advancing_count + 1):
+        return "Selective Weakness"
+    return "Balanced"
+
+
+def build_sector_phase2_rows(selected_date):
+    symbols = get_phase2_market_symbols(limit=28)
+    rows, missing, market_error = get_public_sector_rows(symbols, selected_date)
+    lookup = get_symbol_sector_lookup()
+    grouped = {}
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        symbol = (row.get("symbol") or "").strip()
+        if not symbol:
+            continue
+        broad_sector = (lookup.get(symbol, "General").split(" / ")[0]).strip()
+        grouped.setdefault(broad_sector, []).append(dict(row))
+
+    sector_rows = []
+    for sector_label, sector_members in grouped.items():
+        if not sector_members:
+            continue
+        ranked_members = sorted(
+            sector_members,
+            key=lambda item: item.get("change_pct_numeric") if item.get("change_pct_numeric") is not None else -9999,
+            reverse=True,
+        )
+        valid_changes = [item.get("change_pct_numeric") for item in ranked_members if item.get("change_pct_numeric") is not None]
+        avg_change = sum(valid_changes) / len(valid_changes) if valid_changes else 0.0
+        median_change = _compute_median(valid_changes)
+        strongest = ranked_members[0]
+        weakest = min(
+            ranked_members,
+            key=lambda item: item.get("change_pct_numeric") if item.get("change_pct_numeric") is not None else 9999,
+        )
+        advancing_count = sum(1 for item in ranked_members if (item.get("change_pct_numeric") or 0) > 0)
+        declining_count = sum(1 for item in ranked_members if (item.get("change_pct_numeric") or 0) < 0)
+        flat_count = max(len(ranked_members) - advancing_count - declining_count, 0)
+        above_vwap_count = sum(1 for item in ranked_members if item.get("vwap_status") == "Above VWAP")
+        above_pdh_count = sum(1 for item in ranked_members if item.get("status_label") == "Above PDH")
+        below_pdl_count = sum(1 for item in ranked_members if item.get("status_label") == "Below PDL")
+        participation_score_numeric = max(
+            0,
+            min(
+                100,
+                round(
+                    (advancing_count / len(ranked_members)) * 45
+                    + (above_vwap_count / len(ranked_members)) * 35
+                    + (above_pdh_count / len(ranked_members)) * 20
+                    - (below_pdl_count / len(ranked_members)) * 12
+                ),
+            ),
+        )
+        sector_key = next(
+            (key for key in SECTOR_GROUPS.keys() if sector_label.lower() == key.replace("_", " ").title().lower()),
+            "",
+        )
+        participation_label = build_sector_participation_label(
+            advancing_count, declining_count, above_vwap_count, len(ranked_members)
+        )
+        rotation_label = build_sector_rotation_label(avg_change, median_change, advancing_count, declining_count)
+        sector_rows.append(
+            {
+                "sector": sector_label,
+                "sector_slug": get_public_sector_slug(sector_key) if sector_key else "",
+                "sector_href": get_public_sector_route_for_label(sector_label),
+                "tracked_count": len(ranked_members),
+                "avg_change": f"{avg_change:+.2f}%",
+                "avg_change_numeric": avg_change,
+                "median_move": f"{median_change:+.2f}%",
+                "median_move_numeric": median_change,
+                "advancing_count": advancing_count,
+                "declining_count": declining_count,
+                "flat_count": flat_count,
+                "breadth_split": f"{advancing_count} / {declining_count} / {flat_count}",
+                "participation_score": str(participation_score_numeric),
+                "participation_score_numeric": participation_score_numeric,
+                "participation_label": participation_label,
+                "rotation_label": rotation_label,
+                "leaders": ", ".join(item["symbol"] for item in ranked_members[:3]),
+                "strongest_symbol": strongest["symbol"],
+                "strongest_move": strongest["change_pct_display"],
+                "weakest_symbol": weakest["symbol"],
+                "weakest_move": weakest["change_pct_display"],
+                "above_vwap_count": above_vwap_count,
+                "above_pdh_count": above_pdh_count,
+                "below_pdl_count": below_pdl_count,
+                "story": build_public_sector_story(sector_label, ranked_members),
+                "rows": ranked_members,
+            }
+        )
+
+    sector_rows = sorted(sector_rows, key=lambda item: item["participation_score_numeric"], reverse=True)
+    return sector_rows, missing, market_error
+
+
 def build_sectors_hub_context(host_root):
     today_iso = get_today_ist().isoformat()
     sector_cards = []
@@ -26822,6 +27081,371 @@ def build_sector_detail_context(sector_key, host_root):
         "side_box_title": "Sector Story",
         "side_box_copy": build_public_sector_story(sector_label, sorted_rows),
         "why_page_works": "It gives a user one public page to understand the sector tone, the leading stocks, and the weak names without forcing them to bounce between multiple tools.",
+    }
+
+
+def build_sectors_phase2_hub_context(host_root):
+    today = get_today_ist()
+    today_iso = today.isoformat()
+    sector_rows, missing, market_error = build_sector_phase2_rows(today)
+    canonical_url = f"{host_root.rstrip('/')}/sectors"
+    top_sector = sector_rows[0] if sector_rows else None
+    weakest_sector = min(sector_rows, key=lambda item: item["avg_change_numeric"]) if sector_rows else None
+    broad_strength = [row for row in sector_rows if row["rotation_label"] == "Broad Strength"]
+    broad_weakness = [row for row in sector_rows if row["rotation_label"] == "Broad Weakness"]
+    improving = [row for row in sector_rows if row["rotation_label"] in {"Broad Strength", "Improving"}]
+    fading = [row for row in sector_rows if row["rotation_label"] in {"Broad Weakness", "Fading"}]
+    return {
+        "page_mode": "hub",
+        "seo_title": "Sector Dashboard, Leaders, Breadth & Rotation | TraderHub",
+        "seo_description": "Track sector strength, breadth, leadership, and rotation across TraderHub sector pages with clear stock-linked public views.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": "Sector Dashboard | TraderHub",
+                "description": "Public sector dashboard with breadth, leadership, and sector-linked stock research paths.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": "Sectors > Sector Dashboard",
+        "breadcrumb_meta_text": f"Sector breadth review | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Dashboard",
+        "hero_title": "Sector Intelligence",
+        "hero_subtitle": "Track sector breadth, leadership, and rotation in one public dashboard. Live fields are shown where available, and missing fields are clearly marked.",
+        "hero_metric_primary": str(len(sector_rows)),
+        "hero_metric_secondary": "active sectors with live rows right now",
+        "hero_badges": [
+            {"label": "Public Dashboard", "kind": "tag-info"},
+            {"label": "Breadth Ready", "kind": "tag-up"},
+            {"label": "Stock-Linked", "kind": "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Broad Strength", "value": len(broad_strength)},
+            {"label": "Broad Weakness", "value": len(broad_weakness)},
+            {"label": "Improving", "value": len(improving)},
+            {"label": "Fading", "value": len(fading)},
+        ],
+        "nav_chips": [
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "Strongest Sectors", "href": "/sectors/strongest"},
+            {"label": "Weakest Sectors", "href": "/sectors/weakest"},
+            {"label": "Sector Rotation", "href": "/sectors/rotation"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+        ],
+        "section_title": "Sector Summary",
+        "section_note": "Use this page to find where sector participation is broad, where leadership is narrow, and which sector pages deserve deeper review next.",
+        "summary_cards": [
+            {
+                "label": "Strongest Sector",
+                "value": top_sector["sector"] if top_sector else "-",
+                "copy": f"{top_sector['avg_change']} average move with {top_sector['breadth_split']} breadth." if top_sector else "Waiting for live sector rows.",
+            },
+            {
+                "label": "Weakest Sector",
+                "value": weakest_sector["sector"] if weakest_sector else "-",
+                "copy": f"{weakest_sector['avg_change']} average move with {weakest_sector['breadth_split']} breadth." if weakest_sector else "Waiting for live sector rows.",
+            },
+            {
+                "label": "Tracked Rows",
+                "value": sum(row["tracked_count"] for row in sector_rows),
+                "copy": "Total stock rows currently available inside the sector dashboard.",
+            },
+            {
+                "label": "Missing Rows",
+                "value": len(missing),
+                "copy": "Symbols skipped because live public market data was not available right now.",
+            },
+        ],
+        "focus_title": "Best Next Clicks",
+        "focus_note": "These quick paths help a reader move from the dashboard into the most useful public sector views without guessing.",
+        "focus_cards": [
+            {
+                "title": "Strongest Sector Today",
+                "meta": top_sector["rotation_label"] if top_sector else "Pending",
+                "copy": f"Open {top_sector['sector']} first if you want the current leadership page." if top_sector else "Waiting for a live strongest sector row.",
+            },
+            {
+                "title": "Weakest Sector Today",
+                "meta": weakest_sector["rotation_label"] if weakest_sector else "Pending",
+                "copy": f"Open {weakest_sector['sector']} to inspect the current weak cluster." if weakest_sector else "Waiting for a live weakest sector row.",
+            },
+        ],
+        "table_title": "Sector Leaderboard",
+        "table_note": "Average move, median move, and participation score work together so you can tell broad sector strength from narrow leader-driven moves.",
+        "table_columns": [
+            {"label": "Sector", "key": "sector", "link_key": "sector_href"},
+            {"label": "Avg Move", "key": "avg_change"},
+            {"label": "Median", "key": "median_move"},
+            {"label": "Breadth", "key": "breadth_split"},
+            {"label": "Participation", "key": "participation_score"},
+            {"label": "Rotation", "key": "rotation_label"},
+            {"label": "Leader", "key": "leaders"},
+        ],
+        "table_rows": [
+            {
+                "sector": row["sector"],
+                "sector_href": row["sector_href"],
+                "avg_change": row["avg_change"],
+                "median_move": row["median_move"],
+                "breadth_split": row["breadth_split"],
+                "participation_score": row["participation_score"],
+                "rotation_label": row["rotation_label"],
+                "leaders": row["leaders"],
+            }
+            for row in sector_rows
+        ],
+        "group_title": "Rotation Blocks",
+        "group_note": "These groups help separate broad participation from weaker, narrower moves.",
+        "group_blocks": [
+            {
+                "title": "Broad Strength",
+                "count": len(broad_strength),
+                "copy": "Sectors where rising names clearly outnumber declining names.",
+                "items": [f"{row['sector']} ({row['avg_change']})" for row in broad_strength[:5]] or ["No broad-strength sector is active right now."],
+            },
+            {
+                "title": "Broad Weakness",
+                "count": len(broad_weakness),
+                "copy": "Sectors where declining names clearly outweigh advancing names.",
+                "items": [f"{row['sector']} ({row['avg_change']})" for row in broad_weakness[:5]] or ["No broad-weakness sector is active right now."],
+            },
+        ],
+        "market_error": market_error,
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "How To Read This",
+        "side_box_copy": "Start with participation score and breadth split, then open the strongest or weakest sector pages to inspect the stock list behind the move.",
+        "why_page_works": "The sector dashboard now acts like a real decision page: it shows leadership, participation, and next-click paths instead of just listing tracked sectors.",
+    }
+
+
+def build_sector_phase2_listing_context(host_root, mode):
+    today = get_today_ist()
+    today_iso = today.isoformat()
+    sector_rows, missing, market_error = build_sector_phase2_rows(today)
+    mode_map = {
+        "strongest": {
+            "title": "Strongest Sectors",
+            "subtitle": "These sectors currently show the best combination of average move, participation, and sector leadership.",
+            "sort_key": lambda row: (row["avg_change_numeric"], row["participation_score_numeric"]),
+            "reverse": True,
+            "metric_secondary": "highest average moves with supporting breadth",
+        },
+        "weakest": {
+            "title": "Weakest Sectors",
+            "subtitle": "These sectors currently show the weakest average move and the weakest participation mix.",
+            "sort_key": lambda row: (row["avg_change_numeric"], -row["participation_score_numeric"]),
+            "reverse": False,
+            "metric_secondary": "lowest average moves with weak participation",
+        },
+        "rotation": {
+            "title": "Sector Rotation",
+            "subtitle": "This view groups sectors by rotation label so improving and fading groups are easier to see at a glance.",
+            "sort_key": lambda row: (row["participation_score_numeric"], row["avg_change_numeric"]),
+            "reverse": True,
+            "metric_secondary": "rotation labels across active sectors",
+        },
+    }
+    config = mode_map[mode]
+    ranked_rows = sorted(sector_rows, key=config["sort_key"], reverse=config["reverse"])
+    leader = ranked_rows[0] if ranked_rows else None
+    canonical_url = f"{host_root.rstrip('/')}/sectors/{mode}"
+    group_blocks = []
+    if mode == "rotation":
+        for label in ["Broad Strength", "Improving", "Mixed Participation", "Fading", "Broad Weakness"]:
+            bucket = [row for row in ranked_rows if row["rotation_label"] == label]
+            group_blocks.append(
+                {
+                    "title": label,
+                    "count": len(bucket),
+                    "copy": f"Sectors currently tagged as {label.lower()}.",
+                    "items": [f"{row['sector']} ({row['avg_change']}, {row['breadth_split']})" for row in bucket[:5]] or ["No sectors in this rotation bucket right now."],
+                }
+            )
+    return {
+        "page_mode": "ranking",
+        "seo_title": f"{config['title']} | TraderHub Sector Dashboard",
+        "seo_description": f"{config['title']} across TraderHub sector pages with breadth, participation, and stock-linked public research paths.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": f"{config['title']} | TraderHub",
+                "description": config["subtitle"],
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": f"Sectors > {config['title']}",
+        "breadcrumb_meta_text": f"Sector ranking review | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Dashboard",
+        "hero_title": config["title"],
+        "hero_subtitle": config["subtitle"],
+        "hero_metric_primary": leader["sector"] if leader else "-",
+        "hero_metric_secondary": config["metric_secondary"],
+        "hero_badges": [
+            {"label": "Public Dashboard", "kind": "tag-info"},
+            {"label": "Breadth Ready", "kind": "tag-up"},
+            {"label": "Stock-Linked", "kind": "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Active Sectors", "value": len(ranked_rows)},
+            {"label": "Missing Rows", "value": len(missing)},
+            {"label": "Broad Strength", "value": sum(1 for row in sector_rows if row["rotation_label"] == "Broad Strength")},
+            {"label": "Broad Weakness", "value": sum(1 for row in sector_rows if row["rotation_label"] == "Broad Weakness")},
+        ],
+        "nav_chips": [
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "Strongest Sectors", "href": "/sectors/strongest"},
+            {"label": "Weakest Sectors", "href": "/sectors/weakest"},
+            {"label": "Sector Rotation", "href": "/sectors/rotation"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+        ],
+        "section_title": config["title"],
+        "section_note": "Use this ranking view when you want a clean public list rather than the full sector dashboard.",
+        "summary_cards": [
+            {
+                "label": "Top Sector",
+                "value": leader["sector"] if leader else "-",
+                "copy": f"{leader['avg_change']} average move with {leader['breadth_split']} breadth." if leader else "Waiting for live sector rows.",
+            },
+            {"label": "Tracked Sectors", "value": len(ranked_rows), "copy": "Sectors currently included in this ranking view."},
+            {"label": "Tracked Rows", "value": sum(row["tracked_count"] for row in ranked_rows), "copy": "Total stock rows inside the current sector ranking."},
+            {"label": "Missing Rows", "value": len(missing), "copy": "Symbols skipped because live public market data was not available right now."},
+        ],
+        "focus_title": "",
+        "focus_note": "",
+        "focus_cards": [],
+        "table_title": "Sector Ranking Table",
+        "table_note": "Average move, median move, and participation score stay together so the list remains readable on both desktop and mobile.",
+        "table_columns": [
+            {"label": "Sector", "key": "sector", "link_key": "sector_href"},
+            {"label": "Avg Move", "key": "avg_change"},
+            {"label": "Median", "key": "median_move"},
+            {"label": "Breadth", "key": "breadth_split"},
+            {"label": "Participation", "key": "participation_score"},
+            {"label": "Rotation", "key": "rotation_label"},
+            {"label": "Leader", "key": "leaders"},
+        ],
+        "table_rows": [
+            {
+                "sector": row["sector"],
+                "sector_href": row["sector_href"],
+                "avg_change": row["avg_change"],
+                "median_move": row["median_move"],
+                "breadth_split": row["breadth_split"],
+                "participation_score": row["participation_score"],
+                "rotation_label": row["rotation_label"],
+                "leaders": row["leaders"],
+            }
+            for row in ranked_rows
+        ],
+        "group_title": "Rotation Buckets",
+        "group_note": "Rotation labels keep the ranking readable when many sectors are active at once.",
+        "group_blocks": group_blocks,
+        "market_error": market_error,
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "How To Use This List",
+        "side_box_copy": "Open the top sector pages for the full stock table, then move into the linked stock pages or sector archive when you want deeper detail.",
+        "why_page_works": "These ranking pages turn the sector module into a clearer public discovery layer for strength, weakness, and rotation.",
+    }
+
+
+def build_sector_phase2_detail_context(sector_key, host_root):
+    today = get_today_ist()
+    today_iso = today.isoformat()
+    sector_label = sector_key.replace("_", " ").title()
+    symbols = get_public_sector_members(sector_key)
+    sector_rows, missing, error = get_public_sector_rows(symbols, today)
+    sorted_rows = sorted(sector_rows, key=lambda row: row["change_pct_numeric"], reverse=True)
+    strongest = sorted_rows[0] if sorted_rows else None
+    weakest = sorted(sorted_rows, key=lambda row: row["change_pct_numeric"])[0] if sorted_rows else None
+    avg_change = sum(row["change_pct_numeric"] for row in sorted_rows) / len(sorted_rows) if sorted_rows else 0.0
+    median_move = _compute_median([row["change_pct_numeric"] for row in sorted_rows]) if sorted_rows else 0.0
+    advancing_count = sum(1 for row in sorted_rows if row["change_pct_numeric"] > 0.15)
+    declining_count = sum(1 for row in sorted_rows if row["change_pct_numeric"] < -0.15)
+    flat_count = max(len(sorted_rows) - advancing_count - declining_count, 0)
+    above_pdh = sum(1 for row in sorted_rows if row["status_label"] == "Above PDH")
+    below_pdl = sum(1 for row in sorted_rows if row["status_label"] == "Below PDL")
+    above_vwap = sum(1 for row in sorted_rows if row["vwap_status"] == "Above VWAP")
+    participation_label = build_sector_participation_label(advancing_count, declining_count, above_vwap, len(sorted_rows))
+    rotation_label = build_sector_rotation_label(avg_change, median_move, advancing_count, declining_count)
+    canonical_url = f"{host_root.rstrip('/')}/sectors/{get_public_sector_slug(sector_key)}"
+    return {
+        "page_mode": "detail",
+        "seo_title": f"{sector_label} Stocks, Leaders, Laggards & Sector View | TraderHub",
+        "seo_description": f"Track {sector_label.lower()} stocks, leaders, breadth, VWAP context, and sector-linked public research in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {"@context": "https://schema.org", "@type": "WebPage", "name": f"{sector_label} Sector Page | TraderHub", "description": f"Public sector page for {sector_label}.", "url": canonical_url},
+            indent=2,
+        ),
+        "breadcrumb_text": f"Sectors > {sector_label}",
+        "breadcrumb_meta_text": f"Sector detail review | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub Sector Research",
+        "hero_title": sector_label,
+        "hero_subtitle": build_public_sector_story(sector_label, sorted_rows),
+        "hero_metric_primary": f"{avg_change:+.2f}%",
+        "hero_metric_secondary": "average day move across tracked names" if sorted_rows else "live sector rows pending",
+        "hero_badges": [{"label": "Sector Detail", "kind": "tag-info"}, {"label": f"{len(symbols)} tracked stocks", "kind": "tag-up"}, {"label": rotation_label, "kind": "tag-warn"}],
+        "hero_stats": [
+            {"label": "Tracked Stocks", "value": len(symbols)},
+            {"label": "Breadth", "value": f"{advancing_count}/{declining_count}/{flat_count}"},
+            {"label": "Above PDH", "value": above_pdh},
+            {"label": "Above VWAP", "value": above_vwap},
+        ],
+        "nav_chips": [
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "Strongest Sectors", "href": "/sectors/strongest"},
+            {"label": "Sector Rotation", "href": "/sectors/rotation"},
+            {"label": "News Archive", "href": f"/sectors/{get_public_sector_slug(sector_key)}/news-archive"},
+            {"label": "Sector News", "href": "/market/sector-news"},
+        ],
+        "section_title": "Sector Snapshot",
+        "section_note": "Use this page to judge whether the sector move is broad, narrow, improving, or fading before you drill into single-stock detail.",
+        "summary_cards": [
+            {"label": "Participation", "value": participation_label, "copy": f"Breadth split: {advancing_count} advancing, {declining_count} declining, {flat_count} flat."},
+            {"label": "Median Move", "value": f"{median_move:+.2f}%", "copy": "Median move helps separate broad participation from one-name leadership."},
+            {"label": "Strongest", "value": strongest["symbol"] if strongest else "-", "copy": strongest["change_pct_display"] if strongest else "Waiting for live rows."},
+            {"label": "Weakest", "value": weakest["symbol"] if weakest else "-", "copy": weakest["change_pct_display"] if weakest else "Waiting for live rows."},
+        ],
+        "focus_title": "Leadership Signals",
+        "focus_note": "These quick cards help a reader decide whether the sector is broad, narrow, improving, or fading before opening individual stock pages.",
+        "focus_cards": [
+            {"title": "Rotation Label", "meta": participation_label, "copy": f"{sector_label} is currently tagged as {rotation_label.lower()} based on average move and breadth."},
+            {"title": "Leader Cluster", "meta": f"{above_vwap} above VWAP", "copy": f"{above_pdh} names are above previous-day high and {below_pdl} are below previous-day low."},
+        ],
+        "table_title": "Sector Stock Table",
+        "table_note": "This stock table keeps the sector page practical: open the linked stock pages when you want deeper price context or linked archive paths.",
+        "table_columns": [
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_href"},
+            {"label": "Company", "key": "company_name"},
+            {"label": "LTP", "key": "last_price"},
+            {"label": "Day Change", "key": "change_pct_display"},
+            {"label": "VWAP", "key": "vwap"},
+            {"label": "VWAP Status", "key": "vwap_status"},
+            {"label": "Status", "key": "status_label"},
+            {"label": "52W Range", "key": "week_range"},
+        ],
+        "table_rows": [
+            {
+                **row,
+                "stock_href": f"/stocks/{get_canonical_stock_slug(row['symbol'])}",
+                "week_range": f"{row['week_low']} - {row['week_high']}",
+            }
+            for row in sorted_rows
+        ],
+        "group_title": "",
+        "group_note": "",
+        "group_blocks": [],
+        "market_error": error,
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "Sector Story",
+        "side_box_copy": build_public_sector_story(sector_label, sorted_rows),
+        "why_page_works": "This page now behaves like a sector decision surface: it shows breadth, leadership, and next-click stock paths without forcing the reader into a noisy scanner.",
     }
 
 
@@ -31434,8 +32058,26 @@ def stock_news_archive(stock_slug):
 
 @app.route("/sectors")
 def sectors_hub():
-    context = build_sectors_hub_context(request.url_root.rstrip("/"))
-    return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+    context = build_sectors_phase2_hub_context(request.url_root.rstrip("/"))
+    return render_template_string(SECTOR_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/sectors/strongest")
+def sectors_strongest():
+    context = build_sector_phase2_listing_context(request.url_root.rstrip("/"), "strongest")
+    return render_template_string(SECTOR_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/sectors/weakest")
+def sectors_weakest():
+    context = build_sector_phase2_listing_context(request.url_root.rstrip("/"), "weakest")
+    return render_template_string(SECTOR_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+
+
+@app.route("/sectors/rotation")
+def sectors_rotation():
+    context = build_sector_phase2_listing_context(request.url_root.rstrip("/"), "rotation")
+    return render_template_string(SECTOR_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/sectors/<sector_slug>")
@@ -31444,7 +32086,7 @@ def sector_detail(sector_slug):
         sector_key = resolve_public_sector_slug(sector_slug)
         if not sector_key:
             return render_template_string(SECTOR_NOT_FOUND_TEMPLATE), 404
-        context = build_sector_detail_context(sector_key, request.url_root.rstrip("/"))
+        context = build_sector_phase2_detail_context(sector_key, request.url_root.rstrip("/"))
     except Exception as exc:
         app.logger.exception("Failed to render sector detail page: %s", sector_slug)
         safe_sector_key = locals().get("sector_key") or str(sector_slug or "sector").strip().replace("-", "_").lower()
@@ -31465,7 +32107,7 @@ def sector_detail(sector_slug):
                 indent=2,
             ),
             "breadcrumb_text": f"Sectors > {sector_label}",
-            "breadcrumb_meta_text": f"Phase 1 sector fallback | Last reviewed {get_today_ist().isoformat()}",
+            "breadcrumb_meta_text": f"Sector fallback | Last reviewed {get_today_ist().isoformat()}",
             "hero_kicker": "TraderHub Sector Research",
             "hero_title": sector_label,
             "hero_subtitle": "A safe sector fallback view while the live sector detail builder is retried.",
@@ -31483,23 +32125,35 @@ def sector_detail(sector_slug):
             ],
             "nav_chips": [
                 {"label": "Sector Hub", "href": "/sectors"},
+                {"label": "Strongest Sectors", "href": "/sectors/strongest"},
                 {"label": "Sector Archive", "href": f"/sectors/{get_public_sector_slug(safe_sector_key)}/news-archive"},
                 {"label": "Sector News", "href": "/market/sector-news"},
             ],
-            "section_title": "Sector Stock Table",
+            "section_title": "Sector Snapshot",
             "section_note": "The public sector detail page stayed online with a fallback shell while TraderHub retries the deeper market-data build.",
-            "sector_cards": [],
-            "sector_rows": [],
-            "strongest": None,
-            "weakest": None,
+            "summary_cards": [
+                {"label": "Participation", "value": "Pending", "copy": "Breadth metrics will reappear when live sector rows are available again."},
+                {"label": "Strongest", "value": "-", "copy": "Live rows are being retried."},
+                {"label": "Weakest", "value": "-", "copy": "Live rows are being retried."},
+                {"label": "Tracked Rows", "value": 0, "copy": "Rows will repopulate after the next successful sector build."},
+            ],
+            "focus_title": "",
+            "focus_note": "",
+            "focus_cards": [],
+            "table_title": "",
+            "table_note": "",
+            "table_columns": [],
+            "table_rows": [],
+            "group_title": "",
+            "group_note": "",
+            "group_blocks": [],
             "market_error": f"Sector detail is temporarily unavailable: {exc}",
-            "missing_symbols": [],
             "publisher_links": get_news_publisher_links(),
             "side_box_title": "Sector Story",
             "side_box_copy": "Fallback mode keeps the sector URL, archive path, and internal linking intact while the live detail table is retried.",
             "why_page_works": "Sector pages still support SEO structure and route stability even when live detail assembly is temporarily unavailable.",
         }
-    return render_template_string(SECTOR_PHASE1_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+    return render_template_string(SECTOR_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/sectors/<sector_slug>/news-archive")
