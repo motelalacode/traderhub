@@ -26706,6 +26706,646 @@ DERIVATIVES_PHASE1_TEMPLATE = """
 </html>
 """
 
+DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg:#f4f7fb;
+      --paper:#ffffff;
+      --panel:#f8fbff;
+      --line:#d9e3ef;
+      --ink:#1a2a39;
+      --muted:#617487;
+      --accent:#0f766e;
+      --accent-soft:#d8f3ef;
+      --up:#0a7b4f;
+      --up-soft:#dff6e8;
+      --down:#a53a45;
+      --down-soft:#fde3e6;
+      --warn:#8e6800;
+      --warn-soft:#fff1c7;
+      --shadow:0 14px 32px rgba(20,32,44,0.08);
+      --number-font:Arial,Helvetica,sans-serif;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(15,118,110,0.08), transparent 26%),
+        linear-gradient(180deg, #fbfdff 0%, var(--bg) 100%);
+    }
+    a { color:#0d5f89; }
+    .page { max-width:1320px; margin:0 auto; padding:16px 12px 32px; }
+    .microbar {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      color:var(--muted);
+      font-size:13px;
+      margin-bottom:12px;
+    }
+    .hero, .shell, .ad-shell, .notice {
+      background:var(--paper);
+      border:1px solid var(--line);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+    }
+    .hero {
+      padding:20px;
+      background:linear-gradient(145deg, #17334c 0%, #135d63 70%, #2c8e86 100%);
+      color:#fff;
+      overflow:hidden;
+      position:relative;
+    }
+    .hero:after {
+      content:"";
+      position:absolute;
+      right:-40px;
+      bottom:-56px;
+      width:220px;
+      height:220px;
+      border-radius:50%;
+      background:rgba(255,255,255,0.08);
+    }
+    .hero-kicker {
+      font-size:12px;
+      letter-spacing:0.14em;
+      text-transform:uppercase;
+      opacity:0.84;
+      margin-bottom:10px;
+      position:relative;
+      z-index:1;
+    }
+    .hero-top {
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:flex-start;
+      position:relative;
+      z-index:1;
+    }
+    .hero h1 {
+      margin:0;
+      font-size:42px;
+      line-height:0.98;
+      font-family:Georgia,"Times New Roman",serif;
+    }
+    .hero-sub {
+      margin-top:10px;
+      max-width:820px;
+      color:rgba(255,255,255,0.86);
+      font-size:17px;
+      line-height:1.55;
+    }
+    .hero-metric {
+      min-width:220px;
+      text-align:right;
+    }
+    .hero-metric-value {
+      font-size:34px;
+      font-weight:700;
+      line-height:0.98;
+      font-family:var(--number-font);
+      font-variant-numeric:tabular-nums;
+    }
+    .hero-metric-copy {
+      margin-top:8px;
+      color:rgba(255,255,255,0.84);
+      font-size:14px;
+    }
+    .hero-badges, .chip-row {
+      position:relative;
+      z-index:1;
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:16px;
+    }
+    .badge, .chip {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:8px 12px;
+      font-size:12px;
+      font-weight:700;
+      text-decoration:none;
+      letter-spacing:0.02em;
+      white-space:nowrap;
+    }
+    .badge { color:#fff; border:1px solid rgba(255,255,255,0.16); background:rgba(255,255,255,0.10); }
+    .chip { color:#0e5d64; background:var(--accent-soft); border:1px solid #b8e8df; }
+    .chip.secondary { color:#35516b; background:#eef4fb; border-color:#d6e4f4; }
+    .hero-grid, .summary-grid, .rail-grid, .card-grid {
+      display:grid;
+      gap:12px;
+    }
+    .hero-grid {
+      position:relative;
+      z-index:1;
+      margin-top:16px;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+    }
+    .hero-card, .metric-card, .rail-card, .stock-card, .table-card, .ad-shell, .filter-shell {
+      border:1px solid var(--line);
+      border-radius:18px;
+      background:var(--panel);
+    }
+    .hero-card {
+      padding:12px;
+      background:rgba(255,255,255,0.12);
+      border-color:rgba(255,255,255,0.16);
+    }
+    .hero-label, .eyebrow, .mini-label {
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:0.08em;
+      font-weight:700;
+      color:var(--muted);
+    }
+    .hero-label { color:rgba(255,255,255,0.74); }
+    .hero-value, .metric-value {
+      margin-top:4px;
+      font-size:22px;
+      font-weight:700;
+      font-family:var(--number-font);
+      font-variant-numeric:tabular-nums;
+    }
+    .hero-value { color:#fff; }
+    .layout {
+      margin-top:16px;
+      display:grid;
+      grid-template-columns:minmax(0, 1fr) 310px;
+      gap:16px;
+      align-items:start;
+    }
+    .main-stack, .side-stack { display:grid; gap:16px; }
+    .shell { padding:18px; }
+    .section-head {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .section-head h2 {
+      margin:0;
+      font-size:30px;
+      font-family:Georgia,"Times New Roman",serif;
+      line-height:1.02;
+    }
+    .section-copy {
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.6;
+    }
+    .summary-grid { grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .metric-card, .rail-card { padding:14px; }
+    .metric-copy, .rail-copy, .stock-copy {
+      margin-top:6px;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.5;
+    }
+    .filter-shell { padding:14px; }
+    .filter-grid {
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0, 1fr));
+      gap:12px;
+      align-items:end;
+    }
+    label { display:block; font-size:12px; font-weight:700; color:#35516b; margin-bottom:6px; }
+    select {
+      width:100%;
+      border:1px solid #c6d6e7;
+      border-radius:12px;
+      padding:10px 12px;
+      background:#fff;
+      color:var(--ink);
+      font-size:14px;
+    }
+    .button-row {
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      border:none;
+      border-radius:12px;
+      padding:11px 14px;
+      background:#114d67;
+      color:#fff;
+      font-size:14px;
+      font-weight:700;
+      text-decoration:none;
+      cursor:pointer;
+    }
+    .btn.secondary {
+      background:#e8f0f8;
+      color:#28455d;
+      border:1px solid #d3e1ef;
+    }
+    .table-card { padding:10px 12px 6px; overflow-x:auto; }
+    table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:14px;
+    }
+    th {
+      text-align:left;
+      font-size:11px;
+      text-transform:uppercase;
+      letter-spacing:0.08em;
+      color:var(--muted);
+      padding:9px 8px;
+      border-bottom:1px solid var(--line);
+      white-space:nowrap;
+    }
+    td {
+      padding:11px 8px;
+      border-bottom:1px solid #e4edf5;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+    }
+    tr:last-child td { border-bottom:none; }
+    .row-link {
+      font-weight:700;
+      color:#114d67;
+      text-decoration:none;
+    }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:6px 10px;
+      font-size:12px;
+      font-weight:700;
+      white-space:nowrap;
+    }
+    .pill.up { background:var(--up-soft); color:var(--up); }
+    .pill.down { background:var(--down-soft); color:var(--down); }
+    .pill.warn { background:var(--warn-soft); color:var(--warn); }
+    .card-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .stock-card { padding:14px; }
+    .stock-card-top {
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+    }
+    .stock-name {
+      font-size:18px;
+      font-weight:700;
+      color:#13364e;
+      text-decoration:none;
+    }
+    .stock-symbol {
+      margin-top:4px;
+      font-size:12px;
+      color:var(--muted);
+      font-weight:700;
+      letter-spacing:0.05em;
+    }
+    .stock-grid {
+      margin-top:12px;
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:10px;
+    }
+    .stock-metric {
+      padding:10px;
+      border-radius:14px;
+      background:#fff;
+      border:1px solid #e0e9f3;
+    }
+    .stock-value {
+      margin-top:4px;
+      font-size:17px;
+      font-weight:700;
+      color:#183247;
+      font-family:var(--number-font);
+      font-variant-numeric:tabular-nums;
+    }
+    .ad-shell {
+      padding:14px;
+      text-align:center;
+      color:var(--muted);
+      background:
+        repeating-linear-gradient(-45deg, rgba(15,118,110,0.03), rgba(15,118,110,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px),
+        var(--panel);
+    }
+    .ad-shell.tall { min-height:260px; }
+    .notice { padding:14px; margin-bottom:12px; }
+    .hide-desktop { display:none; }
+    @media (max-width:1160px) {
+      .layout { grid-template-columns:1fr; }
+      .side-stack { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width:920px) {
+      .hero-top { flex-direction:column; }
+      .hero-metric { text-align:left; min-width:0; }
+      .hero-grid, .summary-grid, .filter-grid, .card-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .hide-mobile { display:none; }
+      .hide-desktop { display:block; }
+    }
+    @media (max-width:640px) {
+      .page { padding:12px 10px 24px; }
+      .hero, .shell, .ad-shell, .notice { border-radius:18px; }
+      .hero h1 { font-size:32px; }
+      .hero-grid, .summary-grid, .filter-grid, .card-grid, .side-stack, .stock-grid { grid-template-columns:1fr; }
+      .section-head h2 { font-size:26px; }
+      .button-row { width:100%; }
+      .btn { flex:1 1 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>{{ breadcrumb_text }}</div>
+      <div>{{ breadcrumb_meta_text }}</div>
+    </div>
+
+    {% if market_error %}
+    <div class="notice">
+      <div class="section-copy">{{ market_error }}</div>
+    </div>
+    {% endif %}
+
+    <section class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-top">
+        <div>
+          <h1>{{ hero_title }}</h1>
+          <div class="hero-sub">{{ hero_subtitle }}</div>
+        </div>
+        <div class="hero-metric">
+          <div class="hero-metric-value">{{ hero_metric_primary }}</div>
+          <div class="hero-metric-copy">{{ hero_metric_secondary }}</div>
+        </div>
+      </div>
+      <div class="hero-badges">
+        {% for badge in hero_badges %}
+        <span class="badge">{{ badge.label }}</span>
+        {% endfor %}
+      </div>
+      <div class="hero-grid">
+        {% for stat in hero_stats %}
+        <div class="hero-card">
+          <div class="hero-label">{{ stat.label }}</div>
+          <div class="hero-value">{{ stat.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="chip-row">
+      <a class="chip" href="/derivatives/stocks/oi-change">Original OI Page</a>
+      <a class="chip secondary" href="/derivatives/stocks">Stock F&O Hub</a>
+      <a class="chip secondary" href="/derivatives/stocks/futures-buildup">Futures Buildup</a>
+    </div>
+
+    <div class="layout">
+      <div class="main-stack">
+        <section class="shell">
+          <div class="section-head">
+            <div>
+              <h2>Trial Controls</h2>
+              <div class="section-copy">Original page ko touch kiye bina yahan filters aur ranking test ki ja sakti hai. Mobile-first layout, cleaner cards, aur safer derivatives scanning is trial route ka focus hai.</div>
+            </div>
+          </div>
+          <div class="filter-shell">
+            <form method="get" action="/derivatives/stocks/oi-change-trial">
+              <div class="filter-grid">
+                <div>
+                  <label for="view">Signal View</label>
+                  <select id="view" name="view">
+                    {% for item in view_options %}
+                    <option value="{{ item.value }}"{% if item.value == selected_view %} selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label for="buildup">Buildup Filter</label>
+                  <select id="buildup" name="buildup">
+                    {% for item in buildup_options %}
+                    <option value="{{ item.value }}"{% if item.value == selected_buildup %} selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label for="direction">Direction</label>
+                  <select id="direction" name="direction">
+                    {% for item in direction_options %}
+                    <option value="{{ item.value }}"{% if item.value == selected_direction %} selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label for="sort">Sort By</label>
+                  <select id="sort" name="sort">
+                    {% for item in sort_options %}
+                    <option value="{{ item.value }}"{% if item.value == selected_sort %} selected{% endif %}>{{ item.label }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+              </div>
+              <div class="button-row" style="margin-top:12px;">
+                <button class="btn" type="submit">Apply Trial Filters</button>
+                <a class="btn secondary" href="/derivatives/stocks/oi-change-trial">Reset Trial View</a>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <section class="shell">
+          <div class="section-head">
+            <div>
+              <h2>Snapshot</h2>
+              <div class="section-copy">Yeh top layer fast reading ke liye hai: kitne names scan me hain, kitne real OI rows hain, aur current filters ke hisaab se strongest signals kaun se dikh rahe hain.</div>
+            </div>
+          </div>
+          <div class="summary-grid">
+            {% for card in summary_cards %}
+            <div class="metric-card">
+              <div class="eyebrow">{{ card.label }}</div>
+              <div class="metric-value">{{ card.value }}</div>
+              <div class="metric-copy">{{ card.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        {% if sponsor_ad or google_inline_ad_html %}
+        <section class="shell">
+          <div class="section-head">
+            <div>
+              <h2>Sponsored Space</h2>
+              <div class="section-copy">Trial page me ad placements bhi test mode me hi rakhe gaye hain, taaki original derivatives page par bina approval kuch replace na ho.</div>
+            </div>
+          </div>
+          <div class="card-grid">
+            {% if sponsor_ad %}
+            <div class="ad-shell">
+              <div class="eyebrow">{{ sponsor_ad.label }}</div>
+              <div style="font-size:20px;font-weight:700;color:#183247;margin-top:6px;">{{ sponsor_ad.name }}</div>
+              <div class="section-copy" style="margin-top:8px;">{{ sponsor_ad.copy }}</div>
+              {% if sponsor_ad.url %}
+              <div style="margin-top:12px;"><a class="btn" href="{{ sponsor_ad.url }}" target="_blank" rel="nofollow sponsored noopener">{{ sponsor_ad.cta }}</a></div>
+              {% endif %}
+            </div>
+            {% endif %}
+            {% if google_inline_ad_html %}
+            <div class="ad-shell">
+              <div class="eyebrow">Google Ad Slot</div>
+              <div style="margin-top:10px;">{{ google_inline_ad_html|safe }}</div>
+            </div>
+            {% endif %}
+          </div>
+        </section>
+        {% endif %}
+
+        <section class="shell hide-desktop">
+          <div class="section-head">
+            <div>
+              <h2>Mobile Card View</h2>
+              <div class="section-copy">Small screens par table ke bajay compact stock cards dikhte hain, taaki OI reading thumb-friendly rahe.</div>
+            </div>
+          </div>
+          <div class="card-grid">
+            {% for row in table_rows %}
+            <article class="stock-card">
+              <div class="stock-card-top">
+                <div>
+                  <a class="stock-name" href="{{ row.stock_url }}">{{ row.company_name }}</a>
+                  <div class="stock-symbol">{{ row.symbol }}</div>
+                </div>
+                <span class="pill {% if row.day_change_numeric > 0 %}up{% elif row.day_change_numeric < 0 %}down{% else %}warn{% endif %}">{{ row.buildup_label }}</span>
+              </div>
+              <div class="stock-grid">
+                <div class="stock-metric"><div class="mini-label">Spot</div><div class="stock-value">{{ row.spot }}</div></div>
+                <div class="stock-metric"><div class="mini-label">Day Change</div><div class="stock-value">{{ row.day_change }}</div></div>
+                <div class="stock-metric"><div class="mini-label">OI Change</div><div class="stock-value">{{ row.oi_change }}</div></div>
+                <div class="stock-metric"><div class="mini-label">OI Type</div><div class="stock-value">{{ row.oi_bias }}</div></div>
+                <div class="stock-metric"><div class="mini-label">Futures</div><div class="stock-value">{{ row.futures_price }}</div></div>
+                <div class="stock-metric"><div class="mini-label">Premium/Discount</div><div class="stock-value">{{ row.premium_discount }}</div></div>
+              </div>
+              <div class="stock-copy">{{ row.proxy_note }}</div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="shell hide-mobile">
+          <div class="section-head">
+            <div>
+              <h2>Desktop Table</h2>
+              <div class="section-copy">Desktop users ke liye table rakha gaya hai, lekin ranking aur rows wahi hain jo mobile cards me dikh rahi hain.</div>
+            </div>
+          </div>
+          <div class="table-card">
+            <table>
+              <thead>
+                <tr>
+                  {% for column in table_columns %}
+                  <th>{{ column.label }}</th>
+                  {% endfor %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in table_rows %}
+                <tr>
+                  {% for column in table_columns %}
+                  <td>
+                    {% if column.link_key and row[column.link_key] %}
+                    <a class="row-link" href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>
+                    {% else %}
+                    {{ row[column.key] }}
+                    {% endif %}
+                  </td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="shell">
+          <div class="section-head">
+            <div>
+              <h2>Signal Buckets</h2>
+              <div class="section-copy">Yeh section public users ko instantly batata hai ki current filter set me kaun se names constructive aur kaun se pressured dikh rahe hain.</div>
+            </div>
+          </div>
+          <div class="card-grid">
+            {% for block in group_blocks %}
+            <div class="metric-card">
+              <div class="eyebrow">{{ block.title }}</div>
+              <div class="metric-value">{{ block.count }}</div>
+              <div class="metric-copy">{{ block.copy }}</div>
+              <ul style="margin:10px 0 0;padding-left:18px;color:#334253;font-size:14px;line-height:1.55;">
+                {% for item in block.items %}
+                <li>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="side-stack">
+        <div class="rail-card">
+          <div class="eyebrow">Trial Notes</div>
+          <div class="metric-copy">Original page ko bina chhede yahan mobile layout, filter behavior, ranking logic, aur ad placements compare kiye ja sakte hain.</div>
+        </div>
+        <div class="rail-card">
+          <div class="eyebrow">Current Rule</div>
+          <div class="metric-copy">{{ side_box_copy }}</div>
+        </div>
+        <div class="rail-card">
+          <div class="eyebrow">Why This Works</div>
+          <div class="metric-copy">{{ why_page_works }}</div>
+        </div>
+        {% if google_vertical_ad_html %}
+        <div class="ad-shell tall">
+          <div class="eyebrow">Vertical Google Ad</div>
+          <div style="margin-top:10px;">{{ google_vertical_ad_html|safe }}</div>
+        </div>
+        {% elif google_sidebar_ad_html %}
+        <div class="ad-shell tall">
+          <div class="eyebrow">Sidebar Google Ad</div>
+          <div style="margin-top:10px;">{{ google_sidebar_ad_html|safe }}</div>
+        </div>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
 
 def format_pending_number(value):
     if value in (None, "", "-", "Pending"):
@@ -27268,6 +27908,252 @@ def build_stock_oi_change_context(host_root):
         "why_page_works": "It gives TraderHub a high-intent derivatives page that is useful now, SEO-friendly, and structurally ready for the next level of F&O depth.",
         "market_error": error,
     }
+
+
+def build_stock_oi_change_trial_context(
+    host_root,
+    selected_view="all",
+    selected_buildup="all",
+    selected_direction="all",
+    selected_sort="oi_change",
+):
+    rows, missing, error = get_derivatives_stock_rows(FNO_PHASE1_STOCK_SYMBOLS)
+
+    view_options = [
+        {"value": "all", "label": "All Rows"},
+        {"value": "real", "label": "Only Real OI"},
+        {"value": "fallback", "label": "Only Fallback Rows"},
+    ]
+    buildup_options = [
+        {"value": "all", "label": "All Buildup Types"},
+        {"value": "long-buildup", "label": "Long Buildup"},
+        {"value": "short-buildup", "label": "Short Buildup"},
+        {"value": "short-covering", "label": "Short Covering"},
+        {"value": "long-unwinding", "label": "Long Unwinding"},
+    ]
+    direction_options = [
+        {"value": "all", "label": "All Directions"},
+        {"value": "up", "label": "Spot Up"},
+        {"value": "down", "label": "Spot Down"},
+        {"value": "flat", "label": "Flat / Neutral"},
+    ]
+    sort_options = [
+        {"value": "oi_change", "label": "OI Change Strength"},
+        {"value": "spot_move", "label": "Spot Move"},
+        {"value": "volume", "label": "Volume"},
+        {"value": "alphabetical", "label": "Alphabetical"},
+    ]
+
+    valid_view = {item["value"] for item in view_options}
+    valid_buildup = {item["value"] for item in buildup_options}
+    valid_direction = {item["value"] for item in direction_options}
+    valid_sort = {item["value"] for item in sort_options}
+
+    if selected_view not in valid_view:
+        selected_view = "all"
+    if selected_buildup not in valid_buildup:
+        selected_buildup = "all"
+    if selected_direction not in valid_direction:
+        selected_direction = "all"
+    if selected_sort not in valid_sort:
+        selected_sort = "oi_change"
+
+    trial_rows = []
+    for row in rows:
+        if row["oi_change_numeric"] is not None:
+            pressure_score = abs(row["oi_change_numeric"])
+            oi_bias = row["buildup_label"]
+            oi_shift_read = row["oi_change"]
+        else:
+            pressure_score = abs(row["day_change_numeric"]) * max(row["volume_numeric"], 0)
+            if row["day_change_numeric"] > 0:
+                oi_bias = "Call-side pressure proxy"
+            elif row["day_change_numeric"] < 0:
+                oi_bias = "Put-side pressure proxy"
+            else:
+                oi_bias = "Neutral pressure proxy"
+            oi_shift_read = f"{row['day_change_numeric']:+.2f}% x {row['volume']}"
+        trial_rows.append(
+            {
+                **row,
+                "oi_bias": oi_bias,
+                "proxy_oi_shift": oi_shift_read,
+                "pressure_score": pressure_score,
+            }
+        )
+
+    filtered_rows = []
+    for row in trial_rows:
+        if selected_view == "real" and not row.get("real_fno_available"):
+            continue
+        if selected_view == "fallback" and row.get("real_fno_available"):
+            continue
+        if selected_buildup != "all":
+            buildup_key = str(row.get("buildup_label") or "").strip().lower().replace(" ", "-")
+            if buildup_key != selected_buildup:
+                continue
+        if selected_direction == "up" and row["day_change_numeric"] <= 0:
+            continue
+        if selected_direction == "down" and row["day_change_numeric"] >= 0:
+            continue
+        if selected_direction == "flat" and row["day_change_numeric"] != 0:
+            continue
+        filtered_rows.append(row)
+
+    if selected_sort == "spot_move":
+        filtered_rows.sort(key=lambda row: abs(row["day_change_numeric"]), reverse=True)
+    elif selected_sort == "volume":
+        filtered_rows.sort(key=lambda row: row["volume_numeric"], reverse=True)
+    elif selected_sort == "alphabetical":
+        filtered_rows.sort(key=lambda row: row["symbol"])
+    else:
+        filtered_rows.sort(key=lambda row: row["pressure_score"], reverse=True)
+
+    highest = filtered_rows[0] if filtered_rows else None
+    real_rows = [row for row in filtered_rows if row.get("real_fno_available")]
+    positive_pressure = [
+        row for row in filtered_rows if row["buildup_label"] in {"Long Buildup", "Short Covering"}
+    ][:6]
+    negative_pressure = [
+        row for row in filtered_rows if row["buildup_label"] in {"Short Buildup", "Long Unwinding"}
+    ][:6]
+    long_buildup = [row for row in filtered_rows if row["buildup_label"] == "Long Buildup"][:5]
+    short_buildup = [row for row in filtered_rows if row["buildup_label"] == "Short Buildup"][:5]
+
+    today_iso = get_today_ist().isoformat()
+    query_string = urllib.parse.urlencode(
+        {
+            "view": selected_view,
+            "buildup": selected_buildup,
+            "direction": selected_direction,
+            "sort": selected_sort,
+        }
+    )
+    canonical_url = f"{host_root.rstrip('/')}/derivatives/stocks/oi-change-trial"
+    if query_string:
+        canonical_url = f"{canonical_url}?{query_string}"
+
+    summary_cards = [
+        {
+            "label": "Filtered Rows",
+            "value": len(filtered_rows),
+            "copy": "Current trial filters ke baad kitne rows scan me visible hain.",
+        },
+        {
+            "label": "Real OI Rows",
+            "value": len(real_rows),
+            "copy": "In rows me nearest futures contract se true OI aur OI change aa raha hai.",
+        },
+        {
+            "label": "Top Pressure Name",
+            "value": highest["symbol"] if highest else "-",
+            "copy": (
+                f"{highest['oi_change']} OI change with {highest['day_change']} spot move."
+                if highest
+                else "Current filter set me abhi koi live ranked row nahi."
+            ),
+        },
+        {
+            "label": "Positive vs Negative",
+            "value": f"{len(positive_pressure)} / {len(negative_pressure)}",
+            "copy": "Constructive aur pressured names ka quick split.",
+        },
+    ]
+
+    group_blocks = [
+        {
+            "title": "Positive Pressure",
+            "count": len(positive_pressure),
+            "copy": "Price aur OI ka constructive alignment dekhne ke liye yeh bucket sabse useful hai.",
+            "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in positive_pressure]
+            or ["No positive-pressure rows in this filter set."],
+        },
+        {
+            "title": "Negative Pressure",
+            "count": len(negative_pressure),
+            "copy": "Weakness ya unwind-type structure dhoondhne ke liye is bucket ko dekho.",
+            "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in negative_pressure]
+            or ["No negative-pressure rows in this filter set."],
+        },
+        {
+            "title": "Long Buildup Focus",
+            "count": len(long_buildup),
+            "copy": "Price up aur OI up wale names ko fast skim karne ke liye.",
+            "items": [f"{row['symbol']} | {row['futures_price']} | {row['premium_discount']}" for row in long_buildup]
+            or ["No long-buildup rows right now."],
+        },
+        {
+            "title": "Short Buildup Focus",
+            "count": len(short_buildup),
+            "copy": "Price down aur OI up wale pressure names ko isolate karne ke liye.",
+            "items": [f"{row['symbol']} | {row['futures_price']} | {row['premium_discount']}" for row in short_buildup]
+            or ["No short-buildup rows right now."],
+        },
+    ]
+
+    context = {
+        "seo_title": "Stock OI Change Trial Dashboard, Mobile-First F&O Scanner | TraderHub",
+        "seo_description": "Test a mobile-first TraderHub stock OI change dashboard with real OI rows, buildup filters, futures context, and cleaner public F&O scanning.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Stock OI Change Trial Dashboard | TraderHub",
+                "description": "Trial public stock OI change dashboard for TraderHub.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "public_head_injection": build_public_ops_head_injection(),
+        "breadcrumb_text": "Derivatives > Stock Derivatives > OI Change Trial",
+        "breadcrumb_meta_text": f"Trial layout | Last reviewed {today_iso}",
+        "hero_kicker": "TraderHub OI Change Trial",
+        "hero_title": "Stock OI Change Trial",
+        "hero_subtitle": "Yeh trial page original OI route ko replace kiye bina test mode me banaya gaya hai. Focus hai: small-screen readability, cleaner derivatives filtering, aur public SEO plus ad readiness.",
+        "hero_metric_primary": str(len(filtered_rows)),
+        "hero_metric_secondary": "rows in the current filtered trial view",
+        "hero_badges": [
+            {"label": "Trial Route"},
+            {"label": "Mobile First"},
+            {"label": "SEO Ready"},
+            {"label": "Ad Ready"},
+        ],
+        "hero_stats": [
+            {"label": "Tracked Names", "value": len(FNO_PHASE1_STOCK_SYMBOLS)},
+            {"label": "Filtered Rows", "value": len(filtered_rows)},
+            {"label": "Real OI", "value": len(real_rows)},
+            {"label": "Fallback Rows", "value": max(len(filtered_rows) - len(real_rows), 0)},
+        ],
+        "selected_view": selected_view,
+        "selected_buildup": selected_buildup,
+        "selected_direction": selected_direction,
+        "selected_sort": selected_sort,
+        "view_options": view_options,
+        "buildup_options": buildup_options,
+        "direction_options": direction_options,
+        "sort_options": sort_options,
+        "summary_cards": summary_cards,
+        "table_columns": [
+            {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
+            {"label": "Spot", "key": "spot", "link_key": None},
+            {"label": "Day Change", "key": "day_change", "link_key": None},
+            {"label": "Buildup", "key": "buildup_label", "link_key": None},
+            {"label": "OI Bias", "key": "oi_bias", "link_key": None},
+            {"label": "Real OI", "key": "oi", "link_key": None},
+            {"label": "Real OI Change", "key": "oi_change", "link_key": None},
+            {"label": "Futures", "key": "futures_price", "link_key": None},
+            {"label": "Premium/Discount", "key": "premium_discount", "link_key": None},
+            {"label": "Volume", "key": "volume", "link_key": None},
+        ],
+        "table_rows": filtered_rows,
+        "group_blocks": group_blocks,
+        "side_box_copy": "Trial page ka current rule simple hai: real OI rows ko preference do, fallback rows ko clearly visible rakho, aur mobile cards me same signal reduce karke readable form me dikhao.",
+        "why_page_works": "Yeh approach original page ko disturb kiye bina design, filters, mobile behavior, SEO framing, aur ad placements ko side-by-side compare karne ka safe tareeka deta hai.",
+        "market_error": error,
+    }
+    context.update(build_public_ad_context("Stock OI Change Trial Dashboard", page_family="derivatives"))
+    return context
 
 
 def build_index_oi_change_context(host_root):
@@ -30018,6 +30904,22 @@ def derivatives_stock_hub():
 def derivatives_stock_oi_change():
     context = build_stock_oi_change_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/stocks/oi-change-trial")
+def derivatives_stock_oi_change_trial():
+    selected_view = str(request.args.get("view", "all") or "all").strip().lower()
+    selected_buildup = str(request.args.get("buildup", "all") or "all").strip().lower()
+    selected_direction = str(request.args.get("direction", "all") or "all").strip().lower()
+    selected_sort = str(request.args.get("sort", "oi_change") or "oi_change").strip().lower()
+    context = build_stock_oi_change_trial_context(
+        request.url_root.rstrip("/"),
+        selected_view=selected_view,
+        selected_buildup=selected_buildup,
+        selected_direction=selected_direction,
+        selected_sort=selected_sort,
+    )
+    return render_template_string(DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE, **context)
 
 
 @app.route("/admin/derivatives/watchlist")
