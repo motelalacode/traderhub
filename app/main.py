@@ -27589,8 +27589,8 @@ def build_derivatives_hub_context(host_root):
             {"label": "Strongest Proxy", "value": strongest["symbol"] if strongest else "-", "copy": f"{strongest['day_change']} spot move in the current stock F&O universe." if strongest else "Waiting on current quote data."},
             {"label": "OI Change Page", "value": "Ready", "copy": "Stock OI-intent routing is now part of the derivatives module instead of being left out."},
         ],
-        "focus_title": "Phase 1 F&O Pages",
-        "focus_note": "These pages are designed to be useful immediately while staying honest about what is real live data and what still needs a dedicated option-chain or futures source.",
+        "focus_title": "Derivatives Pages",
+        "focus_note": "Track OI change, futures buildup, and options structure across TraderHub derivatives pages. Live fields are shown where available, and missing fields are clearly marked.",
         "focus_cards": focus_cards,
         "table_title": "Today’s Focus List",
         "table_note": "This compact table gives the public derivatives hub a real market layer. It uses live stock rows, then classifies them into a phase-1 buildup proxy instead of pretending we already have OI-driven futures analytics in place.",
@@ -30935,8 +30935,8 @@ def derivatives_stock_hub():
 
 @app.route("/derivatives/stocks/oi-change")
 def derivatives_stock_oi_change():
-    context = build_stock_oi_change_context(request.url_root.rstrip("/"))
-    return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+    context = build_stock_oi_change_trial_context(request.url_root.rstrip("/"))
+    return render_template_string(DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE, **context)
 
 
 @app.route("/derivatives/stocks/oi-change-trial")
