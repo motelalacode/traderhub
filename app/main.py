@@ -27305,7 +27305,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
               <div class="metric-value">{{ block.count }}</div>
               <div class="metric-copy">{{ block.copy }}</div>
               <ul style="margin:10px 0 0;padding-left:18px;color:#334253;font-size:14px;line-height:1.55;">
-                {% for item in block.items %}
+                {% for item in block["items"] %}
                 <li>{{ item }}</li>
                 {% endfor %}
               </ul>
