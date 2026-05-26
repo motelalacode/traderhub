@@ -1,0 +1,173 @@
+{
+  "updated_at": "2026-05-26T09:15:00+05:30",
+  "commodities": [
+    {
+      "slug": "gold",
+      "name": "Gold",
+      "symbol": "MCX GOLD",
+      "group": "Precious Metals",
+      "last_price": 74210.0,
+      "day_change_pct": 0.84,
+      "high": 74540.0,
+      "low": 73680.0,
+      "previous_close": 73590.0,
+      "market_state": "Firm",
+      "trend_label": "Steady Uptrend",
+      "summary": "Gold is holding a firm tone with a defensive bid and a clean move above the previous close.",
+      "related_stocks": [
+        { "label": "Muthoot Finance", "href": "/stocks/muthoot-finance" },
+        { "label": "Manappuram Finance", "href": "/stocks/manappuram-finance" }
+      ],
+      "related_sectors": [
+        { "label": "Financial Services", "href": "/sectors/financial_services" }
+      ]
+    },
+    {
+      "slug": "silver",
+      "name": "Silver",
+      "symbol": "MCX SILVER",
+      "group": "Precious Metals",
+      "last_price": 89240.0,
+      "day_change_pct": 1.26,
+      "high": 89920.0,
+      "low": 87880.0,
+      "previous_close": 88130.0,
+      "market_state": "Strong",
+      "trend_label": "Broad Strength",
+      "summary": "Silver is showing a stronger intraday expansion than gold and remains a higher-volatility precious metals trade.",
+      "related_stocks": [
+        { "label": "Titan", "href": "/stocks/titan-company" },
+        { "label": "Kalyan Jewellers", "href": "/stocks/kalyan-jewellers-india" }
+      ],
+      "related_sectors": [
+        { "label": "Consumer Discretionary", "href": "/sectors/consumer_discretionary" }
+      ]
+    },
+    {
+      "slug": "crude-oil",
+      "name": "Crude Oil",
+      "symbol": "MCX CRUDEOIL",
+      "group": "Energy",
+      "last_price": 6468.0,
+      "day_change_pct": -1.18,
+      "high": 6556.0,
+      "low": 6408.0,
+      "previous_close": 6545.0,
+      "market_state": "Volatile",
+      "trend_label": "Weak Bias",
+      "summary": "Crude oil remains the most event-sensitive commodity in the Phase 1 set and is trading with a softer bias today.",
+      "related_stocks": [
+        { "label": "Reliance Industries", "href": "/stocks/reliance-industries" },
+        { "label": "ONGC", "href": "/stocks/oil-natural-gas-corporation" }
+      ],
+      "related_sectors": [
+        { "label": "Energy", "href": "/sectors/energy" }
+      ]
+    },
+    {
+      "slug": "natural-gas",
+      "name": "Natural Gas",
+      "symbol": "MCX NATURALGAS",
+      "group": "Energy",
+      "last_price": 246.4,
+      "day_change_pct": -2.34,
+      "high": 252.1,
+      "low": 243.2,
+      "previous_close": 252.3,
+      "market_state": "High Volatility",
+      "trend_label": "Weak Downtrend",
+      "summary": "Natural gas is trading with the weakest tone in the dashboard and remains the sharpest day-to-day mover in the energy bucket.",
+      "related_stocks": [
+        { "label": "GAIL", "href": "/stocks/gail-india" },
+        { "label": "Gujarat Gas", "href": "/stocks/gujarat-gas" }
+      ],
+      "related_sectors": [
+        { "label": "Energy", "href": "/sectors/energy" }
+      ]
+    },
+    {
+      "slug": "copper",
+      "name": "Copper",
+      "symbol": "MCX COPPER",
+      "group": "Base Metals",
+      "last_price": 874.2,
+      "day_change_pct": 0.62,
+      "high": 879.9,
+      "low": 867.4,
+      "previous_close": 868.8,
+      "market_state": "Balanced",
+      "trend_label": "Improving",
+      "summary": "Copper is showing a mild improving tone and often acts as a cleaner industrial demand signal than the broader metals basket.",
+      "related_stocks": [
+        { "label": "Hindalco", "href": "/stocks/hindalco-industries" },
+        { "label": "Vedanta", "href": "/stocks/vedanta" }
+      ],
+      "related_sectors": [
+        { "label": "Metals", "href": "/sectors/metals" }
+      ]
+    },
+    {
+      "slug": "aluminium",
+      "name": "Aluminium",
+      "symbol": "MCX ALUMINIUM",
+      "group": "Base Metals",
+      "last_price": 248.7,
+      "day_change_pct": 0.37,
+      "high": 250.3,
+      "low": 246.9,
+      "previous_close": 247.8,
+      "market_state": "Balanced",
+      "trend_label": "Range Positive",
+      "summary": "Aluminium is moving in a narrower band than copper and is useful as a calmer base metals reference line.",
+      "related_stocks": [
+        { "label": "NALCO", "href": "/stocks/national-aluminium-company" },
+        { "label": "Hindalco", "href": "/stocks/hindalco-industries" }
+      ],
+      "related_sectors": [
+        { "label": "Metals", "href": "/sectors/metals" }
+      ]
+    },
+    {
+      "slug": "zinc",
+      "name": "Zinc",
+      "symbol": "MCX ZINC",
+      "group": "Base Metals",
+      "last_price": 261.5,
+      "day_change_pct": -0.46,
+      "high": 263.4,
+      "low": 259.9,
+      "previous_close": 262.7,
+      "market_state": "Soft",
+      "trend_label": "Mixed",
+      "summary": "Zinc is softer today but not yet in a clean breakdown state, so it fits better in a mixed industrial metals read.",
+      "related_stocks": [
+        { "label": "Hindustan Zinc", "href": "/stocks/hindustan-zinc" },
+        { "label": "Vedanta", "href": "/stocks/vedanta" }
+      ],
+      "related_sectors": [
+        { "label": "Metals", "href": "/sectors/metals" }
+      ]
+    },
+    {
+      "slug": "nickel",
+      "name": "Nickel",
+      "symbol": "MCX NICKEL",
+      "group": "Base Metals",
+      "last_price": 1634.0,
+      "day_change_pct": 1.48,
+      "high": 1652.0,
+      "low": 1606.0,
+      "previous_close": 1610.2,
+      "market_state": "Strong",
+      "trend_label": "Volatile Upmove",
+      "summary": "Nickel is the strongest base metals mover in the current board and should be treated as a higher-volatility industrial signal.",
+      "related_stocks": [
+        { "label": "Jindal Stainless", "href": "/stocks/jindal-stainless" },
+        { "label": "Hindustan Zinc", "href": "/stocks/hindustan-zinc" }
+      ],
+      "related_sectors": [
+        { "label": "Metals", "href": "/sectors/metals" }
+      ]
+    }
+  ]
+}

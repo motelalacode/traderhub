@@ -75,6 +75,7 @@ DERIVATIVES_DELIVERY_HISTORY_PATH = DATA_DIR / "derivatives_delivery_history.jso
 MAPPING_MANAGER_OVERRIDES_PATH = DATA_DIR / "mapping_manager_overrides.json"
 KEYWORD_PLANNER_TARGETS_PATH = DATA_DIR / "keyword_planner_targets.json"
 HIGH_DIVIDEND_STOCKS_PATH = DATA_DIR / "high_dividend_stocks.json"
+COMMODITIES_PHASE1_FEED_PATH = DATA_DIR / "commodities_phase1_feed.json"
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS = 14
 MANUAL_WATCHLIST_LIMIT = 5
@@ -21159,6 +21160,161 @@ SECTOR_NOT_FOUND_TEMPLATE = """
 """
 
 
+COMMODITIES_PHASE1_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.table-wrap,.notice,.story-card,.group-shell,.ad-slot { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; } .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); }
+    .hero-price { text-align:right; min-width:220px; } .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; } .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; } .section h2 { margin:0 0 6px; font-size:28px; }
+    .section-note,.copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.55; }
+    .summary-grid,.focus-grid,.group-grid { display:grid; gap:12px; } .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } .focus-grid,.group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .summary-card,.story-card,.group-shell,.notice { padding:14px; background:var(--panel); }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; font-variant-numeric:tabular-nums; }
+    .story-title { font-family:Arial,Helvetica,sans-serif; font-size:15px; font-weight:700; margin-bottom:4px; }
+    .story-meta { color:var(--muted); font-size:12px; margin-bottom:7px; font-family:Arial,Helvetica,sans-serif; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-family:Arial,Helvetica,sans-serif; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(215,203,180,0.72); font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .side-card { padding:16px; } .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; }
+    .notice { border-style:dashed; }
+    .group-shell ul { margin:0; padding-left:18px; } .group-shell li { font-family:Arial,Helvetica,sans-serif; color:#334253; font-size:14px; line-height:1.55; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:880px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.focus-grid,.group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.table-wrap,.notice,.story-card,.group-shell,.ad-slot { border-radius:18px; } .hero-grid,.summary-grid,.focus-grid,.group-grid { grid-template-columns:1fr; } h1 { font-size:29px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% if focus_cards %}
+        <section class="section">
+          <h2>{{ focus_title }}</h2>
+          <div class="section-note">{{ focus_note }}</div>
+          <div class="focus-grid">{% for card in focus_cards %}<div class="story-card"><div class="story-title">{{ card.title }}</div><div class="story-meta">{{ card.meta }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+        {% if table_rows %}
+        <section class="section">
+          <h2>{{ table_title }}</h2>
+          <div class="section-note">{{ table_note }}</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>{% for column in table_columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in table_rows %}
+                <tr>
+                  {% for column in table_columns %}
+                  <td>{% if column.link_key and row[column.link_key] %}<a href="{{ row[column.link_key] }}">{{ row[column.key] }}</a>{% else %}{{ row[column.key] }}{% endif %}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
+        {% if group_blocks %}
+        <section class="section">
+          <h2>{{ group_title }}</h2>
+          <div class="section-note">{{ group_note }}</div>
+          <div class="group-grid">{% for block in group_blocks %}<div class="group-shell"><div class="metric-label">{{ block.title }}</div><div class="metric-value">{{ block.count }}</div><div class="copy" style="margin-bottom:10px;">{{ block["copy"] }}</div><ul>{% for item in block["items"] %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        {% if publisher_links %}<div class="side-card"><div class="side-title">Publisher Trust</div><div class="copy">{% for item in publisher_links %}<div><a href="{{ item.href }}">{{ item.label }}</a></div>{% endfor %}</div></div>{% endif %}
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
+COMMODITY_NOT_FOUND_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Commodity Page Not Found | TraderHub</title>
+  <style>
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #eef1f4; color: #1f2b38; }
+    .shell { max-width: 760px; margin: 60px auto; background: #fff; border: 1px solid #c9d3dd; border-radius: 22px; padding: 28px; box-shadow: 0 12px 32px rgba(23,33,43,0.08); }
+    h1 { margin: 0 0 10px; font-size: 34px; font-family: Georgia, "Times New Roman", serif; }
+    p { color: #627385; line-height: 1.65; }
+    a { color: #176f62; font-weight: 700; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>Commodity Page Not Found</h1>
+    <p>The requested commodity slug was not available in the current TraderHub public commodities map.</p>
+    <p><a href="/commodities">Open Commodities Dashboard</a></p>
+  </div>
+</body>
+</html>
+"""
+
+
 PUBLIC_INFO_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -30433,6 +30589,267 @@ def load_high_dividend_stock_seed_rows():
         return []
 
 
+def load_commodities_phase1_feed():
+    try:
+        payload = json.loads(COMMODITIES_PHASE1_FEED_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        payload = {"updated_at": get_today_ist().isoformat(), "commodities": []}
+    commodities = payload.get("commodities") or []
+    return payload.get("updated_at") or get_today_ist().isoformat(), commodities
+
+
+def compute_commodity_volatility_pct(row):
+    high = row.get("high")
+    low = row.get("low")
+    previous_close = row.get("previous_close")
+    if high in (None, 0) or low in (None, 0) or previous_close in (None, 0):
+        return 0.0
+    return ((high - low) / previous_close) * 100.0
+
+
+def get_commodity_group_order():
+    return ["Precious Metals", "Energy", "Base Metals"]
+
+
+def build_commodity_seed_row(row):
+    last_price = row.get("last_price")
+    previous_close = row.get("previous_close")
+    volatility_pct = compute_commodity_volatility_pct(row)
+    return {
+        **row,
+        "last_price_display": format_price(last_price) if last_price is not None else "-",
+        "high_display": format_price(row.get("high")) if row.get("high") is not None else "-",
+        "low_display": format_price(row.get("low")) if row.get("low") is not None else "-",
+        "previous_close_display": format_price(previous_close) if previous_close is not None else "-",
+        "day_change_display": f"{row.get('day_change_pct', 0.0):+,.2f}%",
+        "volatility_pct_numeric": volatility_pct,
+        "volatility_pct_display": f"{volatility_pct:.2f}%",
+        "detail_href": f"/commodities/{row.get('slug', '')}",
+    }
+
+
+def build_commodities_dashboard_context(host_root):
+    updated_at, rows = load_commodities_phase1_feed()
+    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    strongest = max(seeded_rows, key=lambda item: item.get("day_change_pct", 0.0)) if seeded_rows else None
+    weakest = min(seeded_rows, key=lambda item: item.get("day_change_pct", 0.0)) if seeded_rows else None
+    most_volatile = max(seeded_rows, key=lambda item: item.get("volatility_pct_numeric", 0.0)) if seeded_rows else None
+    grouped_rows = []
+    for group_name in get_commodity_group_order():
+        group_items = [row for row in seeded_rows if row.get("group") == group_name]
+        if not group_items:
+            continue
+        grouped_rows.append(
+            {
+                "title": group_name,
+                "count": len(group_items),
+                "copy": f"{group_name} shown in a clean public view with direct links to each commodity page.",
+                "items": [f"{item['name']} ({item['day_change_display']}, {item['trend_label']})" for item in group_items[:5]],
+            }
+        )
+    return {
+        "page_mode": "hub",
+        "seo_title": "Commodities Dashboard, Trends & Market Context | TraderHub",
+        "seo_description": "Track gold, silver, crude oil, natural gas, and base metals with a clean public commodities dashboard in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/commodities",
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": "Commodities Dashboard | TraderHub",
+                "description": "Public commodities dashboard with grouped cards, trend labels, and linked detail pages.",
+                "url": f"{host_root.rstrip('/')}/commodities",
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": "Commodities > Dashboard",
+        "breadcrumb_meta_text": f"Public commodities review | Updated {updated_at}",
+        "hero_kicker": "TraderHub Commodities",
+        "hero_title": "Commodities Dashboard",
+        "hero_subtitle": "Track gold, silver, crude oil, natural gas, and base metals in one clear public view. Live fields can be added later without changing the page structure.",
+        "hero_metric_primary": str(len(seeded_rows)),
+        "hero_metric_secondary": "tracked commodity pages available right now",
+        "hero_badges": [
+            {"label": "Public Dashboard", "kind": "tag-info"},
+            {"label": "Mobile Ready", "kind": "tag-up"},
+            {"label": "Stock-Linked", "kind": "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Strongest", "value": strongest["name"] if strongest else "-"},
+            {"label": "Weakest", "value": weakest["name"] if weakest else "-"},
+            {"label": "Most Volatile", "value": most_volatile["name"] if most_volatile else "-"},
+            {"label": "Updated", "value": updated_at[11:16] if "T" in updated_at else updated_at},
+        ],
+        "nav_chips": [
+            {"label": "Commodities Hub", "href": "/commodities"},
+            {"label": "Gold", "href": "/commodities/gold"},
+            {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+            {"label": "Sector Hub", "href": "/sectors"},
+            {"label": "Market Watch", "href": "/market-watch"},
+        ],
+        "section_title": "Commodity Summary",
+        "section_note": "Start here when you want a simple public read on trend, volatility, and the next commodity page to open.",
+        "summary_cards": [
+            {
+                "label": "Strongest Commodity",
+                "value": strongest["name"] if strongest else "-",
+                "copy": f"{strongest['day_change_display']} today with {strongest['trend_label'].lower()} structure." if strongest else "Waiting for commodity rows.",
+            },
+            {
+                "label": "Weakest Commodity",
+                "value": weakest["name"] if weakest else "-",
+                "copy": f"{weakest['day_change_display']} today with {weakest['trend_label'].lower()} structure." if weakest else "Waiting for commodity rows.",
+            },
+            {
+                "label": "Most Volatile",
+                "value": most_volatile["name"] if most_volatile else "-",
+                "copy": f"Current day range is {most_volatile['volatility_pct_display']} of previous close." if most_volatile else "Waiting for commodity rows.",
+            },
+            {
+                "label": "Tracked Contracts",
+                "value": len(seeded_rows),
+                "copy": "This dashboard keeps the commodity set compact and useful instead of broad and thin.",
+            },
+        ],
+        "focus_title": "Commodity Groups",
+        "focus_note": "These grouped blocks help users move from the dashboard into the right detail page quickly.",
+        "focus_cards": [
+            {
+                "title": row["name"],
+                "meta": f"{row['group']} | {row['market_state']}",
+                "copy": f"{row['summary']} Open {row['name']} for the full commodity detail page.",
+            }
+            for row in seeded_rows[:4]
+        ],
+        "table_title": "Tracked Commodities",
+        "table_note": "The table stays fast to scan on desktop and mobile, with direct links to each commodity detail page.",
+        "table_columns": [
+            {"label": "Commodity", "key": "name", "link_key": "detail_href"},
+            {"label": "Symbol", "key": "symbol"},
+            {"label": "Last Price", "key": "last_price_display"},
+            {"label": "Day Change", "key": "day_change_display"},
+            {"label": "High", "key": "high_display"},
+            {"label": "Low", "key": "low_display"},
+            {"label": "Trend", "key": "trend_label"},
+            {"label": "State", "key": "market_state"},
+        ],
+        "table_rows": seeded_rows,
+        "group_title": "Market Buckets",
+        "group_note": "Grouped buckets make the first-release commodities page easier to understand than a long flat list.",
+        "group_blocks": grouped_rows,
+        "market_error": "",
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "Why This Page Exists",
+        "side_box_copy": "The dashboard gives users one public place to compare precious metals, energy, and base metals without opening separate tools first.",
+        "why_page_works": "This layout is light enough to ship quickly but structured enough to support live price feeds, archives, and related market links later.",
+    }
+
+
+def build_commodity_detail_context(slug, host_root):
+    updated_at, rows = load_commodities_phase1_feed()
+    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    commodity = next((row for row in seeded_rows if row.get("slug") == slug), None)
+    if not commodity:
+        return None
+    related_items = []
+    for item in commodity.get("related_stocks", []):
+        related_items.append(f"{item.get('label')} stock page")
+    for item in commodity.get("related_sectors", []):
+        related_items.append(f"{item.get('label')} sector page")
+    day_bias = "positive" if commodity.get("day_change_pct", 0.0) > 0 else "negative" if commodity.get("day_change_pct", 0.0) < 0 else "flat"
+    return {
+        "page_mode": "detail",
+        "seo_title": f"{commodity['name']} Price, Trend & Market Context | TraderHub",
+        "seo_description": f"Track {commodity['name'].lower()} price, day range, trend, volatility, and related market context in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/commodities/{commodity['slug']}",
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": f"{commodity['name']} | TraderHub",
+                "description": commodity["summary"],
+                "url": f"{host_root.rstrip('/')}/commodities/{commodity['slug']}",
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": f"Commodities > {commodity['name']}",
+        "breadcrumb_meta_text": f"Commodity detail review | Updated {updated_at}",
+        "hero_kicker": "TraderHub Commodities",
+        "hero_title": commodity["name"],
+        "hero_subtitle": commodity["summary"],
+        "hero_metric_primary": commodity["last_price_display"],
+        "hero_metric_secondary": f"{commodity['day_change_display']} today",
+        "hero_badges": [
+            {"label": commodity["group"], "kind": "tag-info"},
+            {"label": commodity["trend_label"], "kind": "tag-up" if day_bias == "positive" else "tag-down" if day_bias == "negative" else "tag-warn"},
+            {"label": commodity["market_state"], "kind": "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Day High", "value": commodity["high_display"]},
+            {"label": "Day Low", "value": commodity["low_display"]},
+            {"label": "Previous Close", "value": commodity["previous_close_display"]},
+            {"label": "Volatility", "value": commodity["volatility_pct_display"]},
+        ],
+        "nav_chips": [
+            {"label": "Commodities Hub", "href": "/commodities"},
+            {"label": "Related Sector", "href": commodity.get("related_sectors", [{}])[0].get("href", "/sectors") if commodity.get("related_sectors") else "/sectors"},
+            {"label": "Related Stock", "href": commodity.get("related_stocks", [{}])[0].get("href", "/stocks/itc") if commodity.get("related_stocks") else "/stocks/itc"},
+            {"label": "Market Watch", "href": "/market-watch"},
+        ],
+        "section_title": "Commodity Snapshot",
+        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next.",
+        "summary_cards": [
+            {"label": "Trend", "value": commodity["trend_label"], "copy": "A simple trend read that keeps the public page easy to scan."},
+            {"label": "Market State", "value": commodity["market_state"], "copy": "A plain-language label for the current commodity mood."},
+            {"label": "Day Range", "value": f"{commodity['low_display']} - {commodity['high_display']}", "copy": "Useful when a user wants immediate price structure instead of a long chart."},
+            {"label": "Volatility", "value": commodity["volatility_pct_display"], "copy": "Range as a percentage of previous close."},
+        ],
+        "focus_title": "Related Market Context",
+        "focus_note": "These links connect the commodity view to the rest of TraderHub without forcing a user to guess the next step.",
+        "focus_cards": [
+            {"title": item["label"], "meta": "Related stock", "copy": f"Use {item['label']} when you want to compare this commodity move with a listed company page."}
+            for item in commodity.get("related_stocks", [])
+        ][:2],
+        "table_title": "Core Commodity Fields",
+        "table_note": "The first-release detail page keeps the field list compact and honest instead of trying to simulate a full terminal.",
+        "table_columns": [
+            {"label": "Field", "key": "field"},
+            {"label": "Value", "key": "value"},
+        ],
+        "table_rows": [
+            {"field": "Commodity", "value": commodity["name"]},
+            {"field": "Contract", "value": commodity["symbol"]},
+            {"field": "Last Price", "value": commodity["last_price_display"]},
+            {"field": "Day Change", "value": commodity["day_change_display"]},
+            {"field": "High", "value": commodity["high_display"]},
+            {"field": "Low", "value": commodity["low_display"]},
+            {"field": "Previous Close", "value": commodity["previous_close_display"]},
+            {"field": "Trend Label", "value": commodity["trend_label"]},
+        ],
+        "group_title": "Linked Paths",
+        "group_note": "These paths make the commodity page useful even before a deeper archive and event layer is added.",
+        "group_blocks": [
+            {
+                "title": "Related Stocks",
+                "count": len(commodity.get("related_stocks", [])),
+                "copy": "Stock pages that naturally connect to this commodity move.",
+                "items": [item["label"] for item in commodity.get("related_stocks", [])] or ["No related stocks linked yet."],
+            },
+            {
+                "title": "Related Sectors",
+                "count": len(commodity.get("related_sectors", [])),
+                "copy": "Sector pages that can add broader public market context.",
+                "items": [item["label"] for item in commodity.get("related_sectors", [])] or ["No related sectors linked yet."],
+            },
+        ],
+        "market_error": "",
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "Public Note",
+        "side_box_copy": "This commodity page is built from a seeded public feed and is ready to accept a live commodity data source later.",
+        "why_page_works": f"{commodity['name']} now has a clean public home page that can later grow into a deeper archive, event, and technical research surface.",
+    }
+
+
 def get_high_dividend_market_cap_bucket(market_cap_cr):
     if market_cap_cr is None:
         return "Unknown"
@@ -31753,6 +32170,20 @@ def stock_technical_chart_trial(stock_slug):
 @app.route("/stock-hub-sample")
 def stock_hub_sample():
     return render_template_string(STOCK_HUB_SAMPLE_TEMPLATE, **get_stock_hub_sample_context())
+
+
+@app.route("/commodities")
+def commodities_hub():
+    context = build_commodities_dashboard_context(request.url_root.rstrip("/"))
+    return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/commodities/<commodity_slug>")
+def commodity_detail(commodity_slug):
+    context = build_commodity_detail_context(str(commodity_slug or "").strip().lower(), request.url_root.rstrip("/"))
+    if not context:
+        return render_template_string(COMMODITY_NOT_FOUND_TEMPLATE), 404
+    return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
 
 
 @app.route("/ipo")
