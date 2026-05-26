@@ -30666,13 +30666,13 @@ def build_commodities_dashboard_context(host_root):
         "breadcrumb_meta_text": f"Public commodities review | Updated {updated_at}",
         "hero_kicker": "TraderHub Commodities",
         "hero_title": "Commodities Dashboard",
-        "hero_subtitle": "Track gold, silver, crude oil, natural gas, and base metals in one clear public view. Live fields can be added later without changing the page structure.",
+        "hero_subtitle": "Track gold, silver, crude oil, natural gas, and base metals in one clear public view. This release uses a seeded market snapshot and will switch cleanly to a live feed later.",
         "hero_metric_primary": str(len(seeded_rows)),
         "hero_metric_secondary": "tracked commodity pages available right now",
         "hero_badges": [
             {"label": "Public Dashboard", "kind": "tag-info"},
-            {"label": "Mobile Ready", "kind": "tag-up"},
-            {"label": "Stock-Linked", "kind": "tag-warn"},
+            {"label": "Seeded Snapshot", "kind": "tag-warn"},
+            {"label": "Stock-Linked", "kind": "tag-up"},
         ],
         "hero_stats": [
             {"label": "Strongest", "value": strongest["name"] if strongest else "-"},
@@ -30682,13 +30682,16 @@ def build_commodities_dashboard_context(host_root):
         ],
         "nav_chips": [
             {"label": "Commodities Hub", "href": "/commodities"},
+            {"label": "Strongest", "href": "/commodities/strongest"},
+            {"label": "Weakest", "href": "/commodities/weakest"},
+            {"label": "Most Volatile", "href": "/commodities/volatile"},
             {"label": "Gold", "href": "/commodities/gold"},
             {"label": "Crude Oil", "href": "/commodities/crude-oil"},
             {"label": "Sector Hub", "href": "/sectors"},
             {"label": "Market Watch", "href": "/market-watch"},
         ],
         "section_title": "Commodity Summary",
-        "section_note": "Start here when you want a simple public read on trend, volatility, and the next commodity page to open.",
+        "section_note": "Start here when you want a simple public read on trend, volatility, and the next commodity page to open. Current values come from the seeded commodity feed, not a live exchange API.",
         "summary_cards": [
             {
                 "label": "Strongest Commodity",
@@ -30739,9 +30742,9 @@ def build_commodities_dashboard_context(host_root):
         "group_blocks": grouped_rows,
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
-        "side_box_title": "Why This Page Exists",
-        "side_box_copy": "The dashboard gives users one public place to compare precious metals, energy, and base metals without opening separate tools first.",
-        "why_page_works": "This layout is light enough to ship quickly but structured enough to support live price feeds, archives, and related market links later.",
+        "side_box_title": "Current Data Mode",
+        "side_box_copy": "This dashboard currently uses a seeded commodity snapshot. It is useful for structure, grouping, and linked context, but it should not be treated like a live trading terminal yet.",
+        "why_page_works": "This layout is light enough to ship quickly but structured enough to support live price feeds, ranking pages, archives, and related market links later.",
     }
 
 
@@ -30783,6 +30786,7 @@ def build_commodity_detail_context(slug, host_root):
             {"label": commodity["group"], "kind": "tag-info"},
             {"label": commodity["trend_label"], "kind": "tag-up" if day_bias == "positive" else "tag-down" if day_bias == "negative" else "tag-warn"},
             {"label": commodity["market_state"], "kind": "tag-warn"},
+            {"label": "Seeded Snapshot", "kind": "tag-info"},
         ],
         "hero_stats": [
             {"label": "Day High", "value": commodity["high_display"]},
@@ -30792,12 +30796,14 @@ def build_commodity_detail_context(slug, host_root):
         ],
         "nav_chips": [
             {"label": "Commodities Hub", "href": "/commodities"},
+            {"label": "Strongest", "href": "/commodities/strongest"},
+            {"label": "Most Volatile", "href": "/commodities/volatile"},
             {"label": "Related Sector", "href": commodity.get("related_sectors", [{}])[0].get("href", "/sectors") if commodity.get("related_sectors") else "/sectors"},
             {"label": "Related Stock", "href": commodity.get("related_stocks", [{}])[0].get("href", "/stocks/itc") if commodity.get("related_stocks") else "/stocks/itc"},
             {"label": "Market Watch", "href": "/market-watch"},
         ],
         "section_title": "Commodity Snapshot",
-        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next.",
+        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next. Current values come from the seeded commodity feed.",
         "summary_cards": [
             {"label": "Trend", "value": commodity["trend_label"], "copy": "A simple trend read that keeps the public page easy to scan."},
             {"label": "Market State", "value": commodity["market_state"], "copy": "A plain-language label for the current commodity mood."},
@@ -30844,9 +30850,110 @@ def build_commodity_detail_context(slug, host_root):
         ],
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
-        "side_box_title": "Public Note",
-        "side_box_copy": "This commodity page is built from a seeded public feed and is ready to accept a live commodity data source later.",
-        "why_page_works": f"{commodity['name']} now has a clean public home page that can later grow into a deeper archive, event, and technical research surface.",
+        "side_box_title": "Current Data Mode",
+        "side_box_copy": "This commodity page currently uses seeded snapshot values. The structure is ready for a live feed, but the current numbers should be treated as dashboard placeholders until that source is connected.",
+        "why_page_works": f"{commodity['name']} now has a clean public home page that can later grow into a deeper archive, ranking, event, and technical research surface.",
+    }
+
+
+def build_commodities_phase2_listing_context(host_root, mode):
+    updated_at, rows = load_commodities_phase1_feed()
+    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    mode_map = {
+        "strongest": {
+            "title": "Strongest Commodities",
+            "subtitle": "These commodities currently have the strongest seeded day change in the public commodity dashboard.",
+            "sort_key": lambda row: row.get("day_change_pct", 0.0),
+            "reverse": True,
+        },
+        "weakest": {
+            "title": "Weakest Commodities",
+            "subtitle": "These commodities currently have the weakest seeded day change in the public commodity dashboard.",
+            "sort_key": lambda row: row.get("day_change_pct", 0.0),
+            "reverse": False,
+        },
+        "volatile": {
+            "title": "Most Volatile Commodities",
+            "subtitle": "These commodities currently show the largest seeded day range relative to previous close.",
+            "sort_key": lambda row: row.get("volatility_pct_numeric", 0.0),
+            "reverse": True,
+        },
+    }
+    config = mode_map[mode]
+    ranked_rows = sorted(seeded_rows, key=config["sort_key"], reverse=config["reverse"])
+    leader = ranked_rows[0] if ranked_rows else None
+    return {
+        "page_mode": "listing",
+        "seo_title": f"{config['title']} | TraderHub Commodities",
+        "seo_description": f"{config['title']} in the TraderHub commodities dashboard with trend labels, seeded market context, and linked detail pages.",
+        "canonical_url": f"{host_root.rstrip('/')}/commodities/{mode}",
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "CollectionPage",
+                "name": f"{config['title']} | TraderHub",
+                "description": config["subtitle"],
+                "url": f"{host_root.rstrip('/')}/commodities/{mode}",
+            },
+            indent=2,
+        ),
+        "breadcrumb_text": f"Commodities > {config['title']}",
+        "breadcrumb_meta_text": f"Seeded commodity ranking | Updated {updated_at}",
+        "hero_kicker": "TraderHub Commodities",
+        "hero_title": config["title"],
+        "hero_subtitle": config["subtitle"],
+        "hero_metric_primary": leader["name"] if leader else "-",
+        "hero_metric_secondary": "ranked from the seeded commodity snapshot",
+        "hero_badges": [
+            {"label": "Public Ranking", "kind": "tag-info"},
+            {"label": "Seeded Snapshot", "kind": "tag-warn"},
+            {"label": "Phase 2 Ready", "kind": "tag-up"},
+        ],
+        "hero_stats": [
+            {"label": "Tracked Contracts", "value": len(ranked_rows)},
+            {"label": "Updated", "value": updated_at[11:16] if "T" in updated_at else updated_at},
+            {"label": "Top Group", "value": leader["group"] if leader else "-"},
+            {"label": "Leader State", "value": leader["market_state"] if leader else "-"},
+        ],
+        "nav_chips": [
+            {"label": "Commodities Hub", "href": "/commodities"},
+            {"label": "Strongest", "href": "/commodities/strongest"},
+            {"label": "Weakest", "href": "/commodities/weakest"},
+            {"label": "Most Volatile", "href": "/commodities/volatile"},
+            {"label": "Gold", "href": "/commodities/gold"},
+            {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+        ],
+        "section_title": config["title"],
+        "section_note": "This ranking page is useful for comparison and route discovery. The current values come from the seeded commodity feed until a live source is connected.",
+        "summary_cards": [
+            {"label": "Top Name", "value": leader["name"] if leader else "-", "copy": leader["summary"] if leader else "Waiting for commodity rows."},
+            {"label": "Tracked Contracts", "value": len(ranked_rows), "copy": "Commodities currently included in this ranking view."},
+            {"label": "Top Move", "value": leader["day_change_display"] if leader else "-", "copy": "Current seeded day change for the top row."},
+            {"label": "Volatility", "value": leader["volatility_pct_display"] if leader else "-", "copy": "Current seeded day range relative to previous close."},
+        ],
+        "focus_title": "",
+        "focus_note": "",
+        "focus_cards": [],
+        "table_title": "Commodity Ranking Table",
+        "table_note": "Open any commodity page for the full detail view and related stock and sector links.",
+        "table_columns": [
+            {"label": "Commodity", "key": "name", "link_key": "detail_href"},
+            {"label": "Group", "key": "group"},
+            {"label": "Last Price", "key": "last_price_display"},
+            {"label": "Day Change", "key": "day_change_display"},
+            {"label": "Volatility", "key": "volatility_pct_display"},
+            {"label": "Trend", "key": "trend_label"},
+            {"label": "State", "key": "market_state"},
+        ],
+        "table_rows": ranked_rows,
+        "group_title": "",
+        "group_note": "",
+        "group_blocks": [],
+        "market_error": "",
+        "publisher_links": get_news_publisher_links(),
+        "side_box_title": "Current Data Mode",
+        "side_box_copy": "This ranking is based on the seeded commodity snapshot. It is suitable for structure and navigation, but not for trade execution.",
+        "why_page_works": "These ranking pages complete the public commodity layer without pretending the feed is already a live exchange-grade commodity terminal.",
     }
 
 
@@ -32175,6 +32282,24 @@ def stock_hub_sample():
 @app.route("/commodities")
 def commodities_hub():
     context = build_commodities_dashboard_context(request.url_root.rstrip("/"))
+    return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/commodities/strongest")
+def commodities_strongest():
+    context = build_commodities_phase2_listing_context(request.url_root.rstrip("/"), "strongest")
+    return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/commodities/weakest")
+def commodities_weakest():
+    context = build_commodities_phase2_listing_context(request.url_root.rstrip("/"), "weakest")
+    return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/commodities/volatile")
+def commodities_volatile():
+    context = build_commodities_phase2_listing_context(request.url_root.rstrip("/"), "volatile")
     return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
 
 
