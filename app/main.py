@@ -8708,7 +8708,14 @@ def resolve_stock_symbol_from_slug(stock_slug):
     if direct:
         return direct
 
-    return resolve_symbol(cleaned_slug.replace("-", " "))
+    master = load_symbol_master()
+    for symbol, row in (master.get("by_symbol") or {}).items():
+        security = row.get("security") or symbol
+        candidate_slug = slugify_stock_text(security) or slugify_stock_text(symbol) or symbol.lower()
+        if candidate_slug == cleaned_slug:
+            return symbol
+
+    return None
 
 
 def get_canonical_stock_slug(symbol):
