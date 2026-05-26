@@ -780,12 +780,84 @@ HOME_BLANK_TEMPLATE = """
       line-height: 1.6;
       font-family: "Trebuchet MS", Arial, sans-serif;
     }
+    .section-block {
+      margin-top: 28px;
+      padding-top: 24px;
+      border-top: 1px solid var(--line);
+      text-align: left;
+    }
+    .section-title {
+      margin: 0 0 10px;
+      font-size: 24px;
+      line-height: 1.1;
+    }
+    .section-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .feature-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 16px 14px;
+    }
+    .feature-title {
+      margin: 0 0 8px;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .feature-copy {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 14px;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .cta-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 46px;
+      padding: 0 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .cta-link.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
     @media (max-width: 640px) {
       .launch-shell {
         padding: 28px 20px;
       }
       .countdown-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .feature-grid {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -804,6 +876,39 @@ HOME_BLANK_TEMPLATE = """
         <div class="count-card"><div class="count-value" id="count-seconds">0</div><div class="count-label">Seconds</div></div>
       </div>
       <div class="launch-note" id="launch-note">Countdown is based on the announced launch date in IST.</div>
+
+      <div class="section-block">
+        <h2 class="section-title">Site Introduction</h2>
+        <p class="section-copy">TraderHub is being built as a practical Indian market research and decision-support platform. The goal is to keep market pages readable, linked, and useful for repeat users without turning the site into a cluttered terminal.</p>
+      </div>
+
+      <div class="section-block">
+        <h2 class="section-title">Objective</h2>
+        <p class="section-copy">The public launch focuses on giving readers a cleaner path through stock pages, sector context, dividend research, archives, and market-prep surfaces so they can move from discovery to deeper verification faster.</p>
+      </div>
+
+      <div class="section-block">
+        <h2 class="section-title">What TraderHub Will Cover</h2>
+        <div class="feature-grid">
+          <div class="feature-card">
+            <h3 class="feature-title">Stock Research</h3>
+            <p class="feature-copy">Single-stock pages, why-moving context, archives, and financial overlays designed for quick public reading.</p>
+          </div>
+          <div class="feature-card">
+            <h3 class="feature-title">Market Workflows</h3>
+            <p class="feature-copy">Intraday scanner paths, market breadth, sector rotation, movers, and watchlist-driven preparation pages.</p>
+          </div>
+          <div class="feature-card">
+            <h3 class="feature-title">Idea Screens</h3>
+            <p class="feature-copy">Dividend, valuation, and theme-style lists that help users move from broad ideas into linked company pages.</p>
+          </div>
+        </div>
+        <div class="cta-row">
+          <a class="cta-link primary" href="/stocks/dividend-stocks">Preview Dividend Pages</a>
+          <a class="cta-link" href="/stocks/equity-stock-page">Open Scanner</a>
+          <a class="cta-link" href="/sitemap.html">Browse Sitemap</a>
+        </div>
+      </div>
     </section>
   </main>
   <script>
