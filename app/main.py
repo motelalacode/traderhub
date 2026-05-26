@@ -76,6 +76,16 @@ MAPPING_MANAGER_OVERRIDES_PATH = DATA_DIR / "mapping_manager_overrides.json"
 KEYWORD_PLANNER_TARGETS_PATH = DATA_DIR / "keyword_planner_targets.json"
 HIGH_DIVIDEND_STOCKS_PATH = DATA_DIR / "high_dividend_stocks.json"
 COMMODITIES_PHASE1_FEED_PATH = DATA_DIR / "commodities_phase1_feed.json"
+COMMODITY_UPSTOX_QUERY_MAP = {
+    "gold": "GOLD",
+    "silver": "SILVER",
+    "crude-oil": "CRUDEOIL",
+    "natural-gas": "NATURALGAS",
+    "copper": "COPPER",
+    "aluminium": "ALUMINIUM",
+    "zinc": "ZINC",
+    "nickel": "NICKEL",
+}
 ARBITRAGE_HISTORY_RETENTION_DAYS = 3
 DERIVATIVES_DELIVERY_HISTORY_RETENTION_DAYS = 14
 MANUAL_WATCHLIST_LIMIT = 5
@@ -30628,12 +30638,148 @@ def build_commodity_seed_row(row):
     }
 
 
+def search_upstox_commodity_instrument(slug):
+    query = COMMODITY_UPSTOX_QUERY_MAP.get(str(slug or "").strip().lower())
+    if not query:
+        return {}
+    try:
+        payload = upstox_api_get(
+            "/instruments/search",
+            params={
+                "query": query,
+                "exchanges": "MCX",
+                "segments": "COMM",
+                "page_number": 1,
+                "records": 25,
+            },
+        )
+    except Exception:
+        return {}
+
+    today = get_today_ist()
+    candidates = []
+    for item in (payload or {}).get("data") or []:
+        exchange = str(item.get("exchange") or "").strip().upper()
+        trading_symbol = str(item.get("trading_symbol") or "").strip().upper()
+        segment = str(item.get("segment") or "").strip().upper()
+        if exchange != "MCX":
+            continue
+        if "MCX" not in segment and "COMM" not in segment:
+            continue
+        if not trading_symbol.startswith(query):
+            continue
+        expiry = normalize_expiry_date(item.get("expiry") or item.get("expiry_date"))
+        days_to_expiry = 999999
+        if expiry:
+            if expiry < today:
+                continue
+            days_to_expiry = (expiry - today).days
+        candidates.append(
+            {
+                **item,
+                "normalized_expiry": expiry,
+                "days_to_expiry": days_to_expiry,
+            }
+        )
+
+    if not candidates:
+        return {}
+
+    candidates.sort(
+        key=lambda item: (
+            item["days_to_expiry"],
+            len(str(item.get("trading_symbol") or "")),
+        )
+    )
+    return candidates[0]
+
+
+def get_upstox_market_quote(instrument_key):
+    if not instrument_key:
+        return {}
+    try:
+        payload = upstox_api_get("/market-quote/quotes", params={"instrument_key": instrument_key})
+    except Exception:
+        return {}
+    data = (payload or {}).get("data") or {}
+    if isinstance(data, dict):
+        if instrument_key in data:
+            return data.get(instrument_key) or {}
+        if instrument_key.replace("|", ":") in data:
+            return data.get(instrument_key.replace("|", ":")) or {}
+        for _, value in data.items():
+            if isinstance(value, dict):
+                return value
+    return {}
+
+
+def get_live_commodity_overrides(slug):
+    creds = get_active_upstox_credentials()
+    if not creds.get("access_token"):
+        return {}
+    instrument = search_upstox_commodity_instrument(slug)
+    instrument_key = str(instrument.get("instrument_key") or "").strip()
+    if not instrument_key:
+        return {}
+    quote = get_upstox_market_quote(instrument_key)
+    if not quote:
+        return {}
+    ohlc = quote.get("ohlc") or {}
+    last_price = quote.get("last_price")
+    open_price = ohlc.get("open")
+    high = ohlc.get("high")
+    low = ohlc.get("low")
+    previous_close = ohlc.get("close")
+    average_price = quote.get("average_price")
+    volume = quote.get("volume")
+    timestamp = quote.get("last_trade_time") or quote.get("timestamp")
+    day_change_pct = None
+    net_change = quote.get("net_change")
+    if previous_close not in (None, 0) and last_price not in (None, 0):
+        day_change_pct = ((last_price - previous_close) / previous_close) * 100.0
+    elif previous_close not in (None, 0) and net_change not in (None, 0):
+        day_change_pct = (net_change / previous_close) * 100.0
+    return {
+        "instrument_key": instrument_key,
+        "contract_symbol": str(instrument.get("trading_symbol") or instrument.get("short_name") or instrument.get("name") or "").strip() or str(slug or "").upper(),
+        "contract_expiry": str(instrument.get("expiry") or instrument.get("expiry_date") or "").strip(),
+        "last_price": last_price,
+        "open_price": open_price,
+        "high": high,
+        "low": low,
+        "previous_close": previous_close,
+        "average_price": average_price,
+        "volume": volume,
+        "timestamp": str(timestamp or "").strip(),
+        "day_change_pct": day_change_pct,
+    }
+
+
+def apply_live_commodity_overrides(row):
+    live = get_live_commodity_overrides(row.get("slug"))
+    if not live:
+        return row
+    merged = dict(row)
+    if live.get("contract_symbol"):
+        merged["symbol"] = live["contract_symbol"]
+    for key in ["last_price", "high", "low", "previous_close", "day_change_pct"]:
+        if live.get(key) not in (None, ""):
+            merged[key] = live[key]
+    merged["data_mode"] = "live"
+    merged["data_mode_label"] = "Live MCX quote via Upstox"
+    merged["live_timestamp"] = live.get("timestamp") or ""
+    if live.get("contract_expiry"):
+        merged["summary"] = f"{merged['summary']} Current contract: {live['contract_expiry']}."
+    return build_commodity_seed_row(merged)
+
+
 def build_commodities_dashboard_context(host_root):
     updated_at, rows = load_commodities_phase1_feed()
-    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    seeded_rows = [apply_live_commodity_overrides(build_commodity_seed_row(row)) for row in rows]
     strongest = max(seeded_rows, key=lambda item: item.get("day_change_pct", 0.0)) if seeded_rows else None
     weakest = min(seeded_rows, key=lambda item: item.get("day_change_pct", 0.0)) if seeded_rows else None
     most_volatile = max(seeded_rows, key=lambda item: item.get("volatility_pct_numeric", 0.0)) if seeded_rows else None
+    live_count = len([row for row in seeded_rows if row.get("data_mode") == "live"])
     grouped_rows = []
     for group_name in get_commodity_group_order():
         group_items = [row for row in seeded_rows if row.get("group") == group_name]
@@ -30666,19 +30812,19 @@ def build_commodities_dashboard_context(host_root):
         "breadcrumb_meta_text": f"Public commodities review | Updated {updated_at}",
         "hero_kicker": "TraderHub Commodities",
         "hero_title": "Commodities Dashboard",
-        "hero_subtitle": "Track gold, silver, crude oil, natural gas, and base metals in one clear public view. This release uses a seeded market snapshot and will switch cleanly to a live feed later.",
+        "hero_subtitle": "Track gold, silver, crude oil, natural gas, and base metals in one clear public view. Live MCX-linked quotes are used where available, and the seeded snapshot remains as fallback.",
         "hero_metric_primary": str(len(seeded_rows)),
         "hero_metric_secondary": "tracked commodity pages available right now",
         "hero_badges": [
             {"label": "Public Dashboard", "kind": "tag-info"},
-            {"label": "Seeded Snapshot", "kind": "tag-warn"},
+            {"label": f"{live_count} live rows" if live_count else "Seeded Fallback", "kind": "tag-up" if live_count else "tag-warn"},
             {"label": "Stock-Linked", "kind": "tag-up"},
         ],
         "hero_stats": [
             {"label": "Strongest", "value": strongest["name"] if strongest else "-"},
             {"label": "Weakest", "value": weakest["name"] if weakest else "-"},
             {"label": "Most Volatile", "value": most_volatile["name"] if most_volatile else "-"},
-            {"label": "Updated", "value": updated_at[11:16] if "T" in updated_at else updated_at},
+            {"label": "Live Rows", "value": live_count},
         ],
         "nav_chips": [
             {"label": "Commodities Hub", "href": "/commodities"},
@@ -30691,7 +30837,7 @@ def build_commodities_dashboard_context(host_root):
             {"label": "Market Watch", "href": "/market-watch"},
         ],
         "section_title": "Commodity Summary",
-        "section_note": "Start here when you want a simple public read on trend, volatility, and the next commodity page to open. Current values come from the seeded commodity feed, not a live exchange API.",
+        "section_note": "Start here when you want a simple public read on trend, volatility, and the next commodity page to open. Live rows are preferred when available, and seeded values remain only as fallback.",
         "summary_cards": [
             {
                 "label": "Strongest Commodity",
@@ -30743,14 +30889,14 @@ def build_commodities_dashboard_context(host_root):
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
         "side_box_title": "Current Data Mode",
-        "side_box_copy": "This dashboard currently uses a seeded commodity snapshot. It is useful for structure, grouping, and linked context, but it should not be treated like a live trading terminal yet.",
-        "why_page_works": "This layout is light enough to ship quickly but structured enough to support live price feeds, ranking pages, archives, and related market links later.",
+        "side_box_copy": "This dashboard now prefers live MCX-linked quotes through Upstox when available. If a live row is missing, the seeded snapshot is used as fallback instead of leaving the page blank.",
+        "why_page_works": "This layout can now improve from seeded placeholders to live-backed public quotes without changing the page structure.",
     }
 
 
 def build_commodity_detail_context(slug, host_root):
     updated_at, rows = load_commodities_phase1_feed()
-    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    seeded_rows = [apply_live_commodity_overrides(build_commodity_seed_row(row)) for row in rows]
     commodity = next((row for row in seeded_rows if row.get("slug") == slug), None)
     if not commodity:
         return None
@@ -30786,7 +30932,7 @@ def build_commodity_detail_context(slug, host_root):
             {"label": commodity["group"], "kind": "tag-info"},
             {"label": commodity["trend_label"], "kind": "tag-up" if day_bias == "positive" else "tag-down" if day_bias == "negative" else "tag-warn"},
             {"label": commodity["market_state"], "kind": "tag-warn"},
-            {"label": "Seeded Snapshot", "kind": "tag-info"},
+            {"label": commodity.get("data_mode_label") or "Seeded Snapshot", "kind": "tag-info"},
         ],
         "hero_stats": [
             {"label": "Day High", "value": commodity["high_display"]},
@@ -30803,7 +30949,7 @@ def build_commodity_detail_context(slug, host_root):
             {"label": "Market Watch", "href": "/market-watch"},
         ],
         "section_title": "Commodity Snapshot",
-        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next. Current values come from the seeded commodity feed.",
+        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next. Live values are used when available, with seeded fallback only when needed.",
         "summary_cards": [
             {"label": "Trend", "value": commodity["trend_label"], "copy": "A simple trend read that keeps the public page easy to scan."},
             {"label": "Market State", "value": commodity["market_state"], "copy": "A plain-language label for the current commodity mood."},
@@ -30830,6 +30976,7 @@ def build_commodity_detail_context(slug, host_root):
             {"field": "High", "value": commodity["high_display"]},
             {"field": "Low", "value": commodity["low_display"]},
             {"field": "Previous Close", "value": commodity["previous_close_display"]},
+            {"field": "Data Mode", "value": commodity.get("data_mode_label") or "Seeded Snapshot"},
             {"field": "Trend Label", "value": commodity["trend_label"]},
         ],
         "group_title": "Linked Paths",
@@ -30851,14 +30998,14 @@ def build_commodity_detail_context(slug, host_root):
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
         "side_box_title": "Current Data Mode",
-        "side_box_copy": "This commodity page currently uses seeded snapshot values. The structure is ready for a live feed, but the current numbers should be treated as dashboard placeholders until that source is connected.",
-        "why_page_works": f"{commodity['name']} now has a clean public home page that can later grow into a deeper archive, ranking, event, and technical research surface.",
+        "side_box_copy": "This commodity page now prefers a live MCX-linked quote path through Upstox when available. Seeded values are kept only as fallback so the route remains stable.",
+        "why_page_works": f"{commodity['name']} now has a clean public home page that can use live-backed values today and still grow into a deeper archive, ranking, event, and technical research surface.",
     }
 
 
 def build_commodities_phase2_listing_context(host_root, mode):
     updated_at, rows = load_commodities_phase1_feed()
-    seeded_rows = [build_commodity_seed_row(row) for row in rows]
+    seeded_rows = [apply_live_commodity_overrides(build_commodity_seed_row(row)) for row in rows]
     mode_map = {
         "strongest": {
             "title": "Strongest Commodities",
@@ -30903,10 +31050,10 @@ def build_commodities_phase2_listing_context(host_root, mode):
         "hero_title": config["title"],
         "hero_subtitle": config["subtitle"],
         "hero_metric_primary": leader["name"] if leader else "-",
-        "hero_metric_secondary": "ranked from the seeded commodity snapshot",
+        "hero_metric_secondary": "ranked from the current commodity feed",
         "hero_badges": [
             {"label": "Public Ranking", "kind": "tag-info"},
-            {"label": "Seeded Snapshot", "kind": "tag-warn"},
+            {"label": f"{len([row for row in ranked_rows if row.get('data_mode') == 'live'])} live rows" if ranked_rows else "Feed Pending", "kind": "tag-up" if len([row for row in ranked_rows if row.get('data_mode') == 'live']) else "tag-warn"},
             {"label": "Phase 2 Ready", "kind": "tag-up"},
         ],
         "hero_stats": [
@@ -30924,7 +31071,7 @@ def build_commodities_phase2_listing_context(host_root, mode):
             {"label": "Crude Oil", "href": "/commodities/crude-oil"},
         ],
         "section_title": config["title"],
-        "section_note": "This ranking page is useful for comparison and route discovery. The current values come from the seeded commodity feed until a live source is connected.",
+        "section_note": "This ranking page is useful for comparison and route discovery. Live rows are preferred when available, and seeded values remain only as fallback.",
         "summary_cards": [
             {"label": "Top Name", "value": leader["name"] if leader else "-", "copy": leader["summary"] if leader else "Waiting for commodity rows."},
             {"label": "Tracked Contracts", "value": len(ranked_rows), "copy": "Commodities currently included in this ranking view."},
@@ -30952,8 +31099,8 @@ def build_commodities_phase2_listing_context(host_root, mode):
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
         "side_box_title": "Current Data Mode",
-        "side_box_copy": "This ranking is based on the seeded commodity snapshot. It is suitable for structure and navigation, but not for trade execution.",
-        "why_page_works": "These ranking pages complete the public commodity layer without pretending the feed is already a live exchange-grade commodity terminal.",
+        "side_box_copy": "This ranking now prefers live MCX-linked rows through Upstox where possible, while keeping seeded fallback rows available so the page never goes blank.",
+        "why_page_works": "These ranking pages complete the public commodity layer while moving the module toward live-backed market values.",
     }
 
 
