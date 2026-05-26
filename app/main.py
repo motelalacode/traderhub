@@ -27121,9 +27121,9 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
     </section>
 
     <div class="chip-row">
-      <a class="chip" href="/derivatives/stocks/oi-change">Original OI Page</a>
-      <a class="chip secondary" href="/derivatives/stocks">Stock F&O Hub</a>
-      <a class="chip secondary" href="/derivatives/stocks/futures-buildup">Futures Buildup</a>
+      {% for chip in nav_chips %}
+      <a class="chip{% if chip.kind == 'secondary' %} secondary{% endif %}" href="{{ chip.href }}">{{ chip.label }}</a>
+      {% endfor %}
     </div>
 
     <div class="layout">
@@ -28148,6 +28148,15 @@ def build_stock_oi_change_trial_context(
             {"label": "Filtered Rows", "value": len(filtered_rows)},
             {"label": "Real OI", "value": len(real_rows)},
             {"label": "Fallback Rows", "value": max(len(filtered_rows) - len(real_rows), 0)},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives", "kind": "secondary"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options", "kind": "secondary"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options", "kind": "secondary"},
+            {"label": "Stock F&O", "href": "/derivatives/stocks", "kind": "secondary"},
+            {"label": "OI Change", "href": "/derivatives/stocks/oi-change", "kind": "secondary"},
+            {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup", "kind": "secondary"},
+            {"label": "Trial Page", "href": "/derivatives/stocks/oi-change-trial", "kind": "primary"},
         ],
         "selected_view": selected_view,
         "selected_buildup": selected_buildup,
