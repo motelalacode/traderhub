@@ -19278,6 +19278,7 @@ def build_stock_page_context(symbol, host_root):
     studies_section_note = "This phase-1 view keeps studies compact: momentum, moving-average structure, support/resistance, and price-location context."
     peers_section_note = "Peer comparison now tries to combine live price context with valuation, dividend, quarterly profit, sales, and ROCE, while still falling back safely when one peer is thin on data."
     news_section_note = "This section now mixes stock-specific market stories with direct official filing boards, so the page stays useful even before the full events pipeline is expanded."
+    overview_footer_note = f"{company_name} is online as a public research page. Live market data, technicals, and deeper fundamentals appear when the connected market-data sources are available."
 
     def build_row_from_available_data(row_symbol, row_security, row_quote, row_daily_candles, row_intraday_candles):
         if row_quote:
@@ -19539,6 +19540,7 @@ def build_stock_page_context(symbol, host_root):
             {"label": "52W Context", "value": range_52w_context},
             {"label": "Peer Set", "value": f"{max(len(peers) - 1, 0)} mapped peers"},
         ]
+        overview_footer_note = f"{company_name} is being rendered from live market data where available and falls back to the latest daily market snapshot after hours, while deeper fundamentals, holdings, and deals remain intentionally placeholder-backed for phase 1."
 
         if stock_isin:
             fundamentals_bundle = get_upstox_fundamentals_bundle(stock_isin)
@@ -19612,7 +19614,13 @@ def build_stock_page_context(symbol, host_root):
                 if comparison_bits:
                     peers_section_note = "Peer comparison now adds quick relative context: " + ". ".join(comparison_bits) + "."
     except Exception as exc:
-        page_alert = str(exc)
+        market_mode_label = "Market Data Pending"
+        page_alert = "Live market data is temporarily unavailable for this stock page, so TraderHub is showing the company research shell until the connected broker data returns."
+        hero_badges = [
+            {"label": market_mode_label, "kind": "tag-warn"},
+            {"label": "Research Shell Active", "kind": "tag-info"},
+        ]
+        overview_footer_note = f"{company_name} is still reachable, but current market-data sources did not return a usable quote/history snapshot for this page right now."
         overview_metrics = [
             {"label": "Open", "value": "-", "subtext": "Live quote unavailable right now."},
             {"label": "Day Range", "value": "-", "subtext": "Will populate when quote and intraday data are available."},
@@ -19686,7 +19694,7 @@ def build_stock_page_context(symbol, host_root):
         "page_purpose_text": "This public stock page combines best-available market context, technical summary, peer comparison, and reserved research sections in an SEO-friendly structure that remains useful during and after market hours.",
         "seo_notes_title": "SEO Notes",
         "seo_notes_text": "Each stock page uses stock-specific title, meta description, canonical path, schema JSON-LD, and a stable slug-based public URL.",
-        "overview_footer_note": f"{company_name} is being rendered from live market data where available and falls back to the latest daily market snapshot after hours, while deeper fundamentals, holdings, and deals remain intentionally placeholder-backed for phase 1.",
+        "overview_footer_note": overview_footer_note,
         "technical_section_note": technical_section_note,
         "chart_title": chart_title,
         "chart_price_points": chart_price_points,
