@@ -19404,9 +19404,17 @@ def build_stock_page_context(symbol, host_root):
         intraday_end = get_breakout_reference_end(selected_date, datetime.time(15, 30))
         intraday_from = datetime.datetime.combine(selected_date, datetime.time(9, 15), tzinfo=APP_TZ)
         intraday_to = datetime.datetime.combine(selected_date, intraday_end, tzinfo=APP_TZ)
-        intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
-        quote_map = fetch_quote_map(client, [f"NSE:{symbol}"])
-        quote = quote_map.get(f"NSE:{symbol}")
+        intraday_candles = []
+        quote = None
+        try:
+            intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+        except Exception:
+            intraday_candles = []
+        try:
+            quote_map = fetch_quote_map(client, [f"NSE:{symbol}"])
+            quote = quote_map.get(f"NSE:{symbol}")
+        except Exception:
+            quote = None
         live_row = build_row_from_available_data(symbol, security_name, quote, daily_candles, intraday_candles)
         if not live_row:
             raise ValueError("The stock page could not build a reliable market snapshot for this symbol right now.")
@@ -19480,7 +19488,11 @@ def build_stock_page_context(symbol, host_root):
         ]
         peer_symbols = [peer_symbol for peer_symbol in get_stock_page_peer_symbols(symbol) if peer_symbol != symbol]
         peer_symbols = [symbol] + peer_symbols[:5]
-        peer_quote_map = fetch_quote_map(client, [f"NSE:{peer_symbol}" for peer_symbol in peer_symbols])
+        peer_quote_map = {}
+        try:
+            peer_quote_map = fetch_quote_map(client, [f"NSE:{peer_symbol}" for peer_symbol in peer_symbols])
+        except Exception:
+            peer_quote_map = {}
         for peer_symbol in peer_symbols:
             peer_master = master.get("by_symbol", {}).get(peer_symbol) or {}
             peer_security = peer_master.get("security") or peer_symbol
@@ -19490,8 +19502,14 @@ def build_stock_page_context(symbol, host_root):
             if not peer_instrument:
                 peers.append({"company": peer_company_name, "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "-", "range_52w": "Pending", "status": "Pending"})
                 continue
-            peer_daily_candles = client.historical_data(peer_instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
-            peer_intraday_candles = client.historical_data(peer_instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+            try:
+                peer_daily_candles = client.historical_data(peer_instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+            except Exception:
+                peer_daily_candles = []
+            try:
+                peer_intraday_candles = client.historical_data(peer_instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+            except Exception:
+                peer_intraday_candles = []
             peer_row = build_row_from_available_data(peer_symbol, peer_security, peer_quote, peer_daily_candles, peer_intraday_candles)
             if not peer_row:
                 peers.append({"company": peer_company_name, "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "-", "range_52w": "Pending", "status": "Pending"})
