@@ -615,6 +615,9 @@ PAGE_TEMPLATE = """
       {% if google_inline_ad_html %}
       <div class="ad-slot" style="margin-top:14px;">{{ google_inline_ad_html|safe }}</div>
       {% endif %}
+      {% if google_vertical_ad_html %}
+      <div class="ad-slot" style="margin-top:14px;">{{ google_vertical_ad_html|safe }}</div>
+      {% endif %}
     </section>
     {% endif %}
 
@@ -10771,6 +10774,7 @@ def get_public_ad_runtime_state():
         "adsense_client": str(runtime.get("ADSENSE_CLIENT") or "").strip(),
         "adsense_slot_inline": str(runtime.get("ADSENSE_SLOT_INLINE") or "").strip(),
         "adsense_slot_sidebar": str(runtime.get("ADSENSE_SLOT_SIDEBAR") or "").strip(),
+        "adsense_slot_vertical": str(runtime.get("ADSENSE_SLOT_VERTICAL") or "").strip(),
         "sponsor_name": str(runtime.get("SPONSOR_NAME") or "").strip(),
         "sponsor_label": str(runtime.get("SPONSOR_LABEL") or "Sponsored").strip() or "Sponsored",
         "sponsor_copy": str(runtime.get("SPONSOR_COPY") or "").strip(),
@@ -10816,11 +10820,13 @@ def build_public_ad_context(page_title, page_family="public"):
         }
     google_inline_ad_html = build_adsense_slot_html(state["adsense_slot_inline"], layout_hint="in-article")
     google_sidebar_ad_html = build_adsense_slot_html(state["adsense_slot_sidebar"], layout_hint="auto")
+    google_vertical_ad_html = build_adsense_slot_html(state["adsense_slot_vertical"], layout_hint="auto")
     return {
         "ad_page_family": page_family,
         "sponsor_ad": sponsor_ad,
         "google_inline_ad_html": google_inline_ad_html,
         "google_sidebar_ad_html": google_sidebar_ad_html,
+        "google_vertical_ad_html": google_vertical_ad_html,
         "adsense_ready": bool(state["adsense_client"]),
     }
 
