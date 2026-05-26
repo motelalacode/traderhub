@@ -954,6 +954,136 @@ HOME_BLANK_TEMPLATE = """
 </html>
 """
 
+HTML_SITEMAP_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HTML Sitemap | TraderHub</title>
+  <meta name="description" content="Browse TraderHub public pages grouped by section.">
+  <style>
+    :root {
+      --bg: #f4f0e8;
+      --panel: #fffdf8;
+      --ink: #16202a;
+      --muted: #647385;
+      --line: #d8d1c2;
+      --accent: #0f6b5b;
+    }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .shell {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(34px, 6vw, 56px);
+      letter-spacing: -0.04em;
+    }
+    .subtext {
+      margin-top: 12px;
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 760px;
+    }
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .meta-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 38px;
+      padding: 0 14px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--panel);
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .group-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 28px;
+    }
+    .group-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px 18px 14px;
+    }
+    .group-title {
+      margin: 0 0 6px;
+      font-size: 21px;
+      font-family: Georgia, "Times New Roman", serif;
+    }
+    .group-meta {
+      margin: 0 0 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+    li + li {
+      margin-top: 8px;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+    @media (max-width: 760px) {
+      .group-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1>TraderHub HTML Sitemap</h1>
+    <p class="subtext">This page groups TraderHub public URLs by section so users and crawlers can browse the current public surface more easily.</p>
+    <div class="meta-row">
+      <a class="meta-chip" href="{{ sitemap_index_url }}">Open sitemap.xml</a>
+      {% for sitemap_file in sitemap_files %}
+      <a class="meta-chip" href="{{ sitemap_file.url }}">{{ sitemap_file.label }}</a>
+      {% endfor %}
+    </div>
+
+    <div class="group-grid">
+      {% for group in grouped_pages %}
+      <section class="group-card">
+        <h2 class="group-title">{{ group.title }}</h2>
+        <p class="group-meta">{{ group.count }} pages</p>
+        <ul>
+          {% for page in group.pages %}
+          <li><a href="{{ page.url }}">{{ page.label }}</a></li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>
+"""
+
 SCANNER_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -30524,6 +30654,66 @@ def public_sitemap_file(sitemap_name):
     if not sitemap_path.exists():
         return Response("Sitemap file not found.", mimetype="text/plain", status=404)
     return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
+
+
+def _prettify_sitemap_group_name(group_name):
+    cleaned = str(group_name or "general").replace("_", " ").replace("-", " ").strip()
+    return cleaned.title() if cleaned else "General"
+
+
+def _prettify_sitemap_path_label(path_value):
+    path_text = str(path_value or "/").strip() or "/"
+    if path_text == "/":
+        return "Home"
+    parts = [part.replace("-", " ").replace("_", " ").strip().title() for part in path_text.split("/") if part.strip()]
+    return " / ".join(parts) if parts else path_text
+
+
+def build_html_sitemap_context(host_root):
+    eligible_pages = fetch_sitemap_eligible_pages()
+    grouped = {}
+    for row in eligible_pages:
+        group_name = str(row.get("sitemap_group") or "general").strip() or "general"
+        grouped.setdefault(group_name, []).append(
+            {
+                "url": row.get("url") or f"{host_root.rstrip('/')}{row.get('path') or '/'}",
+                "label": _prettify_sitemap_path_label(row.get("path") or "/"),
+            }
+        )
+
+    grouped_pages = []
+    for group_name in sorted(grouped):
+        pages = sorted(grouped[group_name], key=lambda item: (item["label"], item["url"]))
+        grouped_pages.append(
+            {
+                "title": _prettify_sitemap_group_name(group_name),
+                "count": len(pages),
+                "pages": pages,
+            }
+        )
+
+    sitemap_files = []
+    if SITEMAP_DIR.exists():
+        for sitemap_path in sorted(SITEMAP_DIR.glob("*.xml")):
+            if sitemap_path.name == "sitemap.xml":
+                continue
+            sitemap_files.append(
+                {
+                    "label": sitemap_path.stem.replace("sitemap-", "").replace("-", " ").replace("_", " ").title(),
+                    "url": f"{host_root.rstrip('/')}/sitemaps/{sitemap_path.name}",
+                }
+            )
+
+    return {
+        "grouped_pages": grouped_pages,
+        "sitemap_index_url": f"{host_root.rstrip('/')}/sitemap.xml",
+        "sitemap_files": sitemap_files,
+    }
+
+
+@app.route("/sitemap.html")
+def public_html_sitemap():
+    return render_template_string(HTML_SITEMAP_TEMPLATE, **build_html_sitemap_context(request.url_root.rstrip("/")))
 
 
 @app.route("/admin/seo-manager/inventory/run")
