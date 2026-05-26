@@ -27059,12 +27059,13 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
     .hide-desktop { display:none; }
     @media (max-width:1160px) {
       .layout { grid-template-columns:1fr; }
-      .side-stack { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .side-stack { grid-template-columns:1fr; }
     }
     @media (max-width:920px) {
       .hero-top { flex-direction:column; }
       .hero-metric { text-align:left; min-width:0; }
       .hero-grid, .summary-grid, .filter-grid, .card-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .side-stack { display:none; }
       .hide-mobile { display:none; }
       .hide-desktop { display:block; }
     }
@@ -27131,7 +27132,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
           <div class="section-head">
             <div>
               <h2>Trial Controls</h2>
-              <div class="section-copy">Original page ko touch kiye bina yahan filters aur ranking test ki ja sakti hai. Mobile-first layout, cleaner cards, aur safer derivatives scanning is trial route ka focus hai.</div>
+              <div class="section-copy">Use this trial route to test filters and ranking without changing the original page. The focus here is a mobile-first layout, cleaner cards, and easier derivatives scanning.</div>
             </div>
           </div>
           <div class="filter-shell">
@@ -27182,7 +27183,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
           <div class="section-head">
             <div>
               <h2>Snapshot</h2>
-              <div class="section-copy">Yeh top layer fast reading ke liye hai: kitne names scan me hain, kitne real OI rows hain, aur current filters ke hisaab se strongest signals kaun se dikh rahe hain.</div>
+              <div class="section-copy">This top section is for fast reading: how many names are in the scan, how many rows have real OI data, and which signals are strongest under the current filters.</div>
             </div>
           </div>
           <div class="summary-grid">
@@ -27201,7 +27202,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
           <div class="section-head">
             <div>
               <h2>Sponsored Space</h2>
-              <div class="section-copy">Trial page me ad placements bhi test mode me hi rakhe gaye hain, taaki original derivatives page par bina approval kuch replace na ho.</div>
+              <div class="section-copy">Ad placements are also being tested here, so nothing replaces the original derivatives page unless you approve it.</div>
             </div>
           </div>
           <div class="card-grid">
@@ -27228,8 +27229,31 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
         <section class="shell hide-desktop">
           <div class="section-head">
             <div>
+              <h2>Page Notes</h2>
+              <div class="section-copy">These notes are shown inside the main content on small screens so the mobile layout stays clean and stable.</div>
+            </div>
+          </div>
+          <div class="card-grid">
+            <div class="metric-card">
+              <div class="eyebrow">Trial Notes</div>
+              <div class="metric-copy">Use this trial page to compare the mobile layout, filter behavior, ranking logic, and ad placements without changing the original page.</div>
+            </div>
+            <div class="metric-card">
+              <div class="eyebrow">Current Rule</div>
+              <div class="metric-copy">{{ side_box_copy }}</div>
+            </div>
+            <div class="metric-card">
+              <div class="eyebrow">Why This Works</div>
+              <div class="metric-copy">{{ why_page_works }}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="shell hide-desktop">
+          <div class="section-head">
+            <div>
               <h2>Mobile Card View</h2>
-              <div class="section-copy">Small screens par table ke bajay compact stock cards dikhte hain, taaki OI reading thumb-friendly rahe.</div>
+              <div class="section-copy">On small screens, this section switches from a table to compact stock cards so the page stays easy to read and tap.</div>
             </div>
           </div>
           <div class="card-grid">
@@ -27260,7 +27284,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
           <div class="section-head">
             <div>
               <h2>Desktop Table</h2>
-              <div class="section-copy">Desktop users ke liye table rakha gaya hai, lekin ranking aur rows wahi hain jo mobile cards me dikh rahi hain.</div>
+              <div class="section-copy">Desktop users get a table view, but the ranking and row logic stay the same as the mobile cards.</div>
             </div>
           </div>
           <div class="table-card">
@@ -27295,7 +27319,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
           <div class="section-head">
             <div>
               <h2>Signal Buckets</h2>
-              <div class="section-copy">Yeh section public users ko instantly batata hai ki current filter set me kaun se names constructive aur kaun se pressured dikh rahe hain.</div>
+              <div class="section-copy">This section quickly shows which names look constructive and which ones look pressured under the current filter set.</div>
             </div>
           </div>
           <div class="card-grid">
@@ -27318,7 +27342,7 @@ DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
       <aside class="side-stack">
         <div class="rail-card">
           <div class="eyebrow">Trial Notes</div>
-          <div class="metric-copy">Original page ko bina chhede yahan mobile layout, filter behavior, ranking logic, aur ad placements compare kiye ja sakte hain.</div>
+          <div class="metric-copy">Use this trial page to compare the mobile layout, filter behavior, ranking logic, and ad placements without changing the original page.</div>
         </div>
         <div class="rail-card">
           <div class="eyebrow">Current Rule</div>
@@ -28037,12 +28061,12 @@ def build_stock_oi_change_trial_context(
         {
             "label": "Filtered Rows",
             "value": len(filtered_rows),
-            "copy": "Current trial filters ke baad kitne rows scan me visible hain.",
+            "copy": "How many rows are visible after applying the current trial filters.",
         },
         {
             "label": "Real OI Rows",
             "value": len(real_rows),
-            "copy": "In rows me nearest futures contract se true OI aur OI change aa raha hai.",
+            "copy": "These rows already include true OI and OI change from the nearest futures contract.",
         },
         {
             "label": "Top Pressure Name",
@@ -28050,13 +28074,13 @@ def build_stock_oi_change_trial_context(
             "copy": (
                 f"{highest['oi_change']} OI change with {highest['day_change']} spot move."
                 if highest
-                else "Current filter set me abhi koi live ranked row nahi."
+                else "There is no live ranked row in the current filter set right now."
             ),
         },
         {
             "label": "Positive vs Negative",
             "value": f"{len(positive_pressure)} / {len(negative_pressure)}",
-            "copy": "Constructive aur pressured names ka quick split.",
+            "copy": "A quick split between constructive and pressured names.",
         },
     ]
 
@@ -28064,28 +28088,28 @@ def build_stock_oi_change_trial_context(
         {
             "title": "Positive Pressure",
             "count": len(positive_pressure),
-            "copy": "Price aur OI ka constructive alignment dekhne ke liye yeh bucket sabse useful hai.",
+            "copy": "Use this bucket first when price and OI are moving together in a constructive way.",
             "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in positive_pressure]
             or ["No positive-pressure rows in this filter set."],
         },
         {
             "title": "Negative Pressure",
             "count": len(negative_pressure),
-            "copy": "Weakness ya unwind-type structure dhoondhne ke liye is bucket ko dekho.",
+            "copy": "Use this bucket when you want to isolate weakness or unwind-style structures.",
             "items": [f"{row['symbol']} | {row['oi_change']} | {row['day_change']}" for row in negative_pressure]
             or ["No negative-pressure rows in this filter set."],
         },
         {
             "title": "Long Buildup Focus",
             "count": len(long_buildup),
-            "copy": "Price up aur OI up wale names ko fast skim karne ke liye.",
+            "copy": "This bucket helps you quickly scan names where both price and OI are rising.",
             "items": [f"{row['symbol']} | {row['futures_price']} | {row['premium_discount']}" for row in long_buildup]
             or ["No long-buildup rows right now."],
         },
         {
             "title": "Short Buildup Focus",
             "count": len(short_buildup),
-            "copy": "Price down aur OI up wale pressure names ko isolate karne ke liye.",
+            "copy": "This bucket helps you isolate pressure names where price is falling while OI rises.",
             "items": [f"{row['symbol']} | {row['futures_price']} | {row['premium_discount']}" for row in short_buildup]
             or ["No short-buildup rows right now."],
         },
@@ -28110,7 +28134,7 @@ def build_stock_oi_change_trial_context(
         "breadcrumb_meta_text": f"Trial layout | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub OI Change Trial",
         "hero_title": "Stock OI Change Trial",
-        "hero_subtitle": "Yeh trial page original OI route ko replace kiye bina test mode me banaya gaya hai. Focus hai: small-screen readability, cleaner derivatives filtering, aur public SEO plus ad readiness.",
+        "hero_subtitle": "This trial page is designed for testing without replacing the original OI route. The focus is small-screen readability, cleaner derivatives filtering, and public SEO plus ad readiness.",
         "hero_metric_primary": str(len(filtered_rows)),
         "hero_metric_secondary": "rows in the current filtered trial view",
         "hero_badges": [
@@ -28148,8 +28172,8 @@ def build_stock_oi_change_trial_context(
         ],
         "table_rows": filtered_rows,
         "group_blocks": group_blocks,
-        "side_box_copy": "Trial page ka current rule simple hai: real OI rows ko preference do, fallback rows ko clearly visible rakho, aur mobile cards me same signal reduce karke readable form me dikhao.",
-        "why_page_works": "Yeh approach original page ko disturb kiye bina design, filters, mobile behavior, SEO framing, aur ad placements ko side-by-side compare karne ka safe tareeka deta hai.",
+        "side_box_copy": "The current rule is simple: prefer rows with real OI data, keep fallback rows clearly visible, and present the same signal in a cleaner mobile-friendly form.",
+        "why_page_works": "This approach gives you a safe way to compare design, filters, mobile behavior, SEO framing, and ad placements without disturbing the original page.",
         "market_error": error,
     }
     context.update(build_public_ad_context("Stock OI Change Trial Dashboard", page_family="derivatives"))
