@@ -679,25 +679,172 @@ HOME_BLANK_TEMPLATE = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TraderHub</title>
-  <meta name="description" content="TraderHub">
+  <title>TraderHub Launching Soon</title>
+  <meta name="description" content="TraderHub is launching on 17 June 2026.">
   <style>
+    :root {
+      --bg: #f4f0e8;
+      --ink: #16202a;
+      --muted: #637283;
+      --panel: #fffdf8;
+      --line: #d9d1c2;
+      --accent: #0f6b5b;
+    }
     html, body {
       margin: 0;
       min-height: 100%;
-      background: #ffffff;
+      background:
+        radial-gradient(circle at top right, rgba(233, 204, 135, 0.30), transparent 28%),
+        linear-gradient(180deg, #f7f3ea 0%, var(--bg) 100%);
     }
     body {
       font-family: Georgia, "Times New Roman", serif;
-      color: #13202c;
+      color: var(--ink);
     }
     main {
       min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+      box-sizing: border-box;
+    }
+    .launch-shell {
+      width: min(820px, 100%);
+      background: rgba(255, 253, 248, 0.92);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: 0 22px 60px rgba(18, 31, 42, 0.08);
+      padding: 40px 34px;
+      text-align: center;
+    }
+    .eyebrow {
+      margin: 0 0 12px;
+      font-size: 12px;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-family: "Trebuchet MS", Arial, sans-serif;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(40px, 8vw, 72px);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+    }
+    .subtext {
+      max-width: 620px;
+      margin: 16px auto 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 17px;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .launch-day {
+      margin-top: 22px;
+      font-size: 18px;
+      color: var(--ink);
+      font-family: "Trebuchet MS", Arial, sans-serif;
+      font-weight: 700;
+    }
+    .countdown-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 28px;
+    }
+    .count-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px 10px;
+    }
+    .count-value {
+      font-size: clamp(28px, 4vw, 42px);
+      font-weight: 700;
+      line-height: 1;
+    }
+    .count-label {
+      margin-top: 8px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    .launch-note {
+      margin-top: 24px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      font-family: "Trebuchet MS", Arial, sans-serif;
+    }
+    @media (max-width: 640px) {
+      .launch-shell {
+        padding: 28px 20px;
+      }
+      .countdown-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   </style>
 </head>
 <body>
-  <main aria-label="TraderHub home placeholder"></main>
+  <main aria-label="TraderHub launch countdown">
+    <section class="launch-shell">
+      <p class="eyebrow">TraderHub</p>
+      <h1>Website Launching Soon</h1>
+      <p class="subtext">TraderHub is preparing the public launch experience. The full introduction and product objective section will land here next. Until then, this page keeps the launch date visible for readers.</p>
+      <div class="launch-day">Launch Day: {{ launch_day_label }}</div>
+      <div class="countdown-grid" id="countdown-grid">
+        <div class="count-card"><div class="count-value" id="count-days">0</div><div class="count-label">Days</div></div>
+        <div class="count-card"><div class="count-value" id="count-hours">0</div><div class="count-label">Hours</div></div>
+        <div class="count-card"><div class="count-value" id="count-minutes">0</div><div class="count-label">Minutes</div></div>
+        <div class="count-card"><div class="count-value" id="count-seconds">0</div><div class="count-label">Seconds</div></div>
+      </div>
+      <div class="launch-note" id="launch-note">Countdown is based on the announced launch date in IST.</div>
+    </section>
+  </main>
+  <script>
+    (function() {
+      const launchAt = new Date("{{ launch_at_iso }}");
+      const ids = {
+        days: document.getElementById("count-days"),
+        hours: document.getElementById("count-hours"),
+        minutes: document.getElementById("count-minutes"),
+        seconds: document.getElementById("count-seconds"),
+        note: document.getElementById("launch-note")
+      };
+
+      function renderCountdown() {
+        const now = new Date();
+        let remaining = launchAt.getTime() - now.getTime();
+        if (remaining <= 0) {
+          ids.days.textContent = "0";
+          ids.hours.textContent = "0";
+          ids.minutes.textContent = "0";
+          ids.seconds.textContent = "0";
+          ids.note.textContent = "TraderHub launch day has arrived.";
+          return;
+        }
+        const days = Math.floor(remaining / 86400000);
+        remaining -= days * 86400000;
+        const hours = Math.floor(remaining / 3600000);
+        remaining -= hours * 3600000;
+        const minutes = Math.floor(remaining / 60000);
+        remaining -= minutes * 60000;
+        const seconds = Math.floor(remaining / 1000);
+        ids.days.textContent = String(days);
+        ids.hours.textContent = String(hours);
+        ids.minutes.textContent = String(minutes);
+        ids.seconds.textContent = String(seconds);
+      }
+
+      renderCountdown();
+      window.setInterval(renderCountdown, 1000);
+    })();
+  </script>
 </body>
 </html>
 """
@@ -14687,7 +14834,12 @@ def inject_search_ops_head_tags(response):
 
 @app.route("/")
 def home():
-    return render_template_string(HOME_BLANK_TEMPLATE)
+    launch_dt = datetime.datetime(2026, 6, 17, 0, 0, tzinfo=APP_TZ)
+    return render_template_string(
+        HOME_BLANK_TEMPLATE,
+        launch_day_label="17 June 2026",
+        launch_at_iso=launch_dt.isoformat(),
+    )
 
 
 @app.route("/login")
