@@ -92,8 +92,10 @@ ARBITRAGE_RULES = {
     "stop_hour": 15,
     "stop_minute": 0,
 }
-DEFAULT_SYMBOLS = ["IOC", "PNB"]
+DEFAULT_SYMBOLS = ["IOC"]
 SCANNER_DEFAULT_SYMBOLS = ["IOC", "PNB", "SBIN", "RELIANCE", "ITC", "TATAMOTORS"]
+EQUITY_OHLC_INTERVAL_OPTIONS = [1, 2, 3, 4, 5, 10, 15, 30, 60]
+DEFAULT_EQUITY_OHLC_INTERVAL = 1
 WATCHLISTS = {
     "psu_bank": ["PNB", "SBIN", "BANKBARODA", "CANBK", "UNIONBANK"],
     "oil_gas": ["IOC", "BPCL", "HPCL", "ONGC", "RELIANCE"],
@@ -515,6 +517,7 @@ PAGE_TEMPLATE = """
       <div class="meta">
         <div class="pill">Symbols: {{ symbols|join(", ") }}</div>
         <div class="pill">Date: {{ selected_date }}</div>
+        <div class="pill">Candle Interval: {{ selected_interval }} minute{% if selected_interval != 1 %}s{% endif %}</div>
         <div class="pill">Time Zone: Asia/Kolkata</div>
       </div>
     </section>
@@ -539,6 +542,10 @@ PAGE_TEMPLATE = """
           <input id="end" name="end" value="{{ end_time }}" placeholder="09:30">
         </div>
         <div>
+          <label for="interval">Candle Interval</label>
+          <input id="interval" name="interval" value="{{ selected_interval }}" placeholder="1">
+        </div>
+        <div>
           <button type="submit">Refresh Data</button>
         </div>
       </form>
@@ -554,6 +561,14 @@ PAGE_TEMPLATE = """
            href="/equity-ohlc?symbols={{ request_symbols|urlencode }}&date={{ yesterday_date }}&start={{ start_time }}&end={{ end_time }}">
           Yesterday
         </a>
+      </div>
+      <div class="quick-links">
+        {% for interval in interval_options %}
+        <a class="quick-link {{ 'active' if selected_interval == interval else '' }}"
+           href="/stocks/equity-stock-page?symbols={{ request_symbols|urlencode }}&date={{ selected_date }}&start={{ start_time }}&end={{ end_time }}&interval={{ interval }}">
+          {{ interval }} Min
+        </a>
+        {% endfor %}
       </div>
     </section>
 
@@ -665,7 +680,7 @@ PAGE_TEMPLATE = """
 
     <p class="footnote">
       Fresh page path: <strong>/equity-ohlc</strong>. Example:
-      /equity-ohlc?symbols=IOC,PNB&date={{ selected_date }}&start=09:15&end=09:30
+      /equity-ohlc?symbols=IOC&date={{ selected_date }}&start=09:15&end=09:30&interval={{ selected_interval }}
     </p>
   </div>
 </body>
@@ -12795,7 +12810,7 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
     }
 
 
-def get_equity_ohlc(symbols, selected_date, start_time, end_time):
+def get_equity_ohlc(symbols, selected_date, start_time, end_time, interval_minutes=1):
     client = build_kite_client(with_access_token=True)
     instrument_map = get_nse_instrument_map()
     from_dt = datetime.datetime.combine(selected_date, start_time, tzinfo=APP_TZ)
@@ -12819,6 +12834,7 @@ def get_equity_ohlc(symbols, selected_date, start_time, end_time):
             continuous=False,
             oi=False,
         )
+        candles = aggregate_ohlc_candles(candles, from_dt, interval_minutes)
 
         if not candles:
             results.append(
@@ -12882,6 +12898,7 @@ def get_equity_ohlc(symbols, selected_date, start_time, end_time):
                 continuous=False,
                 oi=False,
             )
+            post_range_candles = aggregate_ohlc_candles(post_range_candles, breakout_from_dt, interval_minutes)
             if post_range_candles:
                 last_candle = post_range_candles[-1]
                 breakout_last_price = last_candle["close"]
@@ -12904,6 +12921,44 @@ def get_equity_ohlc(symbols, selected_date, start_time, end_time):
         )
 
     return results, missing
+
+
+def aggregate_ohlc_candles(candles, from_dt, interval_minutes):
+    if not candles or interval_minutes <= 1:
+        return candles
+
+    aggregated = []
+    bucket = None
+    interval_seconds = interval_minutes * 60
+
+    for candle in candles:
+        candle_dt = candle["date"].astimezone(APP_TZ)
+        bucket_index = int((candle_dt - from_dt).total_seconds() // interval_seconds)
+        bucket_start = from_dt + datetime.timedelta(minutes=bucket_index * interval_minutes)
+
+        if bucket is None or bucket["bucket_start"] != bucket_start:
+            if bucket is not None:
+                aggregated.append(bucket)
+            bucket = {
+                "bucket_start": bucket_start,
+                "date": bucket_start,
+                "open": candle["open"],
+                "high": candle["high"],
+                "low": candle["low"],
+                "close": candle["close"],
+                "volume": candle.get("volume", 0) or 0,
+            }
+            continue
+
+        bucket["high"] = max(bucket["high"], candle["high"])
+        bucket["low"] = min(bucket["low"], candle["low"])
+        bucket["close"] = candle["close"]
+        bucket["volume"] += candle.get("volume", 0) or 0
+
+    if bucket is not None:
+        aggregated.append(bucket)
+
+    return aggregated
 
 
 def get_intraday_scanner_rows(symbols, selected_date, start_time, end_time, include_ai=True):
@@ -15259,6 +15314,7 @@ def equity_stock_page():
     raw_date = request.args.get("date", get_today_ist().isoformat())
     raw_start = request.args.get("start", DEFAULT_START)
     raw_end = request.args.get("end", DEFAULT_END)
+    raw_interval = request.args.get("interval", str(DEFAULT_EQUITY_OHLC_INTERVAL))
 
     error = None
     results = []
@@ -15268,6 +15324,7 @@ def equity_stock_page():
         selected_date = parse_date(raw_date)
         start_time = parse_time(raw_start, DEFAULT_START)
         end_time = parse_time(raw_end, DEFAULT_END)
+        interval_minutes = int(str(raw_interval or DEFAULT_EQUITY_OHLC_INTERVAL).strip())
 
         if not symbols:
             raise ValueError("Please provide at least one NSE symbol.")
@@ -15276,8 +15333,10 @@ def equity_stock_page():
             raise ValueError("Kite API key or access token is missing in .env.")
         if end_time <= start_time:
             raise ValueError("End time must be after start time.")
+        if interval_minutes not in EQUITY_OHLC_INTERVAL_OPTIONS:
+            raise ValueError("Please choose a supported candle interval.")
 
-        results, missing = get_equity_ohlc(symbols, selected_date, start_time, end_time)
+        results, missing = get_equity_ohlc(symbols, selected_date, start_time, end_time, interval_minutes=interval_minutes)
         if missing:
             missing_text = ", ".join(missing)
             error = f"Could not find NSE equity symbols: {missing_text}"
@@ -15286,6 +15345,7 @@ def equity_stock_page():
         selected_date = raw_date
         start_time = raw_start
         end_time = raw_end
+        interval_minutes = DEFAULT_EQUITY_OHLC_INTERVAL
         error = str(exc)
 
     return render_template_string(
@@ -15299,6 +15359,8 @@ def equity_stock_page():
         yesterday_date=get_yesterday_ist().isoformat(),
         start_time=start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
         end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+        selected_interval=interval_minutes,
+        interval_options=EQUITY_OHLC_INTERVAL_OPTIONS,
     )
 
 
