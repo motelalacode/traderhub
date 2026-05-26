@@ -245,7 +245,13 @@ PAGE_TEMPLATE = """
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>TraderHub Equity OHLC</title>
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
   <style>
     :root {
       --bg: #f6f3ea;
@@ -589,6 +595,28 @@ PAGE_TEMPLATE = """
         </div>
       </div>
     </section>
+
+    {% if sponsor_ad or google_inline_ad_html %}
+    <section class="card" style="margin-top: 18px;">
+      {% if sponsor_ad %}
+      <div class="muted" style="text-transform:uppercase; letter-spacing:0.08em; font-size:12px; font-weight:700;">{{ sponsor_ad.label }}</div>
+      <h2 style="margin-top:8px;">{{ sponsor_ad.name }}</h2>
+      <p class="muted" style="line-height:1.7;">{{ sponsor_ad.copy }}</p>
+      {% if sponsor_ad.image_url %}
+      <img src="{{ sponsor_ad.image_url }}" alt="{{ sponsor_ad.name }}" style="max-width:100%; border-radius:16px; margin-top:10px;">
+      {% endif %}
+      {% if sponsor_ad.embed_html %}
+      <div style="margin-top:12px;">{{ sponsor_ad.embed_html|safe }}</div>
+      {% elif sponsor_ad.url %}
+      <div style="margin-top:14px;"><a class="quick-link active" href="{{ sponsor_ad.url }}" target="_blank" rel="sponsored noopener">{{ sponsor_ad.cta }}</a></div>
+      {% endif %}
+      <p class="footnote" style="margin-top:12px;">{{ sponsor_ad.disclaimer }}</p>
+      {% endif %}
+      {% if google_inline_ad_html %}
+      <div class="ad-slot" style="margin-top:14px;">{{ google_inline_ad_html|safe }}</div>
+      {% endif %}
+    </section>
+    {% endif %}
 
     {% if results %}
     <section class="grid">
@@ -15348,6 +15376,19 @@ def equity_stock_page():
         interval_minutes = DEFAULT_EQUITY_OHLC_INTERVAL
         error = str(exc)
 
+    canonical_query = urllib.parse.urlencode(
+        {
+            "symbols": ",".join(symbols),
+            "date": selected_date if isinstance(selected_date, str) else selected_date.isoformat(),
+            "start": start_time if isinstance(start_time, str) else start_time.strftime("%H:%M"),
+            "end": end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
+            "interval": interval_minutes,
+        }
+    )
+    canonical_url = f"{request.url_root.rstrip('/')}/stocks/equity-stock-page?{canonical_query}"
+    seo_title = f"NSE Equity OHLC Scanner ({interval_minutes} Min) | TraderHub"
+    seo_description = f"Track {', '.join(symbols[:3])} and other NSE stocks with {interval_minutes}-minute OHLC candles, opening range levels, and intraday snapshot context on TraderHub."
+
     return render_template_string(
         PAGE_TEMPLATE,
         results=results,
@@ -15361,6 +15402,10 @@ def equity_stock_page():
         end_time=end_time if isinstance(end_time, str) else end_time.strftime("%H:%M"),
         selected_interval=interval_minutes,
         interval_options=EQUITY_OHLC_INTERVAL_OPTIONS,
+        seo_title=seo_title,
+        seo_description=seo_description,
+        canonical_url=canonical_url,
+        **build_public_ad_context("NSE Equity OHLC Scanner", page_family="scanner"),
     )
 
 
