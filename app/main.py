@@ -26140,6 +26140,249 @@ def build_stock_chart_trial_context(symbol, host_root, range_key="3m"):
     }
 
 
+def compute_rsi_series(values, period=14):
+    if not values or len(values) <= period:
+        return []
+    gains = []
+    losses = []
+    for index in range(1, len(values)):
+        delta = values[index] - values[index - 1]
+        gains.append(max(delta, 0))
+        losses.append(abs(min(delta, 0)))
+    avg_gain = sum(gains[:period]) / period
+    avg_loss = sum(losses[:period]) / period
+    series = [None] * len(values)
+    if avg_loss == 0:
+        rsi = 100.0
+    else:
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+    series[period] = round(rsi, 2)
+    for index in range(period, len(gains)):
+        avg_gain = ((avg_gain * (period - 1)) + gains[index]) / period
+        avg_loss = ((avg_loss * (period - 1)) + losses[index]) / period
+        if avg_loss == 0:
+            rsi = 100.0
+        else:
+            rs = avg_gain / avg_loss
+            rsi = 100 - (100 / (1 + rs))
+        series[index + 1] = round(rsi, 2)
+    return series
+
+
+def build_histogram_bars(values, width=920, height=120, pad_left=54, pad_right=24, pad_top=14, pad_bottom=20):
+    if not values:
+        return []
+    chart_width = max(width - pad_left - pad_right, 1)
+    chart_height = max(height - pad_top - pad_bottom, 1)
+    max_value = max(values) or 1
+    count = len(values)
+    slot_width = chart_width / max(count, 1)
+    bar_width = max(slot_width * 0.62, 2)
+    bars = []
+    for index, value in enumerate(values):
+        x = pad_left + (index * slot_width) + (slot_width - bar_width) / 2
+        scaled_height = (float(value or 0) / max_value) * chart_height
+        y = pad_top + (chart_height - scaled_height)
+        bars.append({"x": round(x, 2), "y": round(y, 2), "width": round(bar_width, 2), "height": round(max(scaled_height, 1), 2)})
+    return bars
+
+
+def build_stock_chart_phase3_context(symbol, host_root, range_key="3m"):
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    security_name = master_row.get("security") or symbol
+    company_name = prettify_company_name(security_name, symbol)
+    canonical_slug = get_canonical_stock_slug(symbol)
+    range_map = {"5d": ("5D", 5), "1m": ("1M", 24), "3m": ("3M", 66), "6m": ("6M", 132), "1y": ("1Y", 252)}
+    if range_key not in range_map:
+        range_key = "3m"
+    range_label, preferred_window = range_map[range_key]
+    today = get_today_ist()
+    page_alert = ""
+    fallback_geometry = build_chart_geometry([100, 102, 101, 104, 106, 108, 107, 110], low_override=99, high_override=111)
+    price_path = fallback_geometry["line_path"]
+    area_path = fallback_geometry["area_path"]
+    ma20_path = fallback_geometry["line_path"]
+    ma50_path = fallback_geometry["line_path"]
+    ma200_path = fallback_geometry["line_path"]
+    rsi_path = ""
+    rsi_latest = "Pending"
+    volume_bars = build_histogram_bars([1, 4, 3, 5, 7, 6, 8, 9], width=920, height=120)
+    y_grid_lines = fallback_geometry["grid_lines"]
+    last_point_x = 896
+    last_point_y = 180
+    current_price_label_x = 818
+    first_date_label = "Start"
+    mid_date_label = "Middle"
+    last_date_label = "Latest"
+    last_price = "Pending"
+    change_display = "Waiting on daily data"
+    volume_display = "Pending"
+    ma20_value = "Pending"
+    ma50_value = "Pending"
+    ma200_value = "Pending"
+    range_high = "Pending"
+    range_low = "Pending"
+    support_display = "Pending"
+    resistance_display = "Pending"
+    return_1y_display = "Pending"
+    high_marker_y = 46
+    low_marker_y = 330
+    high_marker_label = "Range High"
+    low_marker_label = "Range Low"
+    hero_badges = ["Phase 3 Trial", "Price + Volume", "20/50/200 DMA", "RSI Panel"]
+    summary_cards = [
+        {"label": "Chart Purpose", "value": "Phase 3 Trial", "copy": "This page tests a fuller chart system before any stock detail page is changed."},
+        {"label": "Data Stack", "value": "Daily", "copy": "Price, moving averages, volume, and RSI are combined into one trial layout."},
+        {"label": "Rollout", "value": "Separate Page", "copy": "The current stock page and the older chart trial stay untouched while this version is reviewed."},
+        {"label": "Range", "value": range_label, "copy": "Use the chips to compare short and long visual behavior without changing the main stock page."},
+    ]
+    try:
+        creds = get_active_kite_credentials()
+        instrument_map = get_nse_instrument_map()
+        instrument = instrument_map.get(symbol)
+        if not creds["api_key"] or not creds["access_token"] or not instrument:
+            raise ValueError("Broker market data is not available right now, so the Phase 3 chart is showing a fallback graph.")
+        client = build_kite_client(with_access_token=True)
+        daily_from = datetime.datetime.combine(today - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
+        daily_to = datetime.datetime.combine(today, datetime.time(23, 59), tzinfo=APP_TZ)
+        daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+        if not daily_candles:
+            raise ValueError("Daily history is unavailable for this stock right now.")
+        quote_map = fetch_quote_map_safe(client, [f"NSE:{symbol}"])
+        quote = quote_map.get(f"NSE:{symbol}")
+        closes = [float(candle.get("close") or 0) for candle in daily_candles if candle.get("close") is not None]
+        highs = [float(candle.get("high") or 0) for candle in daily_candles if candle.get("high") is not None]
+        lows = [float(candle.get("low") or 0) for candle in daily_candles if candle.get("low") is not None]
+        volumes = [float(candle.get("volume") or 0) for candle in daily_candles]
+        if not closes:
+            raise ValueError("Closing data was not available for this stock right now.")
+        window = min(preferred_window, len(closes))
+        plotted_candles = daily_candles[-window:]
+        plotted_closes = closes[-window:]
+        plotted_highs = highs[-window:] if highs else plotted_closes
+        plotted_lows = lows[-window:] if lows else plotted_closes
+        plotted_volumes = volumes[-window:] if volumes else [0] * window
+        ma20_full = compute_simple_moving_average(closes, 20)
+        ma50_full = compute_simple_moving_average(closes, 50)
+        ma200_full = compute_simple_moving_average(closes, 200)
+        ma20_plot_values = [value if value is not None else plotted_closes[index] for index, value in enumerate((ma20_full[-window:] if ma20_full else []))]
+        ma50_plot_values = [value if value is not None else plotted_closes[index] for index, value in enumerate((ma50_full[-window:] if ma50_full else []))]
+        ma200_plot_values = [value if value is not None else plotted_closes[index] for index, value in enumerate((ma200_full[-window:] if ma200_full else []))]
+        chart_high = max(plotted_highs) if plotted_highs else max(plotted_closes)
+        chart_low = min(plotted_lows) if plotted_lows else min(plotted_closes)
+        price_geometry = build_chart_geometry(plotted_closes, low_override=chart_low, high_override=chart_high)
+        price_path = price_geometry["line_path"]
+        area_path = price_geometry["area_path"]
+        y_grid_lines = price_geometry["grid_lines"]
+        ma20_path = build_chart_geometry(ma20_plot_values, low_override=chart_low, high_override=chart_high)["line_path"]
+        ma50_path = build_chart_geometry(ma50_plot_values, low_override=chart_low, high_override=chart_high)["line_path"]
+        ma200_path = build_chart_geometry(ma200_plot_values, low_override=chart_low, high_override=chart_high)["line_path"]
+        rsi_series_full = compute_rsi_series(closes, 14)
+        rsi_values = [value if value is not None else 50.0 for value in (rsi_series_full[-window:] if rsi_series_full else [])]
+        if rsi_values:
+            rsi_path = build_chart_geometry(rsi_values, width=920, height=130, pad_left=54, pad_right=24, pad_top=14, pad_bottom=18, low_override=0, high_override=100)["line_path"]
+            rsi_latest = f"{rsi_values[-1]:.1f}"
+        volume_bars = build_histogram_bars(plotted_volumes, width=920, height=120, pad_left=54, pad_right=24, pad_top=12, pad_bottom=18)
+        if price_geometry["points"]:
+            last_point_x = round(price_geometry["points"][-1][0], 2)
+            last_point_y = round(price_geometry["points"][-1][1], 2)
+            current_price_label_x = max(last_point_x - 88, 60)
+        def _format_chart_date(value):
+            if isinstance(value, datetime.datetime):
+                return value.astimezone(APP_TZ).strftime("%d %b")
+            if isinstance(value, datetime.date):
+                return value.strftime("%d %b")
+            return "Date"
+        first_date_label = _format_chart_date(plotted_candles[0].get("date"))
+        mid_date_label = _format_chart_date(plotted_candles[len(plotted_candles) // 2].get("date"))
+        last_date_label = _format_chart_date(plotted_candles[-1].get("date"))
+        last_close = plotted_closes[-1]
+        previous_close = plotted_closes[-2] if len(plotted_closes) > 1 else plotted_closes[-1]
+        change_pct = ((last_close - previous_close) / previous_close * 100) if previous_close else 0.0
+        one_year_reference = closes[-252] if len(closes) >= 252 else closes[0]
+        one_year_return = ((last_close - one_year_reference) / one_year_reference * 100) if one_year_reference else 0.0
+        last_price = format_price(float((quote or {}).get("last_price") or last_close))
+        change_display = format_signed_percent(change_pct)
+        range_high = format_price(chart_high)
+        range_low = format_price(chart_low)
+        ma20_value = format_price(ma20_plot_values[-1]) if ma20_plot_values else "Pending"
+        ma50_value = format_price(ma50_plot_values[-1]) if ma50_plot_values else "Pending"
+        ma200_value = format_price(ma200_plot_values[-1]) if ma200_plot_values else "Pending"
+        support_display = format_price(min(plotted_lows[-5:])) if plotted_lows else "Pending"
+        resistance_display = format_price(max(plotted_highs[-5:])) if plotted_highs else "Pending"
+        return_1y_display = format_signed_percent(one_year_return)
+        volume_display = f"{int(plotted_volumes[-1]):,}" if plotted_volumes else "Pending"
+        high_marker_label = f"Range High {range_high}"
+        low_marker_label = f"Range Low {range_low}"
+        chart_height = 420 - 24 - 40
+        high_marker_y = 24
+        low_marker_y = 24 + chart_height
+        summary_cards = [
+            {"label": "1Y Return", "value": return_1y_display, "copy": "Longer-range context makes it easier to judge whether today sits inside a bigger trend."},
+            {"label": "20 / 50 / 200 DMA", "value": f"{ma20_value} / {ma50_value} / {ma200_value}", "copy": "The fuller moving-average stack gives a clearer structure read than the earlier chart trial."},
+            {"label": "Support / Resistance", "value": f"{support_display} / {resistance_display}", "copy": "A simple recent-range proxy to show where price is likely to face the next decision zone."},
+            {"label": "Latest Volume", "value": volume_display, "copy": "Volume bars are added so a price move can be judged with participation, not just direction."},
+        ]
+    except Exception as exc:
+        page_alert = str(exc)
+    canonical_url = f"{host_root.rstrip('/')}/stocks/{canonical_slug}/technical-chart-phase3?range={urllib.parse.quote(range_key)}"
+    range_chips = []
+    for key, (label, _) in range_map.items():
+        range_chips.append({"label": label, "href": f"/stocks/{canonical_slug}/technical-chart-phase3?range={key}", "active": key == range_key})
+    return {
+        "seo_title": f"{company_name} Technical Chart Phase 3 Trial | TraderHub",
+        "seo_description": f"Review a Phase 3 chart trial for {company_name} with price, 20/50/200 DMA, volume, support-resistance context, and RSI before rollout to the stock page.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{company_name} Technical Chart Phase 3 Trial | TraderHub", "description": f"Phase 3 chart-only technical trial page for {company_name}.", "url": canonical_url}, indent=2),
+        "public_head_injection": build_public_ops_head_injection(),
+        "page_meta_text": f"Phase 3 chart trial | Last reviewed {today.isoformat()}",
+        "page_alert": page_alert,
+        "stock_symbol": symbol,
+        "company_name": company_name,
+        "hero_subtitle": "A fuller technical chart trial with price, moving averages, volume, and RSI on a separate page before any stock detail rollout.",
+        "last_price": last_price,
+        "change_display": change_display,
+        "range_label": range_label,
+        "range_high": range_high,
+        "range_low": range_low,
+        "ma20_value": ma20_value,
+        "ma50_value": ma50_value,
+        "ma200_value": ma200_value,
+        "rsi_latest": rsi_latest,
+        "volume_display": volume_display,
+        "support_display": support_display,
+        "resistance_display": resistance_display,
+        "return_1y_display": return_1y_display,
+        "hero_badges": hero_badges,
+        "range_chips": range_chips,
+        "stock_url": f"/stocks/{canonical_slug}",
+        "old_trial_url": f"/stocks/{canonical_slug}/technical-chart-trial?range=3m",
+        "chart_title": f"{symbol} Phase 3 Price Chart",
+        "chart_subtitle": f"Daily price trend, 20/50/200 DMA, volume bars, support-resistance, and RSI across the selected {range_label} window.",
+        "price_path": price_path,
+        "area_path": area_path,
+        "ma20_path": ma20_path,
+        "ma50_path": ma50_path,
+        "ma200_path": ma200_path,
+        "rsi_path": rsi_path,
+        "y_grid_lines": y_grid_lines,
+        "volume_bars": volume_bars,
+        "last_point_x": last_point_x,
+        "last_point_y": last_point_y,
+        "current_price_label_x": current_price_label_x,
+        "first_date_label": first_date_label,
+        "mid_date_label": mid_date_label,
+        "last_date_label": last_date_label,
+        "high_marker_y": high_marker_y,
+        "low_marker_y": low_marker_y,
+        "high_marker_label": high_marker_label,
+        "low_marker_label": low_marker_label,
+        "summary_cards": summary_cards,
+    }
+
+
 def build_stock_news_archive_context(symbol, host_root):
     master = load_symbol_master()
     master_row = master.get("by_symbol", {}).get(symbol) or {}
@@ -28784,6 +29027,201 @@ STOCK_TECHNICAL_CHART_TRIAL_TEMPLATE = """
           <span><i class="dot" style="background:#f5b544;"></i>Price</span>
           <span><i class="dot" style="background:#2e90ff;"></i>20 DMA</span>
           <span><i class="dot" style="background:#24a36e;"></i>50 DMA</span>
+        </div>
+      </div>
+      <div class="summary-grid">
+        {% for card in summary_cards %}
+        <div class="metric-card">
+          <div class="metric-label">{{ card.label }}</div>
+          <div class="metric-value">{{ card.value }}</div>
+          <div class="metric-copy">{{ card.copy }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
+
+STOCK_TECHNICAL_CHART_PHASE3_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root { --bg:#f3f7fb; --paper:#ffffff; --panel:#f7fbff; --line:#d8e4ee; --ink:#193244; --muted:#63788d; --accent:#0f766e; --accent-soft:#d8f3ef; --price:#f5b544; --ma20:#2e90ff; --ma50:#24a36e; --ma200:#7b5cff; --volume:#a7c7ee; --rsi:#ef6a5b; --grid:#d9e5f1; --shadow:0 16px 34px rgba(21,33,45,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(15,118,110,0.08), transparent 24%), linear-gradient(180deg, #fbfdff 0%, var(--bg) 100%); }
+    a { color:#0d5f89; }
+    .page { max-width:1180px; margin:0 auto; padding:16px 12px 30px; }
+    .microbar { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:12px; }
+    .hero,.shell,.notice { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px; background:linear-gradient(145deg, #18354d 0%, #115f68 72%, #3a9a8d 100%); color:#fff; }
+    .hero-top { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.84; margin-bottom:10px; }
+    h1 { margin:0; font-family:Georgia,"Times New Roman",serif; font-size:42px; line-height:0.98; }
+    .hero-sub { margin-top:10px; color:rgba(255,255,255,0.86); font-size:17px; line-height:1.55; max-width:780px; }
+    .hero-price { min-width:220px; text-align:right; }
+    .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags,.chip-row,.legend { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+    .tag,.chip { display:inline-flex; align-items:center; border-radius:999px; padding:8px 12px; font-size:12px; font-weight:700; text-decoration:none; white-space:nowrap; }
+    .tag { color:#fff; border:1px solid rgba(255,255,255,0.16); background:rgba(255,255,255,0.10); }
+    .chip { color:#0e5d64; background:var(--accent-soft); border:1px solid #b8e8df; }
+    .chip.secondary { color:#35516b; background:#eef4fb; border-color:#d6e4f4; }
+    .hero-grid,.summary-grid { display:grid; gap:12px; }
+    .hero-grid { margin-top:16px; grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .hero-box,.metric-card { padding:12px 14px; border-radius:16px; }
+    .hero-box { background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.14); }
+    .hero-label,.metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; }
+    .hero-label { color:rgba(255,255,255,0.72); }
+    .hero-value,.metric-value { margin-top:4px; font-family:var(--number-font); font-variant-numeric:tabular-nums; font-weight:700; }
+    .hero-value { font-size:21px; color:#fff; }
+    .shell { margin-top:16px; padding:18px; }
+    .section-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-end; flex-wrap:wrap; margin-bottom:12px; }
+    .section-head h2 { margin:0; font-family:Georgia,"Times New Roman",serif; font-size:30px; line-height:1.02; }
+    .section-copy,.metric-copy { color:var(--muted); font-size:14px; line-height:1.6; }
+    .chart-shell { border:1px solid var(--line); border-radius:20px; background:linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%); padding:14px; }
+    .chart-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:12px; }
+    .chart-title { font-size:22px; font-weight:700; color:#183247; }
+    .chart-sub { margin-top:6px; color:var(--muted); font-size:13px; line-height:1.55; }
+    .chart-wrap,.panel-wrap { width:100%; overflow:hidden; border-radius:18px; border:1px solid #dfebf5; background:#ffffff; }
+    .chart-svg,.panel-svg { width:100%; height:auto; display:block; background:linear-gradient(180deg, rgba(247,251,255,0.96) 0%, #ffffff 100%); }
+    .axis-label { font-size:12px; fill:#6b7f93; font-family:Arial,Helvetica,sans-serif; }
+    .last-dot { fill:var(--price); stroke:#fff; stroke-width:2; }
+    .legend { margin-top:12px; color:#35516b; font-size:13px; font-weight:700; }
+    .legend span { display:inline-flex; align-items:center; gap:8px; }
+    .dot { width:10px; height:10px; border-radius:999px; display:inline-block; }
+    .panel-stack { margin-top:14px; display:grid; gap:14px; }
+    .panel-title { font-size:14px; font-weight:700; color:#28445a; margin-bottom:8px; }
+    .summary-grid { margin-top:16px; grid-template-columns:repeat(4, minmax(0, 1fr)); }
+    .metric-card { border:1px solid var(--line); background:var(--panel); }
+    .metric-value { font-size:22px; color:#183247; }
+    .metric-copy { margin-top:6px; font-size:13px; line-height:1.55; }
+    .notice { padding:14px; margin-bottom:12px; }
+    @media (max-width:920px) { .hero-top { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid { grid-template-columns:repeat(2, minmax(0, 1fr)); } h1 { font-size:34px; } }
+    @media (max-width:640px) { .page { padding:12px 10px 24px; } .hero,.shell,.notice { border-radius:18px; } .hero-grid,.summary-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-ltp { font-size:30px; } .section-head h2 { font-size:26px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>Stocks &rsaquo; {{ stock_symbol }} &rsaquo; Technical Chart Phase 3</div>
+      <div>{{ page_meta_text }}</div>
+    </div>
+    {% if page_alert %}<div class="notice"><div class="section-copy">{{ page_alert }}</div></div>{% endif %}
+    <section class="hero">
+      <div class="hero-kicker">TraderHub Technical Chart Phase 3 Trial</div>
+      <div class="hero-top">
+        <div>
+          <h1>{{ stock_symbol }}</h1>
+          <div class="hero-sub">{{ company_name }}</div>
+          <div class="hero-sub">{{ hero_subtitle }}</div>
+        </div>
+        <div class="hero-price">
+          <div class="hero-ltp">{{ last_price }}</div>
+          <div class="hero-sub" style="margin-top:8px;">{{ change_display }} | {{ range_label }}</div>
+        </div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag">{{ badge }}</span>{% endfor %}</div>
+      <div class="hero-grid">
+        <div class="hero-box"><div class="hero-label">Range High</div><div class="hero-value">{{ range_high }}</div></div>
+        <div class="hero-box"><div class="hero-label">Range Low</div><div class="hero-value">{{ range_low }}</div></div>
+        <div class="hero-box"><div class="hero-label">RSI (14)</div><div class="hero-value">{{ rsi_latest }}</div></div>
+        <div class="hero-box"><div class="hero-label">Volume</div><div class="hero-value">{{ volume_display }}</div></div>
+      </div>
+    </section>
+
+    <div class="chip-row">
+      {% for chip in range_chips %}<a class="chip{% if chip.active %} secondary{% endif %}" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}
+      <a class="chip secondary" href="{{ old_trial_url }}">Open Earlier Trial</a>
+      <a class="chip secondary" href="{{ stock_url }}">Back to Stock Page</a>
+    </div>
+
+    <section class="shell">
+      <div class="section-head">
+        <div>
+          <h2>Phase 3 Chart Trial</h2>
+          <div class="section-copy">This version is designed to be clearly stronger than the earlier chart trial: price, 20/50/200 DMA, volume bars, support-resistance context, and an RSI panel all live together on one separate page.</div>
+        </div>
+      </div>
+      <div class="chart-shell">
+        <div class="chart-head">
+          <div>
+            <div class="chart-title">{{ chart_title }}</div>
+            <div class="chart-sub">{{ chart_subtitle }}</div>
+          </div>
+          <div class="chip secondary">{{ range_label }}</div>
+        </div>
+        <div class="chart-wrap">
+          <svg class="chart-svg" viewBox="0 0 920 420" preserveAspectRatio="xMidYMid meet" aria-label="{{ chart_title }}">
+            {% for grid in y_grid_lines %}
+            <line x1="54" y1="{{ grid.y }}" x2="896" y2="{{ grid.y }}" stroke="#d9e5f1" stroke-width="1"></line>
+            <text x="8" y="{{ grid.y + 4 }}" class="axis-label">{{ grid.label }}</text>
+            {% endfor %}
+            <line x1="54" y1="24" x2="54" y2="380" stroke="#d9e5f1" stroke-width="1"></line>
+            <line x1="54" y1="380" x2="896" y2="380" stroke="#d9e5f1" stroke-width="1"></line>
+            <line x1="54" y1="{{ high_marker_y }}" x2="896" y2="{{ high_marker_y }}" stroke="#c8d8ea" stroke-dasharray="4 4" stroke-width="1"></line>
+            <line x1="54" y1="{{ low_marker_y }}" x2="896" y2="{{ low_marker_y }}" stroke="#c8d8ea" stroke-dasharray="4 4" stroke-width="1"></line>
+            <text x="802" y="{{ high_marker_y - 6 }}" class="axis-label">{{ high_marker_label }}</text>
+            <text x="806" y="{{ low_marker_y - 6 }}" class="axis-label">{{ low_marker_label }}</text>
+            <path d="{{ area_path }}" fill="rgba(245,181,68,0.12)"></path>
+            <path d="{{ ma200_path }}" fill="none" stroke="#7b5cff" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"></path>
+            <path d="{{ ma50_path }}" fill="none" stroke="#24a36e" stroke-width="2.1" stroke-linejoin="round" stroke-linecap="round"></path>
+            <path d="{{ ma20_path }}" fill="none" stroke="#2e90ff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"></path>
+            <path d="{{ price_path }}" fill="none" stroke="#f5b544" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></path>
+            <circle cx="{{ last_point_x }}" cy="{{ last_point_y }}" r="5.5" class="last-dot"></circle>
+            <text x="{{ current_price_label_x }}" y="{{ last_point_y - 10 }}" class="axis-label">{{ last_price }}</text>
+            <text x="54" y="404" class="axis-label">{{ first_date_label }}</text>
+            <text x="436" y="404" class="axis-label">{{ mid_date_label }}</text>
+            <text x="838" y="404" class="axis-label">{{ last_date_label }}</text>
+          </svg>
+        </div>
+        <div class="legend">
+          <span><i class="dot" style="background:#f5b544;"></i>Price</span>
+          <span><i class="dot" style="background:#2e90ff;"></i>20 DMA</span>
+          <span><i class="dot" style="background:#24a36e;"></i>50 DMA</span>
+          <span><i class="dot" style="background:#7b5cff;"></i>200 DMA</span>
+        </div>
+        <div class="panel-stack">
+          <div>
+            <div class="panel-title">Volume</div>
+            <div class="panel-wrap">
+              <svg class="panel-svg" viewBox="0 0 920 120" preserveAspectRatio="xMidYMid meet" aria-label="Volume bars">
+                <line x1="54" y1="102" x2="896" y2="102" stroke="#d9e5f1" stroke-width="1"></line>
+                {% for bar in volume_bars %}
+                <rect x="{{ bar.x }}" y="{{ bar.y }}" width="{{ bar.width }}" height="{{ bar.height }}" fill="#a7c7ee" rx="2"></rect>
+                {% endfor %}
+              </svg>
+            </div>
+          </div>
+          <div>
+            <div class="panel-title">RSI Panel</div>
+            <div class="panel-wrap">
+              <svg class="panel-svg" viewBox="0 0 920 130" preserveAspectRatio="xMidYMid meet" aria-label="RSI panel">
+                <line x1="54" y1="14" x2="896" y2="14" stroke="#f0d6d3" stroke-dasharray="4 4" stroke-width="1"></line>
+                <line x1="54" y1="56" x2="896" y2="56" stroke="#d9e5f1" stroke-dasharray="4 4" stroke-width="1"></line>
+                <line x1="54" y1="98" x2="896" y2="98" stroke="#f0d6d3" stroke-dasharray="4 4" stroke-width="1"></line>
+                <text x="8" y="18" class="axis-label">70</text>
+                <text x="8" y="60" class="axis-label">50</text>
+                <text x="8" y="102" class="axis-label">30</text>
+                {% if rsi_path %}
+                <path d="{{ rsi_path }}" fill="none" stroke="#ef6a5b" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"></path>
+                {% endif %}
+              </svg>
+            </div>
+          </div>
         </div>
       </div>
       <div class="summary-grid">
@@ -32419,6 +32857,16 @@ def stock_technical_chart_trial(stock_slug):
     range_key = str(request.args.get("range", "3m") or "3m").strip().lower()
     context = build_stock_chart_trial_context(symbol, request.url_root.rstrip("/"), range_key=range_key)
     return render_template_string(STOCK_TECHNICAL_CHART_TRIAL_TEMPLATE, **context)
+
+
+@app.route("/stocks/<stock_slug>/technical-chart-phase3")
+def stock_technical_chart_phase3(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    if not symbol:
+        return "Stock Phase 3 chart page could not resolve this symbol.", 404
+    range_key = str(request.args.get("range", "3m") or "3m").strip().lower()
+    context = build_stock_chart_phase3_context(symbol, request.url_root.rstrip("/"), range_key=range_key)
+    return render_template_string(STOCK_TECHNICAL_CHART_PHASE3_TEMPLATE, **context)
 
 
 @app.route("/stock-hub-sample")
