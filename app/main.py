@@ -34696,6 +34696,27 @@ def public_robots_txt():
     return Response("\n".join(lines) + "\n", mimetype="text/plain")
 
 
+@app.route("/ads.txt")
+def public_ads_txt():
+    runtime = get_runtime_config()
+    adsense_client = str(runtime.get("ADSENSE_CLIENT") or "").strip()
+    ads_template_path = Path(__file__).resolve().parent.parent / "ads.txt"
+
+    if ads_template_path.exists():
+        content = ads_template_path.read_text(encoding="utf-8")
+    else:
+        content = "google.com, {{ADSENSE_CLIENT}}, DIRECT, f08c47fec0942fa0\n"
+
+    if not adsense_client:
+        content = "# ADSENSE_CLIENT is not configured yet.\n"
+    else:
+        content = content.replace("{{ADSENSE_CLIENT}}", adsense_client.replace("ca-", ""))
+
+    if not content.endswith("\n"):
+        content += "\n"
+    return Response(content, mimetype="text/plain")
+
+
 @app.route("/admin/news-manager/snapshots/run")
 def news_manager_snapshots_run():
     limit = int(request.args.get("limit", 30) or 30)

@@ -1,0 +1,1 @@
+google.com, {{ADSENSE_CLIENT}}, DIRECT, f08c47fec0942fa0
