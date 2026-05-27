@@ -31929,13 +31929,56 @@ def build_commodities_dashboard_context(host_root):
 def get_commodity_research_pack(slug):
     research_map = {
         "crude-oil": {
+            "phase_label": "Phase 2 Commodity Research",
             "contract_rows": [
                 {"field": "Price Quote", "value": "Per barrel"},
-                {"field": "Main Contract Lot Size", "value": "100 barrels"},
-                {"field": "Mini Contract Lot Size", "value": "10 barrels"},
+                {"field": "Current Bias", "value": "Soft bias with high event sensitivity"},
+                {"field": "Primary Trade Lens", "value": "Watch inventory, dollar, shipping risk, and OPEC headlines before treating a move as a clean trend"},
+                {"field": "Main Futures Contract", "value": "Crude Oil futures | Lot size: 100 barrels"},
+                {"field": "Mini Futures Contract", "value": "Crude Oil Mini futures | Lot size: 10 barrels"},
+                {"field": "Options Layer", "value": "Options are available on both the main and mini crude futures contracts"},
                 {"field": "Tick Size", "value": "Rs.1"},
                 {"field": "P&L per Tick", "value": "Rs.100 for the main contract | Rs.10 for the mini contract"},
                 {"field": "Typical Expiry", "value": "Around the 19th or 20th of the month"},
+            ],
+            "phase2_summary_cards": [
+                {
+                    "label": "Event Sensitivity",
+                    "value": "Very High",
+                    "copy": "Crude oil reprices quickly when supply, inventory, shipping, or macro headlines shift."
+                },
+                {
+                    "label": "Contract Setup",
+                    "value": "Main + Mini",
+                    "copy": "This market is not one contract only. TraderHub should show both the full crude contract and the mini version."
+                },
+                {
+                    "label": "Options Availability",
+                    "value": "Yes",
+                    "copy": "Crude oil also has options on futures, so the page should lead a user toward a later option-chain layer."
+                },
+                {
+                    "label": "Best Use",
+                    "value": "Event-led Trading",
+                    "copy": "This page is strongest when it explains the current bias, the contract choices, and the drivers behind sharp moves."
+                },
+            ],
+            "phase2_focus_cards": [
+                {
+                    "title": "Contract View",
+                    "meta": "Main contract vs mini contract",
+                    "copy": "Phase 2 makes the page contract-aware so a reader can see that MCX crude trades in more than one futures format."
+                },
+                {
+                    "title": "Options Awareness",
+                    "meta": "Options on futures",
+                    "copy": "Crude oil options should be visible on the page because many users think only in terms of futures unless the options layer is explained clearly."
+                },
+                {
+                    "title": "Event Watch",
+                    "meta": "The move rarely stands alone",
+                    "copy": "Crude oil should be treated as a headline-sensitive market. Inventory, OPEC, shipping disruptions, and the dollar can quickly change direction."
+                },
             ],
             "drivers": [
                 "OPEC and non-OPEC supply decisions can change the global balance quickly.",
@@ -31960,6 +32003,17 @@ def get_commodity_research_pack(slug):
                 "Crude Oil options on futures - underlying: Crude Oil (100 barrels) futures contract.",
                 "Crude Oil Mini options on futures - underlying: Crude Oil Mini (10 barrels) futures contract.",
                 "Commodity options on MCX are options on futures, not on a spot contract.",
+            ],
+            "event_watch": [
+                "OPEC and OPEC+ production signals can reset the near-month crude tone quickly.",
+                "US inventory numbers matter because they shape whether the market reads supply as tight or comfortable.",
+                "Shipping disruptions and geopolitical flare-ups can create sharp repricing even when the broader trend looks soft.",
+                "A strong dollar can pressure the contract, while a weaker dollar can reduce some of that drag.",
+            ],
+            "trade_use_cases": [
+                "Use the main contract when the goal is full crude exposure and higher tick-value sensitivity.",
+                "Use the mini contract when a smaller lot size fits the risk plan better.",
+                "Use options when the trader wants defined-risk exposure around event-heavy moves instead of only futures leverage.",
             ],
         },
         "natural-gas": {
@@ -32004,6 +32058,9 @@ def build_commodity_detail_context(slug, host_root):
     for item in commodity.get("related_sectors", []):
         related_items.append(f"{item.get('label')} sector page")
     day_bias = "positive" if commodity.get("day_change_pct", 0.0) > 0 else "negative" if commodity.get("day_change_pct", 0.0) < 0 else "flat"
+    phase2_summary_cards = research_pack.get("phase2_summary_cards", [])
+    phase2_focus_cards = research_pack.get("phase2_focus_cards", [])
+    is_phase2_pack = bool(research_pack.get("phase_label"))
     return {
         "page_mode": "detail",
         "seo_title": f"{commodity['name']} Price, Trend & Market Context | TraderHub",
@@ -32030,6 +32087,7 @@ def build_commodity_detail_context(slug, host_root):
             {"label": commodity["group"], "kind": "tag-info"},
             {"label": commodity["trend_label"], "kind": "tag-up" if day_bias == "positive" else "tag-down" if day_bias == "negative" else "tag-warn"},
             {"label": commodity["market_state"], "kind": "tag-warn"},
+            *([{"label": research_pack["phase_label"], "kind": "tag-info"}] if is_phase2_pack else []),
             {"label": commodity.get("data_mode_label") or "Seeded Snapshot", "kind": "tag-info"},
         ],
         "hero_stats": [
@@ -32048,16 +32106,30 @@ def build_commodity_detail_context(slug, host_root):
             {"label": "Market Watch", "href": "/market-watch"},
         ],
         "section_title": "Commodity Snapshot",
-        "section_note": "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next. Live values are used when available, with seeded fallback only when needed.",
-        "summary_cards": [
+        "section_note": (
+            "This page now moves beyond a simple commodity snapshot. It keeps the quick price view, but also explains the event sensitivity, tradable contract forms, and why crude oil often changes direction fast."
+            if is_phase2_pack
+            else "This page is built to answer the practical first questions quickly: trend, volatility, range, and where to go next. Live values are used when available, with seeded fallback only when needed."
+        ),
+        "summary_cards": (
+            phase2_summary_cards
+            if phase2_summary_cards
+            else [
             {"label": "Trend", "value": commodity["trend_label"], "copy": "A simple trend read that keeps the public page easy to scan."},
             {"label": "Market State", "value": commodity["market_state"], "copy": "A plain-language label for the current commodity mood."},
             {"label": "Day Range", "value": f"{commodity['low_display']} - {commodity['high_display']}", "copy": "Useful when a user wants immediate price structure instead of a long chart."},
             {"label": "Volatility", "value": commodity["volatility_pct_display"], "copy": "Range as a percentage of previous close."},
-        ],
+        ]),
         "focus_title": "Related Market Context",
-        "focus_note": "These links connect the commodity view to the rest of TraderHub without forcing a user to guess the next step.",
+        "focus_note": (
+            "Phase 2 keeps the page practical. It should help a reader move from price to contract choice, options awareness, and market drivers without leaving the page confused."
+            if is_phase2_pack
+            else "These links connect the commodity view to the rest of TraderHub without forcing a user to guess the next step."
+        ),
         "focus_cards": (
+            phase2_focus_cards
+            if phase2_focus_cards
+            else
             [
                 {"title": item["label"], "meta": "Related stock", "copy": f"Use {item['label']} when you want to compare this commodity move with a listed company page."}
                 for item in commodity.get("related_stocks", [])
@@ -32068,8 +32140,11 @@ def build_commodity_detail_context(slug, host_root):
                 {"title": "What Moves This Commodity", "meta": "Market drivers", "copy": "This page now highlights the core demand, supply, inventory, and macro drivers that matter most for this commodity."},
             ]
         ),
-        "table_title": "Contract and Core Market Fields" if research_pack else "Core Commodity Fields",
+        "table_title": "Phase 2 Contract and Market Structure" if is_phase2_pack else "Contract and Core Market Fields" if research_pack else "Core Commodity Fields",
         "table_note": (
+            "This page now treats crude oil as a contract-driven market. It shows the main futures contract, the mini contract, and options awareness instead of treating crude as only one broad quote line."
+            if is_phase2_pack
+            else
             "This page now mixes current market fields with practical contract facts, so the user can understand both price context and how the commodity actually trades."
             if research_pack
             else "The first-release detail page keeps the field list compact and honest instead of trying to simulate a full terminal."
@@ -32091,6 +32166,9 @@ def build_commodity_detail_context(slug, host_root):
         ] + research_pack.get("contract_rows", []),
         "group_title": "Commodity Research Context" if research_pack else "Linked Paths",
         "group_note": (
+            "Phase 2 makes crude oil more useful by showing the main and mini contract forms, options awareness, event drivers, and practical trade use cases in one place."
+            if is_phase2_pack
+            else
             "These blocks turn the page into more than a price card by adding the market drivers, ecosystem, and linked stock context behind the commodity move."
             if research_pack
             else "These paths make the commodity page useful even before a deeper archive and event layer is added."
@@ -32122,10 +32200,22 @@ def build_commodity_detail_context(slug, host_root):
                     "items": research_pack.get("available_options", []) or ["No options notes have been added yet."],
                 },
                 {
+                    "title": "Event Watch",
+                    "count": len(research_pack.get("event_watch", [])),
+                    "copy": "Crude oil should be read as an event-driven market first and a simple trend market second.",
+                    "items": research_pack.get("event_watch", []) or ["No event-watch notes have been added yet."],
+                },
+                {
                     "title": "Related Stocks",
                     "count": len(commodity.get("related_stocks", [])),
                     "copy": "Stock pages that naturally connect to this commodity move.",
                     "items": [item["label"] for item in commodity.get("related_stocks", [])] or ["No related stocks linked yet."],
+                },
+                {
+                    "title": "Trade Use Cases",
+                    "count": len(research_pack.get("trade_use_cases", [])),
+                    "copy": "This block explains when a trader may prefer the main contract, the mini contract, or options.",
+                    "items": research_pack.get("trade_use_cases", []) or ["No trade use cases have been added yet."],
                 },
                 {
                     "title": "Related Derivatives",
