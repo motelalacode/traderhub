@@ -31952,6 +31952,15 @@ def get_commodity_research_pack(slug):
                 "A separate commodity derivatives layer can later track the active crude futures contract and option chain.",
                 "The near-month contract usually matters most for active trading because liquidity concentrates there.",
             ],
+            "available_contracts": [
+                "Crude Oil futures - main contract | Lot size: 100 barrels | Tick size: Rs.1 | P&L per tick: Rs.100 | Monthly expiry around the 19th or 20th.",
+                "Crude Oil Mini futures - mini contract | Lot size: 10 barrels | Tick size: Rs.1 | P&L per tick: Rs.10 | Monthly expiry around the 19th or 20th.",
+            ],
+            "available_options": [
+                "Crude Oil options on futures - underlying: Crude Oil (100 barrels) futures contract.",
+                "Crude Oil Mini options on futures - underlying: Crude Oil Mini (10 barrels) futures contract.",
+                "Commodity options on MCX are options on futures, not on a spot contract.",
+            ],
         },
         "natural-gas": {
             "contract_rows": [
@@ -32099,6 +32108,18 @@ def build_commodity_detail_context(slug, host_root):
                     "count": len(research_pack.get("ecosystem", [])),
                     "copy": "A simple explanation of how this commodity connects to listed companies and the broader industry chain.",
                     "items": research_pack.get("ecosystem", []),
+                },
+                {
+                    "title": "Available Contracts",
+                    "count": len(research_pack.get("available_contracts", [])),
+                    "copy": "This block keeps the page honest about the tradable contract forms that exist for this commodity on MCX.",
+                    "items": research_pack.get("available_contracts", []) or ["This commodity is currently shown as one broad public market topic."],
+                },
+                {
+                    "title": "Available Options",
+                    "count": len(research_pack.get("available_options", [])),
+                    "copy": "This block highlights whether the commodity also has separate options structure beyond the futures contract view.",
+                    "items": research_pack.get("available_options", []) or ["No options notes have been added yet."],
                 },
                 {
                     "title": "Related Stocks",
