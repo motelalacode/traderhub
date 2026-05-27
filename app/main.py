@@ -11130,6 +11130,208 @@ def get_upstox_statement_value(statement_map, candidate_labels):
     return None, ""
 
 
+def get_upstox_nested_metric_numeric(payload, candidate_keys):
+    normalized_candidates = {str(item or "").strip().lower() for item in candidate_keys}
+    seen_objects = set()
+
+    def walk(node):
+        node_id = id(node)
+        if node_id in seen_objects:
+            return None
+        seen_objects.add(node_id)
+
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if str(key or "").strip().lower() in normalized_candidates:
+                    if isinstance(value, dict):
+                        formatted_value = parse_numeric_text(value.get("value"))
+                        if formatted_value is not None:
+                            return formatted_value
+                        nested_value = parse_numeric_text(value.get("formatted"))
+                        if nested_value is not None:
+                            return nested_value
+                    else:
+                        numeric_value = parse_numeric_text(value)
+                        if numeric_value is not None:
+                            return numeric_value
+                nested_match = walk(value)
+                if nested_match is not None:
+                    return nested_match
+        elif isinstance(node, list):
+            for item in node:
+                nested_match = walk(item)
+                if nested_match is not None:
+                    return nested_match
+        return None
+
+    return walk(payload)
+
+
+def collect_upstox_nested_numeric_values(payload, candidate_keys):
+    normalized_candidates = {str(item or "").strip().lower() for item in candidate_keys}
+    seen_objects = set()
+    collected = []
+
+    def walk(node):
+        node_id = id(node)
+        if node_id in seen_objects:
+            return
+        seen_objects.add(node_id)
+
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if str(key or "").strip().lower() in normalized_candidates:
+                    if isinstance(value, dict):
+                        numeric_value = parse_numeric_text(value.get("value"))
+                        if numeric_value is None:
+                            numeric_value = parse_numeric_text(value.get("formatted"))
+                    else:
+                        numeric_value = parse_numeric_text(value)
+                    if numeric_value is not None:
+                        collected.append(numeric_value)
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(payload)
+    return collected
+
+
+def get_upstox_latest_income_value(income_rows, category_names):
+    row_map = {str(row.get("category") or "").strip().lower(): row for row in (income_rows or [])}
+    for category_name in category_names:
+        row = row_map.get(str(category_name or "").strip().lower())
+        if not row:
+            continue
+        entry = find_upstox_history_entry((row.get("history") or []))
+        numeric_value = parse_numeric_text((entry or {}).get("value"))
+        if numeric_value is not None:
+            return numeric_value, (entry or {}).get("period") or "", entry
+    return None, "", {}
+
+
+def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=None, period_price_lookup=None):
+    fundamentals_bundle = fundamentals_bundle or {}
+    profile_data = fundamentals_bundle.get("profile") or {}
+    ratio_rows = fundamentals_bundle.get("key_ratios") or []
+    income_rows = fundamentals_bundle.get("income_statement") or []
+    balance_sheet_data = fundamentals_bundle.get("balance_sheet") or {}
+    ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
+    statement_map = {
+        str(row.get("particular") or "").strip().upper(): row
+        for row in ((balance_sheet_data or {}).get("full_statement") or [])
+    }
+
+    equity_capital_value, equity_capital_period = get_upstox_statement_value(
+        statement_map,
+        ["EQUITY SHARE CAPITAL", "EQUITY CAPITAL", "SHARE CAPITAL", "ISSUED SHARE CAPITAL"],
+    )
+    preference_dividend_value, _ = get_upstox_statement_value(
+        statement_map,
+        ["PREFERENCE DIVIDEND", "DIVIDEND ON PREFERENCE SHARES"],
+    )
+    pat_value, pat_period, _ = get_upstox_latest_income_value(
+        income_rows,
+        ["net_profit", "profit_after_tax", "pat"],
+    )
+
+    face_value = get_upstox_nested_metric_numeric(
+        profile_data,
+        ["face_value", "face value", "fv", "par_value", "par value"],
+    )
+    shares_issued = get_upstox_nested_metric_numeric(
+        profile_data,
+        [
+            "shares_outstanding",
+            "outstanding_shares",
+            "total_shares",
+            "total_equity_shares",
+            "number_of_equity_shares",
+            "number_of_shares",
+            "issued_shares",
+            "equity_shares_outstanding",
+        ],
+    )
+    if shares_issued in (None, 0) and equity_capital_value not in (None, 0) and face_value not in (None, 0):
+        shares_issued = (equity_capital_value * 10000000.0) / face_value
+
+    preference_dividend_value = preference_dividend_value or 0.0
+    eps_value = None
+    if pat_value is not None and shares_issued not in (None, 0):
+        eps_value = (pat_value - preference_dividend_value) * 10000000.0 / shares_issued
+
+    pe_value = None
+    if reference_price_numeric not in (None, 0) and eps_value not in (None, 0):
+        pe_value = reference_price_numeric / eps_value
+
+    market_cap_inr = None
+    if reference_price_numeric not in (None, 0) and shares_issued not in (None, 0):
+        market_cap_inr = reference_price_numeric * shares_issued
+
+    period_price_numeric = None
+    if callable(period_price_lookup) and pat_period:
+        try:
+            period_price_numeric = period_price_lookup(pat_period)
+        except Exception:
+            period_price_numeric = None
+    if period_price_numeric in (None, 0):
+        period_price_numeric = reference_price_numeric
+
+    dividend_yield_ratio = parse_numeric_text(
+        (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIV YIELD", "DIVIDEND YIELD %"]) or {}).get("company_value")
+    )
+    annual_dividend_per_share = get_upstox_nested_metric_numeric(
+        fundamentals_bundle,
+        [
+            "annual_dividend_per_share",
+            "dividend_per_share",
+            "last_financial_year_dividend_per_share",
+            "fy_dividend_per_share",
+            "annual_dividend",
+        ],
+    )
+    if annual_dividend_per_share in (None, 0) and dividend_yield_ratio not in (None, 0) and period_price_numeric not in (None, 0):
+        annual_dividend_per_share = period_price_numeric * (dividend_yield_ratio / 100.0)
+
+    dividend_yield_pct = None
+    if annual_dividend_per_share not in (None, 0) and period_price_numeric not in (None, 0):
+        dividend_yield_pct = (annual_dividend_per_share / period_price_numeric) * 100.0
+
+    quarterly_dividend_values = collect_upstox_nested_numeric_values(
+        fundamentals_bundle,
+        [
+            "quarterly_dividend_amount",
+            "quarter_dividend_amount",
+            "quarterly_dividend_per_share",
+            "qtrly_dividend_amount",
+            "latest_quarter_dividend",
+            "interim_dividend_per_share",
+            "final_dividend_per_share",
+            "special_dividend_per_share",
+        ],
+    )
+    quarterly_dividend_amount = round(sum(quarterly_dividend_values), 2) if quarterly_dividend_values else None
+
+    return {
+        "shares_issued": shares_issued,
+        "equity_capital_value": equity_capital_value,
+        "equity_capital_period": equity_capital_period,
+        "face_value": face_value,
+        "pat_value": pat_value,
+        "pat_period": pat_period,
+        "preference_dividend_value": preference_dividend_value,
+        "eps_value": eps_value,
+        "pe_value": pe_value,
+        "market_cap_inr": market_cap_inr,
+        "market_cap_display": format_crore_display(market_cap_inr / 10000000.0) if market_cap_inr not in (None, 0) else "Source Pending",
+        "period_price_numeric": period_price_numeric,
+        "annual_dividend_per_share": annual_dividend_per_share,
+        "dividend_yield_pct": dividend_yield_pct,
+        "quarterly_dividend_amount": quarterly_dividend_amount,
+    }
+
+
 def get_upstox_fundamentals_bundle(isin):
     profile_payload = upstox_api_get(f"/fundamentals/{isin}/profile")
     key_ratios_payload = upstox_api_get(f"/fundamentals/{isin}/key-ratios")
@@ -11235,30 +11437,6 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     if debt_equity_value in (None, "") and total_borrowings_value is not None and shareholder_equity_value not in (None, 0):
         debt_equity_value = f"{(total_borrowings_value / shareholder_equity_value):.2f}"
 
-    market_cap_display = (
-        get_upstox_profile_metric_display(
-            profile_data,
-            [
-                "company_market_cap_inr",
-                "market_cap_inr",
-                "market_cap",
-                "market_capitalisation",
-                "market_capitalization",
-            ],
-        )
-        or get_upstox_nested_metric_display(
-            profile_data,
-            [
-                "company_market_cap_inr",
-                "market_cap_inr",
-                "market_cap",
-                "market_capitalisation",
-                "market_capitalization",
-            ],
-        )
-        or "Source Pending"
-    )
-
     revenue_entry = find_upstox_history_entry((income_map.get("revenue") or {}).get("history"))
     operating_profit_entry = find_upstox_history_entry((income_map.get("operating_profit") or {}).get("history"))
     net_profit_entry = find_upstox_history_entry((income_map.get("net_profit") or {}).get("history"))
@@ -11272,18 +11450,17 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     roe_value = (ratio_map.get("ROE") or {}).get("company_value")
     roce_value = (ratio_map.get("ROCE") or {}).get("company_value")
     pb_numeric = parse_numeric_text((ratio_map.get("P/B") or {}).get("company_value"))
-    pe_numeric = parse_numeric_text((ratio_map.get("P/E") or {}).get("company_value"))
+    screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
+    market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
+    eps_value = screener_snapshot.get("eps_value")
+    pe_numeric = screener_snapshot.get("pe_value")
+    shares_issued = screener_snapshot.get("shares_issued")
 
     book_value = None
-    if pb_numeric and pb_numeric > 0 and last_price_numeric and last_price_numeric > 0:
+    if shareholder_equity_value not in (None, 0) and shares_issued not in (None, 0):
+        book_value = (shareholder_equity_value * 10000000.0) / shares_issued
+    elif pb_numeric and pb_numeric > 0 and last_price_numeric and last_price_numeric > 0:
         book_value = last_price_numeric / pb_numeric
-
-    eps_value = None
-    if pe_numeric and pe_numeric > 0 and last_price_numeric and last_price_numeric > 0:
-        eps_value = last_price_numeric / pe_numeric
-
-    if market_cap_display == "Source Pending" and pb_numeric and pb_numeric > 0 and shareholder_equity_value and shareholder_equity_value > 0:
-        market_cap_display = format_crore_display(shareholder_equity_value * pb_numeric)
 
     financial_metrics = [
         {
@@ -11309,12 +11486,16 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         {
             "label": "Book Value",
             "value": format_price(book_value) if book_value is not None else "Source Pending",
-            "subtext": "Approximate per-share book value derived from current price and P/B when available.",
+            "subtext": (
+                "Computed from shareholder equity and issued equity shares."
+                if book_value is not None and shares_issued not in (None, 0) and shareholder_equity_value not in (None, 0)
+                else "Per-share book value is waiting on a cleaner equity-share mapping."
+            ),
         },
         {
             "label": "EPS (TTM)",
             "value": format_price(eps_value) if eps_value is not None else "Source Pending",
-            "subtext": "Approximate EPS derived from current price and P/E when available.",
+            "subtext": "Calculated from the last financial year PAT minus preference dividend, divided by issued equity shares.",
         },
         {
             "label": "Operating Margin",
@@ -11540,7 +11721,6 @@ def build_shareholding_pattern_table(holdings_rows, limit=8):
 def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fundamentals_bundle):
     ratio_rows = (fundamentals_bundle or {}).get("key_ratios") or []
     quarterly_income_rows = (fundamentals_bundle or {}).get("quarterly_income_statement") or []
-    profile_data = (fundamentals_bundle or {}).get("profile") or {}
     ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
 
     def get_latest_row_value(category_names, field="value"):
@@ -11556,14 +11736,11 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
             return entry.get(field), entry
         return None, {}
 
-    pe_value = parse_numeric_text((ratio_map.get("P/E") or {}).get("company_value"))
+    screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
+    pe_value = screener_snapshot.get("pe_value")
     roce_value = parse_numeric_text((ratio_map.get("ROCE") or {}).get("company_value"))
-    dividend_yield_value = parse_numeric_text(
-        (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIV YIELD", "DIVIDEND YIELD %"]) or {}).get("company_value")
-    )
-    market_cap_value = parse_numeric_text(
-        get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
-    )
+    dividend_yield_value = screener_snapshot.get("dividend_yield_pct")
+    market_cap_value = screener_snapshot.get("market_cap_inr")
     np_value, np_entry = get_latest_row_value(["net_profit", "profit_after_tax", "pat"])
     sales_value, sales_entry = get_latest_row_value(["revenue", "sales"])
 
@@ -26549,16 +26726,47 @@ def build_stock_chart_trial2_context(symbol, host_root, range_key="1d"):
             isin = resolve_stock_isin(symbol, security_name)
             if isin:
                 fundamentals_bundle = get_upstox_fundamentals_bundle(isin)
-                profile_data = fundamentals_bundle.get("profile") or {}
-                ratio_rows = fundamentals_bundle.get("key_ratios") or []
-                ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
-                market_cap_display = (
-                    get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
-                    or get_upstox_nested_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
-                    or "Pending"
+                def period_price_lookup(period_label):
+                    if not period_label:
+                        return None
+                    period_text = str(period_label).strip()
+                    match = re.search(r"([A-Za-z]{3})\s+(\d{4})", period_text)
+                    if not match:
+                        return None
+                    try:
+                        month_index = datetime.datetime.strptime(match.group(1), "%b").month
+                    except ValueError:
+                        return None
+                    target_year = int(match.group(2))
+                    target_date = datetime.date(target_year, month_index, 1)
+                    closest_candle = None
+                    closest_gap = None
+                    for candle in daily_candles:
+                        candle_date = candle.get("date")
+                        if isinstance(candle_date, datetime.datetime):
+                            candle_date = candle_date.date()
+                        if not isinstance(candle_date, datetime.date):
+                            continue
+                        gap = abs((candle_date - target_date).days)
+                        if closest_gap is None or gap < closest_gap:
+                            closest_gap = gap
+                            closest_candle = candle
+                    if closest_candle:
+                        return float(closest_candle.get("close") or 0) or None
+                    return None
+
+                screener_snapshot = build_upstox_screener_snapshot(
+                    fundamentals_bundle,
+                    reference_price_numeric=prev_close or quote_last_price,
+                    period_price_lookup=period_price_lookup,
                 )
-                pe_display = (get_upstox_ratio_row(ratio_map, ["P/E", "PE RATIO"]) or {}).get("company_value") or "Pending"
-                dividend_display = (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIVIDEND YIELD %", "DIV YIELD"]) or {}).get("company_value") or "Pending"
+                market_cap_display = screener_snapshot.get("market_cap_display") or "Pending"
+                pe_value = screener_snapshot.get("pe_value")
+                pe_display = f"{pe_value:.2f}" if pe_value is not None else "Pending"
+                dividend_yield_pct = screener_snapshot.get("dividend_yield_pct")
+                dividend_display = f"{dividend_yield_pct:.2f}%" if dividend_yield_pct is not None else "Pending"
+                quarterly_dividend_amount = screener_snapshot.get("quarterly_dividend_amount")
+                qtrly_div_display = format_price(quarterly_dividend_amount) if quarterly_dividend_amount is not None else "Pending"
         except Exception:
             pass
 
