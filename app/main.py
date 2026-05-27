@@ -11313,6 +11313,39 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
     )
     quarterly_dividend_amount = round(sum(quarterly_dividend_values), 2) if quarterly_dividend_values else None
 
+    profile_market_cap_inr = parse_numeric_text(
+        get_upstox_profile_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+        or get_upstox_nested_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+    )
+    if market_cap_inr in (None, 0) and profile_market_cap_inr not in (None, 0):
+        market_cap_inr = profile_market_cap_inr
+
+    if pe_value in (None, 0):
+        pe_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["P/E", "PE RATIO"]) or {}).get("company_value"))
+
+    if dividend_yield_pct in (None, 0):
+        dividend_yield_pct = parse_numeric_text(
+            (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIV YIELD", "DIVIDEND YIELD %"]) or {}).get("company_value")
+        )
+
     return {
         "shares_issued": shares_issued,
         "equity_capital_value": equity_capital_value,
