@@ -26383,6 +26383,237 @@ def build_stock_chart_phase3_context(symbol, host_root, range_key="3m"):
     }
 
 
+def build_stock_chart_trial2_context(symbol, host_root, range_key="1d"):
+    master = load_symbol_master()
+    master_row = master.get("by_symbol", {}).get(symbol) or {}
+    security_name = master_row.get("security") or symbol
+    company_name = prettify_company_name(security_name, symbol)
+    canonical_slug = get_canonical_stock_slug(symbol)
+    range_map = {
+        "1d": ("1D", "intraday"),
+        "5d": ("5D", "daily"),
+        "1m": ("1M", "daily"),
+        "6m": ("6M", "daily"),
+        "ytd": ("YTD", "daily"),
+        "1y": ("1Y", "daily"),
+        "5y": ("5Y", "daily"),
+        "max": ("Max", "daily"),
+    }
+    if range_key not in range_map:
+        range_key = "1d"
+    range_label, mode = range_map[range_key]
+    today = get_today_ist()
+    page_alert = ""
+
+    chart_geometry = build_chart_geometry([304.2, 303.8, 302.9, 303.2, 302.6, 301.9, 301.7, 301.9], width=980, height=360, pad_left=48, pad_right=74, pad_top=18, pad_bottom=30)
+    price_path = chart_geometry["line_path"]
+    y_grid_lines = chart_geometry["grid_lines"]
+    previous_close_y = 180
+    previous_close_display = "Pending"
+    previous_close_label = "Previous close"
+    current_price = "Pending"
+    current_change = "Waiting on market data"
+    current_change_color = "#e15241"
+    updated_label = f"{today.strftime('%d %b')}, 3:30pm IST"
+    callout_value = "Pending"
+    callout_meta = "Latest"
+    callout_x = 120
+    callout_y = 90
+    point_dot_x = 120
+    point_dot_y = 140
+    first_axis_label = "Start"
+    mid_axis_label = "Middle"
+    last_axis_label = "Latest"
+    open_display = "Pending"
+    high_display = "Pending"
+    low_display = "Pending"
+    market_cap_display = "Pending"
+    pe_display = "Pending"
+    dividend_display = "Pending"
+    qtrly_div_display = "Pending"
+    year_high_display = "Pending"
+    year_low_display = "Pending"
+
+    try:
+        creds = get_active_kite_credentials()
+        instrument_map = get_nse_instrument_map()
+        instrument = instrument_map.get(symbol)
+        if not creds["api_key"] or not creds["access_token"] or not instrument:
+            raise ValueError("Broker market data is not available right now, so the trial2 chart is showing a fallback graph.")
+
+        client = build_kite_client(with_access_token=True)
+        quote_map = fetch_quote_map_safe(client, [f"NSE:{symbol}"])
+        quote = quote_map.get(f"NSE:{symbol}") or {}
+        daily_from = datetime.datetime.combine(today - datetime.timedelta(days=1900), datetime.time(0, 0), tzinfo=APP_TZ)
+        daily_to = datetime.datetime.combine(today, datetime.time(23, 59), tzinfo=APP_TZ)
+        daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+        if not daily_candles:
+            raise ValueError("Daily history is unavailable for this stock right now.")
+
+        plotted_candles = []
+        x_mode = "date"
+        if mode == "intraday":
+            intraday_from = datetime.datetime.combine(today, datetime.time(9, 15), tzinfo=APP_TZ)
+            intraday_to = datetime.datetime.combine(today, datetime.datetime.now(APP_TZ).time(), tzinfo=APP_TZ)
+            intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "minute", continuous=False, oi=False)
+            if intraday_candles:
+                plotted_candles = intraday_candles
+                x_mode = "time"
+            else:
+                plotted_candles = daily_candles[-24:]
+        else:
+            if range_key == "5d":
+                plotted_candles = daily_candles[-5:]
+            elif range_key == "1m":
+                plotted_candles = daily_candles[-24:]
+            elif range_key == "6m":
+                plotted_candles = daily_candles[-132:]
+            elif range_key == "ytd":
+                year_start = datetime.date(today.year, 1, 1)
+                plotted_candles = [c for c in daily_candles if (c.get("date").date() if isinstance(c.get("date"), datetime.datetime) else c.get("date")) >= year_start]
+            elif range_key == "1y":
+                plotted_candles = daily_candles[-252:]
+            elif range_key == "5y":
+                plotted_candles = daily_candles[-1260:]
+            else:
+                plotted_candles = daily_candles
+
+        closes = [float(candle.get("close") or 0) for candle in plotted_candles if candle.get("close") is not None]
+        highs = [float(candle.get("high") or 0) for candle in plotted_candles if candle.get("high") is not None]
+        lows = [float(candle.get("low") or 0) for candle in plotted_candles if candle.get("low") is not None]
+        if not closes:
+            raise ValueError("Chart values are unavailable for this stock right now.")
+
+        chart_high = max(highs) if highs else max(closes)
+        chart_low = min(lows) if lows else min(closes)
+        chart_geometry = build_chart_geometry(closes, width=980, height=360, pad_left=48, pad_right=74, pad_top=18, pad_bottom=30, low_override=chart_low, high_override=chart_high)
+        price_path = chart_geometry["line_path"]
+        y_grid_lines = chart_geometry["grid_lines"]
+
+        latest_close = closes[-1]
+        quote_last_price = float(quote.get("last_price") or latest_close)
+        prev_close = float(((quote.get("ohlc") or {}).get("close") or (closes[-2] if len(closes) > 1 else closes[-1]) or 0))
+        change_pct = ((quote_last_price - prev_close) / prev_close * 100) if prev_close else 0.0
+        change_rupees = quote_last_price - prev_close if prev_close else 0.0
+        current_price = format_price(quote_last_price)
+        current_change = f"{change_rupees:+.2f} ({change_pct:.2f}%) {'↑' if change_pct > 0 else '↓' if change_pct < 0 else ''} today".strip()
+        current_change_color = "#1a8a55" if change_pct > 0 else "#e15241" if change_pct < 0 else "#63788d"
+        previous_close_display = format_price(prev_close)
+        previous_close_label = f"Previous close {previous_close_display}"
+        open_display = format_price(float(((quote.get("ohlc") or {}).get("open") or plotted_candles[0].get("open") or 0)))
+        high_display = format_price(chart_high)
+        low_display = format_price(chart_low)
+
+        if chart_high != chart_low:
+            chart_height = 360 - 18 - 30
+            previous_close_y = 18 + ((chart_high - prev_close) / (chart_high - chart_low)) * chart_height if prev_close else 180
+
+        if chart_geometry["points"]:
+            if x_mode == "time" and len(chart_geometry["points"]) > 1:
+                point_index = min(1, len(chart_geometry["points"]) - 1)
+            else:
+                point_index = max(len(chart_geometry["points"]) - 1, 0)
+            point_dot_x = round(chart_geometry["points"][point_index][0], 2)
+            point_dot_y = round(chart_geometry["points"][point_index][1], 2)
+            callout_x = min(max(point_dot_x - 38, 54), 760)
+            callout_y = max(point_dot_y - 58, 28)
+            callout_value = format_price(closes[point_index])
+            point_date = plotted_candles[point_index].get("date")
+            if isinstance(point_date, datetime.datetime):
+                callout_meta = point_date.astimezone(APP_TZ).strftime("%H:%M") if x_mode == "time" else point_date.astimezone(APP_TZ).strftime("%d %b")
+            elif isinstance(point_date, datetime.date):
+                callout_meta = point_date.strftime("%d %b")
+
+        def _format_label(value, label_mode="date"):
+            if isinstance(value, datetime.datetime):
+                return value.astimezone(APP_TZ).strftime("%I:%M%p").lstrip("0").lower() if label_mode == "time" else value.astimezone(APP_TZ).strftime("%d %b")
+            if isinstance(value, datetime.date):
+                return value.strftime("%d %b")
+            return "Date"
+
+        first_axis_label = _format_label(plotted_candles[0].get("date"), x_mode)
+        mid_axis_label = _format_label(plotted_candles[len(plotted_candles) // 2].get("date"), x_mode)
+        last_axis_label = _format_label(plotted_candles[-1].get("date"), x_mode)
+
+        latest_point_date = plotted_candles[-1].get("date")
+        if isinstance(latest_point_date, datetime.datetime):
+            updated_label = latest_point_date.astimezone(APP_TZ).strftime("%d %b, %-I:%M%p IST")
+        elif isinstance(latest_point_date, datetime.date):
+            updated_label = latest_point_date.strftime("%d %b") + ", End of day"
+
+        year_slice = daily_candles[-252:] if len(daily_candles) >= 252 else daily_candles
+        year_high_display = format_price(max(float(c.get("high") or 0) for c in year_slice if c.get("high") is not None))
+        year_low_display = format_price(min(float(c.get("low") or 0) for c in year_slice if c.get("low") is not None))
+
+        try:
+            isin = resolve_stock_isin(symbol, security_name)
+            if isin:
+                fundamentals_bundle = get_upstox_fundamentals_bundle(isin)
+                profile_data = fundamentals_bundle.get("profile") or {}
+                ratio_rows = fundamentals_bundle.get("key_ratios") or []
+                ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
+                market_cap_display = (
+                    get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
+                    or get_upstox_nested_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
+                    or "Pending"
+                )
+                pe_display = (get_upstox_ratio_row(ratio_map, ["P/E", "PE RATIO"]) or {}).get("company_value") or "Pending"
+                dividend_display = (get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIVIDEND YIELD %", "DIV YIELD"]) or {}).get("company_value") or "Pending"
+        except Exception:
+            pass
+
+    except Exception as exc:
+        page_alert = str(exc)
+
+    metrics = [
+        {"label": "Open", "value": open_display},
+        {"label": "High", "value": high_display},
+        {"label": "Low", "value": low_display},
+        {"label": "Mkt cap", "value": market_cap_display},
+        {"label": "P/E ratio", "value": pe_display},
+        {"label": "52-wk high", "value": year_high_display},
+        {"label": "Dividend", "value": dividend_display},
+        {"label": "Qtrly div amt", "value": qtrly_div_display},
+        {"label": "52-wk low", "value": year_low_display},
+    ]
+
+    canonical_url = f"{host_root.rstrip('/')}/stocks/{canonical_slug}/technical-chart-trial2?range={urllib.parse.quote(range_key)}"
+    range_chips = [{"label": label, "href": f"/stocks/{canonical_slug}/technical-chart-trial2?range={key}", "active": key == range_key} for key, (label, _) in range_map.items()]
+    return {
+        "seo_title": f"{company_name} Technical Chart Trial 2 | TraderHub",
+        "seo_description": f"Review a cleaner chart-first trial for {company_name} with a Google-style layout and compact stock metrics.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{company_name} Technical Chart Trial 2 | TraderHub", "description": f"Chart-first trial page for {company_name}.", "url": canonical_url}, indent=2),
+        "public_head_injection": build_public_ops_head_injection(),
+        "page_meta_text": f"Trial 2 chart | Last reviewed {today.isoformat()}",
+        "page_alert": page_alert,
+        "stock_symbol": symbol,
+        "company_name": company_name,
+        "current_price": current_price,
+        "current_change": current_change,
+        "current_change_color": current_change_color,
+        "updated_label": updated_label,
+        "range_chips": range_chips,
+        "price_path": price_path,
+        "y_grid_lines": y_grid_lines,
+        "previous_close_y": previous_close_y,
+        "previous_close_label": previous_close_label,
+        "callout_value": callout_value,
+        "callout_meta": callout_meta,
+        "callout_x": callout_x,
+        "callout_y": callout_y,
+        "point_dot_x": point_dot_x,
+        "point_dot_y": point_dot_y,
+        "first_axis_label": first_axis_label,
+        "mid_axis_label": mid_axis_label,
+        "last_axis_label": last_axis_label,
+        "metrics": metrics,
+        "stock_url": f"/stocks/{canonical_slug}",
+        "trial1_url": f"/stocks/{canonical_slug}/technical-chart-trial?range=3m",
+        "phase3_url": f"/stocks/{canonical_slug}/technical-chart-phase3?range=3m",
+    }
+
+
 def build_stock_news_archive_context(symbol, host_root):
     master = load_symbol_master()
     master_row = master.get("by_symbol", {}).get(symbol) or {}
@@ -29234,6 +29465,120 @@ STOCK_TECHNICAL_CHART_PHASE3_TEMPLATE = """
         {% endfor %}
       </div>
     </section>
+  </div>
+</body>
+</html>
+"""
+
+
+STOCK_TECHNICAL_CHART_TRIAL2_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root { --bg:#ffffff; --ink:#2f3337; --muted:#6b7280; --line:#edf0f2; --axis:#d9dde2; --red:#ea4335; --green:#1a8a55; --blue:#1a73e8; --shadow:0 8px 22px rgba(26,39,51,0.06); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Arial,Helvetica,sans-serif; background:#fff; color:var(--ink); }
+    .page { max-width:1040px; margin:0 auto; padding:10px 14px 34px; }
+    .microbar { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:10px; }
+    .shell, .notice { background:#fff; border:1px solid var(--line); border-radius:18px; box-shadow:var(--shadow); }
+    .notice { padding:14px; margin-bottom:12px; color:#7b3d16; background:#fff7f4; border-color:#f0ddd5; }
+    .top { padding:18px 16px 10px; }
+    .price { font-size:58px; line-height:0.95; font-weight:400; color:#4a4f55; font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    .change { margin-top:10px; font-size:19px; font-weight:500; }
+    .meta { margin-top:14px; font-size:14px; color:#5f6771; }
+    .tabs { display:flex; gap:0; overflow-x:auto; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin-top:14px; }
+    .tab { min-width:88px; padding:14px 16px 12px; text-decoration:none; color:#425466; font-size:17px; position:relative; text-align:center; }
+    .tab + .tab { border-left:1px solid var(--line); }
+    .tab.active { color:var(--blue); font-weight:600; }
+    .tab.active::after { content:""; position:absolute; left:16px; right:16px; bottom:0; height:4px; border-radius:4px 4px 0 0; background:var(--blue); }
+    .chart-card { padding:14px 0 0; }
+    .chart-wrap { padding:0 8px 6px; }
+    .chart-svg { width:100%; height:auto; display:block; }
+    .axis-label { font-size:12px; fill:#7c8590; font-family:Arial,Helvetica,sans-serif; }
+    .grid-line { stroke:#edf0f2; stroke-width:1; }
+    .prev-close { stroke:#8b929b; stroke-width:1.1; stroke-dasharray:2 8; }
+    .price-line { fill:none; stroke:var(--red); stroke-width:3; stroke-linejoin:round; stroke-linecap:round; }
+    .dot { fill:var(--red); stroke:#fff; stroke-width:2; }
+    .callout { fill:#fff; stroke:#dfe3e7; stroke-width:1; rx:10; ry:10; filter:drop-shadow(0 4px 8px rgba(21,33,45,0.12)); }
+    .callout-main { font-size:13px; fill:#2f3337; font-family:Arial,Helvetica,sans-serif; }
+    .callout-sub { font-size:12px; fill:#6b7280; font-family:Arial,Helvetica,sans-serif; }
+    .footer-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px 30px; padding:18px 14px 18px; border-top:1px solid var(--line); }
+    .metric-row { display:flex; justify-content:space-between; gap:12px; font-size:16px; line-height:1.55; }
+    .metric-row .label { color:#40474f; }
+    .metric-row .value { color:#40474f; font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; padding:0 14px 14px; }
+    .chip { display:inline-flex; align-items:center; border-radius:999px; padding:9px 13px; font-size:13px; font-weight:700; text-decoration:none; border:1px solid #d6e4f4; color:#35516b; background:#f7fafc; }
+    @media (max-width:760px) {
+      .page { padding:10px 10px 28px; }
+      .price { font-size:46px; }
+      .footer-grid { grid-template-columns:1fr; gap:10px; }
+      .tab { min-width:72px; font-size:16px; padding:12px 14px 10px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar">
+      <div>Stocks &rsaquo; {{ stock_symbol }} &rsaquo; Technical Chart Trial 2</div>
+      <div>{{ page_meta_text }}</div>
+    </div>
+    {% if page_alert %}<div class="notice">{{ page_alert }}</div>{% endif %}
+    <div class="shell">
+      <div class="top">
+        <div class="price">{{ current_price }}</div>
+        <div class="change" style="color:{{ current_change_color }};">{{ current_change }}</div>
+        <div class="meta">{{ updated_label }} &bull; Trial 2 layout</div>
+      </div>
+      <div class="tabs">
+        {% for chip in range_chips %}
+        <a class="tab{% if chip.active %} active{% endif %}" href="{{ chip.href }}">{{ chip.label }}</a>
+        {% endfor %}
+      </div>
+      <div class="chart-card">
+        <div class="chart-wrap">
+          <svg class="chart-svg" viewBox="0 0 980 360" preserveAspectRatio="xMidYMid meet" aria-label="{{ stock_symbol }} chart trial 2">
+            {% for grid in y_grid_lines %}
+            <line x1="48" y1="{{ grid.y }}" x2="904" y2="{{ grid.y }}" class="grid-line"></line>
+            <text x="10" y="{{ grid.y + 4 }}" class="axis-label">{{ grid.label }}</text>
+            {% endfor %}
+            <line x1="48" y1="{{ previous_close_y }}" x2="904" y2="{{ previous_close_y }}" class="prev-close"></line>
+            <text x="918" y="{{ previous_close_y - 2 }}" class="axis-label">Previous</text>
+            <text x="918" y="{{ previous_close_y + 20 }}" class="axis-label">close</text>
+            <text x="918" y="{{ previous_close_y + 40 }}" class="axis-label">{{ previous_close_label|replace('Previous close ', '') }}</text>
+            <path d="{{ price_path }}" class="price-line"></path>
+            <circle cx="{{ point_dot_x }}" cy="{{ point_dot_y }}" r="5.8" class="dot"></circle>
+            <rect x="{{ callout_x }}" y="{{ callout_y }}" width="132" height="40" rx="8" ry="8" class="callout"></rect>
+            <text x="{{ callout_x + 12 }}" y="{{ callout_y + 18 }}" class="callout-main">{{ callout_value }}</text>
+            <text x="{{ callout_x + 86 }}" y="{{ callout_y + 18 }}" class="callout-sub">{{ callout_meta }}</text>
+            <text x="48" y="344" class="axis-label">{{ first_axis_label }}</text>
+            <text x="450" y="344" class="axis-label">{{ mid_axis_label }}</text>
+            <text x="840" y="344" class="axis-label">{{ last_axis_label }}</text>
+          </svg>
+        </div>
+      </div>
+      <div class="footer-grid">
+        {% for metric in metrics %}
+        <div class="metric-row"><span class="label">{{ metric.label }}</span><span class="value">{{ metric.value }}</span></div>
+        {% endfor %}
+      </div>
+      <div class="actions">
+        <a class="chip" href="{{ stock_url }}">Back to stock page</a>
+        <a class="chip" href="{{ trial1_url }}">Open earlier trial</a>
+        <a class="chip" href="{{ phase3_url }}">Open Phase 3 trial</a>
+      </div>
+    </div>
   </div>
 </body>
 </html>
@@ -32867,6 +33212,16 @@ def stock_technical_chart_phase3(stock_slug):
     range_key = str(request.args.get("range", "3m") or "3m").strip().lower()
     context = build_stock_chart_phase3_context(symbol, request.url_root.rstrip("/"), range_key=range_key)
     return render_template_string(STOCK_TECHNICAL_CHART_PHASE3_TEMPLATE, **context)
+
+
+@app.route("/stocks/<stock_slug>/technical-chart-trial2")
+def stock_technical_chart_trial2(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    if not symbol:
+        return "Stock chart trial2 page could not resolve this symbol.", 404
+    range_key = str(request.args.get("range", "1d") or "1d").strip().lower()
+    context = build_stock_chart_trial2_context(symbol, request.url_root.rstrip("/"), range_key=range_key)
+    return render_template_string(STOCK_TECHNICAL_CHART_TRIAL2_TEMPLATE, **context)
 
 
 @app.route("/stock-hub-sample")
