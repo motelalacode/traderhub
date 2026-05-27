@@ -33680,6 +33680,382 @@ WEBSITE_SHELL_TRIAL_TEMPLATE = """
 """
 
 
+def build_website_shell_trial2_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial2"
+    hero_cards = [
+        {"label": "Primary Focus", "value": "Dashboard-first", "copy": "The first screen starts with scanning blocks before long reading sections."},
+        {"label": "Desktop Intent", "value": "Wide overview", "copy": "Designed to show multiple content types above the fold on larger screens."},
+        {"label": "Mobile Intent", "value": "Stacked clarity", "copy": "Small screens keep the same order, but in one simple vertical reading flow."},
+        {"label": "Website Goal", "value": "One working shell", "copy": "A single frame that can stretch across market, stock, and research pages."},
+    ]
+    dashboard_rows = [
+        {"title": "Market Layer", "copy": "Use this slot for market breadth, top movers, sector changes, or one strong morning summary.", "links": [{"label": "Market", "href": "/market"}, {"label": "Live Movers", "href": "/market/live-movers"}]},
+        {"title": "Stocks Layer", "copy": "Use this slot for stock page entry points, dividend screens, or chart-heavy research pages.", "links": [{"label": "Stock Page", "href": "/stocks/itc"}, {"label": "Dividend Hub", "href": "/stocks/dividend-stocks"}]},
+        {"title": "Derivatives Layer", "copy": "Use this slot for OI change, futures buildup, options structure, and quick scan pages.", "links": [{"label": "Derivatives", "href": "/derivatives"}, {"label": "Stock OI", "href": "/derivatives/stocks/oi-change"}]},
+        {"title": "Commodities Layer", "copy": "Use this slot for metals and energy pages, with room later for contract-level detail pages.", "links": [{"label": "Commodities", "href": "/commodities"}, {"label": "Crude Oil", "href": "/commodities/crude-oil"}]},
+    ]
+    shell_sections = [
+        {"eyebrow": "Header Row", "title": "Large nav with direct product access", "copy": "This version gives more weight to navigation so the whole website feels connected immediately."},
+        {"eyebrow": "Dashboard Rail", "title": "Three strong summary strips before long content", "copy": "Useful for small websites because users can understand the site faster, even before scrolling far."},
+        {"eyebrow": "Primary Content", "title": "One large canvas for charts, tables, and research", "copy": "Useful for large desktop pages because the biggest block still belongs to content, not chrome."},
+        {"eyebrow": "Context Rail", "title": "Support cards, ads, and next clicks on the side", "copy": "Desktop gets a side rail, while mobile turns the same pieces into stacked panels after the main block."},
+    ]
+    context = {
+        "seo_title": "TraderHub Website Shell Trial 2 | TraderHub",
+        "seo_description": "A second website shell trial for TraderHub with a more dashboard-first layout for mobile and large desktop screens.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "TraderHub Website Shell Trial 2",
+                "description": "A dashboard-first layout trial for a shared TraderHub website shell.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Layout trial 2 | Last reviewed {get_today_ist().isoformat()}",
+        "hero_title": "Website Shell Sample Two",
+        "hero_subtitle": "A dashboard-first website shell that tries to fit more useful scanning blocks into the first screen without shrinking the main content area.",
+        "hero_cards": hero_cards,
+        "dashboard_rows": dashboard_rows,
+        "shell_sections": shell_sections,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    context.update(build_public_ad_context("TraderHub Website Shell Trial 2", page_family="public"))
+    return context
+
+
+WEBSITE_SHELL_TRIAL2_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #eef3f7;
+      --paper: rgba(255,255,255,0.9);
+      --line: rgba(13,45,64,0.12);
+      --ink: #122c3d;
+      --muted: #627482;
+      --accent: #145f6d;
+      --accent-soft: rgba(20,95,109,0.1);
+      --shadow: 0 22px 60px rgba(17,39,56,0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(20,95,109,0.12), transparent 26%),
+        linear-gradient(180deg, #fafcff 0%, #edf2f6 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 16px 14px 44px;
+    }
+    .masthead {
+      padding: 18px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: linear-gradient(140deg, #123246, #255f67 70%, #8cb0ae 100%);
+      color: #fff;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .masthead-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .brand strong { display: block; font-size: 28px; }
+    .brand span { display: block; font-size: 14px; opacity: 0.84; margin-top: 4px; }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.24);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(38px, 5vw, 68px);
+      line-height: 0.96;
+    }
+    .sub {
+      max-width: 980px;
+      font-size: 18px;
+      line-height: 1.6;
+      color: rgba(255,255,255,0.9);
+      margin-bottom: 0;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .hero-card, .panel, .dash-card, .section-card {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      border-radius: 24px;
+    }
+    .hero-card {
+      padding: 16px;
+      color: var(--ink);
+    }
+    .eyebrow {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .hero-value {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .hero-copy, .section-card p, .dash-card p, .panel p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .dashboard-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .dash-card {
+      padding: 18px;
+    }
+    .dash-card strong {
+      display: block;
+      font-size: 21px;
+      margin-bottom: 8px;
+    }
+    .dash-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .dash-links a {
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.5fr) minmax(300px, 0.78fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .main-col, .side-col {
+      display: grid;
+      gap: 18px;
+    }
+    .panel {
+      padding: 22px;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 30px;
+    }
+    .sample-shell {
+      display: grid;
+      gap: 14px;
+      margin-top: 16px;
+    }
+    .sample-row {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr 0.8fr;
+      gap: 14px;
+    }
+    .sample-box {
+      min-height: 86px;
+      border-radius: 20px;
+      padding: 16px;
+      border: 1px dashed rgba(20,95,109,0.24);
+      background: linear-gradient(145deg, rgba(20,95,109,0.06), rgba(255,255,255,0.9));
+    }
+    .sample-box strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 18px;
+    }
+    .section-grid {
+      display: grid;
+      gap: 14px;
+    }
+    .section-card {
+      padding: 18px;
+    }
+    .section-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+    @media (max-width: 1180px) {
+      .hero-grid, .dashboard-strip, .sample-row, .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 12px 10px 32px; }
+      .masthead, .hero-card, .panel, .dash-card, .section-card { border-radius: 20px; }
+      .nav { width: 100%; }
+      .nav a { flex: 1 1 calc(50% - 10px); text-align: center; }
+      .sub { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="masthead">
+      <div class="masthead-top">
+        <div class="brand">
+          <strong>TraderHub</strong>
+          <span>{{ page_meta_text }}</span>
+        </div>
+        <nav class="nav">
+          <a href="/">Home</a>
+          <a href="/market">Market</a>
+          <a href="/stocks/itc">Stocks</a>
+          <a href="/sectors">Sectors</a>
+          <a href="/derivatives">Derivatives</a>
+          <a href="/commodities">Commodities</a>
+        </nav>
+      </div>
+      <h1>{{ hero_title }}</h1>
+      <p class="sub">{{ hero_subtitle }}</p>
+      <div class="hero-grid">
+        {% for card in hero_cards %}
+        <article class="hero-card">
+          <div class="eyebrow">{{ card.label }}</div>
+          <div class="hero-value">{{ card.value }}</div>
+          <p class="hero-copy">{{ card.copy }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="dashboard-strip">
+      {% for row in dashboard_rows %}
+      <article class="dash-card">
+        <strong>{{ row.title }}</strong>
+        <p>{{ row.copy }}</p>
+        <div class="dash-links">
+          {% for link in row.links %}
+          <a href="{{ link.href }}">{{ link.label }}</a>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+
+    <div class="layout">
+      <div class="main-col">
+        <section class="panel">
+          <h2>Main Content Sample</h2>
+          <p>This version starts with a dashboard layer, then hands most of the page width to one primary content area. It is meant for pages that need both scanning and deep reading without making either part feel too small.</p>
+          <div class="sample-shell">
+            <div class="sample-box">
+              <strong>Primary Hero Block</strong>
+              Use this for the biggest story, a chart, a large sector board, or a strong stock summary.
+            </div>
+            <div class="sample-row">
+              <div class="sample-box">
+                <strong>Main Table / Chart</strong>
+                This is the largest working zone for dense content.
+              </div>
+              <div class="sample-box">
+                <strong>Metrics</strong>
+                Quick stats or scorecards.
+              </div>
+              <div class="sample-box">
+                <strong>Actions</strong>
+                Related links, buttons, or filters.
+              </div>
+            </div>
+            <div class="sample-box">
+              <strong>Deep Secondary Section</strong>
+              Long-form research, more charts, archive rows, disclosures, or a second table can continue here.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Why This Version Might Fit</h2>
+          <div class="section-grid">
+            {% for section in shell_sections %}
+            <article class="section-card">
+              <div class="eyebrow">{{ section.eyebrow }}</div>
+              <strong>{{ section.title }}</strong>
+              <p>{{ section.copy }}</p>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="side-col">
+        <section class="panel">
+          <h2>Right Rail Use</h2>
+          <p>The rail can hold sponsor content, next-click cards, notes, or a compact page index. On mobile, the same blocks drop below the main content so the reading order still makes sense.</p>
+        </section>
+
+        {% if sponsor_ad %}
+        <section class="panel">
+          <div class="eyebrow">{{ sponsor_ad.label }}</div>
+          <h2>{{ sponsor_ad.name }}</h2>
+          <p>{{ sponsor_ad.copy }}</p>
+        </section>
+        {% endif %}
+
+        {% if google_vertical_ad_html %}
+        <section class="panel">
+          <div class="eyebrow">Google Ad Sample</div>
+          {{ google_vertical_ad_html|safe }}
+        </section>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/dividend-stocks")
 def dividend_stocks_hub():
     context = build_dividend_stocks_hub_context(request.url_root.rstrip("/"))
@@ -33690,6 +34066,12 @@ def dividend_stocks_hub():
 def website_shell_trial():
     context = build_website_shell_trial_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL_TEMPLATE, **context)
+
+
+@app.route("/website-shell-trial2")
+def website_shell_trial2():
+    context = build_website_shell_trial2_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL2_TEMPLATE, **context)
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
