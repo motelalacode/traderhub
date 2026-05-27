@@ -33200,10 +33200,496 @@ DIVIDEND_STOCKS_HUB_TEMPLATE = """
 """
 
 
+def build_website_shell_trial_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial"
+    section_groups = [
+        {
+            "title": "Market Intelligence",
+            "copy": "Daily market context, live movers, sector tracking, and archive paths that help users understand what is changing across the market.",
+            "links": [
+                {"label": "Market News", "href": "/market"},
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+                {"label": "Market Archive", "href": "/market/archive"},
+            ],
+        },
+        {
+            "title": "Stocks",
+            "copy": "Stock pages, why-moving pages, archives, charts, and dividend-led research screens in one linked cluster.",
+            "links": [
+                {"label": "Stock Pages", "href": "/stocks/itc"},
+                {"label": "Why Moving", "href": "/stocks/itc/why-moving"},
+                {"label": "Stock Archive", "href": "/stocks/itc/news-archive"},
+                {"label": "Dividend Hub", "href": "/stocks/dividend-stocks"},
+            ],
+        },
+        {
+            "title": "Derivatives",
+            "copy": "OI change, futures buildup, and options structure pages that help active users move from signal to deeper detail.",
+            "links": [
+                {"label": "Derivatives Hub", "href": "/derivatives"},
+                {"label": "Stock OI Change", "href": "/derivatives/stocks/oi-change"},
+                {"label": "Nifty Options", "href": "/derivatives/nifty/options"},
+                {"label": "Bank Nifty", "href": "/derivatives/banknifty/options"},
+            ],
+        },
+        {
+            "title": "Commodities",
+            "copy": "A separate commodities layer for metals and energy, designed to expand later into richer contract and derivatives workflows.",
+            "links": [
+                {"label": "Commodities Hub", "href": "/commodities"},
+                {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+                {"label": "Gold", "href": "/commodities/gold"},
+                {"label": "Volatile Commodities", "href": "/commodities/volatile"},
+            ],
+        },
+    ]
+    feature_rows = [
+        {
+            "title": "Full-width working area",
+            "copy": "The main content column stays dominant so research pages can carry dense tables, charts, and linked context without feeling cramped.",
+        },
+        {
+            "title": "Stable desktop rail",
+            "copy": "A light side rail can hold navigation, quick metrics, sponsor placement, and next-click guidance without taking over the page.",
+        },
+        {
+            "title": "Mobile-first stacking",
+            "copy": "The same shell collapses into a simple vertical flow on small screens, with no dependence on hover states or overly thin columns.",
+        },
+        {
+            "title": "Reusable website frame",
+            "copy": "This can become the shared frame for market, stock, sector, dividend, derivatives, and commodity pages if the layout feels right.",
+        },
+    ]
+    content_cards = [
+        {
+            "eyebrow": "Top Story Zone",
+            "title": "Large hero slot for the most important page message",
+            "copy": "This area can carry a launch message, the biggest market story, or the strongest call-to-action without hiding the rest of the site.",
+        },
+        {
+            "eyebrow": "Main Grid",
+            "title": "Two strong content columns with clear hierarchy",
+            "copy": "The left side can hold primary analysis or a table. The right side can hold context cards, summaries, ads, or drilldown links.",
+        },
+        {
+            "eyebrow": "Deep Page Support",
+            "title": "Designed for dense research pages too",
+            "copy": "This shell is intentionally built to support pages that need a lot of content area, not just thin marketing pages.",
+        },
+    ]
+    context = {
+        "seo_title": "TraderHub Website Shell Trial | TraderHub",
+        "seo_description": "A separate layout trial for a full TraderHub website shell that works across mobile and desktop while protecting content area.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "TraderHub Website Shell Trial",
+                "description": "A layout trial for a shared TraderHub website shell.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Layout trial | Last reviewed {get_today_ist().isoformat()}",
+        "hero_kicker": "TraderHub Layout Trial",
+        "hero_title": "Website Shell Sample",
+        "hero_subtitle": "A separate page to test one strong site-wide layout before using it across stocks, sectors, derivatives, commodities, and market pages.",
+        "hero_badges": ["Desktop-friendly", "Mobile-first", "Content-area heavy"],
+        "section_groups": section_groups,
+        "feature_rows": feature_rows,
+        "content_cards": content_cards,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    context.update(build_public_ad_context("TraderHub Website Shell Trial", page_family="public"))
+    return context
+
+
+WEBSITE_SHELL_TRIAL_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #f4efe5;
+      --panel: rgba(255,255,255,0.84);
+      --line: rgba(15,46,64,0.12);
+      --ink: #0f2e40;
+      --muted: #5f7281;
+      --accent: #0e5d66;
+      --accent-soft: rgba(14,93,102,0.12);
+      --warm: #f5a623;
+      --shadow: 0 24px 70px rgba(15,46,64,0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(14,93,102,0.08), transparent 28%),
+        linear-gradient(180deg, #f9f4eb 0%, #f2ecdf 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .shell {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 18px 14px 44px;
+    }
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(255,255,255,0.74);
+      box-shadow: var(--shadow);
+    }
+    .brand { display: flex; flex-direction: column; gap: 2px; }
+    .brand strong { font-size: 24px; }
+    .brand span { color: var(--muted); font-size: 14px; }
+    .topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .topnav a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .hero {
+      margin-bottom: 18px;
+      padding: 24px;
+      border-radius: 32px;
+      border: 1px solid var(--line);
+      background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(251,246,238,0.88));
+      box-shadow: var(--shadow);
+    }
+    .kicker {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(40px, 6vw, 72px);
+      line-height: 0.95;
+    }
+    .hero-sub {
+      max-width: 920px;
+      font-size: 18px;
+      line-height: 1.6;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .badge {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.72fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .main-stack, .rail-stack {
+      display: grid;
+      gap: 18px;
+    }
+    .panel {
+      padding: 22px;
+      border-radius: 28px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    .panel h2, .panel h3 {
+      margin: 0 0 10px;
+      font-size: 28px;
+    }
+    .panel p {
+      margin: 0;
+      line-height: 1.6;
+      color: var(--muted);
+      font-size: 16px;
+    }
+    .group-grid, .feature-grid, .content-grid {
+      display: grid;
+      gap: 16px;
+    }
+    .group-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .content-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .mini-card {
+      padding: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.76);
+    }
+    .mini-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+    .mini-card p {
+      margin-bottom: 14px;
+      font-size: 15px;
+    }
+    .link-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .link-list a {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .sample-frame {
+      min-height: 280px;
+      padding: 20px;
+      border-radius: 26px;
+      background:
+        linear-gradient(135deg, rgba(14,93,102,0.08), transparent),
+        #fff;
+      border: 1px dashed rgba(14,93,102,0.22);
+      display: grid;
+      gap: 14px;
+    }
+    .sample-strip {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 14px;
+    }
+    .sample-box {
+      min-height: 76px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(250,247,241,0.92);
+      padding: 14px;
+    }
+    .sample-box strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+    .rail-note {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .rail-list {
+      display: grid;
+      gap: 12px;
+    }
+    .rail-list .mini-card strong {
+      font-size: 18px;
+    }
+    .meta-line {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    @media (max-width: 1100px) {
+      .layout, .group-grid, .feature-grid, .content-grid, .sample-strip {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 720px) {
+      .shell { padding: 12px 10px 32px; }
+      .topbar, .hero, .panel { border-radius: 22px; }
+      h1 { font-size: 42px; }
+      .hero-sub { font-size: 16px; }
+      .topnav { width: 100%; }
+      .topnav a { flex: 1 1 calc(50% - 10px); text-align: center; }
+      .panel h2, .panel h3 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="topbar">
+      <div class="brand">
+        <strong>TraderHub</strong>
+        <span>{{ page_meta_text }}</span>
+      </div>
+      <nav class="topnav">
+        <a href="/">Home</a>
+        <a href="/market">Market</a>
+        <a href="/stocks/itc">Stocks</a>
+        <a href="/sectors">Sectors</a>
+        <a href="/derivatives">Derivatives</a>
+        <a href="/commodities">Commodities</a>
+      </nav>
+    </section>
+
+    <section class="hero">
+      <div class="kicker">{{ hero_kicker }}</div>
+      <h1>{{ hero_title }}</h1>
+      <div class="hero-sub">{{ hero_subtitle }}</div>
+      <div class="badge-row">
+        {% for badge in hero_badges %}
+        <span class="badge">{{ badge }}</span>
+        {% endfor %}
+      </div>
+    </section>
+
+    <div class="layout">
+      <div class="main-stack">
+        <section class="panel">
+          <h2>How This Layout Works</h2>
+          <p>This sample keeps a wide reading area for charts, tables, and research sections, while still leaving room for navigation, quick actions, sponsor placement, and next-click guidance on larger screens.</p>
+        </section>
+
+        <section class="panel">
+          <h2>Website Coverage Map</h2>
+          <div class="group-grid">
+            {% for group in section_groups %}
+            <article class="mini-card">
+              <strong>{{ group.title }}</strong>
+              <p>{{ group.copy }}</p>
+              <div class="link-list">
+                {% for link in group.links %}
+                <a href="{{ link.href }}">{{ link.label }}</a>
+                {% endfor %}
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Content Area Sample</h2>
+          <div class="sample-frame">
+            <div class="sample-box">
+              <strong>Primary Page Message</strong>
+              A large hero or summary area can live here without pushing the rest of the page too far down.
+            </div>
+            <div class="sample-strip">
+              <div class="sample-box">
+                <strong>Main Research Block</strong>
+                This is where a table, a stock chart, a sector leaderboard, or a long-form market page can sit.
+              </div>
+              <div class="sample-box">
+                <strong>Context Block</strong>
+                This column can hold stats, cards, next links, alerts, or a sponsor placement.
+              </div>
+            </div>
+            <div class="sample-box">
+              <strong>Deep Secondary Content</strong>
+              When the page needs more space, the content can continue full-width below the first split without breaking the shell.
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>What This Should Solve</h2>
+          <div class="feature-grid">
+            {% for item in feature_rows %}
+            <article class="mini-card">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.copy }}</p>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="rail-stack">
+        <section class="panel">
+          <div class="rail-note">Layout Intent</div>
+          <h3>One frame for many page types</h3>
+          <p>This trial tries to answer whether TraderHub can use one consistent shell across news, stocks, sectors, derivatives, and commodities without wasting content space.</p>
+        </section>
+
+        <section class="panel">
+          <div class="rail-note">Design Samples</div>
+          <div class="rail-list">
+            {% for card in content_cards %}
+            <article class="mini-card">
+              <div class="rail-note">{{ card.eyebrow }}</div>
+              <strong>{{ card.title }}</strong>
+              <p>{{ card.copy }}</p>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        {% if sponsor_ad %}
+        <section class="panel">
+          <div class="rail-note">{{ sponsor_ad.label }}</div>
+          <h3>{{ sponsor_ad.name }}</h3>
+          <p>{{ sponsor_ad.copy }}</p>
+          {% if sponsor_ad.url %}
+          <div class="meta-line"><a href="{{ sponsor_ad.url }}" target="_blank" rel="noopener">Open sponsor link</a></div>
+          {% endif %}
+        </section>
+        {% endif %}
+
+        {% if google_vertical_ad_html %}
+        <section class="panel">
+          <div class="rail-note">Google Ad Sample</div>
+          {{ google_vertical_ad_html|safe }}
+        </section>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/dividend-stocks")
 def dividend_stocks_hub():
     context = build_dividend_stocks_hub_context(request.url_root.rstrip("/"))
     return render_template_string(DIVIDEND_STOCKS_HUB_TEMPLATE, **context)
+
+
+@app.route("/website-shell-trial")
+def website_shell_trial():
+    context = build_website_shell_trial_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL_TEMPLATE, **context)
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
