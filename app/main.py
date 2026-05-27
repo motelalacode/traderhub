@@ -11222,6 +11222,28 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
         str(row.get("particular") or "").strip().upper(): row
         for row in ((balance_sheet_data or {}).get("full_statement") or [])
     }
+    profile_market_cap_inr = parse_numeric_text(
+        get_upstox_profile_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+        or get_upstox_nested_metric_display(
+            profile_data,
+            [
+                "company_market_cap_inr",
+                "market_cap_inr",
+                "market_cap",
+                "market_capitalisation",
+                "market_capitalization",
+            ],
+        )
+    )
 
     equity_capital_value, equity_capital_period = get_upstox_statement_value(
         statement_map,
@@ -11255,6 +11277,15 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
     )
     if shares_issued in (None, 0) and equity_capital_value not in (None, 0) and face_value not in (None, 0):
         shares_issued = (equity_capital_value * 10000000.0) / face_value
+    if shares_issued in (None, 0) and profile_market_cap_inr not in (None, 0) and reference_price_numeric not in (None, 0):
+        shares_issued = profile_market_cap_inr / reference_price_numeric
+    if face_value in (None, 0) and equity_capital_value not in (None, 0) and shares_issued not in (None, 0):
+        try:
+            inferred_face_value = (equity_capital_value * 10000000.0) / shares_issued
+        except ZeroDivisionError:
+            inferred_face_value = None
+        if inferred_face_value and inferred_face_value > 0:
+            face_value = inferred_face_value
 
     preference_dividend_value = preference_dividend_value or 0.0
     eps_value = None
@@ -11312,29 +11343,6 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
         ],
     )
     quarterly_dividend_amount = round(sum(quarterly_dividend_values), 2) if quarterly_dividend_values else None
-
-    profile_market_cap_inr = parse_numeric_text(
-        get_upstox_profile_metric_display(
-            profile_data,
-            [
-                "company_market_cap_inr",
-                "market_cap_inr",
-                "market_cap",
-                "market_capitalisation",
-                "market_capitalization",
-            ],
-        )
-        or get_upstox_nested_metric_display(
-            profile_data,
-            [
-                "company_market_cap_inr",
-                "market_cap_inr",
-                "market_cap",
-                "market_capitalisation",
-                "market_capitalization",
-            ],
-        )
-    )
     if market_cap_inr in (None, 0) and profile_market_cap_inr not in (None, 0):
         market_cap_inr = profile_market_cap_inr
 
