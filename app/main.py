@@ -31926,12 +31926,69 @@ def build_commodities_dashboard_context(host_root):
     }
 
 
+def get_commodity_research_pack(slug):
+    research_map = {
+        "crude-oil": {
+            "contract_rows": [
+                {"field": "Price Quote", "value": "Per barrel"},
+                {"field": "Main Contract Lot Size", "value": "100 barrels"},
+                {"field": "Mini Contract Lot Size", "value": "10 barrels"},
+                {"field": "Tick Size", "value": "Rs.1"},
+                {"field": "P&L per Tick", "value": "Rs.100 for the main contract | Rs.10 for the mini contract"},
+                {"field": "Typical Expiry", "value": "Around the 19th or 20th of the month"},
+            ],
+            "drivers": [
+                "OPEC and non-OPEC supply decisions can change the global balance quickly.",
+                "US crude inventory builds usually pressure prices, while falling inventories can support prices.",
+                "A stronger US dollar often weighs on crude, while a weaker dollar can help crude prices recover.",
+                "Geopolitical disruptions, shipping risk, and production outages can create fast repricing.",
+            ],
+            "ecosystem": [
+                "Upstream companies benefit more when crude prices are firm because they produce and sell the raw commodity.",
+                "Downstream refiners and oil marketing companies react differently because input costs and inventory cycles matter.",
+                "This is why crude oil should also connect to stock pages like ONGC, Oil India, BPCL, HPCL, IOC, and Reliance.",
+            ],
+            "related_derivatives": [
+                "A separate commodity derivatives layer can later track the active crude futures contract and option chain.",
+                "The near-month contract usually matters most for active trading because liquidity concentrates there.",
+            ],
+        },
+        "natural-gas": {
+            "contract_rows": [
+                {"field": "Price Quote", "value": "Rupee per mmBtu"},
+                {"field": "Lot Size", "value": "1250 mmBtu"},
+                {"field": "Tick Size", "value": "Rs.0.10"},
+                {"field": "P&L per Tick", "value": "Rs.125"},
+                {"field": "Typical Expiry", "value": "25th of the month"},
+                {"field": "Market Link", "value": "MCX natural gas tends to track NYMEX natural gas closely"},
+            ],
+            "drivers": [
+                "Natural gas inventory data is one of the cleanest short-term price drivers.",
+                "US weather matters a lot because cold winters and heat waves change energy demand quickly.",
+                "Hurricanes can disrupt supply and inventory flows, which can trigger sharp price spikes.",
+                "Crude oil correlation can matter, but natural gas still has its own supply-demand rhythm.",
+            ],
+            "ecosystem": [
+                "Natural gas links naturally to power generation, fertilizer usage, city gas distribution, and industrial fuel demand.",
+                "The Indian stock context can include GAIL, IGL, MGL, Gujarat Gas, and Petronet LNG.",
+                "This page should help a reader move from commodity price to related listed-company context without guessing.",
+            ],
+            "related_derivatives": [
+                "A later derivatives layer can track the active natural gas futures contract and, if available, related options structure.",
+                "Natural gas often deserves a separate risk note because volatility can expand quickly around weather and inventory events.",
+            ],
+        },
+    }
+    return research_map.get(slug, {})
+
+
 def build_commodity_detail_context(slug, host_root):
     updated_at, rows = load_commodities_phase1_feed()
     seeded_rows = [apply_live_commodity_overrides(build_commodity_seed_row(row)) for row in rows]
     commodity = next((row for row in seeded_rows if row.get("slug") == slug), None)
     if not commodity:
         return None
+    research_pack = get_commodity_research_pack(slug)
     related_items = []
     for item in commodity.get("related_stocks", []):
         related_items.append(f"{item.get('label')} stock page")
@@ -31976,6 +32033,7 @@ def build_commodity_detail_context(slug, host_root):
             {"label": "Commodities Hub", "href": "/commodities"},
             {"label": "Strongest", "href": "/commodities/strongest"},
             {"label": "Most Volatile", "href": "/commodities/volatile"},
+            {"label": "Commodity Derivatives", "href": "/derivatives"},
             {"label": "Related Sector", "href": commodity.get("related_sectors", [{}])[0].get("href", "/sectors") if commodity.get("related_sectors") else "/sectors"},
             {"label": "Related Stock", "href": commodity.get("related_stocks", [{}])[0].get("href", "/stocks/itc") if commodity.get("related_stocks") else "/stocks/itc"},
             {"label": "Market Watch", "href": "/market-watch"},
@@ -31990,12 +32048,23 @@ def build_commodity_detail_context(slug, host_root):
         ],
         "focus_title": "Related Market Context",
         "focus_note": "These links connect the commodity view to the rest of TraderHub without forcing a user to guess the next step.",
-        "focus_cards": [
-            {"title": item["label"], "meta": "Related stock", "copy": f"Use {item['label']} when you want to compare this commodity move with a listed company page."}
-            for item in commodity.get("related_stocks", [])
-        ][:2],
-        "table_title": "Core Commodity Fields",
-        "table_note": "The first-release detail page keeps the field list compact and honest instead of trying to simulate a full terminal.",
+        "focus_cards": (
+            [
+                {"title": item["label"], "meta": "Related stock", "copy": f"Use {item['label']} when you want to compare this commodity move with a listed company page."}
+                for item in commodity.get("related_stocks", [])
+            ][:2]
+            if not research_pack
+            else [
+                {"title": "Contract Specs", "meta": "How this market trades", "copy": "This page now carries the contract facts that help a user understand lot size, expiry rhythm, and tick-value behavior."},
+                {"title": "What Moves This Commodity", "meta": "Market drivers", "copy": "This page now highlights the core demand, supply, inventory, and macro drivers that matter most for this commodity."},
+            ]
+        ),
+        "table_title": "Contract and Core Market Fields" if research_pack else "Core Commodity Fields",
+        "table_note": (
+            "This page now mixes current market fields with practical contract facts, so the user can understand both price context and how the commodity actually trades."
+            if research_pack
+            else "The first-release detail page keeps the field list compact and honest instead of trying to simulate a full terminal."
+        ),
         "table_columns": [
             {"label": "Field", "key": "field"},
             {"label": "Value", "key": "value"},
@@ -32010,23 +32079,56 @@ def build_commodity_detail_context(slug, host_root):
             {"field": "Previous Close", "value": commodity["previous_close_display"]},
             {"field": "Data Mode", "value": commodity.get("data_mode_label") or "Seeded Snapshot"},
             {"field": "Trend Label", "value": commodity["trend_label"]},
-        ],
-        "group_title": "Linked Paths",
-        "group_note": "These paths make the commodity page useful even before a deeper archive and event layer is added.",
-        "group_blocks": [
-            {
-                "title": "Related Stocks",
-                "count": len(commodity.get("related_stocks", [])),
-                "copy": "Stock pages that naturally connect to this commodity move.",
-                "items": [item["label"] for item in commodity.get("related_stocks", [])] or ["No related stocks linked yet."],
-            },
-            {
-                "title": "Related Sectors",
-                "count": len(commodity.get("related_sectors", [])),
-                "copy": "Sector pages that can add broader public market context.",
-                "items": [item["label"] for item in commodity.get("related_sectors", [])] or ["No related sectors linked yet."],
-            },
-        ],
+        ] + research_pack.get("contract_rows", []),
+        "group_title": "Commodity Research Context" if research_pack else "Linked Paths",
+        "group_note": (
+            "These blocks turn the page into more than a price card by adding the market drivers, ecosystem, and linked stock context behind the commodity move."
+            if research_pack
+            else "These paths make the commodity page useful even before a deeper archive and event layer is added."
+        ),
+        "group_blocks": (
+            [
+                {
+                    "title": "What Moves This Commodity",
+                    "count": len(research_pack.get("drivers", [])),
+                    "copy": "The short list of drivers a user should watch before treating the move as trend, noise, or event-led repricing.",
+                    "items": research_pack.get("drivers", []),
+                },
+                {
+                    "title": "Commodity Ecosystem",
+                    "count": len(research_pack.get("ecosystem", [])),
+                    "copy": "A simple explanation of how this commodity connects to listed companies and the broader industry chain.",
+                    "items": research_pack.get("ecosystem", []),
+                },
+                {
+                    "title": "Related Stocks",
+                    "count": len(commodity.get("related_stocks", [])),
+                    "copy": "Stock pages that naturally connect to this commodity move.",
+                    "items": [item["label"] for item in commodity.get("related_stocks", [])] or ["No related stocks linked yet."],
+                },
+                {
+                    "title": "Related Derivatives",
+                    "count": len(research_pack.get("related_derivatives", [])),
+                    "copy": "This is the bridge between the public commodity page and the later futures and options layer.",
+                    "items": research_pack.get("related_derivatives", []),
+                },
+            ]
+            if research_pack
+            else [
+                {
+                    "title": "Related Stocks",
+                    "count": len(commodity.get("related_stocks", [])),
+                    "copy": "Stock pages that naturally connect to this commodity move.",
+                    "items": [item["label"] for item in commodity.get("related_stocks", [])] or ["No related stocks linked yet."],
+                },
+                {
+                    "title": "Related Sectors",
+                    "count": len(commodity.get("related_sectors", [])),
+                    "copy": "Sector pages that can add broader public market context.",
+                    "items": [item["label"] for item in commodity.get("related_sectors", [])] or ["No related sectors linked yet."],
+                },
+            ]
+        ),
         "market_error": "",
         "publisher_links": get_news_publisher_links(),
         "side_box_title": "Current Data Mode",
