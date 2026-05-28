@@ -36854,8 +36854,8 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .market-tape {
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(10, minmax(0, 1fr));
+      gap: 8px;
       padding: 12px 0 10px;
     }
     .action-strip {
@@ -36877,10 +36877,11 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       display: block;
       background: rgba(255,255,255,0.72);
       border: 1px solid var(--line);
-      border-radius: 18px;
-      padding: 12px 14px;
+      border-radius: 16px;
+      padding: 10px 11px;
       box-shadow: var(--shadow);
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      min-width: 0;
     }
     .tape-item:hover {
       transform: translateY(-2px);
@@ -36888,33 +36889,36 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       box-shadow: 0 26px 72px rgba(17, 38, 53, 0.11);
     }
     .tape-label {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
       color: var(--muted);
-      margin-bottom: 6px;
+      margin-bottom: 5px;
       font-weight: 700;
     }
     .tape-value {
-      font-size: 20px;
+      font-size: 17px;
       font-weight: 800;
+      line-height: 1.15;
     }
     .tape-meta {
-      margin-top: 6px;
-      font-size: 13px;
+      margin-top: 5px;
+      font-size: 12px;
       font-weight: 700;
+      line-height: 1.3;
     }
     .tape-status {
-      margin-top: 10px;
-      font-size: 11px;
+      margin-top: 8px;
+      font-size: 10px;
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.05em;
       color: var(--muted);
       font-weight: 800;
+      line-height: 1.3;
     }
     .tape-updated {
-      margin-top: 6px;
-      font-size: 12px;
+      margin-top: 5px;
+      font-size: 11px;
       color: var(--muted);
       line-height: 1.4;
     }
@@ -36940,8 +36944,8 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       background: linear-gradient(90deg, rgba(90,106,120,0.24), rgba(90,106,120,0.7));
     }
     .tape-open {
-      margin-top: 8px;
-      font-size: 12px;
+      margin-top: 7px;
+      font-size: 11px;
       font-weight: 800;
       color: var(--accent);
     }
@@ -37168,8 +37172,18 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 13px;
       color: var(--muted);
     }
+    @media (max-width: 1500px) {
+      .market-tape {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+      }
+    }
     @media (max-width: 1240px) {
-      .market-tape, .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
+      .market-tape {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 1240px) {
+      .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
         grid-template-columns: 1fr;
       }
       .quick-board {
@@ -37179,12 +37193,16 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     @media (max-width: 760px) {
       .page { padding: 0 10px 30px; }
       .masthead, .hero-card, .module-card, .panel, .story-card, .rail-card, .knowledge-card { border-radius: 20px; }
-      .market-tape, .quick-board { grid-template-columns: 1fr; }
+      .market-tape { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .quick-board { grid-template-columns: 1fr; }
       .nav { width: 100%; }
       .nav a { flex: 1 1 calc(50% - 10px); text-align: center; }
       .hero-sub { font-size: 16px; }
       .story-card strong { font-size: 22px; }
       .quick-tile .value { font-size: 18px; }
+    }
+    @media (max-width: 520px) {
+      .market-tape { grid-template-columns: 1fr; }
     }
   </style>
 </head>
