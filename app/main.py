@@ -28551,6 +28551,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .flag.down { background:var(--down-soft); color:var(--down); }
     .flag.info { background:var(--info-soft); color:var(--info); }
     .flag.up { background:var(--up-soft); color:var(--up); }
+    .flag.neutral { background:#eef2f6; color:#526678; }
     .zone-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .zone-box { border-radius:14px; padding:12px; border:1px solid var(--line); }
     .zone-box.good { background:#f4fcf7; border-color:#b8e2cb; }
@@ -28682,6 +28683,9 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 <span class="pill">{{ strategy.risk_label }}</span>
                 <span class="pill">{{ strategy.volatility_label }}</span>
               </div>
+              {% if strategy.style_label %}
+              <div class="copy" style="margin-bottom:8px;"><strong>Strategy Style:</strong> {{ strategy.style_label }}</div>
+              {% endif %}
               {% if strategy.risk_flags %}
               <div class="flag-row">
                 {% for flag in strategy.risk_flags %}
@@ -28703,6 +28707,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 {% if strategy.live_contract_example %}<div class="mini-box"><div class="mini-title">Live Trial Example</div><div class="mini-value">{{ strategy.live_contract_example }}</div></div>{% endif %}
                 {% if strategy.live_estimated_cost %}<div class="mini-box"><div class="mini-title">Live Cost / Credit</div><div class="mini-value">{{ strategy.live_estimated_cost }}</div></div>{% endif %}
               </div>
+              {% if strategy.live_lot_capital %}<div class="copy" style="margin-top:10px;"><strong>Lot Capital View:</strong> {{ strategy.live_lot_capital }}</div>{% endif %}
               {% if strategy.live_note %}<div class="copy" style="margin-top:10px;"><strong>Live note:</strong> {{ strategy.live_note }}</div>{% endif %}
               {% endif %}
               {% if strategy.live_legs %}
@@ -30902,6 +30907,21 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
             return ""
         return f" | Approx per lot: {format_price(value * lot_size)}"
 
+    def _format_lot_capital(value, flow_type):
+        if value is None:
+            return ""
+        lot_size = chain.get("lot_size_numeric")
+        if not lot_size:
+            return ""
+        total_value = float(value) * lot_size
+        if flow_type == "credit":
+            prefix = "Approx premium inflow per lot"
+        elif flow_type == "debit":
+            prefix = "Approx premium outflow per lot"
+        else:
+            prefix = "Approx premium value per lot"
+        return f"{prefix}: {format_price(total_value)}"
+
     atm_row = _get_row(anchor)
     up1 = _get_row(anchor + strike_step)
     up2 = _get_row(anchor + (2 * strike_step))
@@ -30913,6 +30933,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 f"Estimated debit: {atm_row.get('call_ltp', 'Pending')}{_format_lot_cost(atm_row.get('call_ltp_numeric'))}."
                 if atm_row.get("call_ltp_numeric") is not None else "Estimated debit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(atm_row.get("call_ltp_numeric"), "debit"),
             "live_note": "ATM call is used in this live trial because it is the simplest clean directional example.",
         },
         "long-put": {
@@ -30921,6 +30942,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 f"Estimated debit: {atm_row.get('put_ltp', 'Pending')}{_format_lot_cost(atm_row.get('put_ltp_numeric'))}."
                 if atm_row.get("put_ltp_numeric") is not None else "Estimated debit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(atm_row.get("put_ltp_numeric"), "debit"),
             "live_note": "ATM put is used for the live bearish example.",
         },
         "bull-call-spread": {
@@ -30930,6 +30952,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
                 "Estimated net debit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([atm_row.get("call_ltp_numeric"), -(up1.get("call_ltp_numeric") or 0)]), "debit"),
             "live_note": "The trial uses ATM-to-next-OTM call strikes as the clean moderate bullish spread example.",
         },
         "bear-put-spread": {
@@ -30939,6 +30962,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated net debit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([atm_row.get("put_ltp_numeric"), -(down1.get("put_ltp_numeric") or 0)]), "debit"),
             "live_note": "The trial uses ATM-to-next-lower put strikes for a moderate bearish spread example.",
         },
         "bull-put-spread": {
@@ -30948,6 +30972,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated net credit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([(atm_row.get("put_ltp_numeric") or 0) - (down1.get("put_ltp_numeric") or 0)]), "credit"),
             "live_note": "This trial example uses the nearest ATM short put and one lower-strike hedge put.",
         },
         "bear-call-spread": {
@@ -30957,6 +30982,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
                 "Estimated net credit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([(atm_row.get("call_ltp_numeric") or 0) - (up1.get("call_ltp_numeric") or 0)]), "credit"),
             "live_note": "This trial example uses the nearest ATM short call and one higher-strike hedge call.",
         },
         "long-straddle": {
@@ -30966,6 +30992,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if atm_row.get("call_ltp_numeric") is not None and atm_row.get("put_ltp_numeric") is not None else
                 "Estimated total debit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([atm_row.get("call_ltp_numeric"), atm_row.get("put_ltp_numeric")]), "debit"),
             "live_note": "The trial straddle uses the live ATM strike because that is the cleanest event-volatility example.",
         },
         "short-strangle": {
@@ -30975,6 +31002,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
                 if up1.get("call_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated total credit: Pending."
             ),
+            "live_lot_capital": _format_lot_capital(_combine_cost([(up1.get("call_ltp_numeric") or 0), (down1.get("put_ltp_numeric") or 0)]), "credit"),
             "live_note": "The trial strangle uses one-step OTM strikes on both sides so the user can see a simple range-selling example.",
         },
     }
@@ -31340,8 +31368,10 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
     for row in context["recommended_strategies"]:
         live_bits = trial.get("example_rows", {}).get(row["slug"], {})
         row = dict(row)
+        row["style_label"] = get_option_strategy_style_label(row["slug"])
         row["live_contract_example"] = live_bits.get("live_contract_example", "")
         row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
+        row["live_lot_capital"] = live_bits.get("live_lot_capital", "")
         row["live_note"] = live_bits.get("live_note", "")
         if trial_mode:
             row.update(get_option_strategy_payoff_visual(row["slug"]))
