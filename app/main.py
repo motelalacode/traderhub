@@ -28654,7 +28654,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 <div class="compare-title">{{ block.title }}</div>
                 <span class="compare-badge">{{ block.badge }}</span>
               </div>
-              <div class="copy">{{ block.copy }}</div>
+              <div class="copy">{{ block["copy"] }}</div>
               <ul class="compare-points">
                 {% for point in block.points %}
                 <li>{{ point }}</li>
@@ -31562,18 +31562,12 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
         row["live_lot_capital"] = live_bits.get("live_lot_capital", "")
         row["live_note"] = live_bits.get("live_note", "")
-        if trial_mode:
-            row.update(get_option_strategy_payoff_visual(row["slug"]))
-            row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
-            row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
-            row["zone_guidance"] = get_option_strategy_zone_guidance(row["slug"])
-            row["before_expiry_note"] = get_option_strategy_before_expiry_note(row["slug"])
-            row["event_marker"] = get_option_strategy_event_marker(row["slug"])
-        else:
-            row["risk_flags"] = []
-            row["zone_guidance"] = {}
-            row["before_expiry_note"] = ""
-            row["event_marker"] = ""
+        row.update(get_option_strategy_payoff_visual(row["slug"]))
+        row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
+        row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
+        row["zone_guidance"] = get_option_strategy_zone_guidance(row["slug"])
+        row["before_expiry_note"] = get_option_strategy_before_expiry_note(row["slug"])
+        row["event_marker"] = get_option_strategy_event_marker(row["slug"])
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
