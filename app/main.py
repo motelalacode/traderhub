@@ -30449,6 +30449,58 @@ def fetch_index_quote_snapshot(client, quote_candidates):
     return None
 
 
+WEBSITE_TRIAL3_INDEX_CONFIG = [
+    {"label": "Nifty", "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"]},
+    {"label": "Sensex", "quote_candidates": ["BSE:SENSEX", "INDICES:SENSEX"]},
+    {"label": "Nifty Bank", "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"]},
+    {"label": "Fin Nifty", "quote_candidates": ["NSE:NIFTY FIN SERVICE", "INDICES:NIFTY FIN SERVICE", "NSE:FINNIFTY"]},
+    {"label": "Nifty IT", "quote_candidates": ["NSE:NIFTY IT", "INDICES:NIFTY IT"]},
+    {"label": "Gift Nifty", "quote_candidates": ["NSE:GIFT NIFTY", "INDICES:GIFT NIFTY", "NSE:SGX NIFTY"]},
+]
+
+
+def format_signed_points(value):
+    numeric = parse_numeric_text(value)
+    if numeric is None:
+        return "Pending"
+    return f"{numeric:+,.2f}"
+
+
+def build_website_shell_trial3_index_tape():
+    creds = get_active_kite_credentials()
+    client = build_kite_client(with_access_token=True) if creds.get("api_key") and creds.get("access_token") else None
+    rows = []
+    for config in WEBSITE_TRIAL3_INDEX_CONFIG:
+        quote = fetch_index_quote_snapshot(client, config["quote_candidates"]) or {}
+        last_price = parse_numeric_text(quote.get("last_price"))
+        net_change = parse_numeric_text(quote.get("net_change"))
+        ohlc = quote.get("ohlc") or {}
+        previous_close = parse_numeric_text(ohlc.get("close"))
+        percent_change = None
+        if last_price not in (None, 0) and previous_close not in (None, 0):
+            percent_change = ((last_price - previous_close) / previous_close) * 100.0
+        elif previous_close not in (None, 0) and net_change is not None:
+            percent_change = (net_change / previous_close) * 100.0
+        if net_change is None and last_price is not None and previous_close not in (None, 0):
+            net_change = last_price - previous_close
+        tone = "flat"
+        if percent_change is not None:
+            if percent_change > 0:
+                tone = "up"
+            elif percent_change < 0:
+                tone = "down"
+        rows.append(
+            {
+                "label": config["label"],
+                "value": format_price(last_price) if last_price is not None else "Pending",
+                "change": format_signed_points(net_change) if net_change is not None else "Pending",
+                "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
+                "tone": tone,
+            }
+        )
+    return rows
+
+
 def build_index_proxy_snapshot(symbols):
     rows, missing, error = get_derivatives_stock_rows(symbols, include_futures=False)
     avg_change = sum(row["day_change_numeric"] for row in rows) / len(rows) if rows else 0.0
@@ -35798,14 +35850,7 @@ def build_website_shell_trial2_context(host_root):
 
 def build_website_shell_trial3_context(host_root):
     canonical_url = f"{host_root.rstrip('/')}/website-shell-trial3"
-    market_tape = [
-        {"label": "Nifty 50", "value": "+0.84%", "tone": "up"},
-        {"label": "Bank Nifty", "value": "+0.52%", "tone": "up"},
-        {"label": "Sensex", "value": "+0.67%", "tone": "up"},
-        {"label": "Crude Oil", "value": "-0.41%", "tone": "down"},
-        {"label": "Gold", "value": "+0.31%", "tone": "up"},
-        {"label": "USDINR", "value": "83.14", "tone": "flat"},
-    ]
+    market_tape = build_website_shell_trial3_index_tape()
     spotlight_cards = [
         {
             "eyebrow": "Market Pulse",
@@ -36382,6 +36427,11 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 20px;
       font-weight: 800;
     }
+    .tape-meta {
+      margin-top: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
     .up { color: var(--up); }
     .down { color: var(--down); }
     .flat { color: var(--flat); }
@@ -36626,6 +36676,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       <article class="tape-item">
         <div class="tape-label">{{ item.label }}</div>
         <div class="tape-value {{ item.tone }}">{{ item.value }}</div>
+        <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
       </article>
       {% endfor %}
     </section>
@@ -36759,6 +36810,37 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       </aside>
     </div>
   </div>
+  <script>
+    (function () {
+      const items = Array.from(document.querySelectorAll(".market-tape .tape-item"));
+      async function refreshIndexCards() {
+        try {
+          const response = await fetch("/api/website-shell-trial3/indices", { headers: { "Accept": "application/json" } });
+          if (!response.ok) return;
+          const payload = await response.json();
+          const rows = payload.rows || [];
+          items.forEach((item, index) => {
+            const row = rows[index];
+            if (!row) return;
+            const valueNode = item.querySelector(".tape-value");
+            const metaNode = item.querySelector(".tape-meta");
+            const labelNode = item.querySelector(".tape-label");
+            if (labelNode) labelNode.textContent = row.label || "";
+            if (valueNode) {
+              valueNode.textContent = row.value || "Pending";
+              valueNode.className = "tape-value " + (row.tone || "flat");
+            }
+            if (metaNode) {
+              metaNode.textContent = (row.change || "Pending") + " | " + (row.percent || "Pending");
+              metaNode.className = "tape-meta " + (row.tone || "flat");
+            }
+          });
+        } catch (error) {
+        }
+      }
+      window.setInterval(refreshIndexCards, 30000);
+    })();
+  </script>
 </body>
 </html>
 """
@@ -36786,6 +36868,11 @@ def website_shell_trial2():
 def website_shell_trial3():
     context = build_website_shell_trial3_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL3_TEMPLATE, **context)
+
+
+@app.route("/api/website-shell-trial3/indices")
+def website_shell_trial3_indices_api():
+    return jsonify({"rows": build_website_shell_trial3_index_tape(), "updated_at": datetime.datetime.now(IST).isoformat()})
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
