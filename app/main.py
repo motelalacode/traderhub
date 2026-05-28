@@ -31173,6 +31173,20 @@ def get_option_strategy_zone_guidance(strategy_slug):
     return zone_map.get(strategy_slug, {})
 
 
+def get_option_strategy_style_label(strategy_slug):
+    style_map = {
+        "long-call": "Needs move | directional premium buying",
+        "long-put": "Needs move | directional premium buying",
+        "bull-call-spread": "Defined-risk trend trade | capped reward",
+        "bear-put-spread": "Defined-risk trend trade | capped reward",
+        "bull-put-spread": "Premium selling | needs stability",
+        "bear-call-spread": "Premium selling | needs stability",
+        "long-straddle": "Event-volatility trade | needs expansion",
+        "short-strangle": "Range premium selling | advanced risk",
+    }
+    return style_map.get(strategy_slug, "")
+
+
 def get_option_strategy_before_expiry_note(strategy_slug):
     note_map = {
         "long-call": "Before expiry, this trade usually needs quick directional follow-through. A slow drift up can still feel weak because time value keeps decaying.",
