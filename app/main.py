@@ -28547,6 +28547,14 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .mini-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
     .mini-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
     .mini-value { font-size:15px; line-height:1.5; color:#223244; }
+    .payoff-shell { margin-top:12px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px; }
+    .payoff-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
+    .payoff-sub { color:var(--muted); font-size:12px; line-height:1.5; }
+    .payoff-chart { width:100%; height:auto; display:block; }
+    .payoff-axis { stroke:#aab8c6; stroke-width:1; }
+    .payoff-guide { stroke:#d8e1ea; stroke-width:1; stroke-dasharray:4 4; }
+    .payoff-line { fill:none; stroke:#0d5f89; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .payoff-label { fill:#627385; font-size:11px; font-family:Arial,Helvetica,sans-serif; }
     ul.tight { margin:8px 0 0; padding-left:18px; }
     ul.tight li { color:#334253; font-size:14px; line-height:1.55; }
     .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
@@ -28662,6 +28670,26 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 {% if strategy.live_estimated_cost %}<div class="mini-box"><div class="mini-title">Live Cost / Credit</div><div class="mini-value">{{ strategy.live_estimated_cost }}</div></div>{% endif %}
               </div>
               {% if strategy.live_note %}<div class="copy" style="margin-top:10px;"><strong>Live note:</strong> {{ strategy.live_note }}</div>{% endif %}
+              {% endif %}
+              {% if strategy.payoff_points %}
+              <div class="payoff-shell">
+                <div class="payoff-head">
+                  <div>
+                    <div class="mini-title">Payoff Visual</div>
+                    <div class="payoff-sub">{{ strategy.payoff_caption }}</div>
+                  </div>
+                  <div class="payoff-sub">{{ strategy.payoff_right_note }}</div>
+                </div>
+                <svg class="payoff-chart" viewBox="0 0 320 160" role="img" aria-label="Payoff visual for {{ strategy.name }}">
+                  <line class="payoff-guide" x1="24" y1="80" x2="300" y2="80"></line>
+                  <line class="payoff-axis" x1="24" y1="18" x2="24" y2="140"></line>
+                  <line class="payoff-axis" x1="24" y1="140" x2="300" y2="140"></line>
+                  <polyline class="payoff-line" points="{{ strategy.payoff_points }}"></polyline>
+                  <text class="payoff-label" x="24" y="152">{{ strategy.payoff_left_label }}</text>
+                  <text class="payoff-label" x="146" y="152">{{ strategy.payoff_mid_label }}</text>
+                  <text class="payoff-label" x="272" y="152">{{ strategy.payoff_right_label }}</text>
+                </svg>
+              </div>
               {% endif %}
               <ul class="tight">
                 <li><strong>Time decay:</strong> {{ strategy.theta_read }}</li>
@@ -30878,6 +30906,62 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
     }
 
 
+def get_option_strategy_payoff_visual(strategy_slug):
+    visual_map = {
+        "long-call": {
+            "points": "28,132 92,132 152,126 210,92 272,46",
+            "caption": "Loss stays limited to the premium. Upside expands after breakeven.",
+            "right_note": "Classic directional buyer payoff",
+        },
+        "long-put": {
+            "points": "28,46 88,92 148,126 212,132 276,132",
+            "caption": "Downside payoff grows as price falls. Premium is the fixed risk.",
+            "right_note": "Bearish limited-risk payoff",
+        },
+        "bull-call-spread": {
+            "points": "28,132 88,132 148,108 208,64 270,64",
+            "caption": "Defined-risk bullish spread with capped upside after the short call strike.",
+            "right_note": "Moderate bullish spread",
+        },
+        "bear-put-spread": {
+            "points": "28,64 92,64 152,108 212,132 276,132",
+            "caption": "Defined-risk bearish spread with capped profit after the lower put strike.",
+            "right_note": "Moderate bearish spread",
+        },
+        "bull-put-spread": {
+            "points": "28,132 86,126 146,88 210,64 272,64",
+            "caption": "Credit spread that benefits if price stays above the short put area.",
+            "right_note": "Defined-risk premium selling",
+        },
+        "bear-call-spread": {
+            "points": "28,64 92,64 152,88 212,126 276,132",
+            "caption": "Credit spread that benefits if price stays below the short call area.",
+            "right_note": "Defined-risk premium selling",
+        },
+        "long-straddle": {
+            "points": "28,46 86,92 150,132 214,92 276,46",
+            "caption": "Loss is concentrated near ATM. A large move either way improves the payoff.",
+            "right_note": "Event-driven long volatility",
+        },
+        "short-strangle": {
+            "points": "28,46 86,104 148,64 212,104 276,46",
+            "caption": "Best when price stays inside the sold strikes. A strong move hurts on either side.",
+            "right_note": "High-risk range selling",
+        },
+    }
+    payload = visual_map.get(strategy_slug)
+    if not payload:
+        return {}
+    return {
+        "payoff_points": payload["points"],
+        "payoff_caption": payload["caption"],
+        "payoff_right_note": payload["right_note"],
+        "payoff_left_label": "Lower Price",
+        "payoff_mid_label": "ATM Zone",
+        "payoff_right_label": "Higher Price",
+    }
+
+
 def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-options", selected_expiry="", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium", page_path="/derivatives/options/strategy-engine-trial", trial_mode=True):
     context = build_option_strategy_engine_context(
         host_root,
@@ -30996,6 +31080,8 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         row["live_contract_example"] = live_bits.get("live_contract_example", "")
         row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
         row["live_note"] = live_bits.get("live_note", "")
+        if trial_mode:
+            row.update(get_option_strategy_payoff_visual(row["slug"]))
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
