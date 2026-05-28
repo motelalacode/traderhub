@@ -28588,7 +28588,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
         <section class="section" id="filters">
           <h2>Choose The Setup</h2>
           <div class="section-note">Start with the market view. This page does not promise the most profitable trade. It ranks the best-fit option structures for the setup you choose.</div>
-          <form class="form-shell" method="get" action="/derivatives/options/strategy-engine">
+          <form class="form-shell" method="get" action="{{ form_action }}">
             <div class="filter-grid">
               {% for field in filter_fields %}
               <div>
@@ -28603,10 +28603,31 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
             </div>
             <div class="form-actions">
               <button class="btn" type="submit">Show Best-Fit Strategies</button>
-              <a class="btn secondary" href="/derivatives/options/strategy-engine">Reset</a>
+              <a class="btn secondary" href="{{ reset_url }}">Reset</a>
             </div>
           </form>
         </section>
+        {% if live_chain_rows %}
+        <section class="section" id="live-chain">
+          <h2>{{ live_chain_title }}</h2>
+          <div class="section-note">{{ live_chain_note }}</div>
+          <div class="summary-grid">{% for card in live_chain_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table>
+              <thead><tr>{% for column in live_chain_columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in live_chain_rows %}
+                <tr>
+                  {% for column in live_chain_columns %}
+                  <td>{{ row[column.key] }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        {% endif %}
         <section class="section" id="recommendations">
           <h2>{{ recommendations_title }}</h2>
           <div class="section-note">{{ recommendations_note }}</div>
@@ -30695,6 +30716,13 @@ def build_option_strategy_engine_context(host_root, selected_role="buyer", selec
         "side_box_copy": "This engine is setup-first. It recommends a structure only after the user defines view, IV condition, event risk, and expiry window.",
         "why_page_works": "It turns options education into a usable decision page. That is more helpful than listing strategies without context or pretending one strategy is always the most profitable.",
         "public_note": "Actual premium values depend on the live option chain. This page teaches the correct structure, cost style, and reward logic first, and can later be upgraded with live strikes and premiums.",
+        "form_action": "/derivatives/options/strategy-engine",
+        "reset_url": "/derivatives/options/strategy-engine",
+        "live_chain_title": "",
+        "live_chain_note": "",
+        "live_chain_cards": [],
+        "live_chain_columns": [],
+        "live_chain_rows": [],
         "market_error": "",
     }
 
@@ -30841,6 +30869,11 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "selected_expiry": chain.get("selected_expiry") or "Pending",
         "spot_display": format_price(spot_value),
         "atm_strike": str(anchor),
+        "pcr_display": chain.get("pcr_display", "Pending"),
+        "support_zone": chain.get("support_zone", "-"),
+        "resistance_zone": chain.get("resistance_zone", "-"),
+        "max_pain": chain.get("max_pain", "-"),
+        "nearby_rows": [row for row in chain.get("rows", []) if abs(int(float(row.get("strike") or 0)) - anchor) <= (2 * strike_step)],
         "example_rows": examples,
     }
 
@@ -30921,6 +30954,25 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
             "side_box_copy": "This page is a safe trial. It lets TraderHub test live strike examples without replacing the working options strategy engine first.",
             "why_page_works": "It keeps the current strategy page stable while testing the hardest upgrade separately: turning abstract strike logic into live example combinations.",
             "public_note": "Live premiums are shown only as examples, not trade instructions. Costs will still move with the option chain and the selected expiry.",
+            "form_action": "/derivatives/options/strategy-engine-trial",
+            "reset_url": "/derivatives/options/strategy-engine-trial",
+            "live_chain_title": "Live Chain Snapshot",
+            "live_chain_note": "This section shows the current ATM area so the strategy examples have visible option-chain context, not just abstract strike language.",
+            "live_chain_cards": [
+                {"label": "Spot", "value": trial.get("spot_display", "Pending"), "copy": "Current index spot used to frame the sample strategies."},
+                {"label": "PCR", "value": trial.get("pcr_display", "Pending"), "copy": "Quick put-call ratio read from the displayed live strike window."},
+                {"label": "Support", "value": trial.get("support_zone", "-"), "copy": "Strongest displayed put-side support zone."},
+                {"label": "Resistance", "value": trial.get("resistance_zone", "-"), "copy": "Strongest displayed call-side resistance zone."},
+            ],
+            "live_chain_columns": [
+                {"label": "Strike", "key": "strike"},
+                {"label": "Call LTP", "key": "call_ltp"},
+                {"label": "Call OI", "key": "call_oi"},
+                {"label": "Put LTP", "key": "put_ltp"},
+                {"label": "Put OI", "key": "put_oi"},
+                {"label": "Read", "key": "read"},
+            ],
+            "live_chain_rows": trial.get("nearby_rows", []),
             "filter_fields": [
                 {
                     "name": "index",
