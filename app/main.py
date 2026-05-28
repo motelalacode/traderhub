@@ -36327,24 +36327,24 @@ def build_website_shell_trial3_context(host_root):
     spotlight_cards = [
         {
             "eyebrow": "Market Pulse",
-            "title": "One wide first screen for action, context, and next clicks",
-            "copy": "This version is designed like a real financial homepage. The user can scan markets, jump into research, and still keep reading space for deeper pages.",
+            "title": "Track the market first, then move into deeper pages fast",
+            "copy": "Use the first screen to read indices, currency, and commodities quickly before opening the stock, sector, derivatives, and research pages that matter most.",
         },
         {
-            "eyebrow": "Why Trial 3",
-            "title": "More like a live market homepage, less like a pure layout sample",
-            "copy": "The page leads with market movement, then opens into stocks, sectors, derivatives, commodities, news, and research paths without feeling cramped.",
+            "eyebrow": "Stocks And Sectors",
+            "title": "Move from market context into stocks and sector leadership",
+            "copy": "A stronger homepage should guide users from the broad market view into stock pages, sector dashboards, and leadership signals without adding friction.",
         },
         {
-            "eyebrow": "Small Screen Rule",
-            "title": "Desktop density, mobile clarity",
-            "copy": "The dense desktop layout collapses into a clean vertical feed so small screens still show the most important market blocks first.",
+            "eyebrow": "Derivatives And Commodities",
+            "title": "Keep F&O, strategies, and commodities visible from the homepage",
+            "copy": "The homepage should make derivatives, option strategies, and commodities discoverable immediately so active traders can open those workflows in one click.",
         },
     ]
     market_modules = [
         {
             "title": "Stocks To Open Next",
-            "copy": "Fast entry points into high-intent stock pages, technical trials, and dividend research paths.",
+            "copy": "Open public stock pages, chart views, dividend screens, and stock research paths from one clear homepage section.",
             "links": [
                 {"label": "ITC", "href": "/stocks/itc"},
                 {"label": "Wipro Chart Trial", "href": "/stocks/wipro/technical-chart-trial2"},
@@ -36354,7 +36354,7 @@ def build_website_shell_trial3_context(host_root):
         },
         {
             "title": "Sector Intelligence",
-            "copy": "Use the sector dashboard as the rotation layer between broad market news and individual stock selection.",
+            "copy": "Track sector leadership, weakness, and rotation before moving into individual stock pages.",
             "links": [
                 {"label": "Sectors Hub", "href": "/sectors"},
                 {"label": "Strongest Sectors", "href": "/sectors/strongest"},
@@ -36364,7 +36364,7 @@ def build_website_shell_trial3_context(host_root):
         },
         {
             "title": "Derivatives Desk",
-            "copy": "Keep options and OI pages visible from the homepage so active traders can move straight into signal-driven workflows.",
+            "copy": "Keep index options, OI dashboards, strategy pages, and F&O discovery visible from the homepage.",
             "links": [
                 {"label": "Derivatives Hub", "href": "/derivatives"},
                 {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
@@ -36374,7 +36374,7 @@ def build_website_shell_trial3_context(host_root):
         },
         {
             "title": "Commodity Layer",
-            "copy": "Energy and metals stay visible as a separate research lane instead of being hidden inside general market pages.",
+            "copy": "Keep gold, silver, crude oil, natural gas, and commodity-linked research visible as a separate market layer.",
             "links": [
                 {"label": "Commodities Hub", "href": "/commodities"},
                 {"label": "Crude Oil", "href": "/commodities/crude-oil"},
@@ -36385,9 +36385,9 @@ def build_website_shell_trial3_context(host_root):
     ]
     lead_stories = [
         {
-            "kicker": "Homepage Story Block",
-            "title": "Lead with a real market headline, then support it with linked tools",
-            "copy": "This space should hold the biggest market message of the day, followed by the most useful path a user can take next.",
+            "kicker": "Market News",
+            "title": "Lead with the most important market message of the day",
+            "copy": "A homepage should explain what matters in the market right now, then show the best next pages to open for follow-through.",
             "links": [
                 {"label": "Market News", "href": "/market"},
                 {"label": "Live Movers", "href": "/market/live-movers"},
@@ -36395,9 +36395,9 @@ def build_website_shell_trial3_context(host_root):
             ],
         },
         {
-            "kicker": "Research Block",
-            "title": "Put one research-heavy surface directly below the lead story",
-            "copy": "A homepage becomes much more useful when one major table, board, or dashboard is visible without another click.",
+            "kicker": "Research Flow",
+            "title": "Put one serious research block directly below the lead story",
+            "copy": "The homepage becomes more useful when one major board, dashboard, or research surface is visible without another click.",
             "links": [
                 {"label": "Sector Dashboard", "href": "/sectors"},
                 {"label": "Option Strategy Engine", "href": "/derivatives/options/strategy-engine"},
@@ -36406,10 +36406,10 @@ def build_website_shell_trial3_context(host_root):
         },
     ]
     quick_boards = [
-        {"label": "Most Useful For", "value": "Markets, news, and research discovery"},
-        {"label": "Best Desktop Use", "value": "Wide content board with compact decision rail"},
-        {"label": "Best Mobile Use", "value": "Top blocks stack into one readable market feed"},
-        {"label": "Ad Placement Style", "value": "Right rail on desktop, inline between major modules on mobile"},
+        {"label": "Best Use", "value": "Market, research, and trading discovery"},
+        {"label": "Desktop Strength", "value": "Wide content area with compact support rail"},
+        {"label": "Mobile Strength", "value": "Stacked market feed with strong first-screen priority"},
+        {"label": "Ad Placement", "value": "Right rail on desktop, inline between key blocks on mobile"},
     ]
     quick_actions = [
         {"label": "Open Market Desk", "href": "/market"},
@@ -36420,7 +36420,7 @@ def build_website_shell_trial3_context(host_root):
     news_depth_cards = [
         {
             "title": "Market News Lane",
-            "copy": "A stronger homepage should always expose the main market-news paths directly, not bury them under generic cards.",
+            "copy": "Homepage SEO improves when the main market-news paths are visible and clearly linked instead of being buried below generic cards.",
             "links": [
                 {"label": "Market News", "href": "/market"},
                 {"label": "Pre-Market", "href": "/market/pre-market-news"},
@@ -36429,7 +36429,7 @@ def build_website_shell_trial3_context(host_root):
         },
         {
             "title": "Live Movers Lane",
-            "copy": "Use one homepage block for movers, sector follow-through, and the strongest shift in the session so users can react quickly.",
+            "copy": "Keep movers, sector follow-through, and the strongest shift in the session visible so users can react quickly.",
             "links": [
                 {"label": "Live Movers", "href": "/market/live-movers"},
                 {"label": "Sector News", "href": "/market/sector-news"},
@@ -36438,7 +36438,7 @@ def build_website_shell_trial3_context(host_root):
         },
         {
             "title": "Archive Lane",
-            "copy": "Homepage depth improves when users can also move into archive trails instead of only today-only pages.",
+            "copy": "A stronger homepage also exposes archive paths so users can move beyond only today-only pages.",
             "links": [
                 {"label": "Market Archive", "href": "/market/archive"},
                 {"label": "Stock Archive", "href": "/stocks/itc/news-archive"},
@@ -36452,11 +36452,11 @@ def build_website_shell_trial3_context(host_root):
             "items": ["Nifty options", "Bank Nifty options", "Crude oil strategy", "Dividend screen", "Sector rotation"],
         },
         {
-            "title": "What Makes This Better",
+            "title": "What This Homepage Should Do",
             "items": [
-                "Large content blocks stay central instead of being squeezed.",
-                "The homepage can feel alive without becoming visually noisy.",
-                "Every major product family stays reachable in one screen.",
+                "Keep the biggest market message and the strongest tools above the fold.",
+                "Keep the content area larger than the page chrome.",
+                "Make every major product family reachable in one screen.",
             ],
         },
         {
@@ -36471,35 +36471,35 @@ def build_website_shell_trial3_context(host_root):
     ]
     education_cards = [
         {
-            "title": "Why this style works for a small site",
-            "copy": "A smaller website benefits from one strong homepage that immediately explains the product range without making users search too much.",
+            "title": "Why this homepage style works",
+            "copy": "A strong homepage should explain the product range immediately and help users move into the right page without making them search too much.",
         },
         {
-            "title": "Why this style also works on large desktop screens",
+            "title": "Why the wide desktop layout matters",
             "copy": "The wide center area can hold dense tables, strategy engines, charts, and research summaries while the side rail handles lighter support content.",
         },
         {
-            "title": "What not to do",
-            "copy": "Do not turn the homepage into a wall of equal cards. The most important market message and the strongest tools should stay clearly above the rest.",
+            "title": "What to avoid",
+            "copy": "Do not turn the homepage into a wall of equal cards. The most important market message and strongest tools should stay clearly above the rest.",
         },
     ]
     context = {
-        "seo_title": "TraderHub Website Shell Trial 3 | TraderHub",
-        "seo_description": "A third homepage shell trial for TraderHub with a market-home layout inspired by financial portals and built for both mobile and large desktop screens.",
+        "seo_title": "Indian Stock Market Dashboard, Stocks, Sectors, F&O and Commodities | TraderHub",
+        "seo_description": "Track the Indian stock market with live index context, stocks, sector trends, derivatives, dividend screens, option strategy pages, and commodity market updates in one TraderHub dashboard.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps(
             {
                 "@context": "https://schema.org",
                 "@type": "WebPage",
-                "name": "TraderHub Website Shell Trial 3",
-                "description": "A market-home layout trial for the TraderHub homepage.",
+                "name": "Indian Stock Market Dashboard | TraderHub",
+                "description": "TraderHub dashboard for stocks, sectors, derivatives, dividend screens, and commodities in the Indian market.",
                 "url": canonical_url,
             },
             indent=2,
         ),
-        "page_meta_text": f"Homepage trial 3 | Last reviewed {get_today_ist().isoformat()}",
-        "hero_title": "Website Shell Sample Three",
-        "hero_subtitle": "A market-home trial with a strong first screen, wider story blocks, quick research entry points, and a cleaner path from homepage scanning into deep TraderHub pages.",
+        "page_meta_text": f"Homepage candidate | Last reviewed {get_today_ist().isoformat()}",
+        "hero_title": "Indian Market Dashboard for Stocks, Sectors, F&O and Commodities",
+        "hero_subtitle": "TraderHub brings stocks, sectors, derivatives, dividend screens, option strategies, and commodities into one clear Indian market dashboard. Use it to track major indices, open stock research pages, follow sector strength, scan F&O setups, and move quickly into the market pages that matter most.",
         "market_tape": market_tape,
         "spotlight_cards": spotlight_cards,
         "market_modules": market_modules,
