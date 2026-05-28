@@ -22179,6 +22179,7 @@ def build_known_seo_inventory():
         ("/derivatives/stocks/oi-change", "derivatives", "stock-oi-change", "derivatives", "WebPage"),
         ("/derivatives/stocks/futures-buildup", "derivatives", "futures-buildup", "derivatives", "WebPage"),
         ("/derivatives/options/strategy-engine", "derivatives", "options-strategy-engine", "derivatives", "WebPage"),
+        ("/derivatives/commodities/crude-oil/strategy", "derivatives", "commodity-crude-strategy", "derivatives", "WebPage"),
         ("/commodities", "commodities_hub", "hub", "commodities", "CollectionPage"),
         ("/commodities/strongest", "commodities", "strongest", "commodities", "CollectionPage"),
         ("/commodities/weakest", "commodities", "weakest", "commodities", "CollectionPage"),
@@ -36469,6 +36470,70 @@ def crude_oil_strategy_trial():
         selected_dte=selected_dte,
         selected_capital=selected_capital,
     )
+    return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
+
+
+@app.route("/derivatives/commodities/crude-oil/strategy")
+def crude_oil_strategy_main():
+    selected_contract = str(request.args.get("contract", "main") or "main").strip().lower()
+    selected_expiry_mode = str(request.args.get("expiry_mode", "near") or "near").strip().lower()
+    selected_role = str(request.args.get("role", "buyer") or "buyer").strip().lower()
+    selected_outlook = str(request.args.get("outlook", "bullish") or "bullish").strip().lower()
+    selected_strength = str(request.args.get("strength", "moderate") or "moderate").strip().lower()
+    selected_iv = str(request.args.get("iv", "normal") or "normal").strip().lower()
+    selected_event = str(request.args.get("event", "no") or "no").strip().lower()
+    selected_dte = str(request.args.get("dte", "medium") or "medium").strip().lower()
+    selected_capital = str(request.args.get("capital", "medium") or "medium").strip().lower()
+    context = build_crude_oil_strategy_trial_context(
+        request.url_root.rstrip("/"),
+        selected_contract=selected_contract,
+        selected_expiry_mode=selected_expiry_mode,
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    host_root = request.url_root.rstrip("/")
+    context["seo_title"] = "Crude Oil Options Strategy Engine | TraderHub"
+    context["seo_description"] = "Choose crude oil options strategies in TraderHub using main or mini contract context, expiry lens, buyer or seller fit, and practical trader guidance."
+    context["canonical_url"] = f"{host_root}/derivatives/commodities/crude-oil/strategy"
+    context["schema_json"] = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@type": "WebPage",
+            "name": "Crude Oil Options Strategy Engine | TraderHub",
+            "description": "Public crude oil strategy engine with contract-aware buyer and seller setup guidance.",
+            "url": f"{host_root}/derivatives/commodities/crude-oil/strategy",
+        },
+        indent=2,
+    )
+    context["breadcrumb_text"] = "Derivatives > Commodities > Crude Oil Strategy"
+    context["breadcrumb_meta_text"] = f"Commodity strategy page | Last reviewed {get_today_ist().isoformat()}"
+    context["hero_kicker"] = "TraderHub Commodity Strategy Engine"
+    context["hero_title"] = "Crude Oil Strategy Engine"
+    context["hero_badges"] = [
+        {"label": "Main Public Page", "kind": "tag-up"},
+        {"label": "Crude Oil", "kind": "tag-info"},
+        {"label": "Options on Futures", "kind": "tag-up"},
+    ]
+    context["nav_chips"] = [
+        {"label": "Derivatives Hub", "href": "/derivatives"},
+        {"label": "Commodities", "href": "/commodities"},
+        {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+        {"label": "Crude Strategy", "href": "/derivatives/commodities/crude-oil/strategy"},
+        {"label": "Crude Trial", "href": "/derivatives/commodities/crude-oil/strategy-trial"},
+    ]
+    context["section_title"] = "Crude Oil Strategy Setup"
+    context["section_note"] = "This is the main public crude-oil strategy page. It keeps contract size, options-on-futures structure, event sensitivity, and setup-based strategy selection in one readable screen."
+    context["market_error"] = ""
+    context["side_box_copy"] = "This is now the main crude-oil strategy page. Start with market driver, choose contract size, then choose the option structure."
+    context["why_page_works"] = "It turns crude-oil strategy selection into a public product page instead of leaving commodity options scattered between theory and contract specs."
+    context["public_note"] = "This page is strategy-first and contract-aware. Live MCX crude option-chain integration can be added later without changing the user flow."
+    context["form_action"] = "/derivatives/commodities/crude-oil/strategy"
+    context["reset_url"] = "/derivatives/commodities/crude-oil/strategy"
     return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
 
 
