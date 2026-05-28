@@ -30679,7 +30679,7 @@ def build_kite_currency_card(client, base_symbol="USDINR"):
         "status": get_trial3_session_status("currency", timestamp_dt) if last_price is not None else "Feed pending",
         "updated_label": get_trial3_last_updated_label(timestamp_dt),
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-        "open_label": "Open page >",
+        "open_label": "↗",
     }
 
 
@@ -30699,7 +30699,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "Open page >",
+            "open_label": "↗",
         }
     instrument = search_upstox_currency_instrument(query)
     instrument_key = str(instrument.get("instrument_key") or "").strip()
@@ -30714,7 +30714,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "Open page >",
+            "open_label": "↗",
         }
     quote = get_upstox_market_quote(instrument_key)
     if not quote:
@@ -30728,7 +30728,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "Open page >",
+            "open_label": "↗",
         }
     ohlc = quote.get("ohlc") or {}
     last_price = parse_numeric_text(quote.get("last_price"))
@@ -30754,7 +30754,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
         "status": get_trial3_session_status("currency", timestamp_dt) if last_price is not None else "Feed pending",
         "updated_label": get_trial3_last_updated_label(timestamp_dt),
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], "up" if (percent_change or 0) > 0 else "down" if (percent_change or 0) < 0 else "flat"),
-        "open_label": "Open page >",
+        "open_label": "↗",
     }
 
 
@@ -30772,7 +30772,7 @@ def build_trial3_commodity_card(slug, label, href, client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "Open page >",
+            "open_label": "↗",
         }
     seeded = build_commodity_seed_row(row)
     live = build_kite_commodity_overrides(client, slug) if client else {}
@@ -30811,7 +30811,7 @@ def build_trial3_commodity_card(slug, label, href, client=None):
         "status": get_trial3_session_status("commodity", timestamp_dt) if merged.get("data_mode") == "live" else "Latest seeded snapshot",
         "updated_label": updated_label,
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-        "open_label": "Open page >",
+        "open_label": "↗",
     }
 
 
@@ -30853,7 +30853,7 @@ def build_website_shell_trial3_index_tape():
                 "status": get_trial3_equity_market_status(timestamp_dt) if last_price is not None else str(config.get("pending_note") or "Pending"),
                 "updated_label": get_trial3_last_updated_label(timestamp_dt),
                 "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-                "open_label": "Open page >",
+                "open_label": "↗",
             }
         )
     rows.append(get_live_currency_overrides("USDINR", client=client))
@@ -34085,17 +34085,56 @@ def get_nearest_kite_commodity_instrument(slug):
     return candidates[0]
 
 
+def get_preferred_kite_commodity_contract(slug, client, candidate_limit=4):
+    if not client:
+        return {}, {}
+    base_name = COMMODITY_KITE_NAME_MAP.get(str(slug or "").strip().lower())
+    if not base_name:
+        return {}, {}
+    today = get_today_ist()
+    candidates = []
+    for row in get_mcx_instruments():
+        exchange = str(row.get("exchange") or "").strip().upper()
+        name = str(row.get("name") or "").strip().upper()
+        tradingsymbol = str(row.get("tradingsymbol") or "").strip().upper()
+        instrument_type = str(row.get("instrument_type") or "").strip().upper()
+        expiry = normalize_expiry_date(row.get("expiry"))
+        if exchange != "MCX":
+            continue
+        if name != base_name:
+            continue
+        if instrument_type and instrument_type not in {"FUT", "FUTCOM"}:
+            continue
+        if expiry and expiry < today:
+            continue
+        days_to_expiry = (expiry - today).days if expiry else 999999
+        candidates.append({**row, "expiry_date": expiry, "days_to_expiry": days_to_expiry, "tradingsymbol_upper": tradingsymbol})
+    if not candidates:
+        return {}, {}
+    candidates.sort(key=lambda item: (item["days_to_expiry"], len(str(item.get("tradingsymbol") or ""))))
+    shortlisted = candidates[: max(candidate_limit, 1)]
+    quote_symbols = [f"MCX:{item['tradingsymbol_upper']}" for item in shortlisted if item.get("tradingsymbol_upper")]
+    quote_map = fetch_quote_map_safe(client, quote_symbols)
+    ranked = []
+    for item in shortlisted:
+        quote = quote_map.get(f"MCX:{item['tradingsymbol_upper']}") or {}
+        volume = parse_numeric_text(quote.get("volume"))
+        oi = parse_numeric_text(quote.get("oi"))
+        timestamp = get_quote_timestamp_dt(quote)
+        ranked.append((item, quote, volume if volume is not None else -1, oi if oi is not None else -1, timestamp or datetime.datetime.min.replace(tzinfo=APP_TZ)))
+    ranked.sort(key=lambda row: (-row[2], -row[3], -row[4].timestamp() if hasattr(row[4], "timestamp") else 0, row[0]["days_to_expiry"]))
+    best_item, best_quote, *_ = ranked[0]
+    return best_item, best_quote
+
+
 def build_kite_commodity_overrides(client, slug):
     if not client:
         return {}
-    instrument = get_nearest_kite_commodity_instrument(slug)
-    tradingsymbol = str(instrument.get("tradingsymbol") or "").strip().upper()
-    if not tradingsymbol:
-        return {}
-    quote = fetch_index_quote_snapshot(client, [f"MCX:{tradingsymbol}"]) or {}
+    instrument, quote = get_preferred_kite_commodity_contract(slug, client)
     if not quote:
         return {}
     ohlc = quote.get("ohlc") or {}
+    tradingsymbol = str(instrument.get("tradingsymbol") or "").strip().upper()
     last_price = parse_numeric_text(quote.get("last_price"))
     previous_close = parse_numeric_text(ohlc.get("close"))
     open_price = parse_numeric_text(ohlc.get("open"))
@@ -36948,6 +36987,9 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 11px;
       font-weight: 800;
       color: var(--accent);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
     .up { color: var(--up); }
     .down { color: var(--down); }
@@ -37406,7 +37448,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             }
             const openNode = item.querySelector(".tape-open");
             if (openNode) {
-              openNode.textContent = row.open_label || "Open page >";
+              openNode.textContent = row.open_label || "↗";
             }
             const barNode = item.querySelector(".tape-bar span");
             if (barNode) {
@@ -37416,7 +37458,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         } catch (error) {
         }
       }
-      window.setInterval(refreshIndexCards, 30000);
+      window.setInterval(refreshIndexCards, 60000);
     })();
   </script>
 </body>
