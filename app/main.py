@@ -36927,13 +36927,20 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       border-color: rgba(14, 97, 116, 0.26);
       box-shadow: 0 26px 72px rgba(17, 38, 53, 0.11);
     }
+    .tape-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 5px;
+    }
     .tape-label {
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--muted);
-      margin-bottom: 5px;
       font-weight: 700;
+      min-width: 0;
     }
     .tape-value {
       font-size: 17px;
@@ -36983,13 +36990,14 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       background: linear-gradient(90deg, rgba(90,106,120,0.24), rgba(90,106,120,0.7));
     }
     .tape-open {
-      margin-top: 7px;
       font-size: 11px;
       font-weight: 800;
       color: var(--accent);
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 0;
+      line-height: 1;
+      flex: 0 0 auto;
     }
     .up { color: var(--up); }
     .down { color: var(--down); }
@@ -37253,13 +37261,15 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     <section class="market-tape">
       {% for item in market_tape %}
       <a class="tape-item" href="{{ item.href }}">
-        <div class="tape-label">{{ item.label }}</div>
+        <div class="tape-head">
+          <div class="tape-label">{{ item.label }}</div>
+          <div class="tape-open">{{ item.open_label }}</div>
+        </div>
         <div class="tape-value {{ item.tone }}">{{ item.value }}</div>
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
         <div class="tape-status">{{ item.status }}</div>
         <div class="tape-updated">{{ item.updated_label }}</div>
         <div class="tape-bar"><span class="{{ item.tone }}"></span></div>
-        <div class="tape-open">{{ item.open_label }}</div>
       </a>
       {% endfor %}
     </section>
