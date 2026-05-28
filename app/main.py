@@ -36325,6 +36325,21 @@ def build_website_shell_trial2_context(host_root):
 def build_website_shell_trial3_context(host_root):
     canonical_url = f"{host_root.rstrip('/')}/website-shell-trial3"
     market_tape = build_website_shell_trial3_index_tape()
+    hero_ctas = [
+        {"label": "Explore Market", "href": "/market", "kind": "primary"},
+        {"label": "AI Scanner", "href": "/stocks/equity-stock-page", "kind": "secondary"},
+    ]
+    hero_trust_items = [
+        "Powered by AI",
+        "10,000+ Traders",
+        "Realtime Analytics",
+        "Smart Option Chain",
+    ]
+    hero_ticker_items = [
+        f"{row.get('label')} {row.get('value')} {row.get('percent')}"
+        for row in market_tape[:10]
+        if str(row.get("label") or "").strip()
+    ]
     hero_gallery = [
         {
             "eyebrow": "Market Dashboard",
@@ -36418,9 +36433,12 @@ def build_website_shell_trial3_context(host_root):
             indent=2,
         ),
         "page_meta_text": f"Homepage candidate | Last reviewed {get_today_ist().isoformat()}",
-        "hero_title": "Indian Market Dashboard for Stocks, Sectors, F&O and Commodities",
-        "hero_subtitle": "Track the Indian stock market with live index context, stock research, sector leadership, option strategies, and commodities from one clean homepage.",
+        "hero_title": "India's AI-Powered Trading Intelligence Platform",
+        "hero_subtitle": "Track markets, discover setups, and move from live context into stock, sector, derivatives, and commodity pages without losing speed.",
         "market_tape": market_tape,
+        "hero_ctas": hero_ctas,
+        "hero_trust_items": hero_trust_items,
+        "hero_ticker_items": hero_ticker_items,
         "hero_gallery": hero_gallery,
         "market_pulse": market_pulse,
         "cta_cards": cta_cards,
@@ -36808,13 +36826,14 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     .market-tape {
       display: flex;
       flex-wrap: nowrap;
-      gap: 8px;
-      padding: 12px 0 10px;
-      overflow-x: hidden;
+      gap: 10px;
+      padding: 14px 0 10px;
+      overflow-x: auto;
       overflow-y: hidden;
       scrollbar-width: none;
       -ms-overflow-style: none;
       scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
     }
     .market-tape::-webkit-scrollbar {
       display: none;
@@ -36836,19 +36855,40 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .tape-item {
       display: block;
-      background: rgba(255,255,255,0.72);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 9px 10px;
-      box-shadow: var(--shadow);
-      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+      background: linear-gradient(180deg, rgba(11, 24, 38, 0.96), rgba(16, 36, 54, 0.92));
+      border: 1px solid rgba(120, 158, 194, 0.18);
+      border-radius: 18px;
+      padding: 10px 11px 11px;
+      box-shadow: 0 14px 34px rgba(6, 16, 26, 0.22);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, filter 0.18s ease;
       min-width: 0;
-      flex: 0 0 calc((100% - 64px) / 9);
+      flex: 0 0 calc((100% - 90px) / 10);
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(16px);
     }
     .tape-item:hover {
-      transform: translateY(-2px);
-      border-color: rgba(14, 97, 116, 0.26);
-      box-shadow: 0 26px 72px rgba(17, 38, 53, 0.11);
+      transform: translateY(-4px);
+      box-shadow: 0 22px 46px rgba(7, 18, 30, 0.34);
+      filter: brightness(1.03);
+    }
+    .tape-item.up-card {
+      border-color: rgba(20, 207, 132, 0.34);
+      box-shadow: 0 14px 34px rgba(6, 16, 26, 0.22), 0 0 0 1px rgba(20, 207, 132, 0.10), 0 0 18px rgba(20, 207, 132, 0.14);
+    }
+    .tape-item.down-card {
+      border-color: rgba(255, 95, 109, 0.34);
+      box-shadow: 0 14px 34px rgba(6, 16, 26, 0.22), 0 0 0 1px rgba(255, 95, 109, 0.10), 0 0 18px rgba(255, 95, 109, 0.14);
+    }
+    .tape-item.flat-card {
+      border-color: rgba(117, 140, 163, 0.24);
+    }
+    .tape-item::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(121, 210, 255, 0.18), transparent 34%);
+      pointer-events: none;
     }
     .tape-head {
       display: flex;
@@ -36861,7 +36901,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--muted);
+      color: rgba(217, 229, 241, 0.82);
       font-weight: 700;
       min-width: 0;
     }
@@ -36869,6 +36909,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 15px;
       font-weight: 800;
       line-height: 1.15;
+      color: #f5fbff;
     }
     .tape-meta {
       margin-top: 4px;
@@ -36877,62 +36918,136 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       line-height: 1.3;
     }
     .tape-status {
-      margin-top: 6px;
-      font-size: 10px;
+      margin-top: 7px;
+      font-size: 9px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
-      color: var(--muted);
+      color: rgba(201, 215, 228, 0.84);
       font-weight: 800;
       line-height: 1.3;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tape-status::before {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: rgba(104, 179, 255, 0.9);
+      box-shadow: 0 0 0 0 rgba(104, 179, 255, 0.55);
+      animation: pulse-dot 2s infinite;
+      flex: 0 0 auto;
     }
     .tape-updated {
       margin-top: 4px;
-      font-size: 10px;
-      color: var(--muted);
+      font-size: 9px;
+      color: rgba(184, 199, 214, 0.82);
       line-height: 1.3;
     }
     .tape-open {
       font-size: 11px;
       font-weight: 800;
-      color: var(--accent);
+      color: #7fd7ff;
       display: inline-flex;
       align-items: center;
       gap: 0;
       line-height: 1;
       flex: 0 0 auto;
     }
+    .tape-sparkline {
+      margin-top: 8px;
+      height: 18px;
+      width: 100%;
+      opacity: 0.92;
+    }
+    .tape-sparkline svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
     .up { color: var(--up); }
     .down { color: var(--down); }
     .flat { color: var(--flat); }
     .hero-shell {
-      padding: 18px 0 16px;
+      margin: 0 calc(50% - 50vw) 10px;
+      padding: 0 18px 14px;
     }
     .topnav {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
-      margin-bottom: 16px;
+      margin: 0 auto 14px;
+      max-width: 1580px;
     }
     .topnav a {
       padding: 9px 14px;
       border-radius: 999px;
-      border: 1px solid var(--line);
-      background: rgba(255,255,255,0.8);
-      box-shadow: var(--shadow);
+      border: 1px solid rgba(133, 164, 193, 0.16);
+      background: rgba(10, 23, 37, 0.72);
+      box-shadow: 0 10px 24px rgba(5, 14, 23, 0.18);
       font-size: 13px;
       font-weight: 800;
+      color: #e7f3ff;
+      backdrop-filter: blur(14px);
     }
     .hero-frame {
-      background: linear-gradient(145deg, #14304b 0%, #1c4258 48%, #265a62 100%);
-      border-radius: 30px;
-      padding: 22px;
-      box-shadow: var(--shadow);
+      position: relative;
+      max-width: 1580px;
+      margin: 0 auto;
+      background:
+        radial-gradient(circle at top right, rgba(91, 197, 255, 0.18), transparent 22%),
+        radial-gradient(circle at bottom left, rgba(34, 255, 168, 0.12), transparent 26%),
+        linear-gradient(135deg, #071525 0%, #0c2236 36%, #0e3147 68%, #0a2940 100%);
+      border-radius: 34px;
+      padding: 24px;
+      box-shadow: 0 36px 80px rgba(7, 17, 27, 0.32);
       color: #fff;
       overflow: hidden;
+      border: 1px solid rgba(146, 179, 210, 0.14);
+      backdrop-filter: blur(18px);
+      transform: translateY(var(--hero-shift, 0px));
+      transition: transform 0.18s ease;
+    }
+    .hero-frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0)),
+        radial-gradient(circle at 15% 10%, rgba(120, 220, 255, 0.10), transparent 22%);
+      pointer-events: none;
+    }
+    .hero-chart {
+      position: absolute;
+      inset: auto 0 0 0;
+      height: 220px;
+      pointer-events: none;
+      opacity: 0.9;
+    }
+    .hero-chart::before,
+    .hero-chart::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-repeat: no-repeat;
+      background-size: 100% 100%;
+    }
+    .hero-chart::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 280' preserveAspectRatio='none'%3E%3Cpath d='M0 210 L110 196 L220 202 L330 162 L440 170 L550 126 L660 142 L770 114 L880 148 L990 122 L1100 136 L1210 94 L1320 106 L1440 72' stroke='%2334d5ff' stroke-width='4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      filter: drop-shadow(0 0 18px rgba(52, 213, 255, 0.55));
+      opacity: 0.88;
+    }
+    .hero-chart::after {
+      background-image: linear-gradient(180deg, rgba(52,213,255,0.12), rgba(52,213,255,0.0));
+      clip-path: polygon(0 75%, 8% 70%, 15% 72%, 23% 58%, 31% 61%, 38% 45%, 46% 51%, 53% 41%, 61% 53%, 69% 44%, 76% 49%, 84% 34%, 92% 38%, 100% 26%, 100% 100%, 0 100%);
+      opacity: 0.4;
     }
     .hero-copy {
-      max-width: 780px;
+      max-width: 820px;
       margin-bottom: 18px;
+      position: relative;
+      z-index: 2;
     }
     .hero-kicker {
       font-size: 12px;
@@ -36944,21 +37059,89 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .hero-copy h1 {
       margin: 0 0 10px;
-      font-size: clamp(34px, 5vw, 62px);
+      font-size: clamp(36px, 5.4vw, 68px);
       line-height: 0.98;
       max-width: 820px;
     }
     .hero-copy p {
       margin: 0;
       color: rgba(255,255,255,0.88);
-      font-size: 17px;
+      font-size: 16px;
       line-height: 1.55;
-      max-width: 760px;
+      max-width: 720px;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .hero-actions a {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 800;
+      border: 1px solid rgba(144, 180, 213, 0.2);
+      backdrop-filter: blur(16px);
+    }
+    .hero-actions .primary {
+      background: linear-gradient(135deg, rgba(12, 163, 115, 0.92), rgba(16, 190, 134, 0.82));
+      color: #fff;
+      box-shadow: 0 14px 28px rgba(12, 163, 115, 0.22);
+    }
+    .hero-actions .secondary {
+      background: rgba(255,255,255,0.10);
+      color: #f1f8ff;
+    }
+    .trust-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 16px;
+    }
+    .trust-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(145, 182, 214, 0.16);
+      color: rgba(241, 248, 255, 0.94);
+      font-size: 13px;
+      font-weight: 800;
+      backdrop-filter: blur(14px);
+    }
+    .hero-marquee {
+      position: relative;
+      z-index: 2;
+      margin-top: 20px;
+      border-radius: 18px;
+      border: 1px solid rgba(145, 182, 214, 0.14);
+      background: rgba(8, 20, 32, 0.46);
+      overflow: hidden;
+      backdrop-filter: blur(14px);
+    }
+    .hero-marquee-track {
+      display: flex;
+      gap: 22px;
+      width: max-content;
+      padding: 12px 16px;
+      animation: marquee-scroll 26s linear infinite;
+    }
+    .hero-marquee span {
+      color: rgba(226, 238, 251, 0.9);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
     }
     .gallery-grid {
       display: grid;
       grid-template-columns: 1.35fr 0.95fr 0.95fr;
       gap: 14px;
+      margin-top: 22px;
+      position: relative;
+      z-index: 2;
     }
     .gallery-card {
       position: relative;
@@ -37026,6 +37209,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       grid-template-columns: 1.15fr 0.85fr;
       gap: 18px;
       align-items: center;
+      background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(247,251,255,0.92));
     }
     .pulse-copy h2 {
       margin: 0 0 8px;
@@ -37336,12 +37520,21 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 13px;
       color: var(--muted);
     }
+    @keyframes pulse-dot {
+      0% { box-shadow: 0 0 0 0 rgba(104, 179, 255, 0.55); }
+      70% { box-shadow: 0 0 0 7px rgba(104, 179, 255, 0.0); }
+      100% { box-shadow: 0 0 0 0 rgba(104, 179, 255, 0.0); }
+    }
+    @keyframes marquee-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
     @media (max-width: 1500px) {
       .market-tape {
         overflow-x: auto;
       }
       .tape-item {
-        flex-basis: 168px;
+        flex-basis: 172px;
       }
     }
     @media (max-width: 1240px) {
@@ -37354,12 +37547,16 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     @media (max-width: 760px) {
       .page { padding: 0 10px 30px; }
+      .hero-shell { margin: 0 calc(50% - 50vw) 8px; padding: 0 10px 12px; }
       .hero-frame, .gallery-card, .pulse-card, .cta-card { border-radius: 20px; }
       .topnav a { flex: 1 1 calc(50% - 10px); text-align: center; }
       .hero-copy p { font-size: 15px; }
       .gallery-card strong { font-size: 24px; }
       .pulse-copy h2 { font-size: 27px; }
       .pulse-metrics { grid-template-columns: 1fr; }
+      .hero-actions { gap: 10px; }
+      .hero-actions a { width: 100%; justify-content: center; }
+      .hero-marquee span { font-size: 12px; }
       .tape-item { flex-basis: 156px; }
     }
     @media (max-width: 520px) {
@@ -37379,10 +37576,31 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <a href="/commodities">Commodities</a>
       </nav>
       <section class="hero-frame">
+        <div class="hero-chart" aria-hidden="true"></div>
         <div class="hero-copy">
           <div class="hero-kicker">{{ page_meta_text }}</div>
           <h1>{{ hero_title }}</h1>
           <p>{{ hero_subtitle }}</p>
+          <div class="hero-actions">
+            {% for action in hero_ctas %}
+            <a class="{{ action.kind }}" href="{{ action.href }}">{{ action.label }}</a>
+            {% endfor %}
+          </div>
+          <div class="trust-strip">
+            {% for item in hero_trust_items %}
+            <div class="trust-pill">{{ item }}</div>
+            {% endfor %}
+          </div>
+          <div class="hero-marquee">
+            <div class="hero-marquee-track">
+              {% for item in hero_ticker_items %}
+              <span>{{ item }}</span>
+              {% endfor %}
+              {% for item in hero_ticker_items %}
+              <span>{{ item }}</span>
+              {% endfor %}
+            </div>
+          </div>
         </div>
         <div class="gallery-grid">
           {% for card in hero_gallery %}
@@ -37399,7 +37617,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
 
     <section class="market-tape">
       {% for item in market_tape %}
-      <a class="tape-item" href="{{ item.href }}">
+      <a class="tape-item {{ item.tone }}-card" href="{{ item.href }}">
         <div class="tape-head">
           <div class="tape-label">{{ item.label }}</div>
           <div class="tape-open">{{ item.open_label }}</div>
@@ -37408,6 +37626,9 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
         <div class="tape-status">{{ item.status }}</div>
         <div class="tape-updated">{{ item.updated_label }}</div>
+        {% if item.sparkline_svg %}
+        <div class="tape-sparkline">{{ item.sparkline_svg|safe }}</div>
+        {% endif %}
       </a>
       {% endfor %}
     </section>
@@ -37467,6 +37688,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             const metaNode = item.querySelector(".tape-meta");
             const labelNode = item.querySelector(".tape-label");
             if (labelNode) labelNode.textContent = row.label || "";
+            item.className = "tape-item " + (row.tone || "flat") + "-card";
             if (valueNode) {
               valueNode.textContent = row.value || "Pending";
               valueNode.className = "tape-value " + (row.tone || "flat");
@@ -37490,9 +37712,22 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             if (openNode) {
               openNode.textContent = row.open_label || "↗";
             }
+            const sparklineNode = item.querySelector(".tape-sparkline");
+            if (sparklineNode) {
+              sparklineNode.innerHTML = row.sparkline_svg || "";
+            }
           });
         } catch (error) {
         }
+      }
+      const hero = document.querySelector(".hero-frame");
+      if (hero) {
+        window.addEventListener("mousemove", function (event) {
+          const offsetX = ((event.clientX / window.innerWidth) - 0.5) * 10;
+          const offsetY = ((event.clientY / window.innerHeight) - 0.5) * 10;
+          hero.style.setProperty("--hero-shift", `${offsetY * -0.25}px`);
+          hero.style.backgroundPosition = `${50 + offsetX * 0.7}% ${50 + offsetY * 0.7}%`;
+        });
       }
       window.setInterval(refreshIndexCards, 60000);
     })();
