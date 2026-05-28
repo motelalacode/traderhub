@@ -30517,18 +30517,18 @@ def build_trial3_sparkline_svg(values, tone="flat"):
 def get_trial3_equity_market_status(timestamp_dt=None):
     now = datetime.datetime.now(APP_TZ)
     if now.weekday() >= 5:
-        return "Market closed"
+        return "Closed"
     open_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
     close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
     if timestamp_dt and timestamp_dt.tzinfo is None:
         timestamp_dt = timestamp_dt.replace(tzinfo=APP_TZ)
     if now < open_time:
-        return "Before market open"
+        return "Before Open"
     if now > close_time:
-        return "Market closed"
+        return "Closed"
     if timestamp_dt and timestamp_dt.date() < now.date():
-        return "Market closed or holiday"
-    return "Market live"
+        return "Closed"
+    return "Live"
 
 
 def parse_trial3_timestamp(value):
@@ -30556,22 +30556,22 @@ def get_trial3_session_status(market_kind="equity", timestamp_dt=None):
         if now.weekday() >= 5 and not timestamp_dt:
             return "MCX closed"
         if now < open_time:
-            return "Before MCX open"
+            return "Before MCX"
         if now > close_time:
             return "MCX closed"
-        return "MCX live" if timestamp_dt or now.weekday() < 5 else "Latest available"
+        return "MCX live" if timestamp_dt or now.weekday() < 5 else "Latest"
     if market_kind == "currency":
         open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
         if now.weekday() >= 5:
-            return "Currency market closed"
+            return "Currency Closed"
         if now < open_time:
-            return "Before currency open"
+            return "Before Currency"
         if now > close_time:
-            return "Currency market closed"
+            return "Currency Closed"
         if timestamp_dt and timestamp_dt.date() < now.date():
-            return "Currency market closed"
-        return "Currency market live"
+            return "Currency Closed"
+        return "Currency Live"
     return get_trial3_equity_market_status(timestamp_dt)
 
 
@@ -36895,7 +36895,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       flex-wrap: nowrap;
       gap: 8px;
       padding: 12px 0 10px;
-      overflow-x: auto;
+      overflow-x: hidden;
       overflow-y: hidden;
       scrollbar-width: none;
       -ms-overflow-style: none;
@@ -36928,7 +36928,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       box-shadow: var(--shadow);
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       min-width: 0;
-      flex: 0 0 180px;
+      flex: 0 0 calc((100% - 64px) / 9);
     }
     .tape-item:hover {
       transform: translateY(-2px);
@@ -36951,13 +36951,13 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       min-width: 0;
     }
     .tape-value {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 800;
       line-height: 1.15;
     }
     .tape-meta {
       margin-top: 4px;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
       line-height: 1.3;
     }
@@ -36972,7 +36972,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .tape-updated {
       margin-top: 4px;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       line-height: 1.3;
     }
@@ -37209,6 +37209,14 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 13px;
       color: var(--muted);
     }
+    @media (max-width: 1500px) {
+      .market-tape {
+        overflow-x: auto;
+      }
+      .tape-item {
+        flex-basis: 168px;
+      }
+    }
     @media (max-width: 1240px) {
       .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
         grid-template-columns: 1fr;
@@ -37226,10 +37234,10 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       .hero-sub { font-size: 16px; }
       .story-card strong { font-size: 22px; }
       .quick-tile .value { font-size: 18px; }
-      .tape-item { flex-basis: 168px; }
+      .tape-item { flex-basis: 156px; }
     }
     @media (max-width: 520px) {
-      .tape-item { flex-basis: 158px; }
+      .tape-item { flex-basis: 148px; }
     }
   </style>
 </head>
