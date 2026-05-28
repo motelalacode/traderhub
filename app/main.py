@@ -30450,12 +30450,12 @@ def fetch_index_quote_snapshot(client, quote_candidates):
 
 
 WEBSITE_TRIAL3_INDEX_CONFIG = [
-    {"label": "Nifty", "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"]},
-    {"label": "Sensex", "quote_candidates": ["BSE:SENSEX", "INDICES:SENSEX"]},
-    {"label": "Nifty Bank", "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"]},
-    {"label": "Fin Nifty", "quote_candidates": ["NSE:NIFTY FIN SERVICE", "INDICES:NIFTY FIN SERVICE", "NSE:FINNIFTY"]},
-    {"label": "Nifty IT", "quote_candidates": ["NSE:NIFTY IT", "INDICES:NIFTY IT"]},
-    {"label": "Gift Nifty", "quote_candidates": ["NSE:GIFT NIFTY", "INDICES:GIFT NIFTY", "NSE:SGX NIFTY"]},
+    {"label": "Nifty", "quote_candidates": ["NSE:NIFTY 50", "INDICES:NIFTY 50"], "href": "/derivatives/index/nifty-options"},
+    {"label": "Sensex", "quote_candidates": ["BSE:SENSEX", "INDICES:SENSEX"], "href": "/market"},
+    {"label": "Nifty Bank", "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"], "href": "/derivatives/index/banknifty-options"},
+    {"label": "Fin Nifty", "quote_candidates": ["NSE:NIFTY FIN SERVICE", "INDICES:NIFTY FIN SERVICE", "NSE:FINNIFTY"], "href": "/derivatives"},
+    {"label": "Nifty IT", "quote_candidates": ["NSE:NIFTY IT", "INDICES:NIFTY IT"], "href": "/sectors"},
+    {"label": "Gift Nifty", "quote_candidates": ["NSE:GIFT NIFTY", "INDICES:GIFT NIFTY", "NSE:SGX NIFTY"], "href": "/market", "pending_note": "Feed pending"},
 ]
 
 
@@ -30496,6 +30496,8 @@ def build_website_shell_trial3_index_tape():
                 "change": format_signed_points(net_change) if net_change is not None else "Pending",
                 "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
                 "tone": tone,
+                "href": config.get("href") or "/market",
+                "status": "Live" if last_price is not None else str(config.get("pending_note") or "Pending"),
             }
         )
     return rows
@@ -36409,11 +36411,18 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-weight: 800;
     }
     .tape-item {
+      display: block;
       background: rgba(255,255,255,0.72);
       border: 1px solid var(--line);
       border-radius: 18px;
       padding: 12px 14px;
       box-shadow: var(--shadow);
+      transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    .tape-item:hover {
+      transform: translateY(-2px);
+      border-color: rgba(14, 97, 116, 0.26);
+      box-shadow: 0 26px 72px rgba(17, 38, 53, 0.11);
     }
     .tape-label {
       font-size: 12px;
@@ -36431,6 +36440,35 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       margin-top: 6px;
       font-size: 13px;
       font-weight: 700;
+    }
+    .tape-status {
+      margin-top: 10px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .tape-bar {
+      height: 4px;
+      margin-top: 10px;
+      border-radius: 999px;
+      background: rgba(19, 44, 62, 0.08);
+      overflow: hidden;
+    }
+    .tape-bar span {
+      display: block;
+      height: 100%;
+      width: 100%;
+    }
+    .tape-bar .up {
+      background: linear-gradient(90deg, rgba(18,135,95,0.34), rgba(18,135,95,0.9));
+    }
+    .tape-bar .down {
+      background: linear-gradient(90deg, rgba(200,79,67,0.34), rgba(200,79,67,0.9));
+    }
+    .tape-bar .flat {
+      background: linear-gradient(90deg, rgba(90,106,120,0.24), rgba(90,106,120,0.7));
     }
     .up { color: var(--up); }
     .down { color: var(--down); }
@@ -36673,11 +36711,13 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
   <div class="page">
     <section class="market-tape">
       {% for item in market_tape %}
-      <article class="tape-item">
+      <a class="tape-item" href="{{ item.href }}">
         <div class="tape-label">{{ item.label }}</div>
         <div class="tape-value {{ item.tone }}">{{ item.value }}</div>
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
-      </article>
+        <div class="tape-status">{{ item.status }}</div>
+        <div class="tape-bar"><span class="{{ item.tone }}"></span></div>
+      </a>
       {% endfor %}
     </section>
 
@@ -36833,6 +36873,17 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             if (metaNode) {
               metaNode.textContent = (row.change || "Pending") + " | " + (row.percent || "Pending");
               metaNode.className = "tape-meta " + (row.tone || "flat");
+            }
+            const statusNode = item.querySelector(".tape-status");
+            if (statusNode) {
+              statusNode.textContent = row.status || "Pending";
+            }
+            if (row.href) {
+              item.setAttribute("href", row.href);
+            }
+            const barNode = item.querySelector(".tape-bar span");
+            if (barNode) {
+              barNode.className = row.tone || "flat";
             }
           });
         } catch (error) {
