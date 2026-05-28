@@ -30483,6 +30483,7 @@ WEBSITE_TRIAL3_COMMODITY_CARDS = [
     {"slug": "gold", "label": "Gold", "href": "/commodities/gold"},
     {"slug": "crude-oil", "label": "Crude Oil", "href": "/commodities/crude-oil"},
     {"slug": "silver", "label": "Silver", "href": "/commodities/silver"},
+    {"slug": "natural-gas", "label": "Natural Gas", "href": "/commodities/natural-gas"},
 ]
 
 
@@ -36324,163 +36325,82 @@ def build_website_shell_trial2_context(host_root):
 def build_website_shell_trial3_context(host_root):
     canonical_url = f"{host_root.rstrip('/')}/website-shell-trial3"
     market_tape = build_website_shell_trial3_index_tape()
-    spotlight_cards = [
+    hero_gallery = [
         {
-            "eyebrow": "Market Pulse",
-            "title": "Track the market first, then move into deeper pages fast",
-            "copy": "Use the first screen to read indices, currency, and commodities quickly before opening the stock, sector, derivatives, and research pages that matter most.",
+            "eyebrow": "Market Dashboard",
+            "title": "Open the Indian market in one premium screen",
+            "copy": "Track indices, sectors, derivatives, and commodities without losing the bigger picture.",
+            "href": "/market",
+            "tone": "blue",
         },
         {
-            "eyebrow": "Stocks And Sectors",
-            "title": "Move from market context into stocks and sector leadership",
-            "copy": "A stronger homepage should guide users from the broad market view into stock pages, sector dashboards, and leadership signals without adding friction.",
+            "eyebrow": "Research Flow",
+            "title": "Move from the market pulse into stock research fast",
+            "copy": "Go from the homepage into stock pages, sector rotation, and market-moving setups in a few taps.",
+            "href": "/stocks/itc",
+            "tone": "green",
         },
         {
-            "eyebrow": "Derivatives And Commodities",
-            "title": "Keep F&O, strategies, and commodities visible from the homepage",
-            "copy": "The homepage should make derivatives, option strategies, and commodities discoverable immediately so active traders can open those workflows in one click.",
+            "eyebrow": "Trader Tools",
+            "title": "Keep strategy and scanner tools one click away",
+            "copy": "Option strategies, OI discovery, and commodity strategy paths stay visible from the first screen.",
+            "href": "/derivatives/options/strategy-engine",
+            "tone": "slate",
         },
     ]
-    market_modules = [
+    live_rows = [row for row in market_tape if str(row.get("tone") or "flat") in {"up", "down"}]
+    gainers = sum(1 for row in market_tape if str(row.get("tone") or "") == "up")
+    losers = sum(1 for row in market_tape if str(row.get("tone") or "") == "down")
+    strongest_row = max(live_rows, key=lambda item: abs(parse_numeric_text(item.get("percent")) or 0), default=None)
+    market_pulse = {
+        "eyebrow": "Today's Market Pulse",
+        "title": "A quick read on where the market is leaning",
+        "summary": (
+            f"{gainers} market cards are positive and {losers} are negative right now. "
+            f"{strongest_row.get('label')} is showing the strongest visible move."
+            if strongest_row else
+            "Use this section for the cleanest short market summary before moving into deeper pages."
+        ),
+        "stats": [
+            {"label": "Positive", "value": str(gainers)},
+            {"label": "Negative", "value": str(losers)},
+            {"label": "Strongest Move", "value": strongest_row.get("label") if strongest_row else "Pending"},
+        ],
+        "links": [
+            {"label": "Open Market Desk", "href": "/market"},
+            {"label": "Live Movers", "href": "/market/live-movers"},
+        ],
+    }
+    cta_cards = [
         {
-            "title": "Stocks To Open Next",
-            "copy": "Open public stock pages, chart views, dividend screens, and stock research paths from one clear homepage section.",
+            "title": "Stock Research",
+            "copy": "Open public stock pages, dividend screens, and chart views with a cleaner research-first flow.",
+            "href": "/stocks/itc",
             "links": [
                 {"label": "ITC", "href": "/stocks/itc"},
-                {"label": "Wipro Chart Trial", "href": "/stocks/wipro/technical-chart-trial2"},
                 {"label": "Dividend Hub", "href": "/stocks/dividend-stocks"},
-                {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
+                {"label": "Wipro Chart", "href": "/stocks/wipro/technical-chart-trial2"},
             ],
         },
         {
-            "title": "Sector Intelligence",
-            "copy": "Track sector leadership, weakness, and rotation before moving into individual stock pages.",
+            "title": "Option Strategy Engine",
+            "copy": "Move straight into buyer and seller strategy pages with live-linked examples and clearer fit logic.",
+            "href": "/derivatives/options/strategy-engine",
             "links": [
-                {"label": "Sectors Hub", "href": "/sectors"},
-                {"label": "Strongest Sectors", "href": "/sectors/strongest"},
-                {"label": "Weakest Sectors", "href": "/sectors/weakest"},
-                {"label": "Rotation", "href": "/sectors/rotation"},
-            ],
-        },
-        {
-            "title": "Derivatives Desk",
-            "copy": "Keep index options, OI dashboards, strategy pages, and F&O discovery visible from the homepage.",
-            "links": [
-                {"label": "Derivatives Hub", "href": "/derivatives"},
                 {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
-                {"label": "Stock OI Change", "href": "/derivatives/stocks/oi-change"},
+                {"label": "OI Change", "href": "/derivatives/stocks/oi-change"},
+                {"label": "Expiry Strategy", "href": "/derivatives/expiry-strategy"},
+            ],
+        },
+        {
+            "title": "Sector & Commodity Scanner",
+            "copy": "Track sector leadership, rotation, and commodities from one scanner-style entry point.",
+            "href": "/sectors",
+            "links": [
+                {"label": "Sectors", "href": "/sectors"},
+                {"label": "Commodities", "href": "/commodities"},
                 {"label": "Crude Strategy", "href": "/derivatives/commodities/crude-oil/strategy"},
             ],
-        },
-        {
-            "title": "Commodity Layer",
-            "copy": "Keep gold, silver, crude oil, natural gas, and commodity-linked research visible as a separate market layer.",
-            "links": [
-                {"label": "Commodities Hub", "href": "/commodities"},
-                {"label": "Crude Oil", "href": "/commodities/crude-oil"},
-                {"label": "Natural Gas", "href": "/commodities/natural-gas"},
-                {"label": "Volatile Commodities", "href": "/commodities/volatile"},
-            ],
-        },
-    ]
-    lead_stories = [
-        {
-            "kicker": "Market News",
-            "title": "Lead with the most important market message of the day",
-            "copy": "A homepage should explain what matters in the market right now, then show the best next pages to open for follow-through.",
-            "links": [
-                {"label": "Market News", "href": "/market"},
-                {"label": "Live Movers", "href": "/market/live-movers"},
-                {"label": "Pre-Market News", "href": "/market/pre-market-news"},
-            ],
-        },
-        {
-            "kicker": "Research Flow",
-            "title": "Put one serious research block directly below the lead story",
-            "copy": "The homepage becomes more useful when one major board, dashboard, or research surface is visible without another click.",
-            "links": [
-                {"label": "Sector Dashboard", "href": "/sectors"},
-                {"label": "Option Strategy Engine", "href": "/derivatives/options/strategy-engine"},
-                {"label": "OI Change", "href": "/derivatives/stocks/oi-change"},
-            ],
-        },
-    ]
-    quick_boards = [
-        {"label": "Best Use", "value": "Market, research, and trading discovery"},
-        {"label": "Desktop Strength", "value": "Wide content area with compact support rail"},
-        {"label": "Mobile Strength", "value": "Stacked market feed with strong first-screen priority"},
-        {"label": "Ad Placement", "value": "Right rail on desktop, inline between key blocks on mobile"},
-    ]
-    quick_actions = [
-        {"label": "Open Market Desk", "href": "/market"},
-        {"label": "Check Strategy Engine", "href": "/derivatives/options/strategy-engine"},
-        {"label": "Scan Sectors", "href": "/sectors"},
-        {"label": "View Commodities", "href": "/commodities"},
-    ]
-    news_depth_cards = [
-        {
-            "title": "Market News Lane",
-            "copy": "Homepage SEO improves when the main market-news paths are visible and clearly linked instead of being buried below generic cards.",
-            "links": [
-                {"label": "Market News", "href": "/market"},
-                {"label": "Pre-Market", "href": "/market/pre-market-news"},
-                {"label": "Post-Market", "href": "/market/post-market-wrap"},
-            ],
-        },
-        {
-            "title": "Live Movers Lane",
-            "copy": "Keep movers, sector follow-through, and the strongest shift in the session visible so users can react quickly.",
-            "links": [
-                {"label": "Live Movers", "href": "/market/live-movers"},
-                {"label": "Sector News", "href": "/market/sector-news"},
-                {"label": "Trends", "href": "/market/trends"},
-            ],
-        },
-        {
-            "title": "Archive Lane",
-            "copy": "A stronger homepage also exposes archive paths so users can move beyond only today-only pages.",
-            "links": [
-                {"label": "Market Archive", "href": "/market/archive"},
-                {"label": "Stock Archive", "href": "/stocks/itc/news-archive"},
-                {"label": "Sector Archive", "href": "/sectors/fmcg/news-archive"},
-            ],
-        },
-    ]
-    rail_cards = [
-        {
-            "title": "Fast Watchlist",
-            "items": ["Nifty options", "Bank Nifty options", "Crude oil strategy", "Dividend screen", "Sector rotation"],
-        },
-        {
-            "title": "What This Homepage Should Do",
-            "items": [
-                "Keep the biggest market message and the strongest tools above the fold.",
-                "Keep the content area larger than the page chrome.",
-                "Make every major product family reachable in one screen.",
-            ],
-        },
-        {
-            "title": "Suggested Homepage Mix",
-            "items": [
-                "One lead market story",
-                "One live dashboard block",
-                "One research board",
-                "One news and archive cluster",
-            ],
-        },
-    ]
-    education_cards = [
-        {
-            "title": "Why this homepage style works",
-            "copy": "A strong homepage should explain the product range immediately and help users move into the right page without making them search too much.",
-        },
-        {
-            "title": "Why the wide desktop layout matters",
-            "copy": "The wide center area can hold dense tables, strategy engines, charts, and research summaries while the side rail handles lighter support content.",
-        },
-        {
-            "title": "What to avoid",
-            "copy": "Do not turn the homepage into a wall of equal cards. The most important market message and strongest tools should stay clearly above the rest.",
         },
     ]
     context = {
@@ -36499,16 +36419,11 @@ def build_website_shell_trial3_context(host_root):
         ),
         "page_meta_text": f"Homepage candidate | Last reviewed {get_today_ist().isoformat()}",
         "hero_title": "Indian Market Dashboard for Stocks, Sectors, F&O and Commodities",
-        "hero_subtitle": "TraderHub brings stocks, sectors, derivatives, dividend screens, option strategies, and commodities into one clear Indian market dashboard. Use it to track major indices, open stock research pages, follow sector strength, scan F&O setups, and move quickly into the market pages that matter most.",
+        "hero_subtitle": "Track the Indian stock market with live index context, stock research, sector leadership, option strategies, and commodities from one clean homepage.",
         "market_tape": market_tape,
-        "spotlight_cards": spotlight_cards,
-        "market_modules": market_modules,
-        "lead_stories": lead_stories,
-        "quick_boards": quick_boards,
-        "quick_actions": quick_actions,
-        "news_depth_cards": news_depth_cards,
-        "rail_cards": rail_cards,
-        "education_cards": education_cards,
+        "hero_gallery": hero_gallery,
+        "market_pulse": market_pulse,
+        "cta_cards": cta_cards,
         "public_head_injection": build_public_ops_head_injection(),
     }
     context.update(build_public_ad_context("TraderHub Website Shell Trial 3", page_family="public"))
@@ -36989,6 +36904,218 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     .up { color: var(--up); }
     .down { color: var(--down); }
     .flat { color: var(--flat); }
+    .hero-shell {
+      padding: 18px 0 16px;
+    }
+    .topnav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .topnav a {
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.8);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .hero-frame {
+      background: linear-gradient(145deg, #14304b 0%, #1c4258 48%, #265a62 100%);
+      border-radius: 30px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      color: #fff;
+      overflow: hidden;
+    }
+    .hero-copy {
+      max-width: 780px;
+      margin-bottom: 18px;
+    }
+    .hero-kicker {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      opacity: 0.82;
+      font-weight: 800;
+      margin-bottom: 10px;
+    }
+    .hero-copy h1 {
+      margin: 0 0 10px;
+      font-size: clamp(34px, 5vw, 62px);
+      line-height: 0.98;
+      max-width: 820px;
+    }
+    .hero-copy p {
+      margin: 0;
+      color: rgba(255,255,255,0.88);
+      font-size: 17px;
+      line-height: 1.55;
+      max-width: 760px;
+    }
+    .gallery-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr 0.95fr;
+      gap: 14px;
+    }
+    .gallery-card {
+      position: relative;
+      min-height: 220px;
+      padding: 18px;
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .gallery-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top right, rgba(255,255,255,0.28), transparent 30%);
+      pointer-events: none;
+    }
+    .gallery-card.blue { background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(73,144,226,0.2)), linear-gradient(140deg, #17344e, #0e6174); }
+    .gallery-card.green { background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(55,184,120,0.18)), linear-gradient(140deg, #153147, #1d6b62); }
+    .gallery-card.slate { background: linear-gradient(135deg, rgba(255,255,255,0.12), rgba(120,147,176,0.16)), linear-gradient(140deg, #1b3040, #385468); }
+    .gallery-card .eyebrow {
+      color: rgba(255,255,255,0.78);
+      margin-bottom: 8px;
+    }
+    .gallery-card strong {
+      position: relative;
+      display: block;
+      font-size: 28px;
+      line-height: 1.08;
+      margin-bottom: 8px;
+    }
+    .gallery-card p {
+      position: relative;
+      margin: 0;
+      color: rgba(255,255,255,0.86);
+      font-size: 15px;
+      line-height: 1.5;
+      max-width: 420px;
+    }
+    .gallery-open {
+      position: relative;
+      margin-top: 14px;
+      font-size: 13px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .content-shell {
+      display: grid;
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .pulse-card,
+    .cta-card {
+      background: rgba(255,255,255,0.9);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+    .pulse-card {
+      padding: 20px;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      align-items: center;
+    }
+    .pulse-copy h2 {
+      margin: 0 0 8px;
+      font-size: 32px;
+      line-height: 1.05;
+    }
+    .pulse-copy p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 700px;
+    }
+    .pulse-metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .pulse-metric {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: #fbfdff;
+    }
+    .pulse-metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 6px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .pulse-metric strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .pulse-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .pulse-links a,
+    .cta-links a {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fbfcfd;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .cta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .cta-card {
+      padding: 20px;
+      min-height: 240px;
+      background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(245,250,253,0.92));
+    }
+    .cta-card h3 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.08;
+    }
+    .cta-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+    .cta-main {
+      display: inline-flex;
+      margin-top: 16px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(14,97,116,0.08);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .cta-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
     .masthead {
       background: linear-gradient(140deg, var(--header), var(--header-soft) 72%, #2d5461 100%);
       color: #fff;
@@ -37218,22 +37345,21 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       }
     }
     @media (max-width: 1240px) {
-      .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
+      .gallery-grid,
+      .pulse-card,
+      .cta-grid {
         grid-template-columns: 1fr;
       }
-      .quick-board {
-        grid-template-columns: 1fr 1fr;
-      }
+      .pulse-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
       .page { padding: 0 10px 30px; }
-      .masthead, .hero-card, .module-card, .panel, .story-card, .rail-card, .knowledge-card { border-radius: 20px; }
-      .quick-board { grid-template-columns: 1fr; }
-      .nav { width: 100%; }
-      .nav a { flex: 1 1 calc(50% - 10px); text-align: center; }
-      .hero-sub { font-size: 16px; }
-      .story-card strong { font-size: 22px; }
-      .quick-tile .value { font-size: 18px; }
+      .hero-frame, .gallery-card, .pulse-card, .cta-card { border-radius: 20px; }
+      .topnav a { flex: 1 1 calc(50% - 10px); text-align: center; }
+      .hero-copy p { font-size: 15px; }
+      .gallery-card strong { font-size: 24px; }
+      .pulse-copy h2 { font-size: 27px; }
+      .pulse-metrics { grid-template-columns: 1fr; }
       .tape-item { flex-basis: 156px; }
     }
     @media (max-width: 520px) {
@@ -37243,6 +37369,34 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
 </head>
 <body>
   <div class="page">
+    <section class="hero-shell">
+      <nav class="topnav">
+        <a href="/">Home</a>
+        <a href="/market">Market</a>
+        <a href="/stocks/itc">Stocks</a>
+        <a href="/sectors">Sectors</a>
+        <a href="/derivatives">Derivatives</a>
+        <a href="/commodities">Commodities</a>
+      </nav>
+      <section class="hero-frame">
+        <div class="hero-copy">
+          <div class="hero-kicker">{{ page_meta_text }}</div>
+          <h1>{{ hero_title }}</h1>
+          <p>{{ hero_subtitle }}</p>
+        </div>
+        <div class="gallery-grid">
+          {% for card in hero_gallery %}
+          <a class="gallery-card {{ card.tone }}" href="{{ card.href }}">
+            <div class="eyebrow">{{ card.eyebrow }}</div>
+            <strong>{{ card.title }}</strong>
+            <p>{{ card["copy"] }}</p>
+            <div class="gallery-open">Open page ↗</div>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+    </section>
+
     <section class="market-tape">
       {% for item in market_tape %}
       <a class="tape-item" href="{{ item.href }}">
@@ -37258,151 +37412,43 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       {% endfor %}
     </section>
 
-    <section class="action-strip">
-      {% for action in quick_actions %}
-      <a href="{{ action.href }}">{{ action.label }}</a>
-      {% endfor %}
-    </section>
-
-    <section class="masthead">
-      <div class="masthead-top">
-        <div class="brand">
-          <strong>TraderHub</strong>
-          <span>{{ page_meta_text }}</span>
+    <div class="content-shell">
+      <section class="pulse-card">
+        <div class="pulse-copy">
+          <div class="eyebrow">{{ market_pulse.eyebrow }}</div>
+          <h2>{{ market_pulse.title }}</h2>
+          <p>{{ market_pulse.summary }}</p>
+          <div class="pulse-links">
+            {% for link in market_pulse.links %}
+            <a href="{{ link.href }}">{{ link.label }}</a>
+            {% endfor %}
+          </div>
         </div>
-        <nav class="nav">
-          <a href="/">Home</a>
-          <a href="/market">Market</a>
-          <a href="/stocks/itc">Stocks</a>
-          <a href="/sectors">Sectors</a>
-          <a href="/derivatives">Derivatives</a>
-          <a href="/commodities">Commodities</a>
-        </nav>
-      </div>
-      <h1>{{ hero_title }}</h1>
-      <p class="hero-sub">{{ hero_subtitle }}</p>
-      <div class="hero-grid">
-        {% for card in spotlight_cards %}
-        <article class="hero-card">
-          <div class="eyebrow">{{ card.eyebrow }}</div>
-          <h2>{{ card.title }}</h2>
-          <p>{{ card["copy"] }}</p>
-        </article>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="modules">
-      {% for module in market_modules %}
-      <article class="module-card">
-        <strong>{{ module.title }}</strong>
-        <p>{{ module["copy"] }}</p>
-        <div class="link-list">
-          {% for link in module.links %}
-          <a href="{{ link.href }}">{{ link.label }}</a>
+        <div class="pulse-metrics">
+          {% for stat in market_pulse.stats %}
+          <article class="pulse-metric">
+            <span>{{ stat.label }}</span>
+            <strong>{{ stat.value }}</strong>
+          </article>
           {% endfor %}
         </div>
-      </article>
-      {% endfor %}
-    </section>
+      </section>
 
-    <div class="layout">
-      <div class="main-col">
-        <section class="panel">
-          <div class="eyebrow">Lead Homepage Flow</div>
-          <h2>What the first content blocks should do</h2>
-          <p>This layout gives the homepage a real market-home feel. It should help a user scan the market quickly, discover the strongest TraderHub tools, and still leave enough width for one serious research block.</p>
-          <div class="story-grid">
-            {% for story in lead_stories %}
-            <article class="story-card">
-              <div class="eyebrow">{{ story.kicker }}</div>
-              <strong>{{ story.title }}</strong>
-              <p>{{ story["copy"] }}</p>
-              <div class="link-list">
-                {% for link in story.links %}
-                <a href="{{ link.href }}">{{ link.label }}</a>
-                {% endfor %}
-              </div>
-            </article>
+      <section class="cta-grid">
+        {% for card in cta_cards %}
+        <article class="cta-card">
+          <div class="eyebrow">TraderHub Module</div>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card["copy"] }}</p>
+          <a class="cta-main" href="{{ card.href }}">Open {{ card.title }} ↗</a>
+          <div class="cta-links">
+            {% for link in card.links %}
+            <a href="{{ link.href }}">{{ link.label }}</a>
             {% endfor %}
           </div>
-        </section>
-
-        <section class="panel">
-          <div class="eyebrow">Decision Board</div>
-          <h2>Why this homepage model can work across the full website</h2>
-          <div class="quick-board">
-            {% for board in quick_boards %}
-            <article class="quick-tile">
-              <span class="label">{{ board.label }}</span>
-              <div class="value">{{ board.value }}</div>
-            </article>
-            {% endfor %}
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="eyebrow">Market And News Depth</div>
-          <h2>Give the homepage stronger follow-through</h2>
-          <div class="news-depth-grid">
-            {% for card in news_depth_cards %}
-            <article class="story-card">
-              <strong>{{ card.title }}</strong>
-              <p>{{ card.copy }}</p>
-              <div class="link-list">
-                {% for link in card.links %}
-                <a href="{{ link.href }}">{{ link.label }}</a>
-                {% endfor %}
-              </div>
-            </article>
-            {% endfor %}
-          </div>
-        </section>
-
-        <section class="panel">
-          <div class="eyebrow">Builder Notes</div>
-          <h2>Practical homepage guidance</h2>
-          <div class="knowledge-grid">
-            {% for card in education_cards %}
-            <article class="knowledge-card">
-              <strong>{{ card.title }}</strong>
-              <p>{{ card["copy"] }}</p>
-            </article>
-            {% endfor %}
-          </div>
-        </section>
-      </div>
-
-      <aside class="rail-col">
-        {% for card in rail_cards %}
-        <section class="rail-card">
-          <strong>{{ card.title }}</strong>
-          <div class="rail-items">
-            {% for item in card["items"] %}
-            <div class="rail-item">{{ item }}</div>
-            {% endfor %}
-          </div>
-        </section>
+        </article>
         {% endfor %}
-
-        {% if sponsor_ad %}
-        <section class="rail-card">
-          <div class="eyebrow">{{ sponsor_ad.label }}</div>
-          <strong>{{ sponsor_ad.name }}</strong>
-          <p>{{ sponsor_ad["copy"] }}</p>
-          {% if sponsor_ad.url %}
-          <div class="ad-note"><a href="{{ sponsor_ad.url }}" target="_blank" rel="noopener">Open sponsor link</a></div>
-          {% endif %}
-        </section>
-        {% endif %}
-
-        {% if google_vertical_ad_html %}
-        <section class="rail-card">
-          <div class="eyebrow">Google Ad Sample</div>
-          {{ google_vertical_ad_html|safe }}
-        </section>
-        {% endif %}
-      </aside>
+      </section>
     </div>
   </div>
   <script>
