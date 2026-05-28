@@ -37425,7 +37425,7 @@ def news_manager_snapshots_refresh():
 @app.route("/sitemap.xml")
 def public_sitemap_index():
     sitemap_path = SITEMAP_DIR / "sitemap.xml"
-    if not sitemap_path.exists():
+    if not sitemap_path.exists() and not ensure_public_sitemaps_ready():
         return Response("Sitemap index has not been generated yet.", mimetype="text/plain", status=404)
     return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
 
@@ -37434,6 +37434,8 @@ def public_sitemap_index():
 def public_sitemap_file(sitemap_name):
     safe_name = Path(str(sitemap_name)).name
     sitemap_path = SITEMAP_DIR / safe_name
+    if not sitemap_path.exists():
+        ensure_public_sitemaps_ready()
     if not sitemap_path.exists():
         return Response("Sitemap file not found.", mimetype="text/plain", status=404)
     return Response(sitemap_path.read_text(encoding="utf-8"), mimetype="application/xml")
@@ -37494,8 +37496,21 @@ def build_html_sitemap_context(host_root):
     }
 
 
+def ensure_public_sitemaps_ready():
+    sitemap_index_path = SITEMAP_DIR / "sitemap.xml"
+    if sitemap_index_path.exists():
+        return True
+    try:
+        run_seo_sitemap_generation()
+    except BaseException as exc:
+        app.logger.exception("Failed to auto-generate public sitemaps: %s", exc)
+        return False
+    return sitemap_index_path.exists()
+
+
 @app.route("/sitemap.html")
 def public_html_sitemap():
+    ensure_public_sitemaps_ready()
     return render_template_string(HTML_SITEMAP_TEMPLATE, **build_html_sitemap_context(request.url_root.rstrip("/")))
 
 
