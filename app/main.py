@@ -30579,7 +30579,7 @@ def get_trial3_session_status(market_kind="equity", timestamp_dt=None):
 def get_trial3_last_updated_label(timestamp_dt=None, fallback_text="Latest available"):
     if hasattr(timestamp_dt, "astimezone"):
         localized = timestamp_dt.astimezone(APP_TZ)
-        return f"Last updated at {localized.strftime('%b %d, %H:%M')} GMT+5:30"
+        return f"Updated at {localized.strftime('%I:%M %p').lstrip('0')}"
     text = str(fallback_text or "").strip()
     return text or "Latest available"
 
