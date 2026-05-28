@@ -22149,6 +22149,8 @@ def build_known_seo_inventory():
     symbol_master = load_symbol_master()
     stock_symbols = sorted(symbol_master.get("by_symbol", {}).keys())
     ipo_records = build_ipo_phase1_records()
+    _, commodity_rows = load_commodities_phase1_feed()
+    commodity_slugs = sorted({str(row.get("slug") or "").strip().lower() for row in commodity_rows if str(row.get("slug") or "").strip()})
     sector_maps = get_public_sector_maps()
     sector_slugs = sorted(set(sector_maps.get("sector_to_slug", {}).values()))
     trend_slugs = sorted(get_trend_group_definitions().keys())
@@ -22171,9 +22173,16 @@ def build_known_seo_inventory():
         ("/derivatives/index/nifty-options", "derivatives", "nifty-options", "derivatives", "WebPage"),
         ("/derivatives/index/banknifty-options", "derivatives", "banknifty-options", "derivatives", "WebPage"),
         ("/derivatives/index/oi-change", "derivatives", "index-oi-change", "derivatives", "WebPage"),
+        ("/derivatives/index/option-chain", "derivatives", "index-option-chain", "derivatives", "WebPage"),
+        ("/derivatives/expiry-strategy", "derivatives", "expiry-strategy", "derivatives", "WebPage"),
         ("/derivatives/stocks", "derivatives", "stocks", "derivatives", "CollectionPage"),
         ("/derivatives/stocks/oi-change", "derivatives", "stock-oi-change", "derivatives", "WebPage"),
         ("/derivatives/stocks/futures-buildup", "derivatives", "futures-buildup", "derivatives", "WebPage"),
+        ("/derivatives/options/strategy-engine", "derivatives", "options-strategy-engine", "derivatives", "WebPage"),
+        ("/commodities", "commodities_hub", "hub", "commodities", "CollectionPage"),
+        ("/commodities/strongest", "commodities", "strongest", "commodities", "CollectionPage"),
+        ("/commodities/weakest", "commodities", "weakest", "commodities", "CollectionPage"),
+        ("/commodities/volatile", "commodities", "volatile", "commodities", "CollectionPage"),
     ]
 
     for domain in ("traderhub.in", "bot.traderhub.in"):
@@ -22249,6 +22258,18 @@ def build_known_seo_inventory():
                     "news-archive",
                     "archive",
                     "CollectionPage",
+                )
+            )
+
+        for commodity_slug in commodity_slugs:
+            inventory_rows.append(
+                build_seo_inventory_page_row(
+                    domain,
+                    f"/commodities/{commodity_slug}",
+                    "commodity",
+                    "detail",
+                    "commodities",
+                    "WebPage",
                 )
             )
 
