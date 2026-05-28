@@ -36704,7 +36704,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <section class="rail-card">
           <strong>{{ card.title }}</strong>
           <div class="rail-items">
-            {% for item in card.items %}
+            {% for item in card["items"] %}
             <div class="rail-item">{{ item }}</div>
             {% endfor %}
           </div>
