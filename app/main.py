@@ -30527,7 +30527,7 @@ def get_trial3_session_status(market_kind="equity", timestamp_dt=None):
         open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=23, minute=30, second=0, microsecond=0)
         if now.weekday() >= 5 and not timestamp_dt:
-            return "Market closed"
+            return "MCX closed"
         if now < open_time:
             return "Before MCX open"
         if now > close_time:
@@ -30537,13 +30537,13 @@ def get_trial3_session_status(market_kind="equity", timestamp_dt=None):
         open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
         close_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
         if now.weekday() >= 5:
-            return "Market closed"
+            return "Currency market closed"
         if now < open_time:
             return "Before currency open"
         if now > close_time:
             return "Currency market closed"
         if timestamp_dt and timestamp_dt.date() < now.date():
-            return "Market closed or holiday"
+            return "Currency market closed"
         return "Currency market live"
     return get_trial3_equity_market_status(timestamp_dt)
 
@@ -30596,7 +30596,7 @@ def get_live_currency_overrides(query="USDINR"):
     creds = get_active_upstox_credentials()
     if not creds.get("access_token"):
         return {
-            "label": "INR vs $",
+            "label": "US Dollar Index",
             "value": "Pending",
             "change": "Pending",
             "percent": "Pending",
@@ -30611,7 +30611,7 @@ def get_live_currency_overrides(query="USDINR"):
     instrument_key = str(instrument.get("instrument_key") or "").strip()
     if not instrument_key:
         return {
-            "label": "INR vs $",
+            "label": "US Dollar Index",
             "value": "Pending",
             "change": "Pending",
             "percent": "Pending",
@@ -30625,7 +30625,7 @@ def get_live_currency_overrides(query="USDINR"):
     quote = get_upstox_market_quote(instrument_key)
     if not quote:
         return {
-            "label": "INR vs $",
+            "label": "US Dollar Index",
             "value": "Pending",
             "change": "Pending",
             "percent": "Pending",
@@ -30651,7 +30651,7 @@ def get_live_currency_overrides(query="USDINR"):
     timestamp = str(quote.get("last_trade_time") or quote.get("timestamp") or "").strip()
     timestamp_dt = parse_trial3_timestamp(timestamp)
     return {
-        "label": "INR vs $",
+        "label": "US Dollar Index",
         "value": format_price(last_price) if last_price is not None else "Pending",
         "change": format_signed_points(net_change) if net_change is not None else "Pending",
         "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
