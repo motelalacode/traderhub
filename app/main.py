@@ -28635,6 +28635,13 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 <div class="mini-box"><div class="mini-title">Best When</div><div class="mini-value">{{ strategy.best_when }}</div></div>
               </div>
               <div class="copy" style="margin-top:12px;"><strong>Why it fits:</strong> {{ strategy.match_reason }}</div>
+              {% if strategy.live_contract_example or strategy.live_estimated_cost or strategy.live_note %}
+              <div class="mini-grid" style="margin-top:12px;">
+                {% if strategy.live_contract_example %}<div class="mini-box"><div class="mini-title">Live Trial Example</div><div class="mini-value">{{ strategy.live_contract_example }}</div></div>{% endif %}
+                {% if strategy.live_estimated_cost %}<div class="mini-box"><div class="mini-title">Live Cost / Credit</div><div class="mini-value">{{ strategy.live_estimated_cost }}</div></div>{% endif %}
+              </div>
+              {% if strategy.live_note %}<div class="copy" style="margin-top:10px;"><strong>Live note:</strong> {{ strategy.live_note }}</div>{% endif %}
+              {% endif %}
               <ul class="tight">
                 <li><strong>Time decay:</strong> {{ strategy.theta_read }}</li>
                 <li><strong>Volatility:</strong> {{ strategy.vega_read }}</li>
@@ -30690,6 +30697,256 @@ def build_option_strategy_engine_context(host_root, selected_role="buyer", selec
         "public_note": "Actual premium values depend on the live option chain. This page teaches the correct structure, cost style, and reward logic first, and can later be upgraded with live strikes and premiums.",
         "market_error": "",
     }
+
+
+def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
+    config = DERIVATIVES_INDEX_CONFIG.get(index_slug) or DERIVATIVES_INDEX_CONFIG["nifty-options"]
+    creds = get_active_kite_credentials()
+    if not creds["api_key"] or not creds["access_token"]:
+        return {
+            "chain_available": False,
+            "market_error": "Kite API key or access token is missing in .env.",
+            "selected_index_label": config["index_name"],
+            "selected_expiry": "Pending",
+            "spot_display": "Pending",
+            "atm_strike": "-",
+            "example_rows": {},
+        }
+    client = build_kite_client(with_access_token=True)
+    spot_quote = fetch_index_quote_snapshot(client, config["quote_candidates"])
+    ohlc = (spot_quote or {}).get("ohlc") or {}
+    spot_value = float((spot_quote or {}).get("last_price") or 0)
+    if not spot_value:
+        return {
+            "chain_available": False,
+            "market_error": f"{config['index_name']} spot quote is unavailable right now.",
+            "selected_index_label": config["index_name"],
+            "selected_expiry": "Pending",
+            "spot_display": "Pending",
+            "atm_strike": "-",
+            "example_rows": {},
+        }
+    chain = build_real_index_option_chain(
+        config["index_name"],
+        spot_value,
+        config["strike_step"],
+        underlying_names=config.get("underlying_names"),
+        strike_span=4,
+        selected_expiry=selected_expiry or None,
+    )
+    if not chain.get("available"):
+        return {
+            "chain_available": False,
+            "market_error": chain.get("error") or "Live option chain is unavailable right now.",
+            "selected_index_label": config["index_name"],
+            "selected_expiry": chain.get("selected_expiry") or "Pending",
+            "spot_display": format_price(spot_value),
+            "atm_strike": "-",
+            "example_rows": {},
+        }
+    strike_step = int(config["strike_step"])
+    anchor = int(round(spot_value / strike_step) * strike_step)
+    row_map = {}
+    for row in chain.get("rows", []):
+        try:
+            row_map[int(float(row.get("strike") or 0))] = row
+        except Exception:
+            continue
+
+    def _get_row(strike_value):
+        return row_map.get(int(strike_value)) or {}
+
+    def _combine_cost(values):
+        total = 0.0
+        for value in values:
+            if value is None:
+                return None
+            total += float(value)
+        return total
+
+    atm_row = _get_row(anchor)
+    up1 = _get_row(anchor + strike_step)
+    up2 = _get_row(anchor + (2 * strike_step))
+    down1 = _get_row(anchor - strike_step)
+    examples = {
+        "long-call": {
+            "live_contract_example": f"Buy {anchor} CE on {config['index_name']} ({chain.get('selected_expiry')}).",
+            "live_estimated_cost": f"Estimated debit: {atm_row.get('call_ltp', 'Pending')}.",
+            "live_note": "ATM call is used in this live trial because it is the simplest clean directional example.",
+        },
+        "long-put": {
+            "live_contract_example": f"Buy {anchor} PE on {config['index_name']} ({chain.get('selected_expiry')}).",
+            "live_estimated_cost": f"Estimated debit: {atm_row.get('put_ltp', 'Pending')}.",
+            "live_note": "ATM put is used for the live bearish example.",
+        },
+        "bull-call-spread": {
+            "live_contract_example": f"Buy {anchor} CE and sell {anchor + strike_step} CE.",
+            "live_estimated_cost": (
+                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), -(up1.get('call_ltp_numeric') or 0)]))}."
+                if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
+                "Estimated net debit: Pending."
+            ),
+            "live_note": "The trial uses ATM-to-next-OTM call strikes as the clean moderate bullish spread example.",
+        },
+        "bear-put-spread": {
+            "live_contract_example": f"Buy {anchor} PE and sell {anchor - strike_step} PE.",
+            "live_estimated_cost": (
+                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('put_ltp_numeric'), -(down1.get('put_ltp_numeric') or 0)]))}."
+                if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
+                "Estimated net debit: Pending."
+            ),
+            "live_note": "The trial uses ATM-to-next-lower put strikes for a moderate bearish spread example.",
+        },
+        "bull-put-spread": {
+            "live_contract_example": f"Sell {anchor} PE and buy {anchor - strike_step} PE.",
+            "live_estimated_cost": (
+                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('put_ltp_numeric') or 0) - (down1.get('put_ltp_numeric') or 0)]))}."
+                if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
+                "Estimated net credit: Pending."
+            ),
+            "live_note": "This trial example uses the nearest ATM short put and one lower-strike hedge put.",
+        },
+        "bear-call-spread": {
+            "live_contract_example": f"Sell {anchor} CE and buy {anchor + strike_step} CE.",
+            "live_estimated_cost": (
+                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('call_ltp_numeric') or 0) - (up1.get('call_ltp_numeric') or 0)]))}."
+                if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
+                "Estimated net credit: Pending."
+            ),
+            "live_note": "This trial example uses the nearest ATM short call and one higher-strike hedge call.",
+        },
+        "long-straddle": {
+            "live_contract_example": f"Buy {anchor} CE and {anchor} PE together.",
+            "live_estimated_cost": (
+                f"Estimated total debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), atm_row.get('put_ltp_numeric')]))}."
+                if atm_row.get("call_ltp_numeric") is not None and atm_row.get("put_ltp_numeric") is not None else
+                "Estimated total debit: Pending."
+            ),
+            "live_note": "The trial straddle uses the live ATM strike because that is the cleanest event-volatility example.",
+        },
+        "short-strangle": {
+            "live_contract_example": f"Sell {anchor + strike_step} CE and sell {anchor - strike_step} PE.",
+            "live_estimated_cost": (
+                f"Estimated total credit: {format_price(_combine_cost([(up1.get('call_ltp_numeric') or 0), (down1.get('put_ltp_numeric') or 0)]))}."
+                if up1.get("call_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
+                "Estimated total credit: Pending."
+            ),
+            "live_note": "The trial strangle uses one-step OTM strikes on both sides so the user can see a simple range-selling example.",
+        },
+    }
+    return {
+        "chain_available": True,
+        "market_error": "",
+        "selected_index_label": config["index_name"],
+        "selected_expiry": chain.get("selected_expiry") or "Pending",
+        "spot_display": format_price(spot_value),
+        "atm_strike": str(anchor),
+        "example_rows": examples,
+    }
+
+
+def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-options", selected_expiry="", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium"):
+    context = build_option_strategy_engine_context(
+        host_root,
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    trial = build_strategy_live_examples_for_index(selected_index, selected_expiry=selected_expiry)
+    index_options = [
+        {"value": "nifty-options", "label": "Nifty"},
+        {"value": "banknifty-options", "label": "Bank Nifty"},
+    ]
+    expiry_options = [{"value": "", "label": "Nearest expiry"}]
+    available_expiries = []
+    if trial.get("chain_available"):
+        config = DERIVATIVES_INDEX_CONFIG.get(selected_index) or DERIVATIVES_INDEX_CONFIG["nifty-options"]
+        expiry_map = get_index_option_expiry_map(config["index_name"], underlying_names=config.get("underlying_names"))
+        available_expiries = [expiry.isoformat() for expiry in sorted(expiry_map.keys())]
+        expiry_options.extend([{"value": expiry, "label": expiry} for expiry in available_expiries[:6]])
+    context.update(
+        {
+            "seo_title": "Options Strategy Engine Trial with Live Strikes | TraderHub",
+            "seo_description": "Trial page for live-linked options strategy examples with real Nifty or Bank Nifty strikes and premiums where available.",
+            "canonical_url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine-trial",
+            "schema_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": "Options Strategy Engine Trial | TraderHub",
+                    "description": "Trial options strategy page with live-linked strike examples.",
+                    "url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine-trial",
+                },
+                indent=2,
+            ),
+            "breadcrumb_text": "Derivatives > Options Strategy Engine Trial",
+            "hero_kicker": "TraderHub Options Strategy Trial",
+            "hero_title": "Options Strategy Engine Trial",
+            "hero_subtitle": "This separate page keeps the current strategy engine safe while testing live strike and premium examples from the index option chain.",
+            "hero_metric_primary": trial.get("spot_display", "Pending"),
+            "hero_metric_secondary": f"{trial.get('selected_index_label', 'Index')} spot | Expiry {trial.get('selected_expiry', 'Pending')}",
+            "hero_badges": [
+                {"label": "Trial Page", "kind": "tag-warn"},
+                {"label": trial.get("selected_index_label", "Index"), "kind": "tag-info"},
+                {"label": "Live Strike Examples" if trial.get("chain_available") else "Chain Pending", "kind": "tag-up" if trial.get("chain_available") else "tag-info"},
+            ],
+            "hero_stats": [
+                {"label": "Index", "value": trial.get("selected_index_label", "Pending")},
+                {"label": "ATM Strike", "value": trial.get("atm_strike", "-")},
+                {"label": "Expiry", "value": trial.get("selected_expiry", "Pending")},
+                {"label": "Mode", "value": "Live Trial" if trial.get("chain_available") else "Fallback Trial"},
+            ],
+            "nav_chips": [
+                {"label": "Derivatives Hub", "href": "/derivatives"},
+                {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+                {"label": "Strategy Trial", "href": "/derivatives/options/strategy-engine-trial"},
+                {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+                {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            ],
+            "section_title": "Trial Setup Summary",
+            "section_note": "This trial page adds live-linked strike examples while keeping the original strategy engine untouched. Use it to test whether the live examples are clear enough before replacing the main page.",
+            "summary_cards": [
+                {"label": "Trial Index", "value": trial.get("selected_index_label", "Pending"), "copy": "The live example block is tied to one selected index so the strike examples stay easy to read."},
+                {"label": "ATM Strike", "value": trial.get("atm_strike", "-"), "copy": "The page frames examples around the current ATM strike from the live option chain."},
+                {"label": "Selected Expiry", "value": trial.get("selected_expiry", "Pending"), "copy": "This is the expiry used for the trial strategy examples."},
+                {"label": "Live Status", "value": "Ready" if trial.get("chain_available") else "Pending", "copy": "If the chain is available, the strategy cards will show live sample strikes and debit or credit estimates."},
+            ],
+            "recommendations_title": f"Top Matches For {selected_role.title()} With Live Trial Examples",
+            "recommendations_note": "The strategy ranking still comes from setup fit. The trial upgrade adds live sample strikes and premium estimates for the chosen index and expiry.",
+            "market_error": trial.get("market_error", ""),
+            "side_box_copy": "This page is a safe trial. It lets TraderHub test live strike examples without replacing the working options strategy engine first.",
+            "why_page_works": "It keeps the current strategy page stable while testing the hardest upgrade separately: turning abstract strike logic into live example combinations.",
+            "public_note": "Live premiums are shown only as examples, not trade instructions. Costs will still move with the option chain and the selected expiry.",
+            "filter_fields": [
+                {
+                    "name": "index",
+                    "label": "Index",
+                    "selected": selected_index,
+                    "options": index_options,
+                },
+                {
+                    "name": "expiry",
+                    "label": "Expiry",
+                    "selected": selected_expiry,
+                    "options": expiry_options,
+                },
+            ] + context["filter_fields"],
+        }
+    )
+    enriched = []
+    for row in context["recommended_strategies"]:
+        live_bits = trial.get("example_rows", {}).get(row["slug"], {})
+        row = dict(row)
+        row["live_contract_example"] = live_bits.get("live_contract_example", "")
+        row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
+        row["live_note"] = live_bits.get("live_note", "")
+        enriched.append(row)
+    context["recommended_strategies"] = enriched
+    return context
 
 
 def build_index_derivatives_context(index_slug, host_root):
@@ -35683,6 +35940,48 @@ def derivatives_options_strategy_engine():
         selected_capital = "medium"
     context = build_option_strategy_engine_context(
         request.url_root.rstrip("/"),
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
+
+
+@app.route("/derivatives/options/strategy-engine-trial")
+def derivatives_options_strategy_engine_trial():
+    selected_index = str(request.args.get("index", "nifty-options") or "nifty-options").strip().lower()
+    selected_expiry = str(request.args.get("expiry", "") or "").strip()
+    selected_role = str(request.args.get("role", "buyer") or "buyer").strip().lower()
+    selected_outlook = str(request.args.get("outlook", "bullish") or "bullish").strip().lower()
+    selected_strength = str(request.args.get("strength", "moderate") or "moderate").strip().lower()
+    selected_iv = str(request.args.get("iv", "normal") or "normal").strip().lower()
+    selected_event = str(request.args.get("event", "no") or "no").strip().lower()
+    selected_dte = str(request.args.get("dte", "medium") or "medium").strip().lower()
+    selected_capital = str(request.args.get("capital", "medium") or "medium").strip().lower()
+    if selected_index not in {"nifty-options", "banknifty-options"}:
+        selected_index = "nifty-options"
+    if selected_role not in {"buyer", "seller"}:
+        selected_role = "buyer"
+    if selected_outlook not in {"bullish", "bearish", "neutral"}:
+        selected_outlook = "bullish"
+    if selected_strength not in {"moderate", "strong"}:
+        selected_strength = "moderate"
+    if selected_iv not in {"low", "normal", "high"}:
+        selected_iv = "normal"
+    if selected_event not in {"yes", "no"}:
+        selected_event = "no"
+    if selected_dte not in {"short", "medium", "long"}:
+        selected_dte = "medium"
+    if selected_capital not in {"small", "medium", "high"}:
+        selected_capital = "medium"
+    context = build_option_strategy_engine_trial_context(
+        request.url_root.rstrip("/"),
+        selected_index=selected_index,
+        selected_expiry=selected_expiry,
         selected_role=selected_role,
         selected_outlook=selected_outlook,
         selected_strength=selected_strength,
