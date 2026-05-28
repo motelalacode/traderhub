@@ -36892,10 +36892,18 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       padding: 0 12px 40px;
     }
     .market-tape {
-      display: grid;
-      grid-template-columns: repeat(10, minmax(0, 1fr));
+      display: flex;
+      flex-wrap: nowrap;
       gap: 8px;
       padding: 12px 0 10px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      scroll-behavior: smooth;
+    }
+    .market-tape::-webkit-scrollbar {
+      display: none;
     }
     .action-strip {
       display: flex;
@@ -36921,6 +36929,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       box-shadow: var(--shadow);
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       min-width: 0;
+      flex: 0 0 190px;
     }
     .tape-item:hover {
       transform: translateY(-2px);
@@ -37222,16 +37231,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-size: 13px;
       color: var(--muted);
     }
-    @media (max-width: 1500px) {
-      .market-tape {
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-      }
-    }
-    @media (max-width: 1240px) {
-      .market-tape {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-      }
-    }
     @media (max-width: 1240px) {
       .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
         grid-template-columns: 1fr;
@@ -37243,16 +37242,16 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     @media (max-width: 760px) {
       .page { padding: 0 10px 30px; }
       .masthead, .hero-card, .module-card, .panel, .story-card, .rail-card, .knowledge-card { border-radius: 20px; }
-      .market-tape { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .quick-board { grid-template-columns: 1fr; }
       .nav { width: 100%; }
       .nav a { flex: 1 1 calc(50% - 10px); text-align: center; }
       .hero-sub { font-size: 16px; }
       .story-card strong { font-size: 22px; }
       .quick-tile .value { font-size: 18px; }
+      .tape-item { flex-basis: 178px; }
     }
     @media (max-width: 520px) {
-      .market-tape { grid-template-columns: 1fr; }
+      .tape-item { flex-basis: 170px; }
     }
   </style>
 </head>
