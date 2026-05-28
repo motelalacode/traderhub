@@ -22184,6 +22184,7 @@ def build_known_seo_inventory():
         ("/commodities/strongest", "commodities", "strongest", "commodities", "CollectionPage"),
         ("/commodities/weakest", "commodities", "weakest", "commodities", "CollectionPage"),
         ("/commodities/volatile", "commodities", "volatile", "commodities", "CollectionPage"),
+        ("/website-shell-trial3", "public_trial", "website-shell-trial3", None, "WebPage"),
     ]
 
     for domain in ("traderhub.in", "bot.traderhub.in"):
@@ -35795,6 +35796,170 @@ def build_website_shell_trial2_context(host_root):
     return context
 
 
+def build_website_shell_trial3_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial3"
+    market_tape = [
+        {"label": "Nifty 50", "value": "+0.84%", "tone": "up"},
+        {"label": "Bank Nifty", "value": "+0.52%", "tone": "up"},
+        {"label": "Sensex", "value": "+0.67%", "tone": "up"},
+        {"label": "Crude Oil", "value": "-0.41%", "tone": "down"},
+        {"label": "Gold", "value": "+0.31%", "tone": "up"},
+        {"label": "USDINR", "value": "83.14", "tone": "flat"},
+    ]
+    spotlight_cards = [
+        {
+            "eyebrow": "Market Pulse",
+            "title": "One wide first screen for action, context, and next clicks",
+            "copy": "This version is designed like a real financial homepage. The user can scan markets, jump into research, and still keep reading space for deeper pages.",
+        },
+        {
+            "eyebrow": "Why Trial 3",
+            "title": "More like a live market homepage, less like a pure layout sample",
+            "copy": "The page leads with market movement, then opens into stocks, sectors, derivatives, commodities, news, and research paths without feeling cramped.",
+        },
+        {
+            "eyebrow": "Small Screen Rule",
+            "title": "Desktop density, mobile clarity",
+            "copy": "The dense desktop layout collapses into a clean vertical feed so small screens still show the most important market blocks first.",
+        },
+    ]
+    market_modules = [
+        {
+            "title": "Stocks To Open Next",
+            "copy": "Fast entry points into high-intent stock pages, technical trials, and dividend research paths.",
+            "links": [
+                {"label": "ITC", "href": "/stocks/itc"},
+                {"label": "Wipro Chart Trial", "href": "/stocks/wipro/technical-chart-trial2"},
+                {"label": "Dividend Hub", "href": "/stocks/dividend-stocks"},
+                {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
+            ],
+        },
+        {
+            "title": "Sector Intelligence",
+            "copy": "Use the sector dashboard as the rotation layer between broad market news and individual stock selection.",
+            "links": [
+                {"label": "Sectors Hub", "href": "/sectors"},
+                {"label": "Strongest Sectors", "href": "/sectors/strongest"},
+                {"label": "Weakest Sectors", "href": "/sectors/weakest"},
+                {"label": "Rotation", "href": "/sectors/rotation"},
+            ],
+        },
+        {
+            "title": "Derivatives Desk",
+            "copy": "Keep options and OI pages visible from the homepage so active traders can move straight into signal-driven workflows.",
+            "links": [
+                {"label": "Derivatives Hub", "href": "/derivatives"},
+                {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+                {"label": "Stock OI Change", "href": "/derivatives/stocks/oi-change"},
+                {"label": "Crude Strategy", "href": "/derivatives/commodities/crude-oil/strategy"},
+            ],
+        },
+        {
+            "title": "Commodity Layer",
+            "copy": "Energy and metals stay visible as a separate research lane instead of being hidden inside general market pages.",
+            "links": [
+                {"label": "Commodities Hub", "href": "/commodities"},
+                {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+                {"label": "Natural Gas", "href": "/commodities/natural-gas"},
+                {"label": "Volatile Commodities", "href": "/commodities/volatile"},
+            ],
+        },
+    ]
+    lead_stories = [
+        {
+            "kicker": "Homepage Story Block",
+            "title": "Lead with a real market headline, then support it with linked tools",
+            "copy": "This space should hold the biggest market message of the day, followed by the most useful path a user can take next.",
+            "links": [
+                {"label": "Market News", "href": "/market"},
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Pre-Market News", "href": "/market/pre-market-news"},
+            ],
+        },
+        {
+            "kicker": "Research Block",
+            "title": "Put one research-heavy surface directly below the lead story",
+            "copy": "A homepage becomes much more useful when one major table, board, or dashboard is visible without another click.",
+            "links": [
+                {"label": "Sector Dashboard", "href": "/sectors"},
+                {"label": "Option Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+                {"label": "OI Change", "href": "/derivatives/stocks/oi-change"},
+            ],
+        },
+    ]
+    quick_boards = [
+        {"label": "Most Useful For", "value": "Markets, news, and research discovery"},
+        {"label": "Best Desktop Use", "value": "Wide content board with compact decision rail"},
+        {"label": "Best Mobile Use", "value": "Top blocks stack into one readable market feed"},
+        {"label": "Ad Placement Style", "value": "Right rail on desktop, inline between major modules on mobile"},
+    ]
+    rail_cards = [
+        {
+            "title": "Fast Watchlist",
+            "items": ["Nifty options", "Bank Nifty options", "Crude oil strategy", "Dividend screen", "Sector rotation"],
+        },
+        {
+            "title": "What Makes This Better",
+            "items": [
+                "Large content blocks stay central instead of being squeezed.",
+                "The homepage can feel alive without becoming visually noisy.",
+                "Every major product family stays reachable in one screen.",
+            ],
+        },
+        {
+            "title": "Suggested Homepage Mix",
+            "items": [
+                "One lead market story",
+                "One live dashboard block",
+                "One research board",
+                "One news and archive cluster",
+            ],
+        },
+    ]
+    education_cards = [
+        {
+            "title": "Why this style works for a small site",
+            "copy": "A smaller website benefits from one strong homepage that immediately explains the product range without making users search too much.",
+        },
+        {
+            "title": "Why this style also works on large desktop screens",
+            "copy": "The wide center area can hold dense tables, strategy engines, charts, and research summaries while the side rail handles lighter support content.",
+        },
+        {
+            "title": "What not to do",
+            "copy": "Do not turn the homepage into a wall of equal cards. The most important market message and the strongest tools should stay clearly above the rest.",
+        },
+    ]
+    context = {
+        "seo_title": "TraderHub Website Shell Trial 3 | TraderHub",
+        "seo_description": "A third homepage shell trial for TraderHub with a market-home layout inspired by financial portals and built for both mobile and large desktop screens.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "TraderHub Website Shell Trial 3",
+                "description": "A market-home layout trial for the TraderHub homepage.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Homepage trial 3 | Last reviewed {get_today_ist().isoformat()}",
+        "hero_title": "Website Shell Sample Three",
+        "hero_subtitle": "A market-home trial with a strong first screen, wider story blocks, quick research entry points, and a cleaner path from homepage scanning into deep TraderHub pages.",
+        "market_tape": market_tape,
+        "spotlight_cards": spotlight_cards,
+        "market_modules": market_modules,
+        "lead_stories": lead_stories,
+        "quick_boards": quick_boards,
+        "rail_cards": rail_cards,
+        "education_cards": education_cards,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    context.update(build_public_ad_context("TraderHub Website Shell Trial 3", page_family="public"))
+    return context
+
+
 WEBSITE_SHELL_TRIAL2_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -36125,6 +36290,452 @@ WEBSITE_SHELL_TRIAL2_TEMPLATE = """
 """
 
 
+WEBSITE_SHELL_TRIAL3_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --paper: #ffffff;
+      --line: rgba(19, 44, 62, 0.12);
+      --ink: #112a3c;
+      --muted: #627687;
+      --accent: #0e6174;
+      --up: #12875f;
+      --down: #c84f43;
+      --flat: #5a6a78;
+      --shadow: 0 22px 64px rgba(17, 38, 53, 0.08);
+      --header: #172b3a;
+      --header-soft: #223949;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Gill Sans", "Gill Sans MT", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(14,97,116,0.12), transparent 24%),
+        linear-gradient(180deg, #f7fafc 0%, #edf2f6 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page {
+      max-width: 1580px;
+      margin: 0 auto;
+      padding: 0 12px 40px;
+    }
+    .market-tape {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 10px;
+      padding: 12px 0 10px;
+    }
+    .tape-item {
+      background: rgba(255,255,255,0.72);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 12px 14px;
+      box-shadow: var(--shadow);
+    }
+    .tape-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .tape-value {
+      font-size: 20px;
+      font-weight: 800;
+    }
+    .up { color: var(--up); }
+    .down { color: var(--down); }
+    .flat { color: var(--flat); }
+    .masthead {
+      background: linear-gradient(140deg, var(--header), var(--header-soft) 72%, #2d5461 100%);
+      color: #fff;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .masthead-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    .brand strong {
+      display: block;
+      font-size: 30px;
+      line-height: 1;
+    }
+    .brand span {
+      display: block;
+      margin-top: 6px;
+      font-size: 14px;
+      opacity: 0.84;
+    }
+    .nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.1);
+      font-size: 14px;
+      font-weight: 800;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(42px, 5.8vw, 74px);
+      line-height: 0.95;
+      max-width: 900px;
+    }
+    .hero-sub {
+      max-width: 980px;
+      margin: 0;
+      color: rgba(255,255,255,0.88);
+      font-size: 18px;
+      line-height: 1.6;
+    }
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.35fr 0.95fr 0.95fr;
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .hero-card {
+      padding: 18px;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.9);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+    }
+    .eyebrow {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .hero-card h2, .panel h2, .rail-card strong, .knowledge-card strong {
+      margin: 0 0 10px;
+    }
+    .hero-card h2 {
+      font-size: 28px;
+      line-height: 1.1;
+    }
+    .hero-card p, .panel p, .module-card p, .story-card p, .knowledge-card p, .rail-item {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+      font-size: 15px;
+    }
+    .modules {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+      margin: 18px 0;
+    }
+    .module-card, .panel, .story-card, .rail-card, .knowledge-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+    .module-card {
+      padding: 18px;
+    }
+    .module-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 21px;
+    }
+    .link-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .link-list a {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #fbfcfd;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.48fr) minmax(300px, 0.72fr);
+      gap: 18px;
+      align-items: start;
+    }
+    .main-col, .rail-col {
+      display: grid;
+      gap: 18px;
+    }
+    .panel {
+      padding: 20px;
+    }
+    .story-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .story-card {
+      padding: 18px;
+      min-height: 180px;
+      background: linear-gradient(145deg, rgba(14,97,116,0.06), rgba(255,255,255,1));
+    }
+    .story-card strong {
+      display: block;
+      font-size: 24px;
+      margin-bottom: 8px;
+      line-height: 1.15;
+    }
+    .quick-board {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .quick-tile {
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: #fbfdff;
+    }
+    .quick-tile .label {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+    .quick-tile .value {
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.3;
+    }
+    .knowledge-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .knowledge-card {
+      padding: 18px;
+    }
+    .knowledge-card strong {
+      display: block;
+      font-size: 20px;
+    }
+    .rail-card {
+      padding: 18px;
+    }
+    .rail-card strong {
+      display: block;
+      font-size: 21px;
+    }
+    .rail-items {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .rail-item {
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fbfdff;
+      font-size: 14px;
+    }
+    .ad-note {
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    @media (max-width: 1240px) {
+      .market-tape, .modules, .hero-grid, .layout, .story-grid, .knowledge-grid {
+        grid-template-columns: 1fr;
+      }
+      .quick-board {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 0 10px 30px; }
+      .masthead, .hero-card, .module-card, .panel, .story-card, .rail-card, .knowledge-card { border-radius: 20px; }
+      .market-tape, .quick-board { grid-template-columns: 1fr; }
+      .nav { width: 100%; }
+      .nav a { flex: 1 1 calc(50% - 10px); text-align: center; }
+      .hero-sub { font-size: 16px; }
+      .story-card strong { font-size: 22px; }
+      .quick-tile .value { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="market-tape">
+      {% for item in market_tape %}
+      <article class="tape-item">
+        <div class="tape-label">{{ item.label }}</div>
+        <div class="tape-value {{ item.tone }}">{{ item.value }}</div>
+      </article>
+      {% endfor %}
+    </section>
+
+    <section class="masthead">
+      <div class="masthead-top">
+        <div class="brand">
+          <strong>TraderHub</strong>
+          <span>{{ page_meta_text }}</span>
+        </div>
+        <nav class="nav">
+          <a href="/">Home</a>
+          <a href="/market">Market</a>
+          <a href="/stocks/itc">Stocks</a>
+          <a href="/sectors">Sectors</a>
+          <a href="/derivatives">Derivatives</a>
+          <a href="/commodities">Commodities</a>
+        </nav>
+      </div>
+      <h1>{{ hero_title }}</h1>
+      <p class="hero-sub">{{ hero_subtitle }}</p>
+      <div class="hero-grid">
+        {% for card in spotlight_cards %}
+        <article class="hero-card">
+          <div class="eyebrow">{{ card.eyebrow }}</div>
+          <h2>{{ card.title }}</h2>
+          <p>{{ card.copy }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="modules">
+      {% for module in market_modules %}
+      <article class="module-card">
+        <strong>{{ module.title }}</strong>
+        <p>{{ module.copy }}</p>
+        <div class="link-list">
+          {% for link in module.links %}
+          <a href="{{ link.href }}">{{ link.label }}</a>
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </section>
+
+    <div class="layout">
+      <div class="main-col">
+        <section class="panel">
+          <div class="eyebrow">Lead Homepage Flow</div>
+          <h2>What the first content blocks should do</h2>
+          <p>This layout gives the homepage a real market-home feel. It should help a user scan the market quickly, discover the strongest TraderHub tools, and still leave enough width for one serious research block.</p>
+          <div class="story-grid">
+            {% for story in lead_stories %}
+            <article class="story-card">
+              <div class="eyebrow">{{ story.kicker }}</div>
+              <strong>{{ story.title }}</strong>
+              <p>{{ story.copy }}</p>
+              <div class="link-list">
+                {% for link in story.links %}
+                <a href="{{ link.href }}">{{ link.label }}</a>
+                {% endfor %}
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="eyebrow">Decision Board</div>
+          <h2>Why this homepage model can work across the full website</h2>
+          <div class="quick-board">
+            {% for board in quick_boards %}
+            <article class="quick-tile">
+              <span class="label">{{ board.label }}</span>
+              <div class="value">{{ board.value }}</div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="eyebrow">Builder Notes</div>
+          <h2>Practical homepage guidance</h2>
+          <div class="knowledge-grid">
+            {% for card in education_cards %}
+            <article class="knowledge-card">
+              <strong>{{ card.title }}</strong>
+              <p>{{ card.copy }}</p>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+
+      <aside class="rail-col">
+        {% for card in rail_cards %}
+        <section class="rail-card">
+          <strong>{{ card.title }}</strong>
+          <div class="rail-items">
+            {% for item in card.items %}
+            <div class="rail-item">{{ item }}</div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endfor %}
+
+        {% if sponsor_ad %}
+        <section class="rail-card">
+          <div class="eyebrow">{{ sponsor_ad.label }}</div>
+          <strong>{{ sponsor_ad.name }}</strong>
+          <p>{{ sponsor_ad.copy }}</p>
+          {% if sponsor_ad.url %}
+          <div class="ad-note"><a href="{{ sponsor_ad.url }}" target="_blank" rel="noopener">Open sponsor link</a></div>
+          {% endif %}
+        </section>
+        {% endif %}
+
+        {% if google_vertical_ad_html %}
+        <section class="rail-card">
+          <div class="eyebrow">Google Ad Sample</div>
+          {{ google_vertical_ad_html|safe }}
+        </section>
+        {% endif %}
+      </aside>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/dividend-stocks")
 def dividend_stocks_hub():
     context = build_dividend_stocks_hub_context(request.url_root.rstrip("/"))
@@ -36141,6 +36752,12 @@ def website_shell_trial():
 def website_shell_trial2():
     context = build_website_shell_trial2_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL2_TEMPLATE, **context)
+
+
+@app.route("/website-shell-trial3")
+def website_shell_trial3():
+    context = build_website_shell_trial3_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL3_TEMPLATE, **context)
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
