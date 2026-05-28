@@ -28550,6 +28550,14 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .flag.warn { background:var(--warn-soft); color:var(--warn); }
     .flag.down { background:var(--down-soft); color:var(--down); }
     .flag.info { background:var(--info-soft); color:var(--info); }
+    .zone-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+    .zone-box { border-radius:14px; padding:12px; border:1px solid var(--line); }
+    .zone-box.good { background:#f4fcf7; border-color:#b8e2cb; }
+    .zone-box.risk { background:#fff5f6; border-color:#f0c2c7; }
+    .zone-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:6px; }
+    .zone-box.good .zone-title { color:#116d47; }
+    .zone-box.risk .zone-title { color:#99353a; }
+    .zone-copy { font-size:14px; line-height:1.55; color:#223244; }
     .mini-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .mini-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
     .mini-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
@@ -28586,8 +28594,8 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .ad-slot.tall { min-height:220px; }
     .notice { padding:14px; background:var(--panel); }
     @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
-    @media (max-width:920px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
-    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { border-radius:18px; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-sub { font-size:16px; } }
+    @media (max-width:920px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid,.zone-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { border-radius:18px; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid,.zone-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-sub { font-size:16px; } }
   </style>
 </head>
 <body>
@@ -28728,6 +28736,18 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 </svg>
               </div>
               {% endif %}
+              {% if strategy.zone_guidance %}
+              <div class="zone-grid">
+                <div class="zone-box good">
+                  <div class="zone-title">Profit Zone</div>
+                  <div class="zone-copy">{{ strategy.zone_guidance.good }}</div>
+                </div>
+                <div class="zone-box risk">
+                  <div class="zone-title">Danger Zone</div>
+                  <div class="zone-copy">{{ strategy.zone_guidance.risk }}</div>
+                </div>
+              </div>
+              {% endif %}
               <ul class="tight">
                 <li><strong>Time decay:</strong> {{ strategy.theta_read }}</li>
                 <li><strong>Volatility:</strong> {{ strategy.vega_read }}</li>
@@ -28763,7 +28783,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
             <div class="summary-card">
               <div class="metric-label">{{ card.label }}</div>
               <div class="metric-value">{{ card.value }}</div>
-              <div class="copy">{{ card.copy }}</div>
+              <div class="copy">{{ card["copy"] }}</div>
             </div>
             {% endfor %}
           </div>
@@ -31070,6 +31090,44 @@ def get_option_strategy_risk_flags(strategy_slug):
     return flag_map.get(strategy_slug, [])
 
 
+def get_option_strategy_zone_guidance(strategy_slug):
+    zone_map = {
+        "long-call": {
+            "good": "Best when price moves above the strike fast enough to outrun time decay and premium paid.",
+            "risk": "If price stays flat or rises too slowly, the option can still lose because time value keeps shrinking.",
+        },
+        "long-put": {
+            "good": "Best when price breaks down quickly and keeps moving lower before expiry.",
+            "risk": "A slow decline or sideways trade can still damage the premium because theta keeps working against the buyer.",
+        },
+        "bull-call-spread": {
+            "good": "Best when price rises into the short-call area in a measured, moderate bullish move.",
+            "risk": "If price stays weak, the debit can decay. If price explodes far above the upper strike, profit is still capped.",
+        },
+        "bear-put-spread": {
+            "good": "Best when price falls into the lower strike area in a controlled bearish move.",
+            "risk": "If price stalls or bounces, the debit can decay. Very deep downside beyond the lower strike will not add extra spread profit.",
+        },
+        "bull-put-spread": {
+            "good": "Best when price stays above the short put strike or drifts higher while time decay helps the seller.",
+            "risk": "A hard downside move toward or below the short put can quickly turn the credit spread against the trader.",
+        },
+        "bear-call-spread": {
+            "good": "Best when price stays below the short call strike or drifts lower while time decay helps the seller.",
+            "risk": "A strong upside breakout toward or above the short call can quickly pressure the spread.",
+        },
+        "long-straddle": {
+            "good": "Best when price makes a large move in either direction soon after entry, especially around major events.",
+            "risk": "If the event move is too small or volatility collapses sharply, both options can lose value together.",
+        },
+        "short-strangle": {
+            "good": "Best when price stays inside the sold call and put strikes and implied volatility cools.",
+            "risk": "A sharp move outside the sold strikes can expand losses quickly on one side or both sides.",
+        },
+    }
+    return zone_map.get(strategy_slug, {})
+
+
 def get_option_strategy_live_legs(strategy_slug, anchor, strike_step):
     up1 = anchor + strike_step
     down1 = anchor - strike_step
@@ -31244,8 +31302,10 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
             row.update(get_option_strategy_payoff_visual(row["slug"]))
             row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
             row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
+            row["zone_guidance"] = get_option_strategy_zone_guidance(row["slug"])
         else:
             row["risk_flags"] = []
+            row["zone_guidance"] = {}
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
