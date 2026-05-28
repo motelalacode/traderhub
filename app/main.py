@@ -30630,7 +30630,7 @@ def build_option_strategy_engine_context(host_root, selected_role="buyer", selec
             },
             indent=2,
         ),
-        "public_head_injection": build_public_head_injection(page_type="derivatives_options_strategy", page_group="derivatives", page_title="Options Strategy Engine"),
+        "public_head_injection": build_public_ops_head_injection(),
         "breadcrumb_text": "Derivatives > Options Strategy Engine",
         "breadcrumb_meta_text": f"Setup-first options page | Last reviewed {get_today_ist().isoformat()}",
         "hero_kicker": "TraderHub Options Strategy Engine",
