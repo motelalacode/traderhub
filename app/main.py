@@ -28552,6 +28552,17 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .flag.info { background:var(--info-soft); color:var(--info); }
     .flag.up { background:var(--up-soft); color:var(--up); }
     .flag.neutral { background:#eef2f6; color:#526678; }
+    .glance-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:12px 0 10px; }
+    .glance-box { background:linear-gradient(180deg,#ffffff 0%,#f8fbfd 100%); border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .glance-box.soft-good { border-color:#c8dfd4; background:linear-gradient(180deg,#f8fdf9 0%,#eef8f2 100%); }
+    .glance-box.soft-warn { border-color:#e2d6b3; background:linear-gradient(180deg,#fffdf7 0%,#faf4df 100%); }
+    .glance-box.soft-risk { border-color:#ebc8cd; background:linear-gradient(180deg,#fffafb 0%,#fff1f3 100%); }
+    .glance-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .glance-value { font-size:16px; font-weight:700; color:#1b3144; line-height:1.4; }
+    .focus-box { margin-top:12px; border:1px solid #d9e5ef; border-radius:16px; background:linear-gradient(180deg,#f9fcff 0%,#f2f7fb 100%); padding:13px 14px; }
+    .focus-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#56708a; font-weight:700; margin-bottom:8px; }
+    .focus-points { margin:0; padding-left:18px; }
+    .focus-points li { color:#2a3d4f; font-size:14px; line-height:1.55; margin:0 0 6px; }
     .zone-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .zone-box { border-radius:14px; padding:12px; border:1px solid var(--line); }
     .zone-box.good { background:#f4fcf7; border-color:#b8e2cb; }
@@ -28686,6 +28697,22 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
               {% if strategy.style_label %}
               <div class="copy" style="margin-bottom:8px;"><strong>Strategy Style:</strong> {{ strategy.style_label }}</div>
               {% endif %}
+              {% if strategy.beginner_fit or strategy.capital_pressure %}
+              <div class="glance-grid">
+                {% if strategy.beginner_fit %}
+                <div class="glance-box {{ strategy.beginner_fit_kind or '' }}">
+                  <div class="glance-label">Beginner Fit</div>
+                  <div class="glance-value">{{ strategy.beginner_fit }}</div>
+                </div>
+                {% endif %}
+                {% if strategy.capital_pressure %}
+                <div class="glance-box {{ strategy.capital_pressure_kind or '' }}">
+                  <div class="glance-label">Capital Pressure</div>
+                  <div class="glance-value">{{ strategy.capital_pressure }}</div>
+                </div>
+                {% endif %}
+              </div>
+              {% endif %}
               {% if strategy.risk_flags %}
               <div class="flag-row">
                 {% for flag in strategy.risk_flags %}
@@ -28768,6 +28795,16 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                   <div class="mini-value">{{ strategy.event_marker }}</div>
                 </div>
                 {% endif %}
+              </div>
+              {% endif %}
+              {% if strategy.quick_points %}
+              <div class="focus-box">
+                <div class="focus-title">Important Points</div>
+                <ul class="focus-points">
+                  {% for point in strategy.quick_points %}
+                  <li>{{ point }}</li>
+                  {% endfor %}
+                </ul>
               </div>
               {% endif %}
               <ul class="tight">
@@ -31187,6 +31224,80 @@ def get_option_strategy_style_label(strategy_slug):
     return style_map.get(strategy_slug, "")
 
 
+def get_option_strategy_beginner_fit(strategy_slug):
+    fit_map = {
+        "long-call": {"label": "Beginner Friendly", "kind": "soft-good"},
+        "long-put": {"label": "Beginner Friendly", "kind": "soft-good"},
+        "bull-call-spread": {"label": "Good Starter Spread", "kind": "soft-good"},
+        "bear-put-spread": {"label": "Good Starter Spread", "kind": "soft-good"},
+        "bull-put-spread": {"label": "Better After Practice", "kind": "soft-warn"},
+        "bear-call-spread": {"label": "Better After Practice", "kind": "soft-warn"},
+        "long-straddle": {"label": "Needs Event Discipline", "kind": "soft-warn"},
+        "short-strangle": {"label": "Advanced Risk", "kind": "soft-risk"},
+    }
+    return fit_map.get(strategy_slug, {"label": "", "kind": ""})
+
+
+def get_option_strategy_capital_pressure(strategy_slug):
+    pressure_map = {
+        "long-call": {"label": "Low to Moderate", "kind": "soft-good"},
+        "long-put": {"label": "Low to Moderate", "kind": "soft-good"},
+        "bull-call-spread": {"label": "Moderate", "kind": "soft-warn"},
+        "bear-put-spread": {"label": "Moderate", "kind": "soft-warn"},
+        "bull-put-spread": {"label": "Margin Aware", "kind": "soft-warn"},
+        "bear-call-spread": {"label": "Margin Aware", "kind": "soft-warn"},
+        "long-straddle": {"label": "Higher Premium Outflow", "kind": "soft-risk"},
+        "short-strangle": {"label": "Margin Heavy", "kind": "soft-risk"},
+    }
+    return pressure_map.get(strategy_slug, {"label": "", "kind": ""})
+
+
+def get_option_strategy_quick_points(strategy_slug):
+    point_map = {
+        "long-call": [
+            "Works best when price moves up quickly, not slowly.",
+            "Loss stays limited to premium paid.",
+            "IV expansion helps, time decay hurts.",
+        ],
+        "long-put": [
+            "Works best when price breaks down quickly.",
+            "Loss stays limited to premium paid.",
+            "Slow downside can still lose because of theta.",
+        ],
+        "bull-call-spread": [
+            "A cleaner bullish choice when you want defined risk.",
+            "Cost is lower than a naked long call.",
+            "Profit is capped above the short strike.",
+        ],
+        "bear-put-spread": [
+            "A cleaner bearish choice when you want defined risk.",
+            "Cost is lower than a naked long put.",
+            "Profit is capped below the lower strike.",
+        ],
+        "bull-put-spread": [
+            "Best when you want stability rather than a big rally.",
+            "Time decay can work in your favor.",
+            "Downside shock can pressure the short put quickly.",
+        ],
+        "bear-call-spread": [
+            "Best when you expect calm or mild weakness.",
+            "Time decay can work in your favor.",
+            "A sharp upside breakout can hurt fast.",
+        ],
+        "long-straddle": [
+            "Useful when a large move is expected but direction is unclear.",
+            "Needs expansion in price or volatility.",
+            "Small event moves can still lose badly.",
+        ],
+        "short-strangle": [
+            "Works only when price stays contained between sold strikes.",
+            "Premium decay helps, but tail risk is real.",
+            "Not suitable for traders who cannot manage large moves.",
+        ],
+    }
+    return point_map.get(strategy_slug, [])
+
+
 def get_option_strategy_before_expiry_note(strategy_slug):
     note_map = {
         "long-call": "Before expiry, this trade usually needs quick directional follow-through. A slow drift up can still feel weak because time value keeps decaying.",
@@ -31383,6 +31494,13 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         live_bits = trial.get("example_rows", {}).get(row["slug"], {})
         row = dict(row)
         row["style_label"] = get_option_strategy_style_label(row["slug"])
+        beginner_fit = get_option_strategy_beginner_fit(row["slug"])
+        capital_pressure = get_option_strategy_capital_pressure(row["slug"])
+        row["beginner_fit"] = beginner_fit.get("label", "")
+        row["beginner_fit_kind"] = beginner_fit.get("kind", "")
+        row["capital_pressure"] = capital_pressure.get("label", "")
+        row["capital_pressure_kind"] = capital_pressure.get("kind", "")
+        row["quick_points"] = get_option_strategy_quick_points(row["slug"])
         row["live_contract_example"] = live_bits.get("live_contract_example", "")
         row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
         row["live_lot_capital"] = live_bits.get("live_lot_capital", "")
