@@ -22207,6 +22207,7 @@ def build_known_seo_inventory():
         ("/commodities/weakest", "commodities", "weakest", "commodities", "CollectionPage"),
         ("/commodities/volatile", "commodities", "volatile", "commodities", "CollectionPage"),
         ("/website-shell-trial3", "public_trial", "website-shell-trial3", None, "WebPage"),
+        ("/website-shell-trial4", "public_trial", "website-shell-trial4", None, "WebPage"),
     ]
 
     for domain in ("traderhub.in", "bot.traderhub.in"):
@@ -36448,6 +36449,1192 @@ def build_website_shell_trial3_context(host_root):
     return context
 
 
+def build_website_shell_trial4_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial4"
+    base_tape = build_website_shell_trial3_index_tape()
+    ticker_rows = list(base_tape)
+    gift_row = {
+        "label": "Gift Nifty",
+        "value": "Pending",
+        "change": "Pending",
+        "percent": "Pending",
+        "tone": "flat",
+        "href": "/market",
+        "status": "Pending",
+        "updated_label": "Latest available",
+        "sparkline_svg": "",
+        "open_label": "↗",
+    }
+    ticker_rows.insert(5, gift_row)
+    live_rows = [row for row in ticker_rows if str(row.get("tone") or "flat") in {"up", "down"}]
+    gainers = sum(1 for row in ticker_rows if str(row.get("tone") or "") == "up")
+    losers = sum(1 for row in ticker_rows if str(row.get("tone") or "") == "down")
+    strongest_row = max(live_rows, key=lambda item: abs(parse_numeric_text(item.get("percent")) or 0), default=None)
+    indices_panel = [row for row in ticker_rows if row.get("label") in {"Nifty", "Sensex", "Nifty Bank", "Fin Nifty", "Nifty IT"}]
+    modules = [
+        {
+            "title": "Market Dashboard",
+            "copy": "Track the market pulse, live movers, and daily context before opening deeper research pages.",
+            "href": "/market",
+            "links": [{"label": "Market Desk", "href": "/market"}, {"label": "Live Movers", "href": "/market/live-movers"}],
+        },
+        {
+            "title": "Stock Research",
+            "copy": "Move into stock pages, chart views, and dividend screens from a cleaner research entry point.",
+            "href": "/stocks/itc",
+            "links": [{"label": "ITC", "href": "/stocks/itc"}, {"label": "Dividend Hub", "href": "/stocks/dividend-stocks"}],
+        },
+        {
+            "title": "Option Strategy Engine",
+            "copy": "Open the options engine, OI views, and expiry strategy tools from one terminal-style block.",
+            "href": "/derivatives/options/strategy-engine",
+            "links": [{"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"}, {"label": "Expiry Strategy", "href": "/derivatives/expiry-strategy"}],
+        },
+        {
+            "title": "Sector Scanner",
+            "copy": "Jump into sector rotation, strongest sectors, and linked public stock pages quickly.",
+            "href": "/sectors",
+            "links": [{"label": "Sectors", "href": "/sectors"}, {"label": "Rotation", "href": "/sectors/rotation"}],
+        },
+        {
+            "title": "Commodity Desk",
+            "copy": "Keep gold, crude oil, silver, and natural gas visible as a separate market lane.",
+            "href": "/commodities",
+            "links": [{"label": "Commodities", "href": "/commodities"}, {"label": "Crude Strategy", "href": "/derivatives/commodities/crude-oil/strategy"}],
+            "mini_cards": [row for row in ticker_rows if row.get("label") in {"Gold", "Crude Oil", "Silver", "Natural Gas"}],
+        },
+    ]
+    ai_feed = [
+        {"label": "Buy Bias", "tone": "up", "title": "Nifty leadership still supports a buy-the-dips mindset", "copy": "Use this when broader strength is backing selective stock setups."},
+        {"label": "Watch", "tone": "flat", "title": "Watch commodities for event-led volatility", "copy": "Crude and metals can change the tone of the session faster than broad sectors."},
+        {"label": "Sell Risk", "tone": "down", "title": "Weak breadth should reduce aggressive short-premium trades", "copy": "When the tape turns uneven, option structures need tighter risk discipline."},
+    ]
+    feature_grid = [
+        {"tone": "wide", "eyebrow": "Realtime Analytics", "title": "Live market boards with research depth", "copy": "Keep live boards and research pages in one system instead of splitting market discovery and action."},
+        {"tone": "tall", "eyebrow": "Smart Option Chain", "title": "Option tools built for buyers and sellers", "copy": "Strategy pages, OI views, and expiry tools stay close to the market pulse."},
+        {"tone": "standard", "eyebrow": "AI Layer", "title": "Powered by AI", "copy": "Signal-style summaries help traders decide what to open next."},
+        {"tone": "standard", "eyebrow": "Sector Rotation", "title": "Follow leadership, not noise", "copy": "Read strongest sectors, weakest sectors, and stock links from one surface."},
+        {"tone": "wide", "eyebrow": "Commodity Context", "title": "Crude, gold, silver, and gas stay visible", "copy": "Commodity pages and strategy paths stay connected to the main homepage instead of being hidden behind menus."},
+    ]
+    sitemap_groups = [
+        {"title": "Core Pages", "links": [{"label": "Home", "href": "/"}, {"label": "Market", "href": "/market"}, {"label": "Stocks", "href": "/stocks/itc"}, {"label": "Sectors", "href": "/sectors"}]},
+        {"title": "Derivatives", "links": [{"label": "Derivatives Hub", "href": "/derivatives"}, {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"}, {"label": "OI Change", "href": "/derivatives/stocks/oi-change"}, {"label": "Expiry Strategy", "href": "/derivatives/expiry-strategy"}]},
+        {"title": "Commodities", "links": [{"label": "Commodities", "href": "/commodities"}, {"label": "Crude Oil", "href": "/commodities/crude-oil"}, {"label": "Natural Gas", "href": "/commodities/natural-gas"}, {"label": "Crude Strategy", "href": "/derivatives/commodities/crude-oil/strategy"}]},
+        {"title": "Research", "links": [{"label": "Dividend Hub", "href": "/stocks/dividend-stocks"}, {"label": "Live Movers", "href": "/market/live-movers"}, {"label": "Market Archive", "href": "/market/archive"}, {"label": "Sitemap", "href": "/sitemap.html"}]},
+    ]
+    context = {
+        "seo_title": "AI-Powered Indian Trading Terminal Homepage | TraderHub",
+        "seo_description": "Explore a premium Indian stock market homepage with live ticker strips, stock research, option strategies, sector scanners, commodity desks, and AI trading intelligence in TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "AI-Powered Indian Trading Terminal Homepage | TraderHub",
+                "description": "Premium homepage trial for TraderHub with market, stocks, derivatives, sectors, and commodities in one fintech layout.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Homepage trial 4 | Updated {get_today_ist().isoformat()}",
+        "hero_title": "India's AI-Powered Trading Intelligence Platform",
+        "hero_subtitle": "Track markets, open stock research, scan sectors, and move into smarter derivative and commodity workflows from one premium trading homepage.",
+        "hero_ctas": [
+            {"label": "Explore Market", "href": "/market", "kind": "primary"},
+            {"label": "AI Scanner", "href": "/stocks/equity-stock-page", "kind": "secondary"},
+        ],
+        "trust_items": ["Powered by AI", "10,000+ Traders", "Realtime Analytics", "Smart Option Chain"],
+        "ticker_rows": ticker_rows,
+        "indices_panel": indices_panel,
+        "market_pulse": {
+            "positive": gainers,
+            "negative": losers,
+            "strongest": strongest_row.get("label") if strongest_row else "Pending",
+            "copy": (
+                f"{gainers} instruments are positive and {losers} are negative. {strongest_row.get('label')} is showing the strongest move."
+                if strongest_row else
+                "Read the pulse first, then move into your next page with context."
+            ),
+        },
+        "modules": modules,
+        "ai_feed": ai_feed,
+        "feature_grid": feature_grid,
+        "sitemap_groups": sitemap_groups,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    context.update(build_public_ad_context("TraderHub Website Shell Trial 4", page_family="public"))
+    return context
+
+
+WEBSITE_SHELL_TRIAL4_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #f3f7fb;
+      --shell: #081726;
+      --shell-2: #0c2234;
+      --line: rgba(120, 158, 194, 0.18);
+      --line-soft: rgba(120, 158, 194, 0.10);
+      --paper: rgba(255,255,255,0.92);
+      --ink: #0f2638;
+      --muted: #65798b;
+      --up: #15b97c;
+      --down: #f25d68;
+      --flat: #92a6b8;
+      --brand: #55b0ff;
+      --brand-2: #83ffd4;
+      --shadow: 0 26px 64px rgba(8, 24, 38, 0.10);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(85,176,255,0.12), transparent 28%),
+        radial-gradient(circle at top right, rgba(131,255,212,0.10), transparent 24%),
+        linear-gradient(180deg, #f8fbff 0%, #eef4f9 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .shell {
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 0 14px 40px;
+    }
+    .nav-shell {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding-top: 12px;
+    }
+    .topnav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      border-radius: 22px;
+      background: rgba(10, 24, 38, 0.55);
+      border: 1px solid rgba(166, 201, 231, 0.16);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 42px rgba(7, 19, 30, 0.18);
+      transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+    .topnav.scrolled {
+      background: rgba(8, 20, 32, 0.84);
+      border-color: rgba(166, 201, 231, 0.24);
+      box-shadow: 0 24px 50px rgba(7, 19, 30, 0.28);
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #f2f8fe;
+    }
+    .brand strong {
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+    }
+    .brand span {
+      font-size: 12px;
+      color: rgba(225, 237, 248, 0.8);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav-links a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(177, 206, 230, 0.14);
+      color: #eff8ff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .hero-wrap {
+      position: relative;
+      margin-top: 16px;
+      overflow: hidden;
+      border-radius: 34px;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(85,176,255,0.20), transparent 24%),
+        radial-gradient(circle at 88% 14%, rgba(131,255,212,0.16), transparent 20%),
+        linear-gradient(135deg, #071523 0%, #0d2740 44%, #0b3850 100%);
+      border: 1px solid rgba(156, 193, 224, 0.16);
+      box-shadow: 0 34px 80px rgba(4, 16, 26, 0.24);
+      color: #f4f9fd;
+      min-height: 520px;
+    }
+    .hero-wrap::before {
+      content: "";
+      position: absolute;
+      inset: -10% -10% auto auto;
+      width: 440px;
+      height: 440px;
+      background: radial-gradient(circle, rgba(75, 170, 255, 0.22), transparent 60%);
+      filter: blur(18px);
+      pointer-events: none;
+    }
+    .hero-grid {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 24px;
+      padding: 38px 34px 24px;
+    }
+    .hero-copy {
+      transform: translateY(var(--hero-shift, 0px));
+      transition: transform 0.16s ease;
+    }
+    .hero-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(180, 214, 238, 0.16);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 800;
+    }
+    .live-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #62f6b2;
+      box-shadow: 0 0 0 0 rgba(98,246,178,0.5);
+      animation: pulse-dot 1.8s infinite;
+    }
+    h1 {
+      margin: 0 0 12px;
+      max-width: 760px;
+      font-size: clamp(42px, 6vw, 78px);
+      line-height: 0.94;
+      letter-spacing: -0.03em;
+    }
+    .hero-copy p {
+      max-width: 720px;
+      margin: 0;
+      color: rgba(233, 243, 251, 0.84);
+      font-size: 17px;
+      line-height: 1.65;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 22px;
+    }
+    .hero-actions a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 170px;
+      padding: 13px 18px;
+      border-radius: 14px;
+      font-size: 14px;
+      font-weight: 800;
+      border: 1px solid rgba(190, 219, 240, 0.18);
+      transition: transform 0.18s ease, background 0.18s ease;
+    }
+    .hero-actions a:hover { transform: translateY(-2px); }
+    .hero-actions .primary {
+      background: linear-gradient(135deg, #5bb3ff, #6fe4d0);
+      color: #042033;
+      box-shadow: 0 14px 30px rgba(48, 162, 255, 0.22);
+    }
+    .hero-actions .secondary {
+      background: rgba(255,255,255,0.08);
+      color: #f2f8fd;
+      backdrop-filter: blur(14px);
+    }
+    .trust-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .trust-pill {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(175, 207, 231, 0.14);
+      color: rgba(243, 249, 253, 0.92);
+      font-size: 13px;
+      font-weight: 800;
+      backdrop-filter: blur(14px);
+    }
+    .hero-panel {
+      padding: 18px;
+      border-radius: 26px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(176, 208, 233, 0.16);
+      backdrop-filter: blur(18px);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+    .hero-panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .hero-panel-head strong {
+      font-size: 18px;
+      color: #f5fbff;
+    }
+    .hero-panel-head span {
+      color: rgba(223, 236, 246, 0.74);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 800;
+    }
+    .panel-cards {
+      display: grid;
+      gap: 12px;
+    }
+    .index-card {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border-radius: 18px;
+      background: rgba(8, 21, 34, 0.44);
+      border: 1px solid rgba(176, 208, 233, 0.12);
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+    .index-card:hover {
+      transform: translateY(-3px);
+      background: rgba(12, 29, 46, 0.72);
+      border-color: rgba(176, 208, 233, 0.24);
+    }
+    .index-main {
+      min-width: 0;
+    }
+    .index-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(242, 248, 252, 0.92);
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .index-value {
+      margin-top: 4px;
+      font-size: 22px;
+      font-weight: 800;
+      color: #f7fbff;
+    }
+    .index-meta {
+      margin-top: 3px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .index-meta.up { color: #62f6b2; }
+    .index-meta.down { color: #ff9ca3; }
+    .index-meta.flat { color: #d2e0ea; }
+    .index-mini {
+      display: grid;
+      gap: 6px;
+      justify-items: end;
+      min-width: 96px;
+    }
+    .index-status {
+      color: rgba(220, 234, 244, 0.78);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+      text-align: right;
+    }
+    .index-spark {
+      width: 94px;
+      height: 26px;
+      opacity: 0.92;
+      transition: transform 0.18s ease;
+    }
+    .index-card:hover .index-spark { transform: scale(1.04); }
+    .ticker-strip {
+      position: relative;
+      z-index: 2;
+      margin: 0 20px 20px;
+      padding: 14px 0;
+      overflow: hidden;
+      border-radius: 18px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(176, 208, 233, 0.14);
+      backdrop-filter: blur(14px);
+    }
+    .ticker-track {
+      display: flex;
+      gap: 18px;
+      width: max-content;
+      padding: 0 18px;
+      animation: marquee-scroll 28s linear infinite;
+    }
+    .ticker-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      color: rgba(237, 245, 250, 0.92);
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+    .ticker-item .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex: 0 0 auto;
+    }
+    .ticker-item.up .dot { background: var(--up); }
+    .ticker-item.down .dot { background: var(--down); }
+    .ticker-item.flat .dot { background: var(--flat); }
+    .content {
+      display: grid;
+      gap: 22px;
+      margin-top: 22px;
+    }
+    .section-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    .section-title h2 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.04;
+    }
+    .section-title p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 640px;
+    }
+    .glass-card,
+    .module-card,
+    .signal-card,
+    .bento-card,
+    .footer-card,
+    .index-pulse-card {
+      background: rgba(255,255,255,0.92);
+      border: 1px solid var(--line-soft);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+    }
+    .pulse-summary {
+      padding: 20px 22px;
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: center;
+    }
+    .pulse-summary h2 {
+      margin: 0 0 10px;
+      font-size: 32px;
+    }
+    .pulse-summary p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+      max-width: 760px;
+    }
+    .pulse-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .pulse-stat {
+      padding: 14px;
+      border-radius: 16px;
+      background: #f9fcff;
+      border: 1px solid rgba(17, 46, 66, 0.08);
+    }
+    .pulse-stat span {
+      display: block;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .pulse-stat strong {
+      display: block;
+      font-size: 20px;
+      line-height: 1.2;
+    }
+    .indices-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .index-pulse-card {
+      padding: 16px;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .index-pulse-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 24px 54px rgba(9, 28, 44, 0.12);
+    }
+    .index-pulse-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .index-pulse-name {
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .index-pulse-arrow {
+      color: var(--brand);
+      font-size: 16px;
+      font-weight: 900;
+    }
+    .index-pulse-value {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 6px;
+    }
+    .index-pulse-meta {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .index-pulse-meta.up { color: var(--up); }
+    .index-pulse-meta.down { color: var(--down); }
+    .index-pulse-meta.flat { color: #5a6f80; }
+    .index-pulse-foot {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .index-pulse-spark {
+      width: 100%;
+      height: 32px;
+      margin-top: 10px;
+    }
+    .module-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .module-card {
+      padding: 20px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: linear-gradient(160deg, rgba(255,255,255,0.98), rgba(245,250,255,0.92));
+    }
+    .module-card.wide {
+      grid-column: span 2;
+    }
+    .module-card h3 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.05;
+    }
+    .module-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.6;
+      max-width: 620px;
+    }
+    .module-links,
+    .mini-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .module-links a,
+    .mini-links a {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(17, 46, 66, 0.10);
+      background: #fbfdff;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .mini-commodities {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .mini-commodity {
+      padding: 12px;
+      border-radius: 16px;
+      background: #f7fbfe;
+      border: 1px solid rgba(17, 46, 66, 0.08);
+    }
+    .mini-commodity strong {
+      display: block;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .mini-commodity span {
+      display: block;
+      font-size: 20px;
+      font-weight: 800;
+      line-height: 1.1;
+      margin-bottom: 4px;
+    }
+    .mini-commodity em {
+      display: block;
+      font-style: normal;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .mini-commodity em.up { color: var(--up); }
+    .mini-commodity em.down { color: var(--down); }
+    .mini-commodity em.flat { color: #5a6f80; }
+    .ai-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .signal-card {
+      padding: 18px;
+      position: relative;
+      overflow: hidden;
+    }
+    .signal-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 4px;
+      background: var(--flat);
+    }
+    .signal-card.up::before { background: var(--up); }
+    .signal-card.down::before { background: var(--down); }
+    .signal-card.flat::before { background: var(--brand); }
+    .signal-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      background: #f6faff;
+      border: 1px solid rgba(17, 46, 66, 0.08);
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
+    .signal-card h3 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+    .signal-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+    .bento-grid {
+      display: grid;
+      grid-template-columns: 1.25fr 0.95fr 0.95fr;
+      gap: 16px;
+      grid-auto-rows: minmax(170px, auto);
+    }
+    .bento-card {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      background: linear-gradient(155deg, rgba(255,255,255,0.98), rgba(245,251,255,0.92));
+    }
+    .bento-card.wide { grid-column: span 2; }
+    .bento-card.tall { grid-row: span 2; }
+    .bento-card .eyebrow {
+      margin-bottom: 10px;
+    }
+    .bento-card h3 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.08;
+    }
+    .bento-card p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.65;
+      max-width: 520px;
+    }
+    .footer-card {
+      padding: 22px;
+      background: linear-gradient(180deg, rgba(11, 27, 41, 0.98), rgba(15, 36, 52, 0.96));
+      color: #eef7fc;
+      border-color: rgba(176, 208, 233, 0.12);
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .footer-card h2 {
+      margin: 0 0 14px;
+      font-size: 28px;
+    }
+    .footer-card p {
+      margin: 0 0 18px;
+      color: rgba(230, 240, 248, 0.78);
+      font-size: 14px;
+      line-height: 1.65;
+      max-width: 860px;
+    }
+    .footer-col strong {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 15px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #fbfdff;
+    }
+    .footer-links {
+      display: grid;
+      gap: 8px;
+    }
+    .footer-links a {
+      color: rgba(233, 243, 251, 0.84);
+      font-size: 14px;
+    }
+    .disclaimer {
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(176, 208, 233, 0.12);
+      color: rgba(229, 240, 248, 0.74);
+      font-size: 12px;
+      line-height: 1.7;
+    }
+    @keyframes pulse-dot {
+      0% { box-shadow: 0 0 0 0 rgba(98,246,178,0.5); }
+      70% { box-shadow: 0 0 0 7px rgba(98,246,178,0.0); }
+      100% { box-shadow: 0 0 0 0 rgba(98,246,178,0.0); }
+    }
+    @keyframes marquee-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @media (max-width: 1320px) {
+      .hero-grid,
+      .pulse-summary,
+      .indices-grid,
+      .ai-grid,
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .module-grid,
+      .bento-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .module-card.wide,
+      .bento-card.wide {
+        grid-column: span 2;
+      }
+      .bento-card.tall { grid-row: span 1; }
+    }
+    @media (max-width: 920px) {
+      .shell { padding: 0 10px 30px; }
+      .hero-grid,
+      .pulse-summary,
+      .indices-grid,
+      .module-grid,
+      .ai-grid,
+      .bento-grid,
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+      .module-card.wide,
+      .bento-card.wide {
+        grid-column: span 1;
+      }
+      .hero-wrap { min-height: auto; }
+      .hero-grid { padding: 28px 18px 18px; }
+      .ticker-strip { margin: 0 12px 16px; }
+      .nav-links a { flex: 1 1 calc(50% - 10px); text-align: center; }
+    }
+    @media (max-width: 640px) {
+      .topnav {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .brand { align-items: center; text-align: center; }
+      .hero-actions a { width: 100%; }
+      .trust-strip { gap: 8px; }
+      .mini-commodities,
+      .pulse-stats {
+        grid-template-columns: 1fr;
+      }
+      .hero-copy p,
+      .pulse-summary p,
+      .module-card p,
+      .bento-card p,
+      .signal-card p {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="nav-shell">
+      <nav class="topnav" id="trial4Topnav">
+        <div class="brand">
+          <strong>TraderHub</strong>
+          <span>{{ page_meta_text }}</span>
+        </div>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/market">Market</a>
+          <a href="/stocks/itc">Stocks</a>
+          <a href="/sectors">Sectors</a>
+          <a href="/derivatives">Derivatives</a>
+          <a href="/commodities">Commodities</a>
+        </div>
+      </nav>
+    </div>
+
+    <section class="hero-wrap" id="trial4Hero">
+      <div class="hero-grid">
+        <div class="hero-copy">
+          <div class="hero-kicker"><span class="live-dot"></span>{{ page_meta_text }}</div>
+          <h1>{{ hero_title }}</h1>
+          <p>{{ hero_subtitle }}</p>
+          <div class="hero-actions">
+            {% for action in hero_ctas %}
+            <a class="{{ action.kind }}" href="{{ action.href }}">{{ action.label }}</a>
+            {% endfor %}
+          </div>
+          <div class="trust-strip">
+            {% for item in trust_items %}
+            <div class="trust-pill">{{ item }}</div>
+            {% endfor %}
+          </div>
+        </div>
+        <aside class="hero-panel">
+          <div class="hero-panel-head">
+            <strong>Live Index Panel</strong>
+            <span>Pulse View</span>
+          </div>
+          <div class="panel-cards" id="trial4IndicesPanel">
+            {% for row in indices_panel %}
+            <a class="index-card" href="{{ row.href }}">
+              <div class="index-main">
+                <div class="index-label"><span class="live-dot"></span>{{ row.label }}</div>
+                <div class="index-value">{{ row.value }}</div>
+                <div class="index-meta {{ row.tone }}">{{ row.change }} | {{ row.percent }}</div>
+              </div>
+              <div class="index-mini">
+                <div class="index-status">{{ row.status }}</div>
+                {% if row.sparkline_svg %}
+                <div class="index-spark">{{ row.sparkline_svg|safe }}</div>
+                {% endif %}
+              </div>
+            </a>
+            {% endfor %}
+          </div>
+        </aside>
+      </div>
+      <div class="ticker-strip">
+        <div class="ticker-track" id="trial4TickerTrack">
+          {% for row in ticker_rows %}
+          <a class="ticker-item {{ row.tone }}" href="{{ row.href }}">
+            <span class="dot"></span>
+            <span>{{ row.label }} {{ row.value }} {{ row.percent }}</span>
+          </a>
+          {% endfor %}
+          {% for row in ticker_rows %}
+          <a class="ticker-item {{ row.tone }}" href="{{ row.href }}">
+            <span class="dot"></span>
+            <span>{{ row.label }} {{ row.value }} {{ row.percent }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <main class="content">
+      <section class="glass-card pulse-summary">
+        <div>
+          <div class="section-title" style="margin-bottom:10px;">
+            <div>
+              <h2>Today's Market Pulse</h2>
+              <p>{{ market_pulse["copy"] }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="pulse-stats" id="trial4PulseStats">
+          <article class="pulse-stat">
+            <span>Positive</span>
+            <strong>{{ market_pulse.positive }}</strong>
+          </article>
+          <article class="pulse-stat">
+            <span>Negative</span>
+            <strong>{{ market_pulse.negative }}</strong>
+          </article>
+          <article class="pulse-stat">
+            <span>Strongest</span>
+            <strong>{{ market_pulse.strongest }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Indices Strip</h2>
+            <p>Open the major market lanes first, then move into deeper research with context already in place.</p>
+          </div>
+        </div>
+        <div class="indices-grid" id="trial4IndicesGrid">
+          {% for row in indices_panel %}
+          <a class="index-pulse-card" href="{{ row.href }}">
+            <div class="index-pulse-top">
+              <div class="index-pulse-name">{{ row.label }}</div>
+              <div class="index-pulse-arrow">{{ row.open_label }}</div>
+            </div>
+            <div class="index-pulse-value">{{ row.value }}</div>
+            <div class="index-pulse-meta {{ row.tone }}">{{ row.change }} | {{ row.percent }}</div>
+            <div class="index-pulse-foot">{{ row.status }}<br>{{ row.updated_label }}</div>
+            {% if row.sparkline_svg %}
+            <div class="index-pulse-spark">{{ row.sparkline_svg|safe }}</div>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Core Modules</h2>
+            <p>Three clicks should be enough to move from homepage context into the market page, research page, or trading tool that matters next.</p>
+          </div>
+        </div>
+        <div class="module-grid">
+          {% for module in modules %}
+          <article class="module-card {% if loop.last %}wide{% endif %}">
+            <h3>{{ module.title }}</h3>
+            <p>{{ module["copy"] }}</p>
+            {% if module.mini_cards %}
+            <div class="mini-commodities">
+              {% for card in module.mini_cards %}
+              <a class="mini-commodity" href="{{ card.href }}">
+                <strong>{{ card.label }}</strong>
+                <span>{{ card.value }}</span>
+                <em class="{{ card.tone }}">{{ card.change }} | {{ card.percent }}</em>
+              </a>
+              {% endfor %}
+            </div>
+            {% endif %}
+            <div class="module-links">
+              <a href="{{ module.href }}">Open {{ module.title }}</a>
+              {% for link in module.links %}
+              <a href="{{ link.href }}">{{ link.label }}</a>
+              {% endfor %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>AI Intelligence</h2>
+            <p>Signal-style notes help traders know what deserves attention now instead of forcing them to guess which page to open first.</p>
+          </div>
+        </div>
+        <div class="ai-grid">
+          {% for item in ai_feed %}
+          <article class="signal-card {{ item.tone }}">
+            <div class="signal-label"><span class="live-dot"></span>{{ item.label }}</div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item["copy"] }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section>
+        <div class="section-title">
+          <div>
+            <h2>Platform Strengths</h2>
+            <p>Use a lighter feature surface that still feels like a product terminal, not a blog homepage or a slow corporate brochure.</p>
+          </div>
+        </div>
+        <div class="bento-grid">
+          {% for item in feature_grid %}
+          <article class="bento-card {{ item.tone }}">
+            <div class="eyebrow">{{ item.eyebrow }}</div>
+            <h3>{{ item.title }}</h3>
+            <p>{{ item["copy"] }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <footer class="footer-card">
+        <h2>TraderHub Sitemap</h2>
+        <p>Keep major public routes visible from the homepage so discovery, crawling, and user movement stay strong across stocks, sectors, derivatives, and commodities.</p>
+        <div class="footer-grid">
+          {% for group in sitemap_groups %}
+          <div class="footer-col">
+            <strong>{{ group.title }}</strong>
+            <div class="footer-links">
+              {% for link in group.links %}
+              <a href="{{ link.href }}">{{ link.label }}</a>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="disclaimer">
+          SEBI-style public note: TraderHub is built for market information, scanning, and research support. It is not investment advice, not a promise of returns, and not a substitute for your own risk assessment, broker confirmations, or official exchange disclosures.
+        </div>
+      </footer>
+    </main>
+  </div>
+  <script>
+    (function () {
+      const topnav = document.getElementById("trial4Topnav");
+      const hero = document.getElementById("trial4Hero");
+      const tickerTrack = document.getElementById("trial4TickerTrack");
+      const indicesPanel = document.getElementById("trial4IndicesPanel");
+      const indicesGrid = document.getElementById("trial4IndicesGrid");
+      const pulseStats = document.getElementById("trial4PulseStats");
+
+      window.addEventListener("scroll", function () {
+        if (!topnav) return;
+        if (window.scrollY > 18) {
+          topnav.classList.add("scrolled");
+        } else {
+          topnav.classList.remove("scrolled");
+        }
+      });
+
+      if (hero) {
+        window.addEventListener("mousemove", function (event) {
+          const offsetX = ((event.clientX / window.innerWidth) - 0.5) * 12;
+          const offsetY = ((event.clientY / window.innerHeight) - 0.5) * 12;
+          hero.style.setProperty("--hero-shift", `${offsetY * -0.2}px`);
+          hero.style.backgroundPosition = `${50 + offsetX * 0.7}% ${50 + offsetY * 0.7}%`;
+        });
+      }
+
+      function buildTickerMarkup(rows) {
+        return rows.concat(rows).map(function (row) {
+          return `<a class="ticker-item ${row.tone || "flat"}" href="${row.href || "/market"}"><span class="dot"></span><span>${row.label || ""} ${row.value || "Pending"} ${row.percent || "Pending"}</span></a>`;
+        }).join("");
+      }
+
+      function buildIndexPanelMarkup(rows) {
+        return rows.map(function (row) {
+          return `<a class="index-card" href="${row.href || "/market"}">
+            <div class="index-main">
+              <div class="index-label"><span class="live-dot"></span>${row.label || ""}</div>
+              <div class="index-value">${row.value || "Pending"}</div>
+              <div class="index-meta ${row.tone || "flat"}">${row.change || "Pending"} | ${row.percent || "Pending"}</div>
+            </div>
+            <div class="index-mini">
+              <div class="index-status">${row.status || "Pending"}</div>
+              <div class="index-spark">${row.sparkline_svg || ""}</div>
+            </div>
+          </a>`;
+        }).join("");
+      }
+
+      function buildIndexGridMarkup(rows) {
+        return rows.map(function (row) {
+          return `<a class="index-pulse-card" href="${row.href || "/market"}">
+            <div class="index-pulse-top">
+              <div class="index-pulse-name">${row.label || ""}</div>
+              <div class="index-pulse-arrow">${row.open_label || "->"}</div>
+            </div>
+            <div class="index-pulse-value">${row.value || "Pending"}</div>
+            <div class="index-pulse-meta ${row.tone || "flat"}">${row.change || "Pending"} | ${row.percent || "Pending"}</div>
+            <div class="index-pulse-foot">${row.status || "Pending"}<br>${row.updated_label || "Latest available"}</div>
+            <div class="index-pulse-spark">${row.sparkline_svg || ""}</div>
+          </a>`;
+        }).join("");
+      }
+
+      async function refreshTrial4() {
+        try {
+          const response = await fetch("/api/website-shell-trial4/ticker", { headers: { "Accept": "application/json" } });
+          if (!response.ok) return;
+          const payload = await response.json();
+          const rows = payload.rows || [];
+          const panelRows = rows.filter(function (row) {
+            return ["Nifty", "Sensex", "Nifty Bank", "Fin Nifty", "Nifty IT"].includes(row.label);
+          });
+          if (tickerTrack) tickerTrack.innerHTML = buildTickerMarkup(rows);
+          if (indicesPanel) indicesPanel.innerHTML = buildIndexPanelMarkup(panelRows);
+          if (indicesGrid) indicesGrid.innerHTML = buildIndexGridMarkup(panelRows);
+          if (pulseStats && payload.pulse) {
+            pulseStats.innerHTML = `
+              <article class="pulse-stat"><span>Positive</span><strong>${payload.pulse.positive ?? "0"}</strong></article>
+              <article class="pulse-stat"><span>Negative</span><strong>${payload.pulse.negative ?? "0"}</strong></article>
+              <article class="pulse-stat"><span>Strongest</span><strong>${payload.pulse.strongest || "Pending"}</strong></article>
+            `;
+          }
+        } catch (error) {
+        }
+      }
+
+      window.setInterval(refreshTrial4, 60000);
+    })();
+  </script>
+</body>
+</html>
+"""
+
+
 WEBSITE_SHELL_TRIAL2_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -37761,9 +38948,27 @@ def website_shell_trial3():
     return render_template_string(WEBSITE_SHELL_TRIAL3_TEMPLATE, **context)
 
 
+@app.route("/website-shell-trial4")
+def website_shell_trial4():
+    context = build_website_shell_trial4_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL4_TEMPLATE, **context)
+
+
 @app.route("/api/website-shell-trial3/indices")
 def website_shell_trial3_indices_api():
     return jsonify({"rows": build_website_shell_trial3_index_tape(), "updated_at": datetime.datetime.now(IST).isoformat()})
+
+
+@app.route("/api/website-shell-trial4/ticker")
+def website_shell_trial4_ticker_api():
+    context = build_website_shell_trial4_context(request.url_root.rstrip("/"))
+    return jsonify(
+        {
+            "rows": context.get("ticker_rows", []),
+            "pulse": context.get("market_pulse", {}),
+            "updated_at": datetime.datetime.now(IST).isoformat(),
+        }
+    )
 
 
 @app.route("/stocks/high-dividend-paying-stocks")
