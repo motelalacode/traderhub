@@ -31594,6 +31594,254 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
     return context
 
 
+def get_crude_oil_contract_profile(contract_mode):
+    profile_map = {
+        "main": {
+            "label": "Crude Oil Main",
+            "lot_size": "100 barrels",
+            "tick": "Rs.1",
+            "tick_value": "Rs.100 per tick",
+            "options_label": "Crude Oil options on futures",
+            "capital_label": "Full contract exposure",
+        },
+        "mini": {
+            "label": "Crude Oil Mini",
+            "lot_size": "10 barrels",
+            "tick": "Rs.1",
+            "tick_value": "Rs.10 per tick",
+            "options_label": "Crude Oil Mini options on futures",
+            "capital_label": "Smaller lot exposure",
+        },
+    }
+    return profile_map.get(contract_mode, profile_map["main"])
+
+
+def build_crude_oil_strategy_examples(contract_mode, expiry_mode):
+    contract = get_crude_oil_contract_profile(contract_mode)
+    expiry_label = {
+        "near": "Near-month expiry",
+        "next": "Next monthly expiry",
+    }.get(expiry_mode, "Near-month expiry")
+    contract_name = contract["label"]
+    option_name = contract["options_label"]
+    lot_size = contract["lot_size"]
+    capital_view = f"{contract_name} uses {lot_size}."
+    return {
+        "long-call": {
+            "live_contract_example": f"Buy an ATM call on {option_name} using the {expiry_label.lower()}.",
+            "live_estimated_cost": "Premium-linked trial example. Live MCX option premium mapping can be added next.",
+            "live_lot_capital": capital_view,
+            "live_note": "Best when crude is expected to react sharply higher after inventory, OPEC, or shipping-risk news.",
+        },
+        "long-put": {
+            "live_contract_example": f"Buy an ATM put on {option_name} using the {expiry_label.lower()}.",
+            "live_estimated_cost": "Premium-linked trial example. Live MCX option premium mapping can be added next.",
+            "live_lot_capital": capital_view,
+            "live_note": "Best when crude is expected to break lower quickly after supply comfort, weak demand, or dollar pressure.",
+        },
+        "bull-call-spread": {
+            "live_contract_example": f"Buy one ATM call and sell one higher-strike call on {option_name}.",
+            "live_estimated_cost": "Defined-risk debit spread. Live crude option premiums are the next upgrade.",
+            "live_lot_capital": capital_view,
+            "live_note": "A cleaner bullish structure when the upside view is positive but not runaway.",
+        },
+        "bear-put-spread": {
+            "live_contract_example": f"Buy one ATM put and sell one lower-strike put on {option_name}.",
+            "live_estimated_cost": "Defined-risk debit spread. Live crude option premiums are the next upgrade.",
+            "live_lot_capital": capital_view,
+            "live_note": "A cleaner bearish structure when you expect a controlled downward move rather than a collapse.",
+        },
+        "bull-put-spread": {
+            "live_contract_example": f"Sell one near-ATM put and buy one lower-strike hedge put on {option_name}.",
+            "live_estimated_cost": "Credit spread structure. Margin and live premium values can be added after MCX chain mapping.",
+            "live_lot_capital": capital_view,
+            "live_note": "Useful when crude should stay firm or drift higher without a large downside event shock.",
+        },
+        "bear-call-spread": {
+            "live_contract_example": f"Sell one near-ATM call and buy one higher-strike hedge call on {option_name}.",
+            "live_estimated_cost": "Credit spread structure. Margin and live premium values can be added after MCX chain mapping.",
+            "live_lot_capital": capital_view,
+            "live_note": "Useful when crude should stay capped below resistance and volatility is rich enough for selling.",
+        },
+        "long-straddle": {
+            "live_contract_example": f"Buy the ATM call and ATM put together on {option_name}.",
+            "live_estimated_cost": "Event-volatility structure. Live combined premium view can be added after MCX chain integration.",
+            "live_lot_capital": capital_view,
+            "live_note": "Best around large event windows when crude can move sharply but direction is unclear.",
+        },
+        "short-strangle": {
+            "live_contract_example": f"Sell an OTM call and an OTM put on {option_name} around the active expiry band.",
+            "live_estimated_cost": "Premium-selling structure. Margin and live premium values can be added after MCX chain integration.",
+            "live_lot_capital": capital_view,
+            "live_note": "Works only when crude is expected to stay contained and event risk is low.",
+        },
+    }
+
+
+def build_crude_oil_strategy_trial_context(host_root, selected_contract="main", selected_expiry_mode="near", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium"):
+    if selected_contract not in {"main", "mini"}:
+        selected_contract = "main"
+    if selected_expiry_mode not in {"near", "next"}:
+        selected_expiry_mode = "near"
+
+    base = build_option_strategy_engine_context(
+        host_root,
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    contract = get_crude_oil_contract_profile(selected_contract)
+    example_rows = build_crude_oil_strategy_examples(selected_contract, selected_expiry_mode)
+    expiry_label = "Near-month expiry" if selected_expiry_mode == "near" else "Next monthly expiry"
+    focus_cards = [
+        {"title": "Contract Lens", "meta": contract["label"], "copy": f"This trial is using the {contract['label']} structure with lot size {contract['lot_size']} and tick value {contract['tick_value']}."},
+        {"title": "Options Layer", "meta": "Options on futures", "copy": "Commodity options here are options on futures contracts, not on a cash-market spot instrument."},
+        {"title": "Event Watch", "meta": "Crude stays headline-sensitive", "copy": "Inventory, OPEC, the US dollar, shipping disruptions, and geopolitical risk can change the setup quickly."},
+    ]
+    base.update(
+        {
+            "seo_title": "Crude Oil Options Strategy Trial | TraderHub",
+            "seo_description": "Trial page for crude oil options strategy selection across buyer and seller setups with main and mini contract context.",
+            "canonical_url": f"{host_root.rstrip('/')}/derivatives/commodities/crude-oil/strategy-trial",
+            "schema_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": "Crude Oil Options Strategy Trial | TraderHub",
+                    "description": "Separate crude oil options strategy trial page with contract-aware buyer and seller strategy mapping.",
+                    "url": f"{host_root.rstrip('/')}/derivatives/commodities/crude-oil/strategy-trial",
+                },
+                indent=2,
+            ),
+            "breadcrumb_text": "Derivatives > Commodities > Crude Oil Strategy Trial",
+            "breadcrumb_meta_text": f"Commodity options trial | Last reviewed {get_today_ist().isoformat()}",
+            "hero_kicker": "TraderHub Commodity Options Trial",
+            "hero_title": "Crude Oil Strategy Trial",
+            "hero_subtitle": "This separate page tests a commodity-first strategy engine for crude oil futures options. It keeps contract size, event sensitivity, and options-on-futures logic visible before we expand to other commodities.",
+            "hero_metric_primary": contract["label"],
+            "hero_metric_secondary": f"{expiry_label} | {contract['options_label']}",
+            "hero_badges": [
+                {"label": "Trial Page", "kind": "tag-warn"},
+                {"label": "Crude Oil", "kind": "tag-info"},
+                {"label": "Options on Futures", "kind": "tag-up"},
+            ],
+            "hero_stats": [
+                {"label": "Contract", "value": contract["label"]},
+                {"label": "Lot Size", "value": contract["lot_size"]},
+                {"label": "Tick Size", "value": contract["tick"]},
+                {"label": "Tick Value", "value": contract["tick_value"]},
+            ],
+            "nav_chips": [
+                {"label": "Derivatives Hub", "href": "/derivatives"},
+                {"label": "Commodities", "href": "/commodities"},
+                {"label": "Crude Oil", "href": "/commodities/crude-oil"},
+                {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+                {"label": "Crude Strategy Trial", "href": "/derivatives/commodities/crude-oil/strategy-trial"},
+            ],
+            "section_title": "Crude Oil Trial Setup",
+            "section_note": "This trial adapts the strategy engine to a commodity that trades in both main and mini contracts and also has options on futures. The goal is to prove the format safely before repeating it for natural gas, gold, and silver.",
+            "summary_cards": [
+                {"label": "Chosen Contract", "value": contract["label"], "copy": "Crude oil does not trade as one generic options product. The page keeps the contract form explicit."},
+                {"label": "Lot Size", "value": contract["lot_size"], "copy": "Lot size matters because the same strategy can feel very different on the main contract versus the mini contract."},
+                {"label": "Expiry Lens", "value": expiry_label, "copy": "This keeps the page focused on the contract month the trader is actually planning around."},
+                {"label": "Options Type", "value": "On Futures", "copy": "Commodity options here sit on futures contracts, so they should be read differently from equity cash options."},
+            ],
+            "comparison_strip": [
+                {
+                    "kind": "buyers",
+                    "title": "Best For Buyers",
+                    "badge": "Premium Buying",
+                    "copy": "Crude buyers usually need a clear move or a meaningful event. Premium should not be paid casually in a quiet contract.",
+                    "points": [
+                        "Long Call and Long Put suit strong directional crude views.",
+                        "Bull Call Spread and Bear Put Spread fit more measured upside or downside targets.",
+                        "Long Straddle fits event-heavy crude windows when direction is uncertain.",
+                    ],
+                },
+                {
+                    "kind": "sellers",
+                    "title": "Best For Sellers",
+                    "badge": "Premium Selling",
+                    "copy": "Crude sellers should respect event risk. Inventory or OPEC headlines can damage short premium structures quickly.",
+                    "points": [
+                        "Bull Put Spread and Bear Call Spread are safer than naked selling for public users.",
+                        "Short Strangle is only for contained conditions with strong risk control.",
+                        "Seller structures usually do better when event risk is low and IV is rich.",
+                    ],
+                },
+            ],
+            "focus_title": "Commodity Context",
+            "focus_note": "These blocks keep the crude-oil trial grounded in the actual market structure instead of treating it like an equity options page with a new label.",
+            "focus_cards": focus_cards,
+            "recommendations_title": f"Top Crude Oil Matches For {selected_role.title()}",
+            "recommendations_note": "The score is still a fit score, not a profit guarantee. These cards are now framed for crude-oil event behavior and contract-aware risk thinking.",
+            "market_error": "",
+            "side_box_title": "Current Rule",
+            "side_box_copy": "Start with the crude view first: supply, inventory, dollar, shipping risk, and event timing. Then choose the contract size and only then the strategy.",
+            "why_page_works": "It keeps commodity options separate from the equity and index flow, and it forces the contract-aware thinking crude traders actually need.",
+            "public_note": "This trial is strategy-first and contract-aware. Live MCX crude option chain integration can be added later, but the page already teaches the right decision structure.",
+            "form_action": "/derivatives/commodities/crude-oil/strategy-trial",
+            "reset_url": "/derivatives/commodities/crude-oil/strategy-trial",
+            "live_chain_title": "",
+            "live_chain_note": "",
+            "live_chain_cards": [],
+            "live_chain_columns": [],
+            "live_chain_rows": [],
+            "filter_fields": [
+                {
+                    "name": "contract",
+                    "label": "Contract Type",
+                    "selected": selected_contract,
+                    "options": [
+                        {"value": "main", "label": "Crude Oil Main"},
+                        {"value": "mini", "label": "Crude Oil Mini"},
+                    ],
+                },
+                {
+                    "name": "expiry_mode",
+                    "label": "Expiry Lens",
+                    "selected": selected_expiry_mode,
+                    "options": [
+                        {"value": "near", "label": "Near-month"},
+                        {"value": "next", "label": "Next month"},
+                    ],
+                },
+            ] + base["filter_fields"],
+        }
+    )
+    enriched = []
+    anchor = 0
+    strike_step = 1
+    for row in base["recommended_strategies"]:
+        live_bits = example_rows.get(row["slug"], {})
+        row = dict(row)
+        row["style_label"] = get_option_strategy_style_label(row["slug"])
+        beginner_fit = get_option_strategy_beginner_fit(row["slug"])
+        capital_pressure = get_option_strategy_capital_pressure(row["slug"])
+        row["beginner_fit"] = beginner_fit.get("label", "")
+        row["beginner_fit_kind"] = beginner_fit.get("kind", "")
+        row["capital_pressure"] = capital_pressure.get("label", "")
+        row["capital_pressure_kind"] = capital_pressure.get("kind", "")
+        row["quick_points"] = get_option_strategy_quick_points(row["slug"])
+        row["live_contract_example"] = live_bits.get("live_contract_example", "")
+        row["live_estimated_cost"] = live_bits.get("live_estimated_cost", "")
+        row["live_lot_capital"] = live_bits.get("live_lot_capital", "")
+        row["live_note"] = live_bits.get("live_note", "")
+        row.update(get_option_strategy_payoff_visual(row["slug"]))
+        row["live_legs"] = get_option_strategy_live_legs(row["slug"], anchor, strike_step)
+        row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
+        row["zone_guidance"] = get_option_strategy_zone_guidance(row["slug"])
+        row["before_expiry_note"] = get_option_strategy_before_expiry_note(row["slug"])
+        row["event_marker"] = get_option_strategy_event_marker(row["slug"])
+        enriched.append(row)
+    base["recommended_strategies"] = enriched
+    return base
+
+
 def build_index_derivatives_context(index_slug, host_root):
     config = DERIVATIVES_INDEX_CONFIG[index_slug]
     proxy = build_index_proxy_snapshot(config["proxy_symbols"])
@@ -36101,6 +36349,32 @@ def commodity_detail(commodity_slug):
     if not context:
         return render_template_string(COMMODITY_NOT_FOUND_TEMPLATE), 404
     return render_template_string(COMMODITIES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/commodities/crude-oil/strategy-trial")
+def crude_oil_strategy_trial():
+    selected_contract = str(request.args.get("contract", "main") or "main").strip().lower()
+    selected_expiry_mode = str(request.args.get("expiry_mode", "near") or "near").strip().lower()
+    selected_role = str(request.args.get("role", "buyer") or "buyer").strip().lower()
+    selected_outlook = str(request.args.get("outlook", "bullish") or "bullish").strip().lower()
+    selected_strength = str(request.args.get("strength", "moderate") or "moderate").strip().lower()
+    selected_iv = str(request.args.get("iv", "normal") or "normal").strip().lower()
+    selected_event = str(request.args.get("event", "no") or "no").strip().lower()
+    selected_dte = str(request.args.get("dte", "medium") or "medium").strip().lower()
+    selected_capital = str(request.args.get("capital", "medium") or "medium").strip().lower()
+    context = build_crude_oil_strategy_trial_context(
+        request.url_root.rstrip("/"),
+        selected_contract=selected_contract,
+        selected_expiry_mode=selected_expiry_mode,
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
 
 
 @app.route("/ipo")
