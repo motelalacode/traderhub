@@ -28550,6 +28550,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .flag.warn { background:var(--warn-soft); color:var(--warn); }
     .flag.down { background:var(--down-soft); color:var(--down); }
     .flag.info { background:var(--info-soft); color:var(--info); }
+    .flag.up { background:var(--up-soft); color:var(--up); }
     .zone-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .zone-box { border-radius:14px; padding:12px; border:1px solid var(--line); }
     .zone-box.good { background:#f4fcf7; border-color:#b8e2cb; }
@@ -28746,6 +28747,22 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                   <div class="zone-title">Danger Zone</div>
                   <div class="zone-copy">{{ strategy.zone_guidance.risk }}</div>
                 </div>
+              </div>
+              {% endif %}
+              {% if strategy.before_expiry_note or strategy.event_marker %}
+              <div class="mini-grid">
+                {% if strategy.before_expiry_note %}
+                <div class="mini-box">
+                  <div class="mini-title">Before Expiry</div>
+                  <div class="mini-value">{{ strategy.before_expiry_note }}</div>
+                </div>
+                {% endif %}
+                {% if strategy.event_marker %}
+                <div class="mini-box">
+                  <div class="mini-title">Event Fit</div>
+                  <div class="mini-value">{{ strategy.event_marker }}</div>
+                </div>
+                {% endif %}
               </div>
               {% endif %}
               <ul class="tight">
@@ -31128,6 +31145,34 @@ def get_option_strategy_zone_guidance(strategy_slug):
     return zone_map.get(strategy_slug, {})
 
 
+def get_option_strategy_before_expiry_note(strategy_slug):
+    note_map = {
+        "long-call": "Before expiry, this trade usually needs quick directional follow-through. A slow drift up can still feel weak because time value keeps decaying.",
+        "long-put": "Before expiry, this trade usually needs downside follow-through soon. A delayed selloff can leave the premium under pressure.",
+        "bull-call-spread": "Before expiry, this spread often behaves best when price trends toward the short call strike instead of exploding too late.",
+        "bear-put-spread": "Before expiry, this spread often behaves best when price trends steadily toward the lower strike instead of collapsing only at the end.",
+        "bull-put-spread": "Before expiry, this spread often improves as time passes and price stays above the short put. The seller does not need a big rally, only stability.",
+        "bear-call-spread": "Before expiry, this spread often improves as time passes and price stays below the short call. The seller benefits from calm or soft trade.",
+        "long-straddle": "Before expiry, this trade wants movement early. If the market stays quiet too long, both options can lose value together.",
+        "short-strangle": "Before expiry, this trade benefits from time decay and cooling volatility, but it needs price to remain contained between the sold strikes.",
+    }
+    return note_map.get(strategy_slug, "")
+
+
+def get_option_strategy_event_marker(strategy_slug):
+    marker_map = {
+        "long-call": "Event-friendly only when the event is expected to create a clear upside surprise.",
+        "long-put": "Event-friendly only when the event is expected to create a clear downside surprise.",
+        "bull-call-spread": "Event-friendly for a moderate positive outcome, but not ideal if you expect a very large breakout.",
+        "bear-put-spread": "Event-friendly for a moderate negative outcome, but not ideal if you expect a very deep breakdown.",
+        "bull-put-spread": "Usually better when there is no major event risk. High-volatility event days can hurt premium sellers.",
+        "bear-call-spread": "Usually better when there is no major upside event risk. It prefers controlled conditions.",
+        "long-straddle": "Very event-friendly. This is one of the clearest structures when a large move is expected but direction is uncertain.",
+        "short-strangle": "Not event-friendly. A major event can create the exact large move this trade does not want.",
+    }
+    return marker_map.get(strategy_slug, "")
+
+
 def get_option_strategy_live_legs(strategy_slug, anchor, strike_step):
     up1 = anchor + strike_step
     down1 = anchor - strike_step
@@ -31303,9 +31348,13 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
             row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
             row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
             row["zone_guidance"] = get_option_strategy_zone_guidance(row["slug"])
+            row["before_expiry_note"] = get_option_strategy_before_expiry_note(row["slug"])
+            row["event_marker"] = get_option_strategy_event_marker(row["slug"])
         else:
             row["risk_flags"] = []
             row["zone_guidance"] = {}
+            row["before_expiry_note"] = ""
+            row["event_marker"] = ""
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
