@@ -28563,6 +28563,15 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .compare-card.sellers .compare-badge { background:#f6ebc5; color:#9a6c00; }
     .compare-points { margin:10px 0 0; padding-left:18px; }
     .compare-points li { color:#304355; font-size:14px; line-height:1.55; margin-bottom:6px; }
+    .focus-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    .story-card { border:1px solid var(--line); border-radius:18px; padding:16px; background:linear-gradient(180deg,#fffefb 0%,#f8fbfd 100%); }
+    .story-title { font-size:18px; font-weight:700; font-family:Georgia,"Times New Roman",serif; color:#1d3548; margin-bottom:6px; }
+    .story-meta { font-size:12px; letter-spacing:0.06em; text-transform:uppercase; color:#5d7489; font-weight:700; margin-bottom:8px; }
+    .tips-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .tips-card { border:1px solid var(--line); border-radius:18px; padding:16px; background:linear-gradient(180deg,#fbfdff 0%,#f2f6fb 100%); }
+    .tips-card.emphasis { border-color:#cfe0f0; background:linear-gradient(180deg,#fafdff 0%,#edf5fd 100%); }
+    .tips-list { margin:10px 0 0; padding-left:18px; }
+    .tips-list li { color:#2d4052; font-size:14px; line-height:1.6; margin-bottom:6px; }
     .form-shell { padding:14px; background:var(--panel); }
     .filter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
     label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em; text-transform:uppercase; }
@@ -28681,6 +28690,43 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 <li>{{ point }}</li>
                 {% endfor %}
               </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+        {% if focus_cards %}
+        <section class="section" id="knowledge">
+          <h2>{{ focus_title }}</h2>
+          <div class="section-note">{{ focus_note }}</div>
+          <div class="focus-grid">
+            {% for card in focus_cards %}
+            <div class="story-card">
+              <div class="story-title">{{ card.title }}</div>
+              <div class="story-meta">{{ card.meta }}</div>
+              <div class="copy">{{ card["copy"] }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
+        {% if trader_guides %}
+        <section class="section" id="trader-guide">
+          <h2>{{ trader_guide_title }}</h2>
+          <div class="section-note">{{ trader_guide_note }}</div>
+          <div class="tips-grid">
+            {% for guide in trader_guides %}
+            <div class="tips-card {{ guide.kind or '' }}">
+              <div class="story-title">{{ guide.title }}</div>
+              <div class="story-meta">{{ guide.meta }}</div>
+              <div class="copy">{{ guide["copy"] }}</div>
+              {% if guide.points %}
+              <ul class="tips-list">
+                {% for point in guide.points %}
+                <li>{{ point }}</li>
+                {% endfor %}
+              </ul>
+              {% endif %}
             </div>
             {% endfor %}
           </div>
@@ -31702,6 +31748,52 @@ def build_crude_oil_strategy_trial_context(host_root, selected_contract="main", 
         {"title": "Options Layer", "meta": "Options on futures", "copy": "Commodity options here are options on futures contracts, not on a cash-market spot instrument."},
         {"title": "Event Watch", "meta": "Crude stays headline-sensitive", "copy": "Inventory, OPEC, the US dollar, shipping disruptions, and geopolitical risk can change the setup quickly."},
     ]
+    trader_guides = [
+        {
+            "kind": "emphasis",
+            "title": "How To Read Crude First",
+            "meta": "Start with market drivers",
+            "copy": "Do not choose the option structure before reading the market driver. Crude reacts fastest when the trigger is clear.",
+            "points": [
+                "Check whether the move is inventory-led, OPEC-led, dollar-led, or geopolitical.",
+                "Use buyer structures when a large move is possible and timing matters.",
+                "Use seller structures only when event risk is low and the market is likely to stay contained.",
+            ],
+        },
+        {
+            "kind": "",
+            "title": "Main vs Mini Contract",
+            "meta": "Choose the right contract size",
+            "copy": "The same strategy can feel completely different on the main contract and the mini contract because the tick value changes the pressure on capital and emotions.",
+            "points": [
+                "Use the main contract when you want full crude exposure and can handle larger swings.",
+                "Use the mini contract when you want the same market idea with smaller lot risk.",
+                "Do not copy a main-contract idea into mini or vice versa without checking lot impact.",
+            ],
+        },
+        {
+            "kind": "",
+            "title": "Avoid These Mistakes",
+            "meta": "Common trader errors",
+            "copy": "Crude punishes casual option selection more than calmer markets do.",
+            "points": [
+                "Do not sell premium blindly before major inventory or OPEC events.",
+                "Do not buy premium after a volatility spike unless the move can still expand.",
+                "Do not ignore the difference between a moderate move setup and an event-explosion setup.",
+            ],
+        },
+        {
+            "kind": "",
+            "title": "Best Practical Use",
+            "meta": "Where this page helps most",
+            "copy": "This trial is strongest when a trader wants to translate a crude view into a sensible structure quickly.",
+            "points": [
+                "Bull Call Spread or Bear Put Spread when the view is directional but measured.",
+                "Long Straddle when a large move is expected but direction is unclear.",
+                "Bull Put Spread or Bear Call Spread when the market should stay calmer and volatility is rich.",
+            ],
+        },
+    ]
     base.update(
         {
             "seo_title": "Crude Oil Options Strategy Trial | TraderHub",
@@ -31777,6 +31869,9 @@ def build_crude_oil_strategy_trial_context(host_root, selected_contract="main", 
             "focus_title": "Commodity Context",
             "focus_note": "These blocks keep the crude-oil trial grounded in the actual market structure instead of treating it like an equity options page with a new label.",
             "focus_cards": focus_cards,
+            "trader_guide_title": "Trader Knowledge And Suggestions",
+            "trader_guide_note": "These notes are here to make the crude-oil strategy page useful for real traders, not only readable in theory. They help connect the market setup, contract choice, and structure choice.",
+            "trader_guides": trader_guides,
             "recommendations_title": f"Top Crude Oil Matches For {selected_role.title()}",
             "recommendations_note": "The score is still a fit score, not a profit guarantee. These cards are now framed for crude-oil event behavior and contract-aware risk thinking.",
             "market_error": "",
