@@ -30878,7 +30878,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
     }
 
 
-def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-options", selected_expiry="", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium"):
+def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-options", selected_expiry="", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium", page_path="/derivatives/options/strategy-engine-trial", trial_mode=True):
     context = build_option_strategy_engine_context(
         host_root,
         selected_role=selected_role,
@@ -30903,27 +30903,27 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         expiry_options.extend([{"value": expiry, "label": expiry} for expiry in available_expiries[:6]])
     context.update(
         {
-            "seo_title": "Options Strategy Engine Trial with Live Strikes | TraderHub",
-            "seo_description": "Trial page for live-linked options strategy examples with real Nifty or Bank Nifty strikes and premiums where available.",
-            "canonical_url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine-trial",
+            "seo_title": "Options Strategy Engine Trial with Live Strikes | TraderHub" if trial_mode else "Options Strategy Engine with Live Strikes | TraderHub",
+            "seo_description": "Trial page for live-linked options strategy examples with real Nifty or Bank Nifty strikes and premiums where available." if trial_mode else "Live-linked options strategy engine with real Nifty or Bank Nifty strike examples and premium estimates where available.",
+            "canonical_url": f"{host_root.rstrip('/')}{page_path}",
             "schema_json": json.dumps(
                 {
                     "@context": "https://schema.org",
                     "@type": "WebPage",
-                    "name": "Options Strategy Engine Trial | TraderHub",
-                    "description": "Trial options strategy page with live-linked strike examples.",
-                    "url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine-trial",
+                    "name": "Options Strategy Engine Trial | TraderHub" if trial_mode else "Options Strategy Engine | TraderHub",
+                    "description": "Trial options strategy page with live-linked strike examples." if trial_mode else "Options strategy engine with live-linked strike examples.",
+                    "url": f"{host_root.rstrip('/')}{page_path}",
                 },
                 indent=2,
             ),
-            "breadcrumb_text": "Derivatives > Options Strategy Engine Trial",
-            "hero_kicker": "TraderHub Options Strategy Trial",
-            "hero_title": "Options Strategy Engine Trial",
-            "hero_subtitle": "This separate page keeps the current strategy engine safe while testing live strike and premium examples from the index option chain.",
+            "breadcrumb_text": "Derivatives > Options Strategy Engine Trial" if trial_mode else "Derivatives > Options Strategy Engine",
+            "hero_kicker": "TraderHub Options Strategy Trial" if trial_mode else "TraderHub Options Strategy Engine",
+            "hero_title": "Options Strategy Engine Trial" if trial_mode else "Options Strategy Engine",
+            "hero_subtitle": "This separate page keeps the current strategy engine safe while testing live strike and premium examples from the index option chain." if trial_mode else "Live-linked strategy recommendations with current index strikes, premium estimates, and setup-based ranking in one public options page.",
             "hero_metric_primary": trial.get("spot_display", "Pending"),
             "hero_metric_secondary": f"{trial.get('selected_index_label', 'Index')} spot | Expiry {trial.get('selected_expiry', 'Pending')}",
             "hero_badges": [
-                {"label": "Trial Page", "kind": "tag-warn"},
+                {"label": "Trial Page" if trial_mode else "Main Live Page", "kind": "tag-warn" if trial_mode else "tag-up"},
                 {"label": trial.get("selected_index_label", "Index"), "kind": "tag-info"},
                 {"label": "Live Strike Examples" if trial.get("chain_available") else "Chain Pending", "kind": "tag-up" if trial.get("chain_available") else "tag-info"},
             ],
@@ -30931,7 +30931,7 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
                 {"label": "Index", "value": trial.get("selected_index_label", "Pending")},
                 {"label": "ATM Strike", "value": trial.get("atm_strike", "-")},
                 {"label": "Expiry", "value": trial.get("selected_expiry", "Pending")},
-                {"label": "Mode", "value": "Live Trial" if trial.get("chain_available") else "Fallback Trial"},
+                {"label": "Mode", "value": ("Live Trial" if trial_mode else "Live Engine") if trial.get("chain_available") else ("Fallback Trial" if trial_mode else "Fallback Engine")},
             ],
             "nav_chips": [
                 {"label": "Derivatives Hub", "href": "/derivatives"},
@@ -30940,22 +30940,22 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
                 {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
                 {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
             ],
-            "section_title": "Trial Setup Summary",
-            "section_note": "This trial page adds live-linked strike examples while keeping the original strategy engine untouched. Use it to test whether the live examples are clear enough before replacing the main page.",
+            "section_title": "Trial Setup Summary" if trial_mode else "Live Setup Summary",
+            "section_note": "This trial page adds live-linked strike examples while keeping the original strategy engine untouched. Use it to test whether the live examples are clear enough before replacing the main page." if trial_mode else "This is now the main live-linked strategy engine. It keeps the setup-first logic, but adds current strike and premium context from the index option chain where available.",
             "summary_cards": [
                 {"label": "Trial Index", "value": trial.get("selected_index_label", "Pending"), "copy": "The live example block is tied to one selected index so the strike examples stay easy to read."},
                 {"label": "ATM Strike", "value": trial.get("atm_strike", "-"), "copy": "The page frames examples around the current ATM strike from the live option chain."},
                 {"label": "Selected Expiry", "value": trial.get("selected_expiry", "Pending"), "copy": "This is the expiry used for the trial strategy examples."},
                 {"label": "Live Status", "value": "Ready" if trial.get("chain_available") else "Pending", "copy": "If the chain is available, the strategy cards will show live sample strikes and debit or credit estimates."},
             ],
-            "recommendations_title": f"Top Matches For {selected_role.title()} With Live Trial Examples",
-            "recommendations_note": "The strategy ranking still comes from setup fit. The trial upgrade adds live sample strikes and premium estimates for the chosen index and expiry.",
+            "recommendations_title": f"Top Matches For {selected_role.title()} With Live Trial Examples" if trial_mode else f"Top Live-Linked Matches For {selected_role.title()}",
+            "recommendations_note": "The strategy ranking still comes from setup fit. The trial upgrade adds live sample strikes and premium estimates for the chosen index and expiry." if trial_mode else "The strategy ranking still comes from setup fit, but the page now adds live sample strikes and premium estimates for the chosen index and expiry.",
             "market_error": trial.get("market_error", ""),
-            "side_box_copy": "This page is a safe trial. It lets TraderHub test live strike examples without replacing the working options strategy engine first.",
-            "why_page_works": "It keeps the current strategy page stable while testing the hardest upgrade separately: turning abstract strike logic into live example combinations.",
+            "side_box_copy": "This page is a safe trial. It lets TraderHub test live strike examples without replacing the working options strategy engine first." if trial_mode else "This page is now the primary strategy engine. It keeps the setup-first logic, but adds live examples so users can move from theory to actual strikes faster.",
+            "why_page_works": "It keeps the current strategy page stable while testing the hardest upgrade separately: turning abstract strike logic into live example combinations." if trial_mode else "It upgrades the strategy engine from theory-only guidance into a much more practical decision page with real strike context.",
             "public_note": "Live premiums are shown only as examples, not trade instructions. Costs will still move with the option chain and the selected expiry.",
-            "form_action": "/derivatives/options/strategy-engine-trial",
-            "reset_url": "/derivatives/options/strategy-engine-trial",
+            "form_action": page_path,
+            "reset_url": page_path,
             "live_chain_title": "Live Chain Snapshot",
             "live_chain_note": "This section shows the current ATM area so the strategy examples have visible option-chain context, not just abstract strike language.",
             "live_chain_cards": [
@@ -35990,8 +35990,10 @@ def derivatives_options_strategy_engine():
         selected_dte = "medium"
     if selected_capital not in {"small", "medium", "high"}:
         selected_capital = "medium"
-    context = build_option_strategy_engine_context(
+    context = build_option_strategy_engine_trial_context(
         request.url_root.rstrip("/"),
+        selected_index="nifty-options",
+        selected_expiry="",
         selected_role=selected_role,
         selected_outlook=selected_outlook,
         selected_strength=selected_strength,
@@ -35999,6 +36001,8 @@ def derivatives_options_strategy_engine():
         selected_event=selected_event,
         selected_dte=selected_dte,
         selected_capital=selected_capital,
+        page_path="/derivatives/options/strategy-engine",
+        trial_mode=False,
     )
     return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
 
