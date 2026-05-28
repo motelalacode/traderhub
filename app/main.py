@@ -28545,6 +28545,11 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .strategy-score { font-size:24px; font-weight:700; font-family:var(--number-font); color:#0e554b; }
     .strategy-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
     .pill { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); color:#365068; font-size:12px; font-weight:700; }
+    .flag-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    .flag { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .flag.warn { background:var(--warn-soft); color:var(--warn); }
+    .flag.down { background:var(--down-soft); color:var(--down); }
+    .flag.info { background:var(--info-soft); color:var(--info); }
     .mini-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
     .mini-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
     .mini-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
@@ -28668,6 +28673,13 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 <span class="pill">{{ strategy.risk_label }}</span>
                 <span class="pill">{{ strategy.volatility_label }}</span>
               </div>
+              {% if strategy.risk_flags %}
+              <div class="flag-row">
+                {% for flag in strategy.risk_flags %}
+                <span class="flag {{ flag.kind }}">{{ flag.label }}</span>
+                {% endfor %}
+              </div>
+              {% endif %}
               <div class="mini-grid">
                 <div class="mini-box"><div class="mini-title">Strike Structure</div><div class="mini-value">{{ strategy.strike_structure }}</div></div>
                 <div class="mini-box"><div class="mini-title">Cost Style</div><div class="mini-value">{{ strategy.cost_profile }}</div></div>
@@ -28689,7 +28701,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                 {% for leg in strategy.live_legs %}
                 <div class="leg-box {{ leg.kind }}">
                   <div class="leg-role">{{ leg.role }}</div>
-                  <div class="leg-copy">{{ leg.copy }}</div>
+                  <div class="leg-copy">{{ leg["copy"] }}</div>
                 </div>
                 {% endfor %}
               </div>
@@ -31020,6 +31032,44 @@ def get_option_strategy_payoff_visual(strategy_slug):
     }
 
 
+def get_option_strategy_risk_flags(strategy_slug):
+    flag_map = {
+        "long-call": [
+            {"label": "Theta Decay Risk", "kind": "warn"},
+            {"label": "IV Drop Can Hurt", "kind": "info"},
+        ],
+        "long-put": [
+            {"label": "Theta Decay Risk", "kind": "warn"},
+            {"label": "IV Drop Can Hurt", "kind": "info"},
+        ],
+        "bull-call-spread": [
+            {"label": "Profit Capped", "kind": "info"},
+            {"label": "Defined Risk", "kind": "info"},
+        ],
+        "bear-put-spread": [
+            {"label": "Profit Capped", "kind": "info"},
+            {"label": "Defined Risk", "kind": "info"},
+        ],
+        "bull-put-spread": [
+            {"label": "Credit Spread", "kind": "info"},
+            {"label": "Downside Risk Remains", "kind": "warn"},
+        ],
+        "bear-call-spread": [
+            {"label": "Credit Spread", "kind": "info"},
+            {"label": "Upside Risk Remains", "kind": "warn"},
+        ],
+        "long-straddle": [
+            {"label": "Needs Big Move", "kind": "warn"},
+            {"label": "Premium Expensive", "kind": "warn"},
+        ],
+        "short-strangle": [
+            {"label": "High Risk", "kind": "down"},
+            {"label": "Strong Move Can Hurt", "kind": "down"},
+        ],
+    }
+    return flag_map.get(strategy_slug, [])
+
+
 def get_option_strategy_live_legs(strategy_slug, anchor, strike_step):
     up1 = anchor + strike_step
     down1 = anchor - strike_step
@@ -31193,6 +31243,9 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         if trial_mode:
             row.update(get_option_strategy_payoff_visual(row["slug"]))
             row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
+            row["risk_flags"] = get_option_strategy_risk_flags(row["slug"])
+        else:
+            row["risk_flags"] = []
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
