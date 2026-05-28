@@ -28547,6 +28547,16 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .mini-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
     .mini-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
     .mini-value { font-size:15px; line-height:1.5; color:#223244; }
+    .leg-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
+    .leg-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .leg-box.buy { border-color:#b8e2cb; background:#f4fcf7; }
+    .leg-box.sell { border-color:#f0c2c7; background:#fff5f6; }
+    .leg-box.hedge { border-color:#c9d8ee; background:#f5f9ff; }
+    .leg-role { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; margin-bottom:6px; }
+    .leg-box.buy .leg-role { color:#116d47; }
+    .leg-box.sell .leg-role { color:#99353a; }
+    .leg-box.hedge .leg-role { color:#245fa7; }
+    .leg-copy { font-size:14px; line-height:1.5; color:#223244; }
     .payoff-shell { margin-top:12px; background:#fff; border:1px solid var(--line); border-radius:16px; padding:12px; }
     .payoff-head { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:8px; }
     .payoff-sub { color:var(--muted); font-size:12px; line-height:1.5; }
@@ -28554,6 +28564,7 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .payoff-axis { stroke:#aab8c6; stroke-width:1; }
     .payoff-guide { stroke:#d8e1ea; stroke-width:1; stroke-dasharray:4 4; }
     .payoff-line { fill:none; stroke:#0d5f89; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; }
+    .payoff-breakeven { stroke:#c9831a; stroke-width:2; stroke-dasharray:5 5; }
     .payoff-label { fill:#627385; font-size:11px; font-family:Arial,Helvetica,sans-serif; }
     ul.tight { margin:8px 0 0; padding-left:18px; }
     ul.tight li { color:#334253; font-size:14px; line-height:1.55; }
@@ -28568,8 +28579,8 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .ad-slot.tall { min-height:220px; }
     .notice { padding:14px; background:var(--panel); }
     @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
-    @media (max-width:920px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
-    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { border-radius:18px; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-sub { font-size:16px; } }
+    @media (max-width:920px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { border-radius:18px; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid,.leg-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-sub { font-size:16px; } }
   </style>
 </head>
 <body>
@@ -28671,6 +28682,16 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
               </div>
               {% if strategy.live_note %}<div class="copy" style="margin-top:10px;"><strong>Live note:</strong> {{ strategy.live_note }}</div>{% endif %}
               {% endif %}
+              {% if strategy.live_legs %}
+              <div class="leg-grid">
+                {% for leg in strategy.live_legs %}
+                <div class="leg-box {{ leg.kind }}">
+                  <div class="leg-role">{{ leg.role }}</div>
+                  <div class="leg-copy">{{ leg.copy }}</div>
+                </div>
+                {% endfor %}
+              </div>
+              {% endif %}
               {% if strategy.payoff_points %}
               <div class="payoff-shell">
                 <div class="payoff-head">
@@ -28684,10 +28705,12 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
                   <line class="payoff-guide" x1="24" y1="80" x2="300" y2="80"></line>
                   <line class="payoff-axis" x1="24" y1="18" x2="24" y2="140"></line>
                   <line class="payoff-axis" x1="24" y1="140" x2="300" y2="140"></line>
+                  {% if strategy.payoff_breakeven_x %}<line class="payoff-breakeven" x1="{{ strategy.payoff_breakeven_x }}" y1="24" x2="{{ strategy.payoff_breakeven_x }}" y2="140"></line>{% endif %}
                   <polyline class="payoff-line" points="{{ strategy.payoff_points }}"></polyline>
                   <text class="payoff-label" x="24" y="152">{{ strategy.payoff_left_label }}</text>
                   <text class="payoff-label" x="146" y="152">{{ strategy.payoff_mid_label }}</text>
                   <text class="payoff-label" x="272" y="152">{{ strategy.payoff_right_label }}</text>
+                  {% if strategy.payoff_breakeven_label %}<text class="payoff-label" x="{{ strategy.payoff_breakeven_x + 4 }}" y="20">{{ strategy.payoff_breakeven_label }}</text>{% endif %}
                 </svg>
               </div>
               {% endif %}
@@ -30912,41 +30935,57 @@ def get_option_strategy_payoff_visual(strategy_slug):
             "points": "28,132 92,132 152,126 210,92 272,46",
             "caption": "Loss stays limited to the premium. Upside expands after breakeven.",
             "right_note": "Classic directional buyer payoff",
+            "breakeven_x": 176,
+            "breakeven_label": "Breakeven",
         },
         "long-put": {
             "points": "28,46 88,92 148,126 212,132 276,132",
             "caption": "Downside payoff grows as price falls. Premium is the fixed risk.",
             "right_note": "Bearish limited-risk payoff",
+            "breakeven_x": 144,
+            "breakeven_label": "Breakeven",
         },
         "bull-call-spread": {
             "points": "28,132 88,132 148,108 208,64 270,64",
             "caption": "Defined-risk bullish spread with capped upside after the short call strike.",
             "right_note": "Moderate bullish spread",
+            "breakeven_x": 166,
+            "breakeven_label": "Breakeven",
         },
         "bear-put-spread": {
             "points": "28,64 92,64 152,108 212,132 276,132",
             "caption": "Defined-risk bearish spread with capped profit after the lower put strike.",
             "right_note": "Moderate bearish spread",
+            "breakeven_x": 152,
+            "breakeven_label": "Breakeven",
         },
         "bull-put-spread": {
             "points": "28,132 86,126 146,88 210,64 272,64",
             "caption": "Credit spread that benefits if price stays above the short put area.",
             "right_note": "Defined-risk premium selling",
+            "breakeven_x": 146,
+            "breakeven_label": "Breakeven",
         },
         "bear-call-spread": {
             "points": "28,64 92,64 152,88 212,126 276,132",
             "caption": "Credit spread that benefits if price stays below the short call area.",
             "right_note": "Defined-risk premium selling",
+            "breakeven_x": 198,
+            "breakeven_label": "Breakeven",
         },
         "long-straddle": {
             "points": "28,46 86,92 150,132 214,92 276,46",
             "caption": "Loss is concentrated near ATM. A large move either way improves the payoff.",
             "right_note": "Event-driven long volatility",
+            "breakeven_x": 110,
+            "breakeven_label": "Left BE",
         },
         "short-strangle": {
             "points": "28,46 86,104 148,64 212,104 276,46",
             "caption": "Best when price stays inside the sold strikes. A strong move hurts on either side.",
             "right_note": "High-risk range selling",
+            "breakeven_x": 98,
+            "breakeven_label": "BE band",
         },
     }
     payload = visual_map.get(strategy_slug)
@@ -30959,7 +30998,55 @@ def get_option_strategy_payoff_visual(strategy_slug):
         "payoff_left_label": "Lower Price",
         "payoff_mid_label": "ATM Zone",
         "payoff_right_label": "Higher Price",
+        "payoff_breakeven_x": payload.get("breakeven_x"),
+        "payoff_breakeven_label": payload.get("breakeven_label", ""),
     }
+
+
+def get_option_strategy_live_legs(strategy_slug, anchor, strike_step):
+    up1 = anchor + strike_step
+    down1 = anchor - strike_step
+    if strategy_slug == "long-call":
+        return [{"role": "Long Leg", "kind": "buy", "copy": f"Buy {anchor} CE"}]
+    if strategy_slug == "long-put":
+        return [{"role": "Long Leg", "kind": "buy", "copy": f"Buy {anchor} PE"}]
+    if strategy_slug == "bull-call-spread":
+        return [
+            {"role": "Long Leg", "kind": "buy", "copy": f"Buy {anchor} CE"},
+            {"role": "Short Leg", "kind": "sell", "copy": f"Sell {up1} CE"},
+            {"role": "Hedge Logic", "kind": "hedge", "copy": "The short call reduces cost but caps upside."},
+        ]
+    if strategy_slug == "bear-put-spread":
+        return [
+            {"role": "Long Leg", "kind": "buy", "copy": f"Buy {anchor} PE"},
+            {"role": "Short Leg", "kind": "sell", "copy": f"Sell {down1} PE"},
+            {"role": "Hedge Logic", "kind": "hedge", "copy": "The short put lowers cost but caps deeper downside gains."},
+        ]
+    if strategy_slug == "bull-put-spread":
+        return [
+            {"role": "Short Leg", "kind": "sell", "copy": f"Sell {anchor} PE"},
+            {"role": "Hedge Leg", "kind": "hedge", "copy": f"Buy {down1} PE"},
+            {"role": "Risk Structure", "kind": "hedge", "copy": "Defined-risk credit spread. Hedge limits the tail loss."},
+        ]
+    if strategy_slug == "bear-call-spread":
+        return [
+            {"role": "Short Leg", "kind": "sell", "copy": f"Sell {anchor} CE"},
+            {"role": "Hedge Leg", "kind": "hedge", "copy": f"Buy {up1} CE"},
+            {"role": "Risk Structure", "kind": "hedge", "copy": "Defined-risk credit spread. Hedge limits the upside loss."},
+        ]
+    if strategy_slug == "long-straddle":
+        return [
+            {"role": "Long Call", "kind": "buy", "copy": f"Buy {anchor} CE"},
+            {"role": "Long Put", "kind": "buy", "copy": f"Buy {anchor} PE"},
+            {"role": "Use Case", "kind": "hedge", "copy": "Best when a large move is expected but direction is unclear."},
+        ]
+    if strategy_slug == "short-strangle":
+        return [
+            {"role": "Short Call", "kind": "sell", "copy": f"Sell {up1} CE"},
+            {"role": "Short Put", "kind": "sell", "copy": f"Sell {down1} PE"},
+            {"role": "Risk Structure", "kind": "hedge", "copy": "No built-in hedge here. Strong moves can hurt on either side."},
+        ]
+    return []
 
 
 def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-options", selected_expiry="", selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium", page_path="/derivatives/options/strategy-engine-trial", trial_mode=True):
@@ -31074,6 +31161,12 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         }
     )
     enriched = []
+    atm_numeric = None
+    try:
+        atm_numeric = int(float(trial.get("atm_strike") or 0))
+    except Exception:
+        atm_numeric = None
+    strike_step = int((DERIVATIVES_INDEX_CONFIG.get(selected_index) or DERIVATIVES_INDEX_CONFIG["nifty-options"]).get("strike_step") or 50)
     for row in context["recommended_strategies"]:
         live_bits = trial.get("example_rows", {}).get(row["slug"], {})
         row = dict(row)
@@ -31082,6 +31175,7 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
         row["live_note"] = live_bits.get("live_note", "")
         if trial_mode:
             row.update(get_option_strategy_payoff_visual(row["slug"]))
+            row["live_legs"] = get_option_strategy_live_legs(row["slug"], atm_numeric, strike_step) if atm_numeric else []
         enriched.append(row)
     context["recommended_strategies"] = enriched
     return context
