@@ -30466,6 +30466,248 @@ def format_signed_points(value):
     return f"{numeric:+,.2f}"
 
 
+def build_trial3_sparkline_svg(values, tone="flat"):
+    numeric_values = [parse_numeric_text(value) for value in values]
+    points = [value for value in numeric_values if value is not None]
+    if len(points) < 2:
+        return ""
+    width = 112
+    height = 28
+    min_value = min(points)
+    max_value = max(points)
+    spread = max(max_value - min_value, 1e-9)
+    coords = []
+    full_values = [value if value is not None else points[-1] for value in numeric_values]
+    for index, value in enumerate(full_values):
+        x = (width / max(len(full_values) - 1, 1)) * index
+        normalized = (value - min_value) / spread
+        y = height - (normalized * (height - 4)) - 2
+        coords.append(f"{x:.1f},{y:.1f}")
+    stroke = {"up": "#12875f", "down": "#c84f43", "flat": "#5a6a78"}.get(tone, "#5a6a78")
+    return f'<svg viewBox="0 0 {width} {height}" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="{stroke}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="{" ".join(coords)}" /></svg>'
+
+
+def get_trial3_equity_market_status(timestamp_dt=None):
+    now = datetime.datetime.now(APP_TZ)
+    if now.weekday() >= 5:
+        return "Market closed"
+    open_time = now.replace(hour=9, minute=15, second=0, microsecond=0)
+    close_time = now.replace(hour=15, minute=30, second=0, microsecond=0)
+    if timestamp_dt and timestamp_dt.tzinfo is None:
+        timestamp_dt = timestamp_dt.replace(tzinfo=APP_TZ)
+    if now < open_time:
+        return "Before market open"
+    if now > close_time:
+        return "Market closed"
+    if timestamp_dt and timestamp_dt.date() < now.date():
+        return "Market closed or holiday"
+    return "Market live"
+
+
+def parse_trial3_timestamp(value):
+    if hasattr(value, "astimezone"):
+        return value.astimezone(APP_TZ)
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=APP_TZ)
+        return parsed.astimezone(APP_TZ)
+    except Exception:
+        return None
+
+
+def get_trial3_session_status(market_kind="equity", timestamp_dt=None):
+    now = datetime.datetime.now(APP_TZ)
+    if timestamp_dt and timestamp_dt.tzinfo is None:
+        timestamp_dt = timestamp_dt.replace(tzinfo=APP_TZ)
+    if market_kind == "commodity":
+        open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        close_time = now.replace(hour=23, minute=30, second=0, microsecond=0)
+        if now.weekday() >= 5 and not timestamp_dt:
+            return "Market closed"
+        if now < open_time:
+            return "Before MCX open"
+        if now > close_time:
+            return "MCX closed"
+        return "MCX live" if timestamp_dt or now.weekday() < 5 else "Latest available"
+    if market_kind == "currency":
+        open_time = now.replace(hour=9, minute=0, second=0, microsecond=0)
+        close_time = now.replace(hour=17, minute=0, second=0, microsecond=0)
+        if now.weekday() >= 5:
+            return "Market closed"
+        if now < open_time:
+            return "Before currency open"
+        if now > close_time:
+            return "Currency market closed"
+        if timestamp_dt and timestamp_dt.date() < now.date():
+            return "Market closed or holiday"
+        return "Currency market live"
+    return get_trial3_equity_market_status(timestamp_dt)
+
+
+def get_trial3_last_updated_label(timestamp_dt=None, fallback_text="Latest available"):
+    if hasattr(timestamp_dt, "astimezone"):
+        localized = timestamp_dt.astimezone(APP_TZ)
+        return f"Last updated at {localized.strftime('%b %d, %H:%M')} GMT+5:30"
+    text = str(fallback_text or "").strip()
+    return text or "Latest available"
+
+
+def search_upstox_currency_instrument(query="USDINR"):
+    try:
+        payload = upstox_api_get(
+            "/instruments/search",
+            params={
+                "query": query,
+                "exchanges": "CDS",
+                "segments": "CDS",
+                "page_number": 1,
+                "records": 25,
+            },
+        )
+    except Exception:
+        return {}
+    today = get_today_ist()
+    candidates = []
+    for item in (payload or {}).get("data") or []:
+        exchange = str(item.get("exchange") or "").strip().upper()
+        segment = str(item.get("segment") or "").strip().upper()
+        trading_symbol = str(item.get("trading_symbol") or "").strip().upper()
+        if exchange not in {"CDS", "NSE"}:
+            continue
+        if "CDS" not in segment and "CUR" not in segment:
+            continue
+        if query not in trading_symbol:
+            continue
+        expiry = normalize_expiry_date(item.get("expiry") or item.get("expiry_date"))
+        if expiry and expiry < today:
+            continue
+        candidates.append({**item, "normalized_expiry": expiry, "days_to_expiry": (expiry - today).days if expiry else 999999})
+    if not candidates:
+        return {}
+    candidates.sort(key=lambda item: (item["days_to_expiry"], len(str(item.get("trading_symbol") or ""))))
+    return candidates[0]
+
+
+def get_live_currency_overrides(query="USDINR"):
+    creds = get_active_upstox_credentials()
+    if not creds.get("access_token"):
+        return {
+            "label": "INR vs $",
+            "value": "Pending",
+            "change": "Pending",
+            "percent": "Pending",
+            "tone": "flat",
+            "href": "/market",
+            "status": "Feed pending",
+            "updated_label": "Latest available",
+            "sparkline_svg": "",
+            "open_label": "Open page >",
+        }
+    instrument = search_upstox_currency_instrument(query)
+    instrument_key = str(instrument.get("instrument_key") or "").strip()
+    if not instrument_key:
+        return {
+            "label": "INR vs $",
+            "value": "Pending",
+            "change": "Pending",
+            "percent": "Pending",
+            "tone": "flat",
+            "href": "/market",
+            "status": "Feed pending",
+            "updated_label": "Latest available",
+            "sparkline_svg": "",
+            "open_label": "Open page >",
+        }
+    quote = get_upstox_market_quote(instrument_key)
+    if not quote:
+        return {
+            "label": "INR vs $",
+            "value": "Pending",
+            "change": "Pending",
+            "percent": "Pending",
+            "tone": "flat",
+            "href": "/market",
+            "status": "Feed pending",
+            "updated_label": "Latest available",
+            "sparkline_svg": "",
+            "open_label": "Open page >",
+        }
+    ohlc = quote.get("ohlc") or {}
+    last_price = parse_numeric_text(quote.get("last_price"))
+    previous_close = parse_numeric_text(ohlc.get("close"))
+    open_price = parse_numeric_text(ohlc.get("open"))
+    high = parse_numeric_text(ohlc.get("high"))
+    low = parse_numeric_text(ohlc.get("low"))
+    net_change = parse_numeric_text(quote.get("net_change"))
+    percent_change = None
+    if previous_close not in (None, 0) and last_price not in (None, 0):
+        percent_change = ((last_price - previous_close) / previous_close) * 100.0
+    elif previous_close not in (None, 0) and net_change is not None:
+        percent_change = (net_change / previous_close) * 100.0
+    timestamp = str(quote.get("last_trade_time") or quote.get("timestamp") or "").strip()
+    timestamp_dt = parse_trial3_timestamp(timestamp)
+    return {
+        "label": "INR vs $",
+        "value": format_price(last_price) if last_price is not None else "Pending",
+        "change": format_signed_points(net_change) if net_change is not None else "Pending",
+        "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
+        "tone": "up" if (percent_change or 0) > 0 else "down" if (percent_change or 0) < 0 else "flat",
+        "href": "/market",
+        "status": get_trial3_session_status("currency", timestamp_dt) if last_price is not None else "Feed pending",
+        "updated_label": get_trial3_last_updated_label(timestamp_dt),
+        "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], "up" if (percent_change or 0) > 0 else "down" if (percent_change or 0) < 0 else "flat"),
+        "open_label": "Open page >",
+    }
+
+
+def build_trial3_commodity_card(slug, label, href):
+    updated_at, rows = load_commodities_phase1_feed()
+    row = next((item for item in rows if str(item.get("slug") or "").strip().lower() == slug), None)
+    if not row:
+        return {
+            "label": label,
+            "value": "Pending",
+            "change": "Pending",
+            "percent": "Pending",
+            "tone": "flat",
+            "href": href,
+            "status": "Feed pending",
+            "updated_label": "Latest available",
+            "sparkline_svg": "",
+            "open_label": "Open page >",
+        }
+    seeded = build_commodity_seed_row(row)
+    merged = apply_live_commodity_overrides(seeded)
+    last_price = parse_numeric_text(merged.get("last_price"))
+    previous_close = parse_numeric_text(merged.get("previous_close"))
+    open_price = parse_numeric_text(merged.get("open_price"))
+    high = parse_numeric_text(merged.get("high"))
+    low = parse_numeric_text(merged.get("low"))
+    percent_change = parse_numeric_text(merged.get("day_change_pct"))
+    change_points = None
+    if last_price is not None and previous_close is not None:
+        change_points = last_price - previous_close
+    tone = "up" if (percent_change or 0) > 0 else "down" if (percent_change or 0) < 0 else "flat"
+    timestamp_dt = parse_trial3_timestamp(merged.get("live_timestamp"))
+    updated_label = get_trial3_last_updated_label(timestamp_dt, fallback_text=updated_at)
+    return {
+        "label": label,
+        "value": format_price(last_price) if last_price is not None else "Pending",
+        "change": format_signed_points(change_points) if change_points is not None else "Pending",
+        "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
+        "tone": tone,
+        "href": href,
+        "status": get_trial3_session_status("commodity", timestamp_dt) if merged.get("data_mode") == "live" else "Latest seeded snapshot",
+        "updated_label": updated_label,
+        "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
+        "open_label": "Open page >",
+    }
+
+
 def build_website_shell_trial3_index_tape():
     creds = get_active_kite_credentials()
     client = build_kite_client(with_access_token=True) if creds.get("api_key") and creds.get("access_token") else None
@@ -30476,6 +30718,10 @@ def build_website_shell_trial3_index_tape():
         net_change = parse_numeric_text(quote.get("net_change"))
         ohlc = quote.get("ohlc") or {}
         previous_close = parse_numeric_text(ohlc.get("close"))
+        open_price = parse_numeric_text(ohlc.get("open"))
+        high = parse_numeric_text(ohlc.get("high"))
+        low = parse_numeric_text(ohlc.get("low"))
+        timestamp_dt = get_quote_timestamp_dt(quote)
         percent_change = None
         if last_price not in (None, 0) and previous_close not in (None, 0):
             percent_change = ((last_price - previous_close) / previous_close) * 100.0
@@ -30497,9 +30743,16 @@ def build_website_shell_trial3_index_tape():
                 "percent": f"{percent_change:+.2f}%" if percent_change is not None else "Pending",
                 "tone": tone,
                 "href": config.get("href") or "/market",
-                "status": "Live" if last_price is not None else str(config.get("pending_note") or "Pending"),
+                "status": get_trial3_equity_market_status(timestamp_dt) if last_price is not None else str(config.get("pending_note") or "Pending"),
+                "updated_label": get_trial3_last_updated_label(timestamp_dt),
+                "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
+                "open_label": "Open page >",
             }
         )
+    rows.append(get_live_currency_overrides("USDINR"))
+    rows.append(build_trial3_commodity_card("gold", "Gold", "/commodities/gold"))
+    rows.append(build_trial3_commodity_card("crude-oil", "Crude Oil Large", "/commodities/crude-oil"))
+    rows.append(build_trial3_commodity_card("silver", "Silver", "/commodities/silver"))
     return rows
 
 
@@ -35946,6 +36199,35 @@ def build_website_shell_trial3_context(host_root):
         {"label": "Scan Sectors", "href": "/sectors"},
         {"label": "View Commodities", "href": "/commodities"},
     ]
+    news_depth_cards = [
+        {
+            "title": "Market News Lane",
+            "copy": "A stronger homepage should always expose the main market-news paths directly, not bury them under generic cards.",
+            "links": [
+                {"label": "Market News", "href": "/market"},
+                {"label": "Pre-Market", "href": "/market/pre-market-news"},
+                {"label": "Post-Market", "href": "/market/post-market-wrap"},
+            ],
+        },
+        {
+            "title": "Live Movers Lane",
+            "copy": "Use one homepage block for movers, sector follow-through, and the strongest shift in the session so users can react quickly.",
+            "links": [
+                {"label": "Live Movers", "href": "/market/live-movers"},
+                {"label": "Sector News", "href": "/market/sector-news"},
+                {"label": "Trends", "href": "/market/trends"},
+            ],
+        },
+        {
+            "title": "Archive Lane",
+            "copy": "Homepage depth improves when users can also move into archive trails instead of only today-only pages.",
+            "links": [
+                {"label": "Market Archive", "href": "/market/archive"},
+                {"label": "Stock Archive", "href": "/stocks/itc/news-archive"},
+                {"label": "Sector Archive", "href": "/sectors/fmcg/news-archive"},
+            ],
+        },
+    ]
     rail_cards = [
         {
             "title": "Fast Watchlist",
@@ -36006,6 +36288,7 @@ def build_website_shell_trial3_context(host_root):
         "lead_stories": lead_stories,
         "quick_boards": quick_boards,
         "quick_actions": quick_actions,
+        "news_depth_cards": news_depth_cards,
         "rail_cards": rail_cards,
         "education_cards": education_cards,
         "public_head_injection": build_public_ops_head_injection(),
@@ -36391,7 +36674,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .market-tape {
       display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 10px;
       padding: 12px 0 10px;
     }
@@ -36449,6 +36732,12 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       color: var(--muted);
       font-weight: 800;
     }
+    .tape-updated {
+      margin-top: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.4;
+    }
     .tape-bar {
       height: 4px;
       margin-top: 10px;
@@ -36469,6 +36758,22 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
     }
     .tape-bar .flat {
       background: linear-gradient(90deg, rgba(90,106,120,0.24), rgba(90,106,120,0.7));
+    }
+    .tape-open {
+      margin-top: 8px;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--accent);
+    }
+    .tape-sparkline {
+      margin-top: 8px;
+      height: 28px;
+      width: 100%;
+    }
+    .tape-sparkline svg {
+      display: block;
+      width: 100%;
+      height: 100%;
     }
     .up { color: var(--up); }
     .down { color: var(--down); }
@@ -36626,6 +36931,12 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       margin-bottom: 8px;
       line-height: 1.15;
     }
+    .news-depth-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 12px;
+    }
     .quick-board {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -36688,7 +36999,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       color: var(--muted);
     }
     @media (max-width: 1240px) {
-      .market-tape, .modules, .hero-grid, .layout, .story-grid, .knowledge-grid {
+      .market-tape, .modules, .hero-grid, .layout, .story-grid, .knowledge-grid, .news-depth-grid {
         grid-template-columns: 1fr;
       }
       .quick-board {
@@ -36716,7 +37027,12 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <div class="tape-value {{ item.tone }}">{{ item.value }}</div>
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
         <div class="tape-status">{{ item.status }}</div>
+        <div class="tape-updated">{{ item.updated_label }}</div>
+        {% if item.sparkline_svg %}
+        <div class="tape-sparkline">{{ item.sparkline_svg|safe }}</div>
+        {% endif %}
         <div class="tape-bar"><span class="{{ item.tone }}"></span></div>
+        <div class="tape-open">{{ item.open_label }}</div>
       </a>
       {% endfor %}
     </section>
@@ -36805,6 +37121,24 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         </section>
 
         <section class="panel">
+          <div class="eyebrow">Market And News Depth</div>
+          <h2>Give the homepage stronger follow-through</h2>
+          <div class="news-depth-grid">
+            {% for card in news_depth_cards %}
+            <article class="story-card">
+              <strong>{{ card.title }}</strong>
+              <p>{{ card.copy }}</p>
+              <div class="link-list">
+                {% for link in card.links %}
+                <a href="{{ link.href }}">{{ link.label }}</a>
+                {% endfor %}
+              </div>
+            </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
           <div class="eyebrow">Builder Notes</div>
           <h2>Practical homepage guidance</h2>
           <div class="knowledge-grid">
@@ -36878,12 +37212,24 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             if (statusNode) {
               statusNode.textContent = row.status || "Pending";
             }
+            const updatedNode = item.querySelector(".tape-updated");
+            if (updatedNode) {
+              updatedNode.textContent = row.updated_label || "Latest available";
+            }
             if (row.href) {
               item.setAttribute("href", row.href);
+            }
+            const openNode = item.querySelector(".tape-open");
+            if (openNode) {
+              openNode.textContent = row.open_label || "Open page >";
             }
             const barNode = item.querySelector(".tape-bar span");
             if (barNode) {
               barNode.className = row.tone || "flat";
+            }
+            const sparklineNode = item.querySelector(".tape-sparkline");
+            if (sparklineNode) {
+              sparklineNode.innerHTML = row.sparkline_svg || "";
             }
           });
         } catch (error) {
