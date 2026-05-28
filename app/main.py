@@ -28531,6 +28531,17 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
     .summary-card { border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:14px; }
     .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
     .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    .compare-strip { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .compare-card { border:1px solid var(--line); border-radius:18px; padding:16px; background:linear-gradient(180deg,#ffffff 0%,#f8fbfd 100%); }
+    .compare-card.buyers { border-color:#c8dfd4; background:linear-gradient(180deg,#fbfffc 0%,#eff8f2 100%); }
+    .compare-card.sellers { border-color:#e2d6b3; background:linear-gradient(180deg,#fffef9 0%,#faf4df 100%); }
+    .compare-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .compare-title { font-size:18px; font-weight:700; font-family:Georgia,"Times New Roman",serif; color:#1c3446; }
+    .compare-badge { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+    .compare-card.buyers .compare-badge { background:#daf0e4; color:#116d47; }
+    .compare-card.sellers .compare-badge { background:#f6ebc5; color:#9a6c00; }
+    .compare-points { margin:10px 0 0; padding-left:18px; }
+    .compare-points li { color:#304355; font-size:14px; line-height:1.55; margin-bottom:6px; }
     .form-shell { padding:14px; background:var(--panel); }
     .filter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
     label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em; text-transform:uppercase; }
@@ -28632,6 +28643,28 @@ OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
           <div class="section-note">{{ section_note }}</div>
           <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
         </section>
+        {% if comparison_strip %}
+        <section class="section" id="buyer-seller-strip">
+          <h2>Buyer vs Seller Quick Read</h2>
+          <div class="section-note">Use this strip before the detailed cards if you want a fast reminder of which strategies usually suit premium buyers and which usually suit premium sellers.</div>
+          <div class="compare-strip">
+            {% for block in comparison_strip %}
+            <div class="compare-card {{ block.kind }}">
+              <div class="compare-head">
+                <div class="compare-title">{{ block.title }}</div>
+                <span class="compare-badge">{{ block.badge }}</span>
+              </div>
+              <div class="copy">{{ block.copy }}</div>
+              <ul class="compare-points">
+                {% for point in block.points %}
+                <li>{{ point }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        {% endif %}
         <section class="section" id="filters">
           <h2>Choose The Setup</h2>
           <div class="section-note">Start with the market view. This page does not promise the most profitable trade. It ranks the best-fit option structures for the setup you choose.</div>
@@ -31441,6 +31474,30 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
                 {"label": "ATM Strike", "value": trial.get("atm_strike", "-"), "copy": "The page frames examples around the current ATM strike from the live option chain."},
                 {"label": "Selected Expiry", "value": trial.get("selected_expiry", "Pending"), "copy": "This is the expiry used for the trial strategy examples."},
                 {"label": "Lot Size", "value": trial.get("lot_size_display", "Pending"), "copy": "This lot size is used to translate per-unit premium into approximate rupee cost per lot."},
+            ],
+            "comparison_strip": [
+                {
+                    "kind": "buyers",
+                    "title": "Best For Buyers",
+                    "badge": "Premium Buying",
+                    "copy": "These setups usually suit traders who want defined risk and are willing to pay premium for a move or an event.",
+                    "points": [
+                        "Long Call and Long Put need directional follow-through.",
+                        "Bull Call Spread and Bear Put Spread reduce cost but cap reward.",
+                        "Long Straddle works when a large move is expected and direction is unclear.",
+                    ],
+                },
+                {
+                    "kind": "sellers",
+                    "title": "Best For Sellers",
+                    "badge": "Premium Selling",
+                    "copy": "These setups usually suit traders who want time decay working in their favor and can handle margin or defined-spread management.",
+                    "points": [
+                        "Bull Put Spread and Bear Call Spread fit calmer or moderate views.",
+                        "Short Strangle needs range-bound behavior and disciplined risk control.",
+                        "Seller structures usually dislike sudden event-driven volatility.",
+                    ],
+                },
             ],
             "recommendations_title": f"Top Matches For {selected_role.title()} With Live Trial Examples" if trial_mode else f"Top Live-Linked Matches For {selected_role.title()}",
             "recommendations_note": "The strategy ranking still comes from setup fit. The trial upgrade adds live sample strikes and premium estimates for the chosen index and expiry." if trial_mode else "The strategy ranking still comes from setup fit, but the page now adds live sample strikes and premium estimates for the chosen index and expiry.",
