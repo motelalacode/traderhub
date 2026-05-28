@@ -35657,7 +35657,7 @@ WEBSITE_SHELL_TRIAL_TEMPLATE = """
             {% for group in section_groups %}
             <article class="mini-card">
               <strong>{{ group.title }}</strong>
-              <p>{{ group.copy }}</p>
+              <p>{{ group["copy"] }}</p>
               <div class="link-list">
                 {% for link in group.links %}
                 <a href="{{ link.href }}">{{ link.label }}</a>
@@ -35698,7 +35698,7 @@ WEBSITE_SHELL_TRIAL_TEMPLATE = """
             {% for item in feature_rows %}
             <article class="mini-card">
               <strong>{{ item.title }}</strong>
-              <p>{{ item.copy }}</p>
+              <p>{{ item["copy"] }}</p>
             </article>
             {% endfor %}
           </div>
@@ -35719,7 +35719,7 @@ WEBSITE_SHELL_TRIAL_TEMPLATE = """
             <article class="mini-card">
               <div class="rail-note">{{ card.eyebrow }}</div>
               <strong>{{ card.title }}</strong>
-              <p>{{ card.copy }}</p>
+              <p>{{ card["copy"] }}</p>
             </article>
             {% endfor %}
           </div>
@@ -35729,7 +35729,7 @@ WEBSITE_SHELL_TRIAL_TEMPLATE = """
         <section class="panel">
           <div class="rail-note">{{ sponsor_ad.label }}</div>
           <h3>{{ sponsor_ad.name }}</h3>
-          <p>{{ sponsor_ad.copy }}</p>
+          <p>{{ sponsor_ad["copy"] }}</p>
           {% if sponsor_ad.url %}
           <div class="meta-line"><a href="{{ sponsor_ad.url }}" target="_blank" rel="noopener">Open sponsor link</a></div>
           {% endif %}
@@ -35893,6 +35893,12 @@ def build_website_shell_trial3_context(host_root):
         {"label": "Best Mobile Use", "value": "Top blocks stack into one readable market feed"},
         {"label": "Ad Placement Style", "value": "Right rail on desktop, inline between major modules on mobile"},
     ]
+    quick_actions = [
+        {"label": "Open Market Desk", "href": "/market"},
+        {"label": "Check Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+        {"label": "Scan Sectors", "href": "/sectors"},
+        {"label": "View Commodities", "href": "/commodities"},
+    ]
     rail_cards = [
         {
             "title": "Fast Watchlist",
@@ -35952,6 +35958,7 @@ def build_website_shell_trial3_context(host_root):
         "market_modules": market_modules,
         "lead_stories": lead_stories,
         "quick_boards": quick_boards,
+        "quick_actions": quick_actions,
         "rail_cards": rail_cards,
         "education_cards": education_cards,
         "public_head_injection": build_public_ops_head_injection(),
@@ -36197,7 +36204,7 @@ WEBSITE_SHELL_TRIAL2_TEMPLATE = """
         <article class="hero-card">
           <div class="eyebrow">{{ card.label }}</div>
           <div class="hero-value">{{ card.value }}</div>
-          <p class="hero-copy">{{ card.copy }}</p>
+          <p class="hero-copy">{{ card["copy"] }}</p>
         </article>
         {% endfor %}
       </div>
@@ -36207,7 +36214,7 @@ WEBSITE_SHELL_TRIAL2_TEMPLATE = """
       {% for row in dashboard_rows %}
       <article class="dash-card">
         <strong>{{ row.title }}</strong>
-        <p>{{ row.copy }}</p>
+        <p>{{ row["copy"] }}</p>
         <div class="dash-links">
           {% for link in row.links %}
           <a href="{{ link.href }}">{{ link.label }}</a>
@@ -36255,7 +36262,7 @@ WEBSITE_SHELL_TRIAL2_TEMPLATE = """
             <article class="section-card">
               <div class="eyebrow">{{ section.eyebrow }}</div>
               <strong>{{ section.title }}</strong>
-              <p>{{ section.copy }}</p>
+              <p>{{ section["copy"] }}</p>
             </article>
             {% endfor %}
           </div>
@@ -36272,7 +36279,7 @@ WEBSITE_SHELL_TRIAL2_TEMPLATE = """
         <section class="panel">
           <div class="eyebrow">{{ sponsor_ad.label }}</div>
           <h2>{{ sponsor_ad.name }}</h2>
-          <p>{{ sponsor_ad.copy }}</p>
+          <p>{{ sponsor_ad["copy"] }}</p>
         </section>
         {% endif %}
 
@@ -36340,6 +36347,21 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       grid-template-columns: repeat(6, minmax(0, 1fr));
       gap: 10px;
       padding: 12px 0 10px;
+    }
+    .action-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+    .action-strip a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      font-size: 13px;
+      font-weight: 800;
     }
     .tape-item {
       background: rgba(255,255,255,0.72);
@@ -36608,6 +36630,12 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       {% endfor %}
     </section>
 
+    <section class="action-strip">
+      {% for action in quick_actions %}
+      <a href="{{ action.href }}">{{ action.label }}</a>
+      {% endfor %}
+    </section>
+
     <section class="masthead">
       <div class="masthead-top">
         <div class="brand">
@@ -36630,7 +36658,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <article class="hero-card">
           <div class="eyebrow">{{ card.eyebrow }}</div>
           <h2>{{ card.title }}</h2>
-          <p>{{ card.copy }}</p>
+          <p>{{ card["copy"] }}</p>
         </article>
         {% endfor %}
       </div>
@@ -36640,7 +36668,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       {% for module in market_modules %}
       <article class="module-card">
         <strong>{{ module.title }}</strong>
-        <p>{{ module.copy }}</p>
+        <p>{{ module["copy"] }}</p>
         <div class="link-list">
           {% for link in module.links %}
           <a href="{{ link.href }}">{{ link.label }}</a>
@@ -36661,7 +36689,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             <article class="story-card">
               <div class="eyebrow">{{ story.kicker }}</div>
               <strong>{{ story.title }}</strong>
-              <p>{{ story.copy }}</p>
+              <p>{{ story["copy"] }}</p>
               <div class="link-list">
                 {% for link in story.links %}
                 <a href="{{ link.href }}">{{ link.label }}</a>
@@ -36692,7 +36720,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             {% for card in education_cards %}
             <article class="knowledge-card">
               <strong>{{ card.title }}</strong>
-              <p>{{ card.copy }}</p>
+              <p>{{ card["copy"] }}</p>
             </article>
             {% endfor %}
           </div>
@@ -36715,7 +36743,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <section class="rail-card">
           <div class="eyebrow">{{ sponsor_ad.label }}</div>
           <strong>{{ sponsor_ad.name }}</strong>
-          <p>{{ sponsor_ad.copy }}</p>
+          <p>{{ sponsor_ad["copy"] }}</p>
           {% if sponsor_ad.url %}
           <div class="ad-note"><a href="{{ sponsor_ad.url }}" target="_blank" rel="noopener">Open sponsor link</a></div>
           {% endif %}
