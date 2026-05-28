@@ -28479,6 +28479,215 @@ DERIVATIVES_PHASE1_TEMPLATE = """
 </html>
 """
 
+OPTIONS_STRATEGY_ENGINE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root { --paper:#fff; --panel:#f9fbfd; --line:#c9d3dd; --ink:#1f2b38; --muted:#627385; --up-soft:#daf0e4; --up:#116d47; --down-soft:#f9dcdc; --down:#99353a; --warn-soft:#f6ebc5; --warn:#9a6c00; --info-soft:#dbe8fb; --info:#245fa7; --shadow:0 12px 32px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial,Helvetica,sans-serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(23,111,98,0.08), transparent 24%), linear-gradient(180deg, #f7f7f4 0%, #eef1f4 100%); }
+    a { color:#0d5f89; }
+    .page { max-width:1380px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { background:var(--paper); border:1px solid var(--line); border-radius:22px; box-shadow:var(--shadow); }
+    .hero { padding:20px 22px; background:linear-gradient(145deg,#21465c,#2b7d72 72%,#4e9a8a 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:210px; height:210px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:0.14em; text-transform:uppercase; opacity:0.86; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:16px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:42px; line-height:0.95; font-family:Georgia,"Times New Roman",serif; }
+    .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); max-width:860px; line-height:1.55; }
+    .hero-price { text-align:right; min-width:220px; }
+    .hero-ltp { font-size:34px; font-weight:700; font-family:var(--number-font); font-variant-numeric:tabular-nums; line-height:0.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; gap:6px; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.03em; }
+    .tag-up { background:var(--up-soft); color:var(--up); } .tag-down { background:var(--down-soft); color:var(--down); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.74); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { text-decoration:none; background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 290px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px 18px 16px; }
+    .section h2 { margin:0 0 6px; font-size:28px; font-family:Georgia,"Times New Roman",serif; }
+    .section-note,.copy { color:var(--muted); font-size:14px; line-height:1.6; }
+    .summary-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .summary-card { border:1px solid var(--line); border-radius:16px; background:var(--panel); padding:14px; }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-variant-numeric:tabular-nums; }
+    .form-shell { padding:14px; background:var(--panel); }
+    .filter-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+    label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:6px; letter-spacing:0.05em; text-transform:uppercase; }
+    select { width:100%; padding:12px 12px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--ink); font-size:14px; }
+    .form-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; padding:11px 14px; border-radius:999px; border:1px solid var(--line); background:#0d5f89; color:#fff; text-decoration:none; font-weight:700; font-size:13px; cursor:pointer; }
+    .btn.secondary { background:#fff; color:#0e554b; }
+    .strategy-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .strategy-card { padding:16px; background:var(--panel); }
+    .strategy-top { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:10px; }
+    .strategy-name { font-size:20px; font-weight:700; font-family:Georgia,"Times New Roman",serif; }
+    .strategy-score { font-size:24px; font-weight:700; font-family:var(--number-font); color:#0e554b; }
+    .strategy-meta { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .pill { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid var(--line); color:#365068; font-size:12px; font-weight:700; }
+    .mini-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
+    .mini-box { background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
+    .mini-title { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .mini-value { font-size:15px; line-height:1.5; color:#223244; }
+    ul.tight { margin:8px 0 0; padding-left:18px; }
+    ul.tight li { color:#334253; font-size:14px; line-height:1.55; }
+    .table-wrap { padding:10px 12px 6px; overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th { text-align:left; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--line); padding:9px 8px; white-space:nowrap; }
+    td { padding:11px 8px; border-bottom:1px solid rgba(215,203,180,0.72); font-variant-numeric:tabular-nums; }
+    tr:last-child td { border-bottom:none; }
+    .side-card { padding:16px; }
+    .side-title { font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .ad-slot { border-style:dashed; box-shadow:none; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:88px; padding:14px; }
+    .ad-slot.tall { min-height:220px; }
+    .notice { padding:14px; background:var(--panel); }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:920px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:34px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.ad-slot,.notice,.strategy-card,.form-shell,.summary-card,.table-wrap { border-radius:18px; } .hero-grid,.summary-grid,.strategy-grid,.filter-grid,.mini-grid { grid-template-columns:1fr; } h1 { font-size:29px; } .hero-sub { font-size:16px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        <section class="section" id="filters">
+          <h2>Choose The Setup</h2>
+          <div class="section-note">Start with the market view. This page does not promise the most profitable trade. It ranks the best-fit option structures for the setup you choose.</div>
+          <form class="form-shell" method="get" action="/derivatives/options/strategy-engine">
+            <div class="filter-grid">
+              {% for field in filter_fields %}
+              <div>
+                <label for="{{ field.name }}">{{ field.label }}</label>
+                <select id="{{ field.name }}" name="{{ field.name }}">
+                  {% for option in field.options %}
+                  <option value="{{ option.value }}" {{ 'selected' if option.value == field.selected else '' }}>{{ option.label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              {% endfor %}
+            </div>
+            <div class="form-actions">
+              <button class="btn" type="submit">Show Best-Fit Strategies</button>
+              <a class="btn secondary" href="/derivatives/options/strategy-engine">Reset</a>
+            </div>
+          </form>
+        </section>
+        <section class="section" id="recommendations">
+          <h2>{{ recommendations_title }}</h2>
+          <div class="section-note">{{ recommendations_note }}</div>
+          <div class="strategy-grid">
+            {% for strategy in recommended_strategies %}
+            <div class="strategy-card">
+              <div class="strategy-top">
+                <div>
+                  <div class="strategy-name">{{ strategy.name }}</div>
+                  <div class="copy">{{ strategy.one_line }}</div>
+                </div>
+                <div class="strategy-score">{{ strategy.score }}</div>
+              </div>
+              <div class="strategy-meta">
+                <span class="pill">{{ strategy.role_label }}</span>
+                <span class="pill">{{ strategy.outlook_label }}</span>
+                <span class="pill">{{ strategy.risk_label }}</span>
+                <span class="pill">{{ strategy.volatility_label }}</span>
+              </div>
+              <div class="mini-grid">
+                <div class="mini-box"><div class="mini-title">Strike Structure</div><div class="mini-value">{{ strategy.strike_structure }}</div></div>
+                <div class="mini-box"><div class="mini-title">Cost Style</div><div class="mini-value">{{ strategy.cost_profile }}</div></div>
+                <div class="mini-box"><div class="mini-title">Max Profit</div><div class="mini-value">{{ strategy.max_profit }}</div></div>
+                <div class="mini-box"><div class="mini-title">Max Loss</div><div class="mini-value">{{ strategy.max_loss }}</div></div>
+                <div class="mini-box"><div class="mini-title">Breakeven</div><div class="mini-value">{{ strategy.breakeven }}</div></div>
+                <div class="mini-box"><div class="mini-title">Best When</div><div class="mini-value">{{ strategy.best_when }}</div></div>
+              </div>
+              <div class="copy" style="margin-top:12px;"><strong>Why it fits:</strong> {{ strategy.match_reason }}</div>
+              <ul class="tight">
+                <li><strong>Time decay:</strong> {{ strategy.theta_read }}</li>
+                <li><strong>Volatility:</strong> {{ strategy.vega_read }}</li>
+                <li><strong>What can go wrong:</strong> {{ strategy.risk_note }}</li>
+              </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section" id="comparison">
+          <h2>Strategy Comparison Table</h2>
+          <div class="section-note">This table keeps the page practical. It shows the buyer or seller profile, the cost style, the strike logic, and the reward trade-off without forcing a full payoff chart first.</div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr>{% for column in table_columns %}<th>{{ column.label }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in strategy_rows %}
+                <tr>
+                  {% for column in table_columns %}
+                  <td>{{ row[column.key] }}</td>
+                  {% endfor %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section class="section" id="notes">
+          <h2>How To Use This Page</h2>
+          <div class="section-note">The engine is setup-first. It works best when the trader is honest about the view, the expected move size, and whether the goal is buying premium or selling premium.</div>
+          <div class="summary-grid">
+            {% for card in usage_cards %}
+            <div class="summary-card">
+              <div class="metric-label">{{ card.label }}</div>
+              <div class="metric-value">{{ card.value }}</div>
+              <div class="copy">{{ card.copy }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot tall">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+        <div class="side-card"><div class="side-title">Important Note</div><div class="copy">{{ public_note }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
 DERIVATIVES_STOCK_OI_TRIAL_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -30043,6 +30252,7 @@ def build_derivatives_hub_context(host_root):
             {"label": "Stock F&O", "href": "/derivatives/stocks"},
             {"label": "OI Change", "href": "/derivatives/stocks/oi-change"},
             {"label": "Futures Buildup", "href": "/derivatives/stocks/futures-buildup"},
+            {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
         ],
         "section_title": "Derivatives Dashboard",
         "section_note": "This dashboard gives the public derivatives hub a live market layer. Stock futures and OI data are shown where available, and index pages use live displayed-chain OI where the feed is available.",
@@ -30079,6 +30289,406 @@ def build_derivatives_hub_context(host_root):
         "side_box_copy": "Index pages are structure-first for now, while stock F&O pages use live spot-led proxy context. This keeps the experience honest and useful until a dedicated F&O source is integrated.",
         "why_page_works": "It creates a strong public derivatives entry point, supports SEO-friendly routes, and gives TraderHub a clean place to grow deeper F&O coverage later.",
         "market_error": error,
+    }
+
+
+def get_option_strategy_catalog():
+    return [
+        {
+            "slug": "long-call",
+            "name": "Long Call",
+            "roles": {"buyer"},
+            "outlooks": {"bullish"},
+            "strengths": {"strong"},
+            "iv": {"low", "normal"},
+            "event": {"yes", "no"},
+            "dte": {"short", "medium"},
+            "capital": {"small", "medium"},
+            "role_label": "Buyer",
+            "outlook_label": "Bullish",
+            "risk_label": "Limited Risk",
+            "volatility_label": "Prefer Lower IV",
+            "one_line": "Best when the trader expects a sharp upside move and wants simple defined risk.",
+            "strike_structure": "Buy 1 ATM call or slightly OTM call in the same expiry.",
+            "cost_profile": "Net debit. Premium paid upfront.",
+            "max_profit": "Unlimited upside after breakeven.",
+            "max_loss": "Premium paid.",
+            "breakeven": "Strike + premium paid.",
+            "best_when": "Strong bullish view, quick move expected, and implied volatility is not already too expensive.",
+            "theta_read": "Negative. Time decay works against the buyer every day.",
+            "vega_read": "Positive. Higher implied volatility can help the position.",
+            "risk_note": "The stock can move up and the trade can still disappoint if the move is too slow or IV falls.",
+        },
+        {
+            "slug": "long-put",
+            "name": "Long Put",
+            "roles": {"buyer"},
+            "outlooks": {"bearish"},
+            "strengths": {"strong"},
+            "iv": {"low", "normal"},
+            "event": {"yes", "no"},
+            "dte": {"short", "medium"},
+            "capital": {"small", "medium"},
+            "role_label": "Buyer",
+            "outlook_label": "Bearish",
+            "risk_label": "Limited Risk",
+            "volatility_label": "Prefer Lower IV",
+            "one_line": "Best when the trader expects a sharp downside move and wants simple defined risk.",
+            "strike_structure": "Buy 1 ATM put or slightly OTM put in the same expiry.",
+            "cost_profile": "Net debit. Premium paid upfront.",
+            "max_profit": "Large downside payoff as price falls, capped only by the stock or index not going below zero.",
+            "max_loss": "Premium paid.",
+            "breakeven": "Strike - premium paid.",
+            "best_when": "Strong bearish view, fast downside expected, and IV is not already extreme.",
+            "theta_read": "Negative. Time decay works against the buyer.",
+            "vega_read": "Positive. Higher implied volatility can help the position.",
+            "risk_note": "A slow decline or a bounce can still damage the trade because of time decay.",
+        },
+        {
+            "slug": "bull-call-spread",
+            "name": "Bull Call Spread",
+            "roles": {"buyer"},
+            "outlooks": {"bullish"},
+            "strengths": {"moderate"},
+            "iv": {"low", "normal", "high"},
+            "event": {"yes", "no"},
+            "dte": {"short", "medium", "long"},
+            "capital": {"small", "medium"},
+            "role_label": "Buyer",
+            "outlook_label": "Moderately Bullish",
+            "risk_label": "Defined Risk",
+            "volatility_label": "Works Across IV",
+            "one_line": "A cleaner defined-risk bullish trade when the upside view is positive but not extreme.",
+            "strike_structure": "Buy 1 ATM call and sell 1 OTM call in the same expiry.",
+            "cost_profile": "Net debit. Lower cost than a naked long call.",
+            "max_profit": "Spread width - net debit.",
+            "max_loss": "Net debit.",
+            "breakeven": "Lower strike + net debit.",
+            "best_when": "Moderate bullish view where the trader expects a rise, but not an explosive runaway move.",
+            "theta_read": "Still negative, but better controlled than a naked long call.",
+            "vega_read": "Positive, but lower sensitivity than a naked long call because one option is sold.",
+            "risk_note": "Profit is capped. If the move becomes very large, the trader gives up upside beyond the short strike.",
+        },
+        {
+            "slug": "bear-put-spread",
+            "name": "Bear Put Spread",
+            "roles": {"buyer"},
+            "outlooks": {"bearish"},
+            "strengths": {"moderate"},
+            "iv": {"low", "normal", "high"},
+            "event": {"yes", "no"},
+            "dte": {"short", "medium", "long"},
+            "capital": {"small", "medium"},
+            "role_label": "Buyer",
+            "outlook_label": "Moderately Bearish",
+            "risk_label": "Defined Risk",
+            "volatility_label": "Works Across IV",
+            "one_line": "A controlled bearish spread when the downside view is real but not extreme.",
+            "strike_structure": "Buy 1 higher-strike put and sell 1 lower-strike put in the same expiry.",
+            "cost_profile": "Net debit. Lower cost than a naked long put.",
+            "max_profit": "Spread width - net debit.",
+            "max_loss": "Net debit.",
+            "breakeven": "Higher strike - net debit.",
+            "best_when": "Moderate bearish view with a realistic downside target instead of a collapse expectation.",
+            "theta_read": "Negative, but less painful than a naked long put.",
+            "vega_read": "Positive, but tempered by the short put leg.",
+            "risk_note": "If the market keeps dropping far below the lower strike, the spread no longer gains additional profit.",
+        },
+        {
+            "slug": "bull-put-spread",
+            "name": "Bull Put Spread",
+            "roles": {"seller"},
+            "outlooks": {"bullish"},
+            "strengths": {"moderate"},
+            "iv": {"normal", "high"},
+            "event": {"no"},
+            "dte": {"short", "medium"},
+            "capital": {"medium", "high"},
+            "role_label": "Seller",
+            "outlook_label": "Moderately Bullish",
+            "risk_label": "Defined Risk Selling",
+            "volatility_label": "Prefers Higher IV",
+            "one_line": "A safer premium-selling bullish spread when the trader expects the market to stay firm or rise gradually.",
+            "strike_structure": "Sell 1 ATM or slightly OTM put and buy 1 lower-strike OTM put in the same expiry.",
+            "cost_profile": "Net credit. Premium received upfront.",
+            "max_profit": "Net credit received.",
+            "max_loss": "Spread width - net credit.",
+            "breakeven": "Short put strike - net credit.",
+            "best_when": "Moderate bullish view, stable market tone, and implied volatility is high enough to reward option selling.",
+            "theta_read": "Positive. Time decay helps the seller.",
+            "vega_read": "Negative. Falling implied volatility helps the trade.",
+            "risk_note": "A fast downside move can still hurt. This is safer than naked put selling, but it is not risk free.",
+        },
+        {
+            "slug": "bear-call-spread",
+            "name": "Bear Call Spread",
+            "roles": {"seller"},
+            "outlooks": {"bearish"},
+            "strengths": {"moderate"},
+            "iv": {"normal", "high"},
+            "event": {"no"},
+            "dte": {"short", "medium"},
+            "capital": {"medium", "high"},
+            "role_label": "Seller",
+            "outlook_label": "Moderately Bearish",
+            "risk_label": "Defined Risk Selling",
+            "volatility_label": "Prefers Higher IV",
+            "one_line": "A safer premium-selling bearish spread when the trader expects the market to stay weak or drift lower.",
+            "strike_structure": "Sell 1 ATM or slightly OTM call and buy 1 higher-strike OTM call in the same expiry.",
+            "cost_profile": "Net credit. Premium received upfront.",
+            "max_profit": "Net credit received.",
+            "max_loss": "Spread width - net credit.",
+            "breakeven": "Short call strike + net credit.",
+            "best_when": "Moderate bearish view with high enough IV and no need for a very large downside move.",
+            "theta_read": "Positive. Time decay helps the seller.",
+            "vega_read": "Negative. Lower implied volatility helps.",
+            "risk_note": "If the market rallies strongly, the spread can still lose up to its defined maximum.",
+        },
+        {
+            "slug": "long-straddle",
+            "name": "Long Straddle",
+            "roles": {"buyer"},
+            "outlooks": {"neutral"},
+            "strengths": {"strong"},
+            "iv": {"low", "normal"},
+            "event": {"yes"},
+            "dte": {"short"},
+            "capital": {"medium", "high"},
+            "role_label": "Buyer",
+            "outlook_label": "Big Move, Direction Unclear",
+            "risk_label": "Limited Risk",
+            "volatility_label": "Needs Expansion",
+            "one_line": "The classic event strategy when the trader expects a large move but does not know the direction.",
+            "strike_structure": "Buy 1 ATM call and 1 ATM put of the same strike and expiry.",
+            "cost_profile": "Net debit. Two premiums are paid.",
+            "max_profit": "Large if the move becomes strong in either direction.",
+            "max_loss": "Combined premiums paid.",
+            "breakeven": "ATM strike +/- total premium paid.",
+            "best_when": "Big event, low-to-normal IV before the event, and a fast move expected well before expiry.",
+            "theta_read": "Strongly negative. Waiting is costly.",
+            "vega_read": "Positive. Higher volatility before the move helps.",
+            "risk_note": "This trade is punished hard if the move is small or if IV collapses after the event.",
+        },
+        {
+            "slug": "short-strangle",
+            "name": "Short Strangle",
+            "roles": {"seller"},
+            "outlooks": {"neutral"},
+            "strengths": {"moderate"},
+            "iv": {"high"},
+            "event": {"no"},
+            "dte": {"short", "medium"},
+            "capital": {"high"},
+            "role_label": "Seller",
+            "outlook_label": "Range-Bound",
+            "risk_label": "High Risk Selling",
+            "volatility_label": "Prefers High IV",
+            "one_line": "A premium-selling range strategy when the trader expects the market to stay contained.",
+            "strike_structure": "Sell 1 OTM call and 1 OTM put in the same expiry, usually with equal distance from ATM.",
+            "cost_profile": "Net credit. Premium received from both sides.",
+            "max_profit": "Combined premiums received.",
+            "max_loss": "Large on either side if the market trends hard. Risk is not naturally capped.",
+            "breakeven": "Call strike + total credit, and put strike - total credit.",
+            "best_when": "High IV, no major event expected, and the trader believes the market will stay inside a range.",
+            "theta_read": "Strongly positive. Time decay helps every day.",
+            "vega_read": "Negative. Lower implied volatility helps the trade.",
+            "risk_note": "This is not a beginner default. A sharp breakout or breakdown can hurt fast because risk expands on both sides.",
+        },
+    ]
+
+
+def score_option_strategy(strategy, selected_role, selected_outlook, selected_strength, selected_iv, selected_event, selected_dte, selected_capital):
+    score = 0
+    reasons = []
+    if selected_role in strategy["roles"]:
+        score += 28
+        reasons.append(f"matches a {selected_role} setup")
+    if selected_outlook in strategy["outlooks"]:
+        score += 26
+        reasons.append(f"fits a {selected_outlook} market view")
+    if selected_strength in strategy["strengths"]:
+        score += 14
+        reasons.append(f"fits a {selected_strength} move expectation")
+    if selected_iv in strategy["iv"]:
+        score += 12
+        reasons.append(f"works in {selected_iv} implied volatility")
+    if selected_event in strategy["event"]:
+        score += 10
+        reasons.append("fits the event-risk condition")
+    if selected_dte in strategy["dte"]:
+        score += 6
+        reasons.append("fits the expiry window")
+    if selected_capital in strategy["capital"]:
+        score += 4
+        reasons.append("fits the capital bucket")
+    strategy = dict(strategy)
+    strategy["score"] = min(score, 100)
+    strategy["match_reason"] = ", ".join(reasons[:4]).capitalize() + "." if reasons else "This strategy is less aligned with the current setup."
+    return strategy
+
+
+def build_option_strategy_engine_context(host_root, selected_role="buyer", selected_outlook="bullish", selected_strength="moderate", selected_iv="normal", selected_event="no", selected_dte="medium", selected_capital="medium"):
+    catalog = get_option_strategy_catalog()
+    scored = [
+        score_option_strategy(
+            strategy,
+            selected_role,
+            selected_outlook,
+            selected_strength,
+            selected_iv,
+            selected_event,
+            selected_dte,
+            selected_capital,
+        )
+        for strategy in catalog
+    ]
+    filtered = [row for row in scored if selected_role in row["roles"]]
+    filtered.sort(key=lambda row: row["score"], reverse=True)
+    top_rows = filtered[:4]
+    setup_label = f"{selected_role.title()} | {selected_outlook.title()} | {selected_strength.title()}"
+    filter_fields = [
+        {
+            "name": "role",
+            "label": "Trader Type",
+            "selected": selected_role,
+            "options": [
+                {"value": "buyer", "label": "Buyer"},
+                {"value": "seller", "label": "Seller"},
+            ],
+        },
+        {
+            "name": "outlook",
+            "label": "Market View",
+            "selected": selected_outlook,
+            "options": [
+                {"value": "bullish", "label": "Bullish"},
+                {"value": "bearish", "label": "Bearish"},
+                {"value": "neutral", "label": "Range-Bound / Direction Not Clear"},
+            ],
+        },
+        {
+            "name": "strength",
+            "label": "Move Strength",
+            "selected": selected_strength,
+            "options": [
+                {"value": "moderate", "label": "Moderate Move"},
+                {"value": "strong", "label": "Strong Move"},
+            ],
+        },
+        {
+            "name": "iv",
+            "label": "Implied Volatility",
+            "selected": selected_iv,
+            "options": [
+                {"value": "low", "label": "Low"},
+                {"value": "normal", "label": "Normal"},
+                {"value": "high", "label": "High"},
+            ],
+        },
+        {
+            "name": "event",
+            "label": "Major Event Ahead",
+            "selected": selected_event,
+            "options": [
+                {"value": "yes", "label": "Yes"},
+                {"value": "no", "label": "No"},
+            ],
+        },
+        {
+            "name": "dte",
+            "label": "Time To Expiry",
+            "selected": selected_dte,
+            "options": [
+                {"value": "short", "label": "Short"},
+                {"value": "medium", "label": "Medium"},
+                {"value": "long", "label": "Long"},
+            ],
+        },
+        {
+            "name": "capital",
+            "label": "Capital Bucket",
+            "selected": selected_capital,
+            "options": [
+                {"value": "small", "label": "Small"},
+                {"value": "medium", "label": "Medium"},
+                {"value": "high", "label": "High"},
+            ],
+        },
+    ]
+    return {
+        "page_mode": "options_strategy_engine",
+        "seo_title": "Options Strategy Engine for Buyers and Sellers | TraderHub",
+        "seo_description": "Find best-fit option strategies for buyers and sellers based on market view, volatility, expiry window, and risk style in TraderHub.",
+        "canonical_url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine",
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Options Strategy Engine | TraderHub",
+                "description": "Public options strategy decision page for buyers and sellers.",
+                "url": f"{host_root.rstrip('/')}/derivatives/options/strategy-engine",
+            },
+            indent=2,
+        ),
+        "public_head_injection": build_public_head_injection(page_type="derivatives_options_strategy", page_group="derivatives", page_title="Options Strategy Engine"),
+        "breadcrumb_text": "Derivatives > Options Strategy Engine",
+        "breadcrumb_meta_text": f"Setup-first options page | Last reviewed {get_today_ist().isoformat()}",
+        "hero_kicker": "TraderHub Options Strategy Engine",
+        "hero_title": "Options Strategy Engine",
+        "hero_subtitle": "Choose the market setup first, then let TraderHub rank the best-fit option structures. This page is built for both buyers and sellers and stays honest about cost style, reward limits, and the risk behind each strategy.",
+        "hero_metric_primary": str(len(top_rows)),
+        "hero_metric_secondary": "top strategy matches for the selected setup",
+        "hero_badges": [
+            {"label": "Buyer + Seller", "kind": "tag-info"},
+            {"label": "Defined Risk First", "kind": "tag-up"},
+            {"label": "Setup Driven", "kind": "tag-warn"},
+        ],
+        "hero_stats": [
+            {"label": "Trader Type", "value": selected_role.title()},
+            {"label": "Market View", "value": selected_outlook.title()},
+            {"label": "Move Strength", "value": selected_strength.title()},
+            {"label": "IV", "value": selected_iv.title()},
+        ],
+        "nav_chips": [
+            {"label": "Derivatives Hub", "href": "/derivatives"},
+            {"label": "Nifty Options", "href": "/derivatives/index/nifty-options"},
+            {"label": "Bank Nifty", "href": "/derivatives/index/banknifty-options"},
+            {"label": "Expiry Strategy", "href": "/derivatives/expiry-strategy"},
+            {"label": "Strategy Engine", "href": "/derivatives/options/strategy-engine"},
+        ],
+        "section_title": "Current Setup Summary",
+        "section_note": "This engine does not try to sell one fixed strategy to everyone. It works by matching the setup to the strategy, because the best long-volatility trade and the best premium-selling trade are rarely the same.",
+        "summary_cards": [
+            {"label": "Selected Setup", "value": setup_label, "copy": "This is the active setup the engine is evaluating right now."},
+            {"label": "Primary Goal", "value": "Best Fit", "copy": "The page ranks strategies by how well they match the setup, not by making false profit promises."},
+            {"label": "Cost Model", "value": "Debit + Credit", "copy": "The engine includes both premium-buying and premium-selling structures."},
+            {"label": "Strike Logic", "value": "Relative", "copy": "ATM, OTM, and spread structure are shown clearly even before live option-chain premiums are plugged in."},
+        ],
+        "filter_fields": filter_fields,
+        "recommendations_title": f"Top Matches For {selected_role.title()}",
+        "recommendations_note": "The score is a fit score, not a profit guarantee. Higher scores mean the structure matches the chosen view, volatility condition, and time window better.",
+        "recommended_strategies": top_rows,
+        "table_columns": [
+            {"label": "Strategy", "key": "name"},
+            {"label": "Role", "key": "role_label"},
+            {"label": "View", "key": "outlook_label"},
+            {"label": "Cost Style", "key": "cost_profile"},
+            {"label": "Max Profit", "key": "max_profit"},
+            {"label": "Max Loss", "key": "max_loss"},
+            {"label": "Breakeven", "key": "breakeven"},
+        ],
+        "strategy_rows": filtered,
+        "usage_cards": [
+            {"label": "Rule 1", "value": "Start With View", "copy": "Do not choose the strategy first. Choose the market view first."},
+            {"label": "Rule 2", "value": "Watch IV", "copy": "Premium buyers usually prefer lower implied volatility. Premium sellers usually want richer implied volatility."},
+            {"label": "Rule 3", "value": "Respect Time", "copy": "Many losing option trades are not wrong on direction. They are wrong on timing."},
+            {"label": "Rule 4", "value": "Defined Risk Matters", "copy": "For public users, defined-risk spreads should usually come before naked option selling."},
+        ],
+        "side_box_title": "Current Rule",
+        "side_box_copy": "This engine is setup-first. It recommends a structure only after the user defines view, IV condition, event risk, and expiry window.",
+        "why_page_works": "It turns options education into a usable decision page. That is more helpful than listing strategies without context or pretending one strategy is always the most profitable.",
+        "public_note": "Actual premium values depend on the live option chain. This page teaches the correct structure, cost style, and reward logic first, and can later be upgraded with live strikes and premiums.",
+        "market_error": "",
     }
 
 
@@ -35046,6 +35656,42 @@ def derivatives_banknifty_options():
 def derivatives_index_oi_change():
     context = build_index_oi_change_context_v2(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/derivatives/options/strategy-engine")
+def derivatives_options_strategy_engine():
+    selected_role = str(request.args.get("role", "buyer") or "buyer").strip().lower()
+    selected_outlook = str(request.args.get("outlook", "bullish") or "bullish").strip().lower()
+    selected_strength = str(request.args.get("strength", "moderate") or "moderate").strip().lower()
+    selected_iv = str(request.args.get("iv", "normal") or "normal").strip().lower()
+    selected_event = str(request.args.get("event", "no") or "no").strip().lower()
+    selected_dte = str(request.args.get("dte", "medium") or "medium").strip().lower()
+    selected_capital = str(request.args.get("capital", "medium") or "medium").strip().lower()
+    if selected_role not in {"buyer", "seller"}:
+        selected_role = "buyer"
+    if selected_outlook not in {"bullish", "bearish", "neutral"}:
+        selected_outlook = "bullish"
+    if selected_strength not in {"moderate", "strong"}:
+        selected_strength = "moderate"
+    if selected_iv not in {"low", "normal", "high"}:
+        selected_iv = "normal"
+    if selected_event not in {"yes", "no"}:
+        selected_event = "no"
+    if selected_dte not in {"short", "medium", "long"}:
+        selected_dte = "medium"
+    if selected_capital not in {"small", "medium", "high"}:
+        selected_capital = "medium"
+    context = build_option_strategy_engine_context(
+        request.url_root.rstrip("/"),
+        selected_role=selected_role,
+        selected_outlook=selected_outlook,
+        selected_strength=selected_strength,
+        selected_iv=selected_iv,
+        selected_event=selected_event,
+        selected_dte=selected_dte,
+        selected_capital=selected_capital,
+    )
+    return render_template_string(OPTIONS_STRATEGY_ENGINE_TEMPLATE, **context)
 
 
 @app.route("/derivatives/index/option-chain")
