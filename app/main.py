@@ -36765,16 +36765,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       font-weight: 800;
       color: var(--accent);
     }
-    .tape-sparkline {
-      margin-top: 8px;
-      height: 28px;
-      width: 100%;
-    }
-    .tape-sparkline svg {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
     .up { color: var(--up); }
     .down { color: var(--down); }
     .flat { color: var(--flat); }
@@ -37028,9 +37018,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
         <div class="tape-status">{{ item.status }}</div>
         <div class="tape-updated">{{ item.updated_label }}</div>
-        {% if item.sparkline_svg %}
-        <div class="tape-sparkline">{{ item.sparkline_svg|safe }}</div>
-        {% endif %}
         <div class="tape-bar"><span class="{{ item.tone }}"></span></div>
         <div class="tape-open">{{ item.open_label }}</div>
       </a>
@@ -37226,10 +37213,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             const barNode = item.querySelector(".tape-bar span");
             if (barNode) {
               barNode.className = row.tone || "flat";
-            }
-            const sparklineNode = item.querySelector(".tape-sparkline");
-            if (sparklineNode) {
-              sparklineNode.innerHTML = row.sparkline_svg || "";
             }
           });
         } catch (error) {
