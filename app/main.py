@@ -30477,13 +30477,12 @@ WEBSITE_TRIAL3_INDEX_CONFIG = [
     {"label": "Nifty Bank", "quote_candidates": ["NSE:NIFTY BANK", "INDICES:NIFTY BANK"], "href": "/derivatives/index/banknifty-options"},
     {"label": "Fin Nifty", "quote_candidates": ["NSE:NIFTY FIN SERVICE", "INDICES:NIFTY FIN SERVICE", "NSE:FINNIFTY"], "href": "/derivatives"},
     {"label": "Nifty IT", "quote_candidates": ["NSE:NIFTY IT", "INDICES:NIFTY IT"], "href": "/sectors"},
-    {"label": "Gift Nifty", "quote_candidates": ["NSE:GIFT NIFTY", "INDICES:GIFT NIFTY", "NSE:SGX NIFTY"], "href": "/market", "pending_note": "Feed pending"},
 ]
 
 WEBSITE_TRIAL3_COMMODITY_CARDS = [
-    {"slug": "gold", "label": "Gold Full", "href": "/commodities/gold"},
-    {"slug": "crude-oil", "label": "Crude Oil Large", "href": "/commodities/crude-oil"},
-    {"slug": "silver", "label": "Silver Full", "href": "/commodities/silver"},
+    {"slug": "gold", "label": "Gold", "href": "/commodities/gold"},
+    {"slug": "crude-oil", "label": "Crude Oil", "href": "/commodities/crude-oil"},
+    {"slug": "silver", "label": "Silver", "href": "/commodities/silver"},
 ]
 
 
@@ -36925,11 +36924,11 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       background: rgba(255,255,255,0.72);
       border: 1px solid var(--line);
       border-radius: 16px;
-      padding: 10px 11px;
+      padding: 9px 10px;
       box-shadow: var(--shadow);
       transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
       min-width: 0;
-      flex: 0 0 190px;
+      flex: 0 0 180px;
     }
     .tape-item:hover {
       transform: translateY(-2px);
@@ -36952,18 +36951,18 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       min-width: 0;
     }
     .tape-value {
-      font-size: 17px;
+      font-size: 16px;
       font-weight: 800;
       line-height: 1.15;
     }
     .tape-meta {
-      margin-top: 5px;
-      font-size: 12px;
+      margin-top: 4px;
+      font-size: 11px;
       font-weight: 700;
       line-height: 1.3;
     }
     .tape-status {
-      margin-top: 8px;
+      margin-top: 6px;
       font-size: 10px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -36972,31 +36971,10 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       line-height: 1.3;
     }
     .tape-updated {
-      margin-top: 5px;
+      margin-top: 4px;
       font-size: 11px;
       color: var(--muted);
-      line-height: 1.4;
-    }
-    .tape-bar {
-      height: 4px;
-      margin-top: 10px;
-      border-radius: 999px;
-      background: rgba(19, 44, 62, 0.08);
-      overflow: hidden;
-    }
-    .tape-bar span {
-      display: block;
-      height: 100%;
-      width: 100%;
-    }
-    .tape-bar .up {
-      background: linear-gradient(90deg, rgba(18,135,95,0.34), rgba(18,135,95,0.9));
-    }
-    .tape-bar .down {
-      background: linear-gradient(90deg, rgba(200,79,67,0.34), rgba(200,79,67,0.9));
-    }
-    .tape-bar .flat {
-      background: linear-gradient(90deg, rgba(90,106,120,0.24), rgba(90,106,120,0.7));
+      line-height: 1.3;
     }
     .tape-open {
       font-size: 11px;
@@ -37248,10 +37226,10 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
       .hero-sub { font-size: 16px; }
       .story-card strong { font-size: 22px; }
       .quick-tile .value { font-size: 18px; }
-      .tape-item { flex-basis: 178px; }
+      .tape-item { flex-basis: 168px; }
     }
     @media (max-width: 520px) {
-      .tape-item { flex-basis: 170px; }
+      .tape-item { flex-basis: 158px; }
     }
   </style>
 </head>
@@ -37268,7 +37246,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
         <div class="tape-meta {{ item.tone }}">{{ item.change }} | {{ item.percent }}</div>
         <div class="tape-status">{{ item.status }}</div>
         <div class="tape-updated">{{ item.updated_label }}</div>
-        <div class="tape-bar"><span class="{{ item.tone }}"></span></div>
       </a>
       {% endfor %}
     </section>
@@ -37458,10 +37435,6 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             const openNode = item.querySelector(".tape-open");
             if (openNode) {
               openNode.textContent = row.open_label || "↗";
-            }
-            const barNode = item.querySelector(".tape-bar span");
-            if (barNode) {
-              barNode.className = row.tone || "flat";
             }
           });
         } catch (error) {
