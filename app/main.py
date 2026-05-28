@@ -13131,6 +13131,8 @@ def build_real_index_option_chain(index_name, spot_value, strike_step, underlyin
         "max_pain": chain_pivot["strike"] if chain_pivot else "-",
         "strongest_call_wall": f"{strongest_call['strike']}" if strongest_call else "-",
         "strongest_put_wall": f"{strongest_put['strike']}" if strongest_put else "-",
+        "lot_size_numeric": int(float(selected_rows[0].get("lot_size") or 0)) if selected_rows and selected_rows[0].get("lot_size") not in (None, "") else None,
+        "lot_size_display": f"{int(float(selected_rows[0].get('lot_size') or 0))}" if selected_rows and selected_rows[0].get("lot_size") not in (None, "") else "Pending",
         "expiry_date": selected_rows[0]["expiry_date"].isoformat() if selected_rows else "",
         "selected_expiry": selected_expiry_date.isoformat() if selected_expiry_date else "",
         "available_expiries": available_expiries,
@@ -30843,6 +30845,14 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
             total += float(value)
         return total
 
+    def _format_lot_cost(value):
+        if value is None:
+            return ""
+        lot_size = chain.get("lot_size_numeric")
+        if not lot_size:
+            return ""
+        return f" | Approx per lot: {format_price(value * lot_size)}"
+
     atm_row = _get_row(anchor)
     up1 = _get_row(anchor + strike_step)
     up2 = _get_row(anchor + (2 * strike_step))
@@ -30850,18 +30860,24 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
     examples = {
         "long-call": {
             "live_contract_example": f"Buy {anchor} CE on {config['index_name']} ({chain.get('selected_expiry')}).",
-            "live_estimated_cost": f"Estimated debit: {atm_row.get('call_ltp', 'Pending')}.",
+            "live_estimated_cost": (
+                f"Estimated debit: {atm_row.get('call_ltp', 'Pending')}{_format_lot_cost(atm_row.get('call_ltp_numeric'))}."
+                if atm_row.get("call_ltp_numeric") is not None else "Estimated debit: Pending."
+            ),
             "live_note": "ATM call is used in this live trial because it is the simplest clean directional example.",
         },
         "long-put": {
             "live_contract_example": f"Buy {anchor} PE on {config['index_name']} ({chain.get('selected_expiry')}).",
-            "live_estimated_cost": f"Estimated debit: {atm_row.get('put_ltp', 'Pending')}.",
+            "live_estimated_cost": (
+                f"Estimated debit: {atm_row.get('put_ltp', 'Pending')}{_format_lot_cost(atm_row.get('put_ltp_numeric'))}."
+                if atm_row.get("put_ltp_numeric") is not None else "Estimated debit: Pending."
+            ),
             "live_note": "ATM put is used for the live bearish example.",
         },
         "bull-call-spread": {
             "live_contract_example": f"Buy {anchor} CE and sell {anchor + strike_step} CE.",
             "live_estimated_cost": (
-                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), -(up1.get('call_ltp_numeric') or 0)]))}."
+                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), -(up1.get('call_ltp_numeric') or 0)]))}{_format_lot_cost(_combine_cost([atm_row.get('call_ltp_numeric'), -(up1.get('call_ltp_numeric') or 0)]))}."
                 if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
                 "Estimated net debit: Pending."
             ),
@@ -30870,7 +30886,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "bear-put-spread": {
             "live_contract_example": f"Buy {anchor} PE and sell {anchor - strike_step} PE.",
             "live_estimated_cost": (
-                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('put_ltp_numeric'), -(down1.get('put_ltp_numeric') or 0)]))}."
+                f"Estimated net debit: {format_price(_combine_cost([atm_row.get('put_ltp_numeric'), -(down1.get('put_ltp_numeric') or 0)]))}{_format_lot_cost(_combine_cost([atm_row.get('put_ltp_numeric'), -(down1.get('put_ltp_numeric') or 0)]))}."
                 if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated net debit: Pending."
             ),
@@ -30879,7 +30895,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "bull-put-spread": {
             "live_contract_example": f"Sell {anchor} PE and buy {anchor - strike_step} PE.",
             "live_estimated_cost": (
-                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('put_ltp_numeric') or 0) - (down1.get('put_ltp_numeric') or 0)]))}."
+                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('put_ltp_numeric') or 0) - (down1.get('put_ltp_numeric') or 0)]))}{_format_lot_cost(_combine_cost([(atm_row.get('put_ltp_numeric') or 0) - (down1.get('put_ltp_numeric') or 0)]))}."
                 if atm_row.get("put_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated net credit: Pending."
             ),
@@ -30888,7 +30904,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "bear-call-spread": {
             "live_contract_example": f"Sell {anchor} CE and buy {anchor + strike_step} CE.",
             "live_estimated_cost": (
-                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('call_ltp_numeric') or 0) - (up1.get('call_ltp_numeric') or 0)]))}."
+                f"Estimated net credit: {format_price(_combine_cost([(atm_row.get('call_ltp_numeric') or 0) - (up1.get('call_ltp_numeric') or 0)]))}{_format_lot_cost(_combine_cost([(atm_row.get('call_ltp_numeric') or 0) - (up1.get('call_ltp_numeric') or 0)]))}."
                 if atm_row.get("call_ltp_numeric") is not None and up1.get("call_ltp_numeric") is not None else
                 "Estimated net credit: Pending."
             ),
@@ -30897,7 +30913,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "long-straddle": {
             "live_contract_example": f"Buy {anchor} CE and {anchor} PE together.",
             "live_estimated_cost": (
-                f"Estimated total debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), atm_row.get('put_ltp_numeric')]))}."
+                f"Estimated total debit: {format_price(_combine_cost([atm_row.get('call_ltp_numeric'), atm_row.get('put_ltp_numeric')]))}{_format_lot_cost(_combine_cost([atm_row.get('call_ltp_numeric'), atm_row.get('put_ltp_numeric')]))}."
                 if atm_row.get("call_ltp_numeric") is not None and atm_row.get("put_ltp_numeric") is not None else
                 "Estimated total debit: Pending."
             ),
@@ -30906,7 +30922,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "short-strangle": {
             "live_contract_example": f"Sell {anchor + strike_step} CE and sell {anchor - strike_step} PE.",
             "live_estimated_cost": (
-                f"Estimated total credit: {format_price(_combine_cost([(up1.get('call_ltp_numeric') or 0), (down1.get('put_ltp_numeric') or 0)]))}."
+                f"Estimated total credit: {format_price(_combine_cost([(up1.get('call_ltp_numeric') or 0), (down1.get('put_ltp_numeric') or 0)]))}{_format_lot_cost(_combine_cost([(up1.get('call_ltp_numeric') or 0), (down1.get('put_ltp_numeric') or 0)]))}."
                 if up1.get("call_ltp_numeric") is not None and down1.get("put_ltp_numeric") is not None else
                 "Estimated total credit: Pending."
             ),
@@ -30920,6 +30936,7 @@ def build_strategy_live_examples_for_index(index_slug, selected_expiry=""):
         "selected_expiry": chain.get("selected_expiry") or "Pending",
         "spot_display": format_price(spot_value),
         "atm_strike": str(anchor),
+        "lot_size_display": chain.get("lot_size_display", "Pending"),
         "pcr_display": chain.get("pcr_display", "Pending"),
         "support_zone": chain.get("support_zone", "-"),
         "resistance_zone": chain.get("resistance_zone", "-"),
@@ -31117,7 +31134,7 @@ def build_option_strategy_engine_trial_context(host_root, selected_index="nifty-
                 {"label": "Trial Index", "value": trial.get("selected_index_label", "Pending"), "copy": "The live example block is tied to one selected index so the strike examples stay easy to read."},
                 {"label": "ATM Strike", "value": trial.get("atm_strike", "-"), "copy": "The page frames examples around the current ATM strike from the live option chain."},
                 {"label": "Selected Expiry", "value": trial.get("selected_expiry", "Pending"), "copy": "This is the expiry used for the trial strategy examples."},
-                {"label": "Live Status", "value": "Ready" if trial.get("chain_available") else "Pending", "copy": "If the chain is available, the strategy cards will show live sample strikes and debit or credit estimates."},
+                {"label": "Lot Size", "value": trial.get("lot_size_display", "Pending"), "copy": "This lot size is used to translate per-unit premium into approximate rupee cost per lot."},
             ],
             "recommendations_title": f"Top Matches For {selected_role.title()} With Live Trial Examples" if trial_mode else f"Top Live-Linked Matches For {selected_role.title()}",
             "recommendations_note": "The strategy ranking still comes from setup fit. The trial upgrade adds live sample strikes and premium estimates for the chosen index and expiry." if trial_mode else "The strategy ranking still comes from setup fit, but the page now adds live sample strikes and premium estimates for the chosen index and expiry.",
