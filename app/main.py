@@ -35443,6 +35443,112 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
     return context
 
 
+def build_high_dividend_sample_context(host_root):
+    base = build_high_dividend_page_context(host_root, screen_key="high-dividend")
+    rows = list(base.get("rows") or [])
+    top_rows = rows[:8]
+    leaderboard_rows = rows[:5]
+    best_row = base.get("best_row")
+    avg_yield = base.get("avg_yield_display", "0.00%")
+    avg_score = base.get("avg_score_display", "0.0")
+    canonical_url = f"{host_root.rstrip('/')}/stocks/high-dividend-paying-stocks-sample"
+
+    sector_totals = {}
+    bucket_totals = {}
+    for row in rows:
+        sector = row.get("sector") or "Unknown"
+        bucket = row.get("market_cap_bucket") or "Unknown"
+        sector_totals.setdefault(sector, {"count": 0, "score_total": 0.0, "yield_total": 0.0})
+        bucket_totals.setdefault(bucket, {"count": 0, "score_total": 0.0, "yield_total": 0.0})
+        sector_totals[sector]["count"] += 1
+        sector_totals[sector]["score_total"] += float(row.get("total_score") or 0.0)
+        sector_totals[sector]["yield_total"] += float(row.get("dividend_yield_pct") or 0.0)
+        bucket_totals[bucket]["count"] += 1
+        bucket_totals[bucket]["score_total"] += float(row.get("total_score") or 0.0)
+        bucket_totals[bucket]["yield_total"] += float(row.get("dividend_yield_pct") or 0.0)
+
+    sector_comparison = []
+    for sector, payload in sorted(sector_totals.items(), key=lambda item: (-item[1]["count"], item[0]))[:6]:
+        count = payload["count"] or 1
+        sector_comparison.append(
+            {
+                "name": sector,
+                "count": payload["count"],
+                "avg_score": round(payload["score_total"] / count, 1),
+                "avg_yield": f"{(payload['yield_total'] / count):.2f}%",
+            }
+        )
+
+    bucket_comparison = []
+    for bucket, payload in sorted(bucket_totals.items(), key=lambda item: item[0]):
+        count = payload["count"] or 1
+        bucket_comparison.append(
+            {
+                "name": bucket,
+                "count": payload["count"],
+                "avg_score": round(payload["score_total"] / count, 1),
+                "avg_yield": f"{(payload['yield_total'] / count):.2f}%",
+            }
+        )
+
+    high_score_count = sum(1 for row in rows if (row.get("total_score") or 0) >= 75)
+    low_debt_count = sum(1 for row in rows if (row.get("debt_to_equity") or 999) < 1)
+    pe_below_industry_count = sum(
+        1
+        for row in rows
+        if row.get("pe_ratio") is not None
+        and row.get("industry_pe_avg") is not None
+        and row.get("pe_ratio") < row.get("industry_pe_avg")
+    )
+    ai_bullets = [
+        f"{len(rows)} stocks currently match the screen, with an average yield of {avg_yield} and an average strength score of {avg_score}.",
+        f"{high_score_count} names already clear a Dividend Strength Score of 75 or above, which makes them the cleanest shortlist for quality-first dividend research.",
+        f"{low_debt_count} rows still keep debt-to-equity below 1, while {pe_below_industry_count} are also trading below their industry P/E average.",
+    ]
+    if best_row:
+        ai_bullets.append(
+            f"{best_row['company_name']} leads the current ranking with a score of {best_row['total_score']}, yield of {best_row['dividend_yield_display']}, and market cap bucket of {best_row['market_cap_bucket']}."
+        )
+
+    related_articles = [
+        {"title": "Undervalued Dividend Stocks", "copy": "A valuation-first sibling screen for readers who want income plus stronger entry discipline.", "href": "/stocks/undervalued-dividend-stocks"},
+        {"title": "Large Cap Dividend Stocks", "copy": "A stability-first dividend list built around bigger businesses and steadier balance sheets.", "href": "/stocks/large-cap-dividend-stocks"},
+        {"title": "Mid Cap High Dividend Stocks", "copy": "A more growth-oriented dividend shortlist with stronger caution on business quality.", "href": "/stocks/mid-cap-high-dividend-stocks"},
+        {"title": "Dividend Stocks Hub", "copy": "The full TraderHub dividend family in one place for easier cross-screen comparison.", "href": "/stocks/dividend-stocks"},
+    ]
+    related_screeners = [
+        {"label": "High Dividend Screen", "href": "/stocks/high-dividend-paying-stocks"},
+        {"label": "Undervalued Dividend Screen", "href": "/stocks/undervalued-dividend-stocks"},
+        {"label": "Large Cap Dividend Screen", "href": "/stocks/large-cap-dividend-stocks"},
+        {"label": "Mid Cap Dividend Screen", "href": "/stocks/mid-cap-high-dividend-stocks"},
+        {"label": "Small Cap Dividend Screen", "href": "/stocks/small-cap-high-dividend-stocks"},
+    ]
+
+    sample_context = {
+        **base,
+        "seo_title": "High Dividend Stocks Sample Layout, AI Summary & Dividend Strength Score | TraderHub",
+        "seo_description": "Preview a richer High Dividend Stocks layout with AI summary, dividend strength score, stock cards, calculator, FAQ, and related screeners.",
+        "canonical_url": canonical_url,
+        "page_title": "High Dividend Stocks Sample",
+        "page_subtitle": "A cleaner dividend research layout designed to improve readability, SEO depth, AI discoverability, and user time on page before replacing the original screen.",
+        "page_kicker": "TraderHub Dividend Screen Sample",
+        "sample_notice": "This is a separate sample page for feedback. The original high dividend route stays unchanged until you approve this design.",
+        "ai_summary_heading": "AI Summary",
+        "ai_summary_copy": "Use this quick read to understand whether the current shortlist looks strong, crowded, or risky before moving into the leaderboard and stock cards.",
+        "ai_summary_bullets": ai_bullets,
+        "leaderboard_rows": leaderboard_rows,
+        "stock_cards": top_rows,
+        "sector_comparison": sector_comparison,
+        "bucket_comparison": bucket_comparison,
+        "calculator_default_yield": f"{best_row['dividend_yield_pct']:.2f}" if best_row and best_row.get("dividend_yield_pct") is not None else "4.00",
+        "calculator_default_investment": "100000",
+        "calculator_default_growth": "6",
+        "related_articles": related_articles,
+        "related_screeners": related_screeners,
+    }
+    return sample_context
+
+
 HIGH_DIVIDEND_STOCKS_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -35953,6 +36059,595 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
 
       sortRows(sortState.index, headers[sortState.index].dataset.sortType || "number", sortState.dir);
     }());
+  </script>
+</body>
+</html>
+"""
+
+
+HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --bg: #eef4f8;
+      --paper: #ffffff;
+      --panel: #f8fbfd;
+      --line: #d2dce5;
+      --ink: #14232f;
+      --muted: #617483;
+      --brand: #0e5f73;
+      --brand-soft: #dff2f7;
+      --up: #0f7c59;
+      --up-soft: #d8efe6;
+      --warn: #9a6c00;
+      --warn-soft: #f8eed1;
+      --danger: #8f3840;
+      --danger-soft: #f9dee1;
+      --shadow: 0 18px 42px rgba(20, 31, 41, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(14,95,115,0.10), transparent 24%),
+        linear-gradient(180deg, #f8fafc 0%, var(--bg) 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page { max-width: 1460px; margin: 0 auto; padding: 18px 14px 42px; }
+    .topline {
+      display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+      color: var(--muted); font-size: 13px; line-height: 1.5; margin-bottom: 14px;
+    }
+    .hero, .section, .notice, .card, .faq-card, .table-wrap, .newsletter-card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 24px;
+      background: linear-gradient(145deg, #173648, #1e616b 70%, #4b9385 100%);
+      color: #fff;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      right: -48px;
+      top: -28px;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.08);
+    }
+    .kicker { font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.84; }
+    h1 { margin: 10px 0 8px; font-size: 44px; line-height: 0.96; }
+    .subtitle { max-width: 820px; font-size: 18px; line-height: 1.6; color: rgba(255,255,255,0.86); }
+    .hero-grid { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; position: relative; z-index: 1; }
+    .hero-stat { padding: 14px; border-radius: 18px; background: rgba(255,255,255,0.11); border: 1px solid rgba(255,255,255,0.14); }
+    .hero-stat .label { font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
+    .hero-stat strong { display: block; margin-top: 8px; font-size: 28px; line-height: 1; }
+    .hero-stat span { display: block; margin-top: 6px; font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.78); }
+    .notice {
+      margin-top: 16px;
+      padding: 16px 18px;
+      background: linear-gradient(135deg, #fff8ef, var(--warn-soft));
+      color: var(--warn);
+    }
+    .section { padding: 20px; margin-top: 16px; }
+    .section-head { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; align-items: end; }
+    .section-head h2 { margin: 0; font-size: 30px; line-height: 1.05; }
+    .section-head p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; max-width: 700px; }
+    .ai-grid, .cta-row, .faq-grid, .article-grid, .screener-grid, .leader-grid, .compare-grid, .cards-grid {
+      display: grid; gap: 14px;
+    }
+    .ai-grid { grid-template-columns: 1.1fr 0.9fr; }
+    .card { padding: 18px; background: linear-gradient(180deg, #ffffff 0%, #f6fafc 100%); }
+    .ai-bullets { margin: 14px 0 0; padding-left: 18px; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .ai-bullets li { margin-bottom: 8px; }
+    .ai-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .metric-box { padding: 14px; border-radius: 18px; border: 1px solid var(--line); background: #fbfdff; }
+    .metric-box .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 700; }
+    .metric-box strong { display: block; font-size: 24px; line-height: 1.1; }
+    .leader-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .leader-card { padding: 16px; border-radius: 20px; background: #fbfdff; border: 1px solid var(--line); }
+    .leader-rank { display: inline-flex; width: 34px; height: 34px; align-items: center; justify-content: center; border-radius: 50%; background: var(--brand-soft); color: var(--brand); font-weight: 800; font-size: 14px; }
+    .leader-card h3 { margin: 12px 0 6px; font-size: 18px; line-height: 1.2; }
+    .leader-meta { color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .filter-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+    .field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 14px; }
+    .field label { font-weight: 700; color: var(--ink); }
+    select, .toggle-shell, input[type="number"] {
+      width: 100%; border: 1px solid var(--line); border-radius: 14px; background: var(--panel);
+      padding: 11px 12px; color: var(--ink); font: 14px/1.4 Arial, Helvetica, sans-serif;
+    }
+    .toggle-shell { display: flex; align-items: center; gap: 10px; min-height: 46px; }
+    .filter-actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    .btn { border: none; border-radius: 999px; padding: 11px 16px; cursor: pointer; font: 700 14px/1 Arial, Helvetica, sans-serif; }
+    .btn-primary { background: var(--brand); color: #fff; }
+    .btn-secondary { background: #edf5f8; color: var(--ink); border: 1px solid var(--line); }
+    .cards-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .stock-card { padding: 18px; border-radius: 22px; border: 1px solid var(--line); background: linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%); box-shadow: 0 12px 28px rgba(20,31,41,0.05); }
+    .stock-top { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
+    .stock-card h3 { margin: 0; font-size: 20px; line-height: 1.15; }
+    .stock-symbol { color: var(--muted); font-size: 13px; margin-top: 6px; }
+    .score-chip, .band-chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 7px 10px; font-size: 12px; font-weight: 800; }
+    .score-chip { background: var(--brand-soft); color: var(--brand); }
+    .band-chip { background: #edf3f7; color: #425768; }
+    .band-chip.band-Strong { background: #dceee2; color: #0f6b4a; }
+    .band-chip.band-Watch { background: #f6ebca; color: #8b6500; }
+    .band-chip.band-Caution { background: #f8dedd; color: #96363b; }
+    .stock-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 14px; }
+    .mini-stat { padding: 10px 12px; border-radius: 16px; background: #fbfdff; border: 1px solid var(--line); }
+    .mini-stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 5px; font-weight: 700; }
+    .mini-stat strong { display: block; font-size: 18px; line-height: 1.1; }
+    .stock-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .pill-link { display: inline-flex; align-items: center; border-radius: 999px; padding: 9px 12px; background: #edf5f8; color: var(--brand); font-size: 13px; font-weight: 800; }
+    .compare-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .table-wrap { padding: 12px; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font: 14px/1.5 Arial, Helvetica, sans-serif; min-width: 620px; }
+    th, td { padding: 12px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { background: #f4f8fb; color: var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .calculator-grid { display: grid; grid-template-columns: 1fr 320px; gap: 16px; }
+    .calc-output { padding: 18px; border-radius: 22px; border: 1px solid var(--line); background: linear-gradient(180deg, #ffffff 0%, #f6fafc 100%); }
+    .calc-big { font-size: 34px; line-height: 1; margin: 8px 0; font-weight: 800; color: var(--brand); }
+    .faq-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .faq-card { padding: 18px; }
+    .faq-card h3 { margin: 0 0 8px; font-size: 20px; line-height: 1.2; }
+    .faq-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .article-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .article-card { padding: 18px; border-radius: 22px; border: 1px solid var(--line); background: #fbfdff; }
+    .article-card h3 { margin: 0 0 8px; font-size: 20px; line-height: 1.15; }
+    .article-card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+    .article-card a { display: inline-flex; margin-top: 14px; color: var(--brand); font-weight: 800; font-size: 13px; }
+    .newsletter-card { padding: 20px; background: linear-gradient(145deg, #173648, #1e616b 70%, #4b9385 100%); color: #fff; }
+    .newsletter-card h2 { margin: 0 0 10px; font-size: 30px; }
+    .newsletter-card p { margin: 0; color: rgba(255,255,255,0.86); font-size: 15px; line-height: 1.7; max-width: 760px; }
+    .newsletter-form { display: grid; grid-template-columns: 1fr 200px; gap: 12px; margin-top: 16px; }
+    .newsletter-form input { border: 1px solid rgba(255,255,255,0.14); border-radius: 14px; padding: 12px 14px; background: rgba(255,255,255,0.10); color: #fff; font-size: 14px; }
+    .newsletter-form input::placeholder { color: rgba(255,255,255,0.72); }
+    .newsletter-form button { border: none; border-radius: 14px; background: #fff; color: #0d4c59; font-size: 14px; font-weight: 800; cursor: pointer; }
+    .screener-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+    .screener-link { display: block; padding: 16px; border-radius: 20px; border: 1px solid var(--line); background: #fbfdff; font-size: 14px; font-weight: 800; color: var(--ink); text-align: center; }
+    .ad-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+    .ad-panel {
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f8fb 100%);
+      padding: 18px;
+      box-shadow: 0 14px 30px rgba(19,32,44,0.06);
+    }
+    .ad-label { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; background: #ebf1f7; color: var(--muted); font: 700 11px/1 Arial, Helvetica, sans-serif; letter-spacing: 0.08em; text-transform: uppercase; }
+    .ad-panel h3 { margin: 12px 0 8px; font-size: 24px; }
+    .ad-panel p { margin: 0; color: var(--muted); font: 14px/1.7 Arial, Helvetica, sans-serif; }
+    .ad-cta { display: inline-flex; align-items: center; justify-content: center; margin-top: 14px; border-radius: 999px; padding: 11px 16px; background: var(--brand); color: #fff; font: 700 14px/1 Arial, Helvetica, sans-serif; }
+    .ad-disclaimer { margin-top: 10px; color: var(--muted); font: 12px/1.6 Arial, Helvetica, sans-serif; }
+    .ad-media { width: 100%; margin-top: 14px; border-radius: 18px; border: 1px solid var(--line); display: block; }
+    .ad-embed { margin-top: 14px; overflow: hidden; }
+    .google-ad-shell { margin-top: 14px; min-height: 140px; border: 1px dashed var(--line); border-radius: 18px; background: #fff; padding: 12px; }
+    @media (max-width: 1180px) {
+      .hero-grid, .cards-grid, .leader-grid, .article-grid, .screener-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ai-grid, .compare-grid, .calculator-grid, .newsletter-form { grid-template-columns: 1fr; }
+      .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .faq-grid { grid-template-columns: 1fr; }
+      .ad-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 720px) {
+      .page { padding: 12px 10px 30px; }
+      h1 { font-size: 34px; }
+      .subtitle { font-size: 16px; }
+      .hero, .section, .notice, .card, .faq-card, .table-wrap, .newsletter-card { border-radius: 20px; }
+      .hero-grid, .filter-grid, .cards-grid, .leader-grid, .article-grid, .screener-grid, .stock-stats, .ai-metrics { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topline">
+      <span>Collection Page · India Dividend Research Sample</span>
+      <span>Last data refresh: {{ last_refresh }} · {{ live_mode_label }}</span>
+    </div>
+
+    <section class="hero">
+      <div class="kicker">{{ page_kicker }}</div>
+      <h1>{{ page_title }}</h1>
+      <div class="subtitle">{{ page_subtitle }}</div>
+      <div class="hero-grid">
+        <div class="hero-stat">
+          <div class="label">Filtered Stocks</div>
+          <strong>{{ filtered_rows_count }}</strong>
+          <span>Out of {{ all_rows_count }} current rows.</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Average Yield</div>
+          <strong>{{ avg_yield_display }}</strong>
+          <span>{{ hero_focus_copy }}</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Average Score</div>
+          <strong>{{ avg_score_display }}</strong>
+          <span>Dividend Strength Score out of 100.</span>
+        </div>
+        <div class="hero-stat">
+          <div class="label">Best Row Right Now</div>
+          <strong>{{ best_row.symbol if best_row else "Pending" }}</strong>
+          <span>{{ best_row.dividend_yield_display if best_row else "Source Pending" }}</span>
+        </div>
+      </div>
+    </section>
+
+    <div class="notice">
+      <strong>Sample page for feedback</strong>
+      <div>{{ sample_notice }}</div>
+    </div>
+
+    {% if sponsor_ad or google_inline_ad_html %}
+    <div class="ad-grid">
+      {% if sponsor_ad %}
+      <section class="ad-panel">
+        <div class="ad-label">{{ sponsor_ad.label }}</div>
+        <h3>{{ sponsor_ad.name }}</h3>
+        <p>{{ sponsor_ad.copy }}</p>
+        {% if sponsor_ad.image_url %}
+        <img class="ad-media" src="{{ sponsor_ad.image_url }}" alt="{{ sponsor_ad.name }}">
+        {% endif %}
+        {% if sponsor_ad.embed_html %}
+        <div class="ad-embed">{{ sponsor_ad.embed_html|safe }}</div>
+        {% elif sponsor_ad.url %}
+        <a class="ad-cta" href="{{ sponsor_ad.url }}" target="_blank" rel="sponsored noopener">{{ sponsor_ad.cta }}</a>
+        {% endif %}
+        <div class="ad-disclaimer">{{ sponsor_ad.disclaimer }}</div>
+      </section>
+      {% endif %}
+      {% if google_inline_ad_html %}
+      <section class="ad-panel">
+        <div class="ad-label">Ad by Google</div>
+        <h3>Automated marketplace ads</h3>
+        <p>Google ads can sit inside this richer screen without disrupting the dividend research flow.</p>
+        <div class="google-ad-shell">{{ google_inline_ad_html|safe }}</div>
+        <div class="ad-disclaimer">Automated ad serving. Not investment advice and not a TraderHub recommendation.</div>
+      </section>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>{{ ai_summary_heading }}</h2>
+          <p>{{ ai_summary_copy }}</p>
+        </div>
+      </div>
+      <div class="ai-grid">
+        <div class="card">
+          <ul class="ai-bullets">
+            {% for item in ai_summary_bullets %}
+            <li>{{ item }}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        <div class="card">
+          <div class="ai-metrics">
+            <div class="metric-box">
+              <div class="label">Best Score</div>
+              <strong>{{ best_row.total_score if best_row else "Pending" }}</strong>
+            </div>
+            <div class="metric-box">
+              <div class="label">Best Yield</div>
+              <strong>{{ best_row.dividend_yield_display if best_row else "Pending" }}</strong>
+            </div>
+            <div class="metric-box">
+              <div class="label">Best Bucket</div>
+              <strong>{{ best_row.market_cap_bucket if best_row else "Pending" }}</strong>
+            </div>
+            <div class="metric-box">
+              <div class="label">Best Sector</div>
+              <strong>{{ best_row.sector if best_row else "Pending" }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Leaderboard</h2>
+          <p>The first shortlist should feel premium and easy to scan before the reader opens the deeper stock cards or comparison tables.</p>
+        </div>
+      </div>
+      <div class="leader-grid">
+        {% for row in leaderboard_rows %}
+        <div class="leader-card">
+          <div class="leader-rank">{{ loop.index }}</div>
+          <h3><a href="{{ row.stock_url }}">{{ row.company_name }}</a></h3>
+          <div class="leader-meta">{{ row.symbol }} · {{ row.market_cap_bucket }} cap</div>
+          <div class="leader-meta" style="margin-top:10px;"><strong style="color:var(--ink);">{{ row.dividend_yield_display }}</strong> yield · <strong style="color:var(--ink);">{{ row.total_score }}</strong> score</div>
+          <div class="leader-meta">P/E {{ row.pe_ratio_display }} · ROE {{ row.roe_display }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Filter Dashboard</h2>
+          <p>Keep the original filter power, but surface it in a cleaner dashboard block so the page still feels like a product, not a spreadsheet.</p>
+        </div>
+      </div>
+      <form method="get">
+        <div class="filter-grid">
+          <div class="field">
+            <label for="yield_min">Dividend yield minimum</label>
+            <select id="yield_min" name="yield_min">
+              {% for option in yield_options %}
+              <option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="market_cap">Market cap bucket</label>
+            <select id="market_cap" name="market_cap">
+              {% for option in market_cap_options %}
+              <option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label for="sector">Sector</label>
+            <select id="sector" name="sector">
+              <option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>
+              {% for option in sector_options %}
+              <option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Valuation filter</label>
+            <div class="toggle-shell"><input type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}> P/E below industry average</div>
+          </div>
+          <div class="field">
+            <label>Price filter</label>
+            <div class="toggle-shell"><input type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}> Below 52-week high by 20%+</div>
+          </div>
+          <div class="field">
+            <label>ROE filter</label>
+            <div class="toggle-shell"><input type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}> ROE above 12%</div>
+          </div>
+          <div class="field">
+            <label>Debt filter</label>
+            <div class="toggle-shell"><input type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}> Debt to equity below 1</div>
+          </div>
+          <div class="field">
+            <label>Data mode</label>
+            <div class="toggle-shell"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a></div>
+          </div>
+        </div>
+        <div class="filter-actions">
+          <button class="btn btn-primary" type="submit">Apply filters</button>
+          <a class="btn btn-secondary" href="{{ canonical_url }}">Reset sample page</a>
+          <a class="btn btn-secondary" href="{{ reset_href }}">Open original page</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Stock Cards</h2>
+          <p>These cards reduce the first-read burden compared with a wide table and make the Dividend Strength Score much more visible.</p>
+        </div>
+      </div>
+      <div class="cards-grid">
+        {% for row in stock_cards %}
+        <article class="stock-card">
+          <div class="stock-top">
+            <div>
+              <h3><a href="{{ row.stock_url }}">{{ row.company_name }}</a></h3>
+              <div class="stock-symbol">{{ row.symbol }} · {{ row.sector }}</div>
+            </div>
+            <div class="score-chip">{{ row.total_score }} / 100</div>
+          </div>
+          <div style="margin-top:12px;"><span class="band-chip band-{{ row.score_band }}">{{ row.score_band }}</span></div>
+          <div class="stock-stats">
+            <div class="mini-stat"><div class="label">Yield</div><strong>{{ row.dividend_yield_display }}</strong></div>
+            <div class="mini-stat"><div class="label">P/E</div><strong>{{ row.pe_ratio_display }}</strong></div>
+            <div class="mini-stat"><div class="label">ROE</div><strong>{{ row.roe_display }}</strong></div>
+            <div class="mini-stat"><div class="label">Debt/Equity</div><strong>{{ row.debt_to_equity_display }}</strong></div>
+          </div>
+          <div class="stock-actions">
+            <a class="pill-link" href="{{ row.stock_url }}">Open Stock Page</a>
+            <a class="pill-link" href="/stocks/{{ row.symbol|lower }}/news-archive">News Archive</a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Comparison Tables</h2>
+          <p>Short comparison tables help both SEO and AI retrieval because they turn the page into structured evidence, not only a screen dump.</p>
+        </div>
+      </div>
+      <div class="compare-grid">
+        <div class="card">
+          <h3 style="margin-top:0;">Sector Comparison</h3>
+          <div class="table-wrap" style="padding:0; margin-top:12px;">
+            <table>
+              <thead><tr><th>Sector</th><th>Rows</th><th>Avg Score</th><th>Avg Yield</th></tr></thead>
+              <tbody>
+                {% for row in sector_comparison %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>{{ row.avg_score }}</td>
+                  <td>{{ row.avg_yield }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card">
+          <h3 style="margin-top:0;">Market Cap Comparison</h3>
+          <div class="table-wrap" style="padding:0; margin-top:12px;">
+            <table>
+              <thead><tr><th>Bucket</th><th>Rows</th><th>Avg Score</th><th>Avg Yield</th></tr></thead>
+              <tbody>
+                {% for row in bucket_comparison %}
+                <tr>
+                  <td>{{ row.name }}</td>
+                  <td>{{ row.count }}</td>
+                  <td>{{ row.avg_score }}</td>
+                  <td>{{ row.avg_yield }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Calculator</h2>
+          <p>A simple calculator increases time on page and makes the yield concept practical instead of abstract.</p>
+        </div>
+      </div>
+      <div class="calculator-grid">
+        <div class="card">
+          <div class="filter-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
+            <div class="field">
+              <label for="calc-investment">Investment amount (₹)</label>
+              <input id="calc-investment" type="number" value="{{ calculator_default_investment }}" min="1000" step="1000">
+            </div>
+            <div class="field">
+              <label for="calc-yield">Dividend yield %</label>
+              <input id="calc-yield" type="number" value="{{ calculator_default_yield }}" min="0" step="0.1">
+            </div>
+            <div class="field">
+              <label for="calc-growth">Dividend growth %</label>
+              <input id="calc-growth" type="number" value="{{ calculator_default_growth }}" min="0" step="0.5">
+            </div>
+          </div>
+        </div>
+        <div class="calc-output">
+          <div class="label" style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);">Estimated first-year dividend</div>
+          <div class="calc-big" id="calc-dividend">₹0</div>
+          <div class="label" style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);">Estimated second-year dividend with growth</div>
+          <div class="calc-big" id="calc-dividend-next" style="font-size:28px;">₹0</div>
+          <p style="margin:12px 0 0; color:var(--muted); font-size:14px; line-height:1.7;">This is a simple yield illustration, not a forecast. Actual payout depends on earnings, board decisions, and payout policy.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>FAQ Section</h2>
+          <p>FAQs and FAQ schema help this page answer search intent directly and improve AI citation probability.</p>
+        </div>
+      </div>
+      <div class="faq-grid">
+        {% for item in faq_items %}
+        <article class="faq-card">
+          <h3>{{ item.question }}</h3>
+          <p>{{ item.answer }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Related Articles</h2>
+          <p>These act as deeper reading routes and give the page a stronger internal-linking structure for both users and crawlers.</p>
+        </div>
+      </div>
+      <div class="article-grid">
+        {% for item in related_articles %}
+        <article class="article-card">
+          <h3>{{ item.title }}</h3>
+          <p>{{ item.copy }}</p>
+          <a href="{{ item.href }}">Open page</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="newsletter-card" style="margin-top:16px;">
+      <h2>Newsletter Signup</h2>
+      <p>Use a lightweight signup block later for dividend research digests, high-yield watchlists, or valuation-first shortlist updates.</p>
+      <form class="newsletter-form" onsubmit="return false;">
+        <input type="email" placeholder="Enter your email for future dividend updates">
+        <button type="submit">Join Waitlist</button>
+      </form>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Related Screeners</h2>
+          <p>These links keep the dividend family visible and make the page more useful as a research cluster, not just one isolated list.</p>
+        </div>
+      </div>
+      <div class="screener-grid">
+        {% for item in related_screeners %}
+        <a class="screener-link" href="{{ item.href }}">{{ item.label }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <script>
+    (function () {
+      const investmentInput = document.getElementById("calc-investment");
+      const yieldInput = document.getElementById("calc-yield");
+      const growthInput = document.getElementById("calc-growth");
+      const dividendNode = document.getElementById("calc-dividend");
+      const dividendNextNode = document.getElementById("calc-dividend-next");
+
+      function formatInr(value) {
+        const safe = Number.isFinite(value) ? value : 0;
+        return "₹" + safe.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+      }
+
+      function updateCalculator() {
+        const investment = parseFloat(investmentInput.value || "0") || 0;
+        const dividendYield = parseFloat(yieldInput.value || "0") || 0;
+        const growth = parseFloat(growthInput.value || "0") || 0;
+        const yearOne = investment * (dividendYield / 100);
+        const yearTwo = yearOne * (1 + growth / 100);
+        dividendNode.textContent = formatInr(yearOne);
+        dividendNextNode.textContent = formatInr(yearTwo);
+      }
+
+      [investmentInput, yieldInput, growthInput].forEach(function (node) {
+        if (node) node.addEventListener("input", updateCalculator);
+      });
+      updateCalculator();
+    })();
   </script>
 </body>
 </html>
@@ -39225,10 +39920,552 @@ def website_shell_trial4_ticker_api():
     )
 
 
+HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root{
+      --bg:#f4f8fb;
+      --paper:#ffffff;
+      --panel:#f9fcff;
+      --line:#d7e4ee;
+      --ink:#102032;
+      --muted:#617587;
+      --blue:#124f7f;
+      --blue-2:#1e75ba;
+      --green:#10856e;
+      --green-soft:#e9faf5;
+      --amber:#a56611;
+      --amber-soft:#fff3df;
+      --shadow:0 20px 42px rgba(16,32,50,.08);
+      --radius:24px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:Arial,Helvetica,sans-serif;
+      color:var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(30,117,186,.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(16,133,110,.08), transparent 22%),
+        linear-gradient(180deg,#f9fbfd 0%,var(--bg) 100%);
+    }
+    a{color:inherit;text-decoration:none}
+    .page{max-width:1460px;margin:0 auto;padding:22px 16px 48px}
+    .hero{
+      background:linear-gradient(135deg,#0f2840 0%,#164a68 54%,#1d7f7a 100%);
+      color:#fff;border-radius:34px;padding:34px;position:relative;overflow:hidden;
+      box-shadow:0 26px 56px rgba(15,40,64,.22);margin-bottom:20px;
+    }
+    .hero::before,.hero::after{
+      content:"";position:absolute;border-radius:999px;filter:blur(0);
+      background:rgba(255,255,255,.10)
+    }
+    .hero::before{width:220px;height:220px;right:-60px;top:-40px}
+    .hero::after{width:140px;height:140px;left:-30px;bottom:-40px;background:rgba(255,255,255,.08)}
+    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:22px;align-items:end;position:relative;z-index:1}
+    .eyebrow{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
+      background:rgba(255,255,255,.12);backdrop-filter:blur(10px);font-size:12px;
+      letter-spacing:.14em;text-transform:uppercase
+    }
+    .hero h1{margin:14px 0 10px;font-size:clamp(34px,4vw,56px);line-height:1.02;font-weight:800;max-width:760px}
+    .hero p{margin:0;max-width:760px;color:rgba(255,255,255,.82);font-size:16px;line-height:1.7}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+    .btn{
+      display:inline-flex;align-items:center;justify-content:center;padding:13px 18px;border-radius:16px;
+      font-weight:700;font-size:14px;border:1px solid transparent;transition:transform .18s ease,box-shadow .18s ease
+    }
+    .btn:hover{transform:translateY(-2px)}
+    .btn-primary{background:#fff;color:#0f2840;box-shadow:0 16px 28px rgba(7,15,24,.16)}
+    .btn-secondary{background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.26);backdrop-filter:blur(10px)}
+    .hero-meta{
+      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px
+    }
+    .meta-card{
+      background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:22px;
+      padding:16px;backdrop-filter:blur(14px)
+    }
+    .meta-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.72)}
+    .meta-card strong{display:block;margin-top:10px;font-size:24px}
+    .meta-card span{display:block;margin-top:6px;font-size:13px;color:rgba(255,255,255,.82);line-height:1.55}
+    .notice{
+      margin-top:16px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.12);
+      border:1px solid rgba(255,255,255,.14);font-size:13px;color:rgba(255,255,255,.86)
+    }
+    .intro{
+      display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:16px 0 22px;
+      color:var(--muted);font-size:14px;line-height:1.7
+    }
+    .section{margin-top:22px}
+    .section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:14px}
+    .section h2{margin:0;font-size:28px;line-height:1.1;font-family:Georgia,"Times New Roman",serif}
+    .section p{margin:6px 0 0;color:var(--muted);max-width:760px;line-height:1.7}
+    .panel{
+      background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
+      box-shadow:var(--shadow)
+    }
+    .ai-summary{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;padding:18px}
+    .ai-copy{padding:6px 4px}
+    .ai-copy h3{margin:0 0 10px;font-size:22px}
+    .ai-copy p{margin:0;color:var(--muted);line-height:1.75}
+    .ai-bullets{display:grid;gap:10px}
+    .ai-bullet{
+      background:linear-gradient(180deg,#fbfdff,#f2f7fb);border:1px solid var(--line);border-radius:18px;padding:14px
+    }
+    .ai-bullet strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue)}
+    .ai-bullet span{display:block;margin-top:8px;line-height:1.65;color:var(--ink)}
+    .leaderboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+    .leader-card{padding:18px;border-radius:22px;background:linear-gradient(180deg,#fff,#f6fbff);border:1px solid var(--line);box-shadow:var(--shadow)}
+    .leader-rank{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:700}
+    .leader-card h3{margin:10px 0 8px;font-size:21px;line-height:1.2}
+    .leader-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+    .metric{padding:10px 12px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+    .metric .k{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+    .metric .v{display:block;margin-top:6px;font-size:18px;font-weight:800}
+    .filter-shell{padding:18px}
+    .filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .field label{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
+    .field select,.field input{
+      width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:var(--ink)
+    }
+    .toggle{
+      display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;height:48px
+    }
+    .filter-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .stock-card{padding:18px}
+    .stock-top{display:flex;justify-content:space-between;gap:14px;align-items:start}
+    .stock-card h3{margin:0 0 6px;font-size:22px;line-height:1.2}
+    .stock-card .symbol{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
+    .badge{
+      display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;
+      background:var(--green-soft);color:var(--green);font-size:12px;font-weight:700
+    }
+    .stock-copy{margin-top:12px;color:var(--muted);line-height:1.7}
+    .stock-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
+    .score-bar{height:10px;border-radius:999px;background:#e5eef4;overflow:hidden;margin-top:12px}
+    .score-fill{height:100%;background:linear-gradient(90deg,var(--blue-2),#2dc18d)}
+    .stock-footer{margin-top:16px;display:flex;justify-content:space-between;gap:12px;align-items:center}
+    .ghost-link{font-weight:700;color:var(--blue)}
+    .compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .table-card{padding:18px}
+    .table-card table{width:100%;border-collapse:collapse}
+    .table-card th,.table-card td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
+    .table-card th{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+    .calc-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:16px}
+    .calc-card{padding:18px}
+    .calc-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+    .calc-result{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px
+    }
+    .faq-list{display:grid;gap:12px}
+    .faq-item{padding:16px 18px}
+    .faq-item h3{margin:0 0 10px;font-size:18px}
+    .faq-item p{margin:0;color:var(--muted);line-height:1.7}
+    .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .tile{padding:18px}
+    .tile h3{margin:0 0 10px;font-size:20px}
+    .tile p{margin:0;color:var(--muted);line-height:1.7}
+    .tile-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+    .chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;font-weight:700}
+    .newsletter{
+      display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:22px;
+      background:linear-gradient(135deg,#102d46,#176f92);color:#fff
+    }
+    .newsletter h2{margin:0 0 10px;font-size:28px;font-family:Georgia,"Times New Roman",serif}
+    .newsletter p{margin:0;color:rgba(255,255,255,.82);max-width:720px;line-height:1.75}
+    .newsletter-form{display:flex;gap:10px;flex-wrap:wrap}
+    .newsletter-form input{
+      min-width:280px;padding:14px 16px;border:none;border-radius:14px;font:inherit
+    }
+    .mini-note{font-size:12px;color:var(--muted)}
+    @media (max-width:1180px){
+      .hero-grid,.ai-summary,.calc-grid{grid-template-columns:1fr}
+      .leaderboard{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .filter-grid,.stock-metrics,.calc-form,.calc-result{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .stock-grid,.compare-grid,.tiles{grid-template-columns:1fr}
+    }
+    @media (max-width:760px){
+      .page{padding:14px 12px 34px}
+      .hero{padding:24px 18px;border-radius:28px}
+      .hero h1{font-size:34px}
+      .hero-meta,.leaderboard,.filter-grid,.stock-metrics,.calc-form,.calc-result,.newsletter{grid-template-columns:1fr}
+      .newsletter{padding:18px}
+      .newsletter-form input{min-width:0;width:100%}
+      .section h2{font-size:24px}
+      .intro,.section-head{display:block}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">{{ page_kicker }}</div>
+          <h1>High Dividend Stocks With Stronger AI Summary, Better Cards, and Deeper Comparison Flow</h1>
+          <p>{{ page_subtitle }}</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#leaderboard">Explore Leaderboard</a>
+            <a class="btn btn-secondary" href="#cards">View Stock Cards</a>
+          </div>
+          <div class="notice">{{ sample_notice }}</div>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-card">
+            <div class="label">Screen Snapshot</div>
+            <strong>{{ filtered_rows_count }}</strong>
+            <span>Dividend names currently match the active filter set on this sample page.</span>
+          </div>
+          <div class="meta-card">
+            <div class="label">Average Yield</div>
+            <strong>{{ avg_yield_display }}</strong>
+            <span>Current sample-wide yield average across the filtered shortlist.</span>
+          </div>
+          <div class="meta-card">
+            <div class="label">Average Strength Score</div>
+            <strong>{{ avg_score_display }}</strong>
+            <span>Composite score keeps payout, valuation, quality, and drawdown context together.</span>
+          </div>
+          <div class="meta-card">
+            <div class="label">Last Refresh</div>
+            <strong>{{ last_refresh }}</strong>
+            <span>{{ data_source_note }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="intro">
+      <div>
+        <h2 style="margin:0 0 8px;font-size:28px;font-family:Georgia,'Times New Roman',serif">{{ page_title }}</h2>
+        <p style="margin:0;max-width:840px">{{ seo_description }}</p>
+      </div>
+    </div>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>{{ ai_summary_heading }}</h2>
+          <p>{{ ai_summary_copy }}</p>
+        </div>
+      </div>
+      <div class="panel ai-summary">
+        <div class="ai-copy">
+          <h3>What this page is trying to improve</h3>
+          <p>This sample is built to make the dividend screen easier to scan, easier to trust, and easier for both Google and AI systems to understand. The focus is on stronger summaries, clearer stock cards, more structured comparisons, and lighter but richer on-page context.</p>
+        </div>
+        <div class="ai-bullets">
+          {% for bullet in ai_summary_bullets %}
+          <div class="ai-bullet">
+            <strong>AI Insight {{ loop.index }}</strong>
+            <span>{{ bullet }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="leaderboard">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Leaderboard</h2>
+          <p>Quick ranking cards make the top of the screen easier to browse before you open the full stock list.</p>
+        </div>
+      </div>
+      <div class="leaderboard">
+        {% for row in leaderboard_rows %}
+        <article class="leader-card">
+          <div class="leader-rank">Rank {{ loop.index }}</div>
+          <h3>{{ row.company_name }}</h3>
+          <div class="mini-note">{{ row.nse_symbol }} · {{ row.market_cap_bucket }} cap · {{ row.sector }}</div>
+          <div class="leader-meta">
+            <div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div>
+            <div class="metric"><div class="k">Score</div><span class="v">{{ row.total_score }}</span></div>
+            <div class="metric"><div class="k">Price</div><span class="v">{{ row.current_price_display }}</span></div>
+            <div class="metric"><div class="k">P/E</div><span class="v">{{ row.pe_display }}</span></div>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Filter Dashboard</h2>
+          <p>Use the same live filter logic as the original page, but with a cleaner layout that encourages more interaction.</p>
+        </div>
+      </div>
+      <div class="panel filter-shell">
+        <form method="get">
+          <div class="filter-grid">
+            <div class="field">
+              <label for="yield_min">Dividend Yield</label>
+              <select id="yield_min" name="yield_min">
+                {% for option in yield_options %}
+                <option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="market_cap">Market Cap</label>
+              <select id="market_cap" name="market_cap">
+                {% for option in market_cap_options %}
+                <option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="sector">Sector</label>
+              <select id="sector" name="sector">
+                <option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>
+                {% for option in sector_options %}
+                <option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field">
+              <label for="roe_above_12">ROE filter</label>
+              <div class="toggle"><input id="roe_above_12" type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}> ROE above 12%</div>
+            </div>
+            <div class="field">
+              <label for="pe_below_industry">Valuation filter</label>
+              <div class="toggle"><input id="pe_below_industry" type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}> P/E below industry</div>
+            </div>
+            <div class="field">
+              <label for="below_high_20">52-week high filter</label>
+              <div class="toggle"><input id="below_high_20" type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}> 20% below high</div>
+            </div>
+            <div class="field">
+              <label for="de_below_1">Debt filter</label>
+              <div class="toggle"><input id="de_below_1" type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}> Debt to equity below 1</div>
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-primary" type="submit">Apply Filters</button>
+            <a class="btn btn-secondary" href="{{ canonical_url }}">Reset Sample</a>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="section" id="cards">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Stock Cards</h2>
+          <p>These cards are the fastest design win for readability. They surface yield, score, valuation, and capital bucket without forcing a full table scan first.</p>
+        </div>
+      </div>
+      <div class="stock-grid">
+        {% for row in stock_cards %}
+        <article class="panel stock-card">
+          <div class="stock-top">
+            <div>
+              <div class="symbol">{{ row.nse_symbol }}</div>
+              <h3>{{ row.company_name }}</h3>
+              <div class="mini-note">{{ row.sector }} · {{ row.market_cap_bucket }} cap · Price {{ row.current_price_display }}</div>
+            </div>
+            <div class="badge">Score {{ row.total_score }}</div>
+          </div>
+          <div class="stock-copy">Dividend yield at {{ row.dividend_yield_display }}, with P/E {{ row.pe_display }}, debt to equity {{ row.de_display }}, and 52-week-high drawdown of {{ row.below_high_display }}.</div>
+          <div class="score-bar"><div class="score-fill" style="width: {{ [row.total_score, 100]|min }}%"></div></div>
+          <div class="stock-metrics">
+            <div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div>
+            <div class="metric"><div class="k">Dividend / Share</div><span class="v">{{ row.dividend_per_share_display }}</span></div>
+            <div class="metric"><div class="k">ROE</div><span class="v">{{ row.roe_display }}</span></div>
+            <div class="metric"><div class="k">Debt / Equity</div><span class="v">{{ row.de_display }}</span></div>
+          </div>
+          <div class="stock-footer">
+            <a class="ghost-link" href="{{ row.stock_url }}">Open Stock Page</a>
+            <span class="mini-note">Updated {{ row.last_updated_display }}</span>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Comparison Tables</h2>
+          <p>These tables make the page more useful for AI summaries and richer for users who want a quick macro read before opening stock cards.</p>
+        </div>
+      </div>
+      <div class="compare-grid">
+        <div class="panel table-card">
+          <h3 style="margin-top:0">Sector Comparison</h3>
+          <table>
+            <thead>
+              <tr><th>Sector</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr>
+            </thead>
+            <tbody>
+              {% for row in sector_comparison %}
+              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="panel table-card">
+          <h3 style="margin-top:0">Market Cap Comparison</h3>
+          <table>
+            <thead>
+              <tr><th>Bucket</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr>
+            </thead>
+            <tbody>
+              {% for row in bucket_comparison %}
+              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Dividend Calculator</h2>
+          <p>A simple calculator block adds interaction and usually helps both time on page and ad visibility without making the page feel heavy.</p>
+        </div>
+      </div>
+      <div class="panel calc-card">
+        <div class="calc-grid">
+          <div>
+            <div class="calc-form">
+              <div class="field">
+                <label for="calc-investment">Investment</label>
+                <input id="calc-investment" type="number" value="{{ calculator_default_investment }}">
+              </div>
+              <div class="field">
+                <label for="calc-yield">Yield %</label>
+                <input id="calc-yield" type="number" step="0.01" value="{{ calculator_default_yield }}">
+              </div>
+              <div class="field">
+                <label for="calc-growth">Growth %</label>
+                <input id="calc-growth" type="number" step="0.1" value="{{ calculator_default_growth }}">
+              </div>
+            </div>
+          </div>
+          <div>
+            <div class="calc-result">
+              <div class="metric"><div class="k">Year 1 Income</div><span class="v" id="calc-income">-</span></div>
+              <div class="metric"><div class="k">5Y Income Run Rate</div><span class="v" id="calc-five">-</span></div>
+              <div class="metric"><div class="k">Yield On Cost</div><span class="v" id="calc-yoc">-</span></div>
+            </div>
+            <div class="mini-note" style="margin-top:14px">This is only a planning estimate and not a promise of future payouts.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>FAQ Section</h2>
+          <p>Keeping strong FAQs on the page helps readers and also improves AI citation and structured search coverage.</p>
+        </div>
+      </div>
+      <div class="faq-list">
+        {% for item in faq_items %}
+        <article class="panel faq-item">
+          <h3>{{ item.question }}</h3>
+          <p>{{ item.answer }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="tiles">
+        <div class="panel tile">
+          <h3>Related Articles</h3>
+          <p>Keep the reader inside the dividend research journey with sibling pages that add valuation or market-cap context.</p>
+          <div class="tile-links">
+            {% for item in related_articles %}
+            <a class="chip" href="{{ item.href }}">{{ item.title }}</a>
+            {% endfor %}
+          </div>
+        </div>
+        <div class="panel tile">
+          <h3>Related Screeners</h3>
+          <p>These links give the page stronger internal-link depth and make the sample closer to a production SEO layout.</p>
+          <div class="tile-links">
+            {% for item in related_screeners %}
+            <a class="chip" href="{{ item.href }}">{{ item.label }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="panel newsletter">
+        <div>
+          <h2>Newsletter Signup</h2>
+          <p>Get future dividend screens, stock ideas, and strategy updates in a simple reader-friendly format without refreshing every section manually.</p>
+        </div>
+        <form class="newsletter-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Subscribed';">
+          <input type="email" placeholder="Enter your email for TraderHub dividend updates">
+          <button class="btn btn-primary" type="submit">Subscribe</button>
+        </form>
+      </div>
+    </section>
+  </div>
+  <script>
+    (function() {
+      const investmentInput = document.getElementById("calc-investment");
+      const yieldInput = document.getElementById("calc-yield");
+      const growthInput = document.getElementById("calc-growth");
+      const incomeOut = document.getElementById("calc-income");
+      const fiveOut = document.getElementById("calc-five");
+      const yocOut = document.getElementById("calc-yoc");
+      const formatMoney = (value) => {
+        if (!Number.isFinite(value)) return "Pending";
+        return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(value);
+      };
+      const render = () => {
+        const investment = parseFloat(investmentInput.value || "0");
+        const yieldPct = parseFloat(yieldInput.value || "0");
+        const growthPct = parseFloat(growthInput.value || "0");
+        const firstYear = investment * (yieldPct / 100);
+        const fifthYear = firstYear * Math.pow(1 + (growthPct / 100), 4);
+        incomeOut.textContent = formatMoney(firstYear);
+        fiveOut.textContent = formatMoney(fifthYear);
+        yocOut.textContent = Number.isFinite(yieldPct) ? (yieldPct * Math.pow(1 + (growthPct / 100), 4)).toFixed(2) + "%" : "Pending";
+      };
+      [investmentInput, yieldInput, growthInput].forEach((node) => node && node.addEventListener("input", render));
+      render();
+    })();
+  </script>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/high-dividend-paying-stocks")
 def high_dividend_paying_stocks():
     context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="high-dividend")
     return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+
+
+@app.route("/stocks/high-dividend-paying-stocks-sample")
+def high_dividend_paying_stocks_sample():
+    context = build_high_dividend_sample_context(request.url_root.rstrip("/"))
+    return render_template_string(HIGH_DIVIDEND_SAMPLE_TEMPLATE, **context)
 
 
 @app.route("/stocks/undervalued-dividend-stocks")
