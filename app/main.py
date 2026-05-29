@@ -23465,6 +23465,106 @@ def get_search_ops_nav_items():
     ]
 
 
+def get_admin_sample_nav_items():
+    return [
+        {"label": "Admin Sample", "href": "/admin/index-sample"},
+        {"label": "SEO Manager", "href": "/admin/seo-manager"},
+        {"label": "News Manager", "href": "/admin/news-manager"},
+        {"label": "Mapping Manager", "href": "/admin/mapping-manager"},
+        {"label": "Search Ops", "href": "/admin/search-ops"},
+        {"label": "Derivatives", "href": "/admin/derivatives/watchlist"},
+    ]
+
+
+def build_admin_index_sample_context():
+    market_rows = build_website_shell_trial3_index_tape()
+    positive = sum(1 for row in market_rows if row.get("tone") == "up")
+    negative = sum(1 for row in market_rows if row.get("tone") == "down")
+    pending = sum(1 for row in market_rows if row.get("tone") not in {"up", "down"})
+    strongest = max(
+        [row for row in market_rows if row.get("tone") in {"up", "down"}],
+        key=lambda item: abs(parse_numeric_text(item.get("percent")) or 0),
+        default=None,
+    )
+    return {
+        "page_title": "TraderHub Admin Index Sample",
+        "page_description": "Sample admin homepage for TraderHub internal tools and workflows.",
+        "breadcrumb_text": "Admin > Sample Index",
+        "breadcrumb_meta_text": f"IST sample view | {get_today_ist().isoformat()}",
+        "hero_title": "TraderHub Admin Sample Index",
+        "hero_subtitle": "A single internal landing page to open operations, content, SEO, derivatives, and market-maintenance tools from one screen.",
+        "nav_items": get_admin_sample_nav_items(),
+        "active_href": "/admin/index-sample",
+        "kpis": [
+            {"label": "Live Cards", "value": len(market_rows)},
+            {"label": "Positive", "value": positive},
+            {"label": "Negative", "value": negative},
+            {"label": "Pending", "value": pending},
+            {"label": "Strongest", "value": strongest.get("label") if strongest else "Pending"},
+            {"label": "Mode", "value": "Admin Sample"},
+        ],
+        "sections": [
+            {
+                "title": "Operations Console",
+                "note": "This block is the fastest path into the internal tools that keep the public site moving every day.",
+                "columns": ["Desk", "Purpose", "Open"],
+                "rows": [
+                    ["SEO Manager", "Sitemaps, crawlability, metadata, and indexing policy.", '<a class="chip" href="/admin/seo-manager">Open</a>'],
+                    ["News Manager", "Live movers, archive depth, summary quality, and editor layers.", '<a class="chip" href="/admin/news-manager">Open</a>'],
+                    ["Mapping Manager", "Stock, sector, route, and correction mapping workflows.", '<a class="chip" href="/admin/mapping-manager">Open</a>'],
+                    ["Search Ops", "Search readiness, robots, measurement, and news/search diagnostics.", '<a class="chip" href="/admin/search-ops">Open</a>'],
+                    ["Derivatives Desk", "Watchlists, delivery profiles, OI status, and diagnostics.", '<a class="chip" href="/admin/derivatives/watchlist">Open</a>'],
+                ],
+            },
+            {
+                "title": "Live Market Snapshot",
+                "note": "This sample internal board uses the same market card feed style as the homepage trials so you can verify what the public surface is showing.",
+                "columns": ["Instrument", "Value", "Move", "Status", "Updated"],
+                "rows": [
+                    [
+                        row.get("label") or "-",
+                        row.get("value") or "Pending",
+                        f'{row.get("change") or "Pending"} | {row.get("percent") or "Pending"}',
+                        row.get("status") or "Pending",
+                        row.get("updated_label") or "Latest available",
+                    ]
+                    for row in market_rows[:10]
+                ],
+            },
+            {
+                "title": "Quick Internal Actions",
+                "note": "Use these sample entry points to move straight into routine maintenance without hunting through menus.",
+                "columns": ["Action", "Route", "Why"],
+                "rows": [
+                    ["Refresh SEO inventory", '<span class="mono">/admin/seo-manager/inventory/run</span>', "Rebuild the list of public pages before sitemap refreshes."],
+                    ["Generate sitemaps", '<span class="mono">/admin/seo-manager/sitemaps/run</span>', "Push updated XML groups after route or content changes."],
+                    ["News snapshot summary", '<span class="mono">/admin/news-manager/snapshots/summary</span>', "Check how much editor-summary and snapshot coverage exists."],
+                    ["Derivatives feed status", '<span class="mono">/admin/derivatives/oi-feed-status</span>', "Verify whether option and OI layers are healthy."],
+                ],
+            },
+        ],
+        "side_blocks": [
+            {
+                "title": "Admin Notes",
+                "items": [
+                    "This is a sample admin home page only. It sits inside the existing <span class=\"mono\">/admin/...</span> area.",
+                    "Current app login routes are broker-token routes like <span class=\"mono\">/login</span> and <span class=\"mono\">/upstox/login</span>, not a dedicated admin username/password screen.",
+                    "If you want later, we can build a separate real admin login wall instead of leaving admin pages as direct internal routes.",
+                ],
+            },
+            {
+                "title": "Next Useful Links",
+                "items": [
+                    '<a href="/admin/seo-manager">Open SEO Manager</a>',
+                    '<a href="/admin/news-manager">Open News Manager</a>',
+                    '<a href="/admin/search-ops">Open Search Ops</a>',
+                    '<a href="/admin/derivatives/watchlist">Open Derivatives Watchlist</a>',
+                ],
+            },
+        ],
+    }
+
+
 def get_search_ops_snapshot():
     runtime_state = get_search_ops_runtime_state()
     sitemap_index_path = SITEMAP_DIR / "sitemap.xml"
@@ -37599,7 +37699,7 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
         }
       }
 
-      window.setInterval(refreshTrial4, 30000);
+      window.setInterval(refreshTrial4, 5000);
     })();
   </script>
 </body>
@@ -40246,6 +40346,11 @@ def derivatives_oi_diagnostics():
 def derivatives_futures_buildup():
     context = build_futures_buildup_context(request.url_root.rstrip("/"))
     return render_template_string(DERIVATIVES_PHASE1_TEMPLATE, **context)
+
+
+@app.route("/admin/index-sample")
+def admin_index_sample():
+    return render_seo_manager_screen(build_admin_index_sample_context())
 
 
 @app.route("/admin/seo-manager/bootstrap")
