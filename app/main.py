@@ -21257,6 +21257,155 @@ SECTOR_PHASE1_TEMPLATE = """
 """
 
 
+MARKET_ALERTS_PHASE3_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root { --bg:#eef2f6; --paper:#fff; --panel:#f8fbfd; --line:#cbd6df; --ink:#1d2c3a; --muted:#657688; --up:#166b45; --up-soft:#daf0e4; --warn:#9a6c00; --warn-soft:#f6ebc5; --info:#245fa7; --info-soft:#dbe8fb; --shadow:0 14px 34px rgba(23,33,43,0.08); --number-font:Arial,Helvetica,sans-serif; }
+    * { box-sizing:border-box; } body { margin:0; font-family:Georgia,"Times New Roman",serif; color:var(--ink); background:radial-gradient(circle at top right, rgba(36,95,167,0.08), transparent 24%), linear-gradient(180deg, #f8f9fb 0%, #eef2f6 100%); }
+    a { color:inherit; text-decoration:none; }
+    .page { max-width:1420px; margin:0 auto; padding:18px 14px 36px; }
+    .microbar { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; color:var(--muted); font-size:13px; margin-bottom:14px; }
+    .hero,.section,.side-card,.priority-card,.track-card,.workflow-card,.summary-card,.notice { background:var(--paper); border:1px solid var(--line); border-radius:24px; box-shadow:var(--shadow); }
+    .hero { padding:22px; background:linear-gradient(145deg,#1f3d52,#29697b 72%,#4f9ea6 100%); color:#fff; position:relative; overflow:hidden; }
+    .hero::after { content:""; position:absolute; right:-40px; bottom:-36px; width:220px; height:220px; border-radius:50%; background:rgba(255,255,255,0.10); }
+    .hero-kicker { font-size:12px; letter-spacing:.14em; text-transform:uppercase; opacity:.84; margin-bottom:10px; position:relative; z-index:1; }
+    .hero-head { display:flex; justify-content:space-between; gap:18px; align-items:start; position:relative; z-index:1; }
+    h1 { margin:0; font-size:44px; line-height:.95; }
+    .hero-sub { margin-top:10px; font-size:18px; color:rgba(255,255,255,0.84); max-width:780px; }
+    .hero-price { text-align:right; min-width:220px; }
+    .hero-ltp { font-size:38px; font-weight:700; font-family:var(--number-font); font-style:italic; line-height:.95; }
+    .hero-tags { position:relative; z-index:1; margin-top:18px; display:flex; gap:8px; flex-wrap:wrap; }
+    .tag { display:inline-flex; align-items:center; padding:7px 11px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:.03em; }
+    .tag-up { background:var(--up-soft); color:var(--up); } .tag-warn { background:var(--warn-soft); color:var(--warn); } .tag-info { background:var(--info-soft); color:var(--info); }
+    .hero-grid { position:relative; z-index:1; margin-top:18px; display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+    .hero-box { padding:12px; border-radius:16px; background:rgba(255,255,255,0.10); border:1px solid rgba(255,255,255,0.12); }
+    .hero-label { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:rgba(255,255,255,0.72); margin-bottom:4px; }
+    .hero-value { font-size:20px; font-weight:700; font-family:var(--number-font); font-style:italic; }
+    .section-nav { margin-top:16px; display:flex; gap:10px; overflow-x:auto; padding-bottom:4px; }
+    .nav-chip { background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:10px 14px; white-space:nowrap; font-size:13px; font-weight:700; color:#0e554b; }
+    .layout { margin-top:16px; display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:16px; align-items:start; }
+    .main-stack,.side-stack { display:grid; gap:16px; }
+    .section { padding:18px; }
+    .section h2 { margin:0 0 8px; font-size:30px; }
+    .section-note,.copy { font-family:Arial,Helvetica,sans-serif; color:var(--muted); font-size:14px; line-height:1.6; }
+    .summary-grid,.priority-grid,.workflow-grid,.tracks-grid,.editor-grid { display:grid; gap:12px; }
+    .summary-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .priority-grid { grid-template-columns:1.2fr .8fr; align-items:stretch; }
+    .priority-card,.workflow-card,.summary-card,.track-card { padding:16px; background:var(--panel); }
+    .metric-label { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700; margin-bottom:6px; }
+    .metric-value { font-size:24px; font-weight:700; font-family:var(--number-font); font-style:italic; }
+    .priority-card h3,.track-card h3,.workflow-card h3 { margin:0 0 8px; font-size:24px; }
+    .priority-stats { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+    .priority-stat { padding:12px; border-radius:16px; background:#fff; border:1px solid rgba(203,214,223,0.8); }
+    .tracks-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .track-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px; }
+    .track-count { font-size:30px; font-weight:700; font-family:var(--number-font); font-style:italic; line-height:1; color:#0e554b; }
+    .track-meta { color:var(--muted); font-size:12px; margin-bottom:8px; font-family:Arial,Helvetica,sans-serif; }
+    .track-tags { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .track-action { display:inline-flex; margin-top:12px; padding:10px 14px; border-radius:999px; background:#0e554b; color:#fff; font:700 13px Arial,Helvetica,sans-serif; }
+    .workflow-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .editor-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .side-card { padding:16px; }
+    .side-title { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin-bottom:8px; font-weight:700; }
+    .notice { padding:14px; border-style:dashed; background:var(--panel); }
+    .ad-slot { border:1px dashed var(--line); border-radius:24px; background:repeating-linear-gradient(-45deg, rgba(23,111,98,0.03), rgba(23,111,98,0.03) 10px, rgba(160,172,186,0.06) 10px, rgba(160,172,186,0.06) 20px), var(--panel); display:flex; align-items:center; justify-content:center; text-align:center; color:var(--muted); font-size:14px; font-weight:700; min-height:220px; padding:14px; }
+    @media (max-width:1160px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:900px) { .hero-head { flex-direction:column; } .hero-price { text-align:left; min-width:0; } .hero-grid,.summary-grid,.priority-grid,.tracks-grid,.workflow-grid,.editor-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } h1 { font-size:36px; } }
+    @media (max-width:620px) { .page { padding:12px 10px 28px; } .hero,.section,.side-card,.priority-card,.track-card,.workflow-card,.summary-card,.notice,.ad-slot { border-radius:18px; } .hero-grid,.summary-grid,.priority-grid,.tracks-grid,.workflow-grid,.editor-grid,.priority-stats { grid-template-columns:1fr; } h1 { font-size:30px; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="microbar"><div>{{ breadcrumb_text }}</div><div>{{ breadcrumb_meta_text }}</div></div>
+    {% if market_error %}<div class="notice"><div class="copy">{{ market_error }}</div></div>{% endif %}
+    <div class="hero">
+      <div class="hero-kicker">{{ hero_kicker }}</div>
+      <div class="hero-head">
+        <div><h1>{{ hero_title }}</h1><div class="hero-sub">{{ hero_subtitle }}</div></div>
+        <div class="hero-price"><div class="hero-ltp">{{ hero_metric_primary }}</div><div class="hero-sub" style="margin-top:8px;">{{ hero_metric_secondary }}</div></div>
+      </div>
+      <div class="hero-tags">{% for badge in hero_badges %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+      <div class="hero-grid">{% for stat in hero_stats %}<div class="hero-box"><div class="hero-label">{{ stat.label }}</div><div class="hero-value">{{ stat.value }}</div></div>{% endfor %}</div>
+    </div>
+    <div class="section-nav">{% for chip in nav_chips %}<a class="nav-chip" href="{{ chip.href }}">{{ chip.label }}</a>{% endfor %}</div>
+    <div class="layout">
+      <div class="main-stack">
+        <section class="section">
+          <h2>{{ section_title }}</h2>
+          <div class="section-note">{{ section_note }}</div>
+          <div class="summary-grid">{% for card in summary_cards %}<div class="summary-card"><div class="metric-label">{{ card.label }}</div><div class="metric-value">{{ card.value }}</div><div class="copy">{{ card["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        <section class="section">
+          <h2>{{ alert_priority_title }}</h2>
+          <div class="priority-grid">
+            <div class="priority-card">
+              <h3>{{ alert_priority_title }}</h3>
+              <div class="copy">{{ alert_priority_copy }}</div>
+            </div>
+            <div class="priority-card">
+              <div class="priority-stats">{% for item in alert_priority_stats %}<div class="priority-stat"><div class="metric-label">{{ item.label }}</div><div class="metric-value" style="font-size:20px;">{{ item.value }}</div></div>{% endfor %}</div>
+            </div>
+          </div>
+        </section>
+        <section class="section">
+          <h2>{{ archive_section_heading }}</h2>
+          <div class="section-note">{{ archive_section_note }}</div>
+          <div class="tracks-grid">
+            {% for story in rows %}
+            <div class="track-card">
+              <div class="track-head">
+                <div>
+                  <h3>{{ story.title }}</h3>
+                  <div class="track-meta">{{ story.meta }}</div>
+                </div>
+                <div class="track-count">{{ story.count }}</div>
+              </div>
+              <div class="track-tags">{% for badge in story.tags %}<span class="tag {{ badge.kind }}">{{ badge.label }}</span>{% endfor %}</div>
+              <div class="copy">{{ story["copy"] }}</div>
+              <a class="track-action" href="{{ story.href }}">{{ story.action }}</a>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+        <section class="section">
+          <h2>Alert Workflow</h2>
+          <div class="section-note">Use the hub as a sequence, not a noise board.</div>
+          <div class="workflow-grid">{% for item in workflow_steps %}<div class="workflow-card"><div class="metric-label">{{ item.title }}</div><div class="copy">{{ item["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% if editor_summary_points %}
+        <section class="section">
+          <h2>{{ editor_summary_title }}</h2>
+          <div class="section-note">{{ editor_summary_intro }}</div>
+          <div class="editor-grid">{% for item in editor_summary_points %}<div class="workflow-card"><div class="metric-label">{{ item.label }}</div><div class="copy">{{ item["copy"] }}</div></div>{% endfor %}</div>
+        </section>
+        {% endif %}
+      </div>
+      <div class="side-stack">
+        <div class="ad-slot">Top Sponsor Slot<br>Space for Ads</div>
+        <div class="side-card"><div class="side-title">{{ side_box_title }}</div><div class="copy">{{ side_box_copy }}</div></div>
+        <div class="side-card"><div class="side-title">How To Use This Page</div><div class="copy">Start with the busiest lane, confirm the move on stock or sector pages, then use archive or why-moving only if the same theme keeps repeating.</div></div>
+        <div class="side-card"><div class="side-title">Why This Works</div><div class="copy">{{ why_page_works }}</div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
+"""
+
+
 SECTOR_PHASE2_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -25768,6 +25917,11 @@ def build_alerts_hub_context(host_root):
     sector_cards = build_sector_cards_from_live_rows(rows)
     earnings_rows = get_earnings_keyword_story_rows(rows, per_symbol_limit=1)
     feed = load_market_news_phase1_feed()
+    pre_market_count = len(feed.get("pre_market", {}).get("lead_stories") or [])
+    post_market_count = len(feed.get("post_market", {}).get("lead_stories") or [])
+    mover_count = min(len(rows), 8)
+    sector_watch_count = len(sector_cards[:8])
+    earnings_count = len(earnings_rows[:8])
     track_cards = [
         {
             "title": alert_defs["pre-market"]["label"],
@@ -25775,6 +25929,8 @@ def build_alerts_hub_context(host_root):
             "copy": "Use this track when you want the clearest market setup, key stories, and watchlist framing before the session begins.",
             "href": "/market/alerts/pre-market",
             "tags": [{"label": "Pre-Market", "kind": "tag-info"}],
+            "count": pre_market_count,
+            "action": "Open Track",
         },
         {
             "title": alert_defs["post-market"]["label"],
@@ -25782,6 +25938,8 @@ def build_alerts_hub_context(host_root):
             "copy": "Use this track to compress the closing session into carry-forward ideas, event reactions, and tomorrow watch points.",
             "href": "/market/alerts/post-market",
             "tags": [{"label": "Post-Market", "kind": "tag-warn"}],
+            "count": post_market_count,
+            "action": "Open Track",
         },
         {
             "title": alert_defs["sector-watch"]["label"],
@@ -25789,6 +25947,8 @@ def build_alerts_hub_context(host_root):
             "copy": "Sector watch helps users follow recurring leadership and weakness before turning that theme into a deeper watchlist habit.",
             "href": "/market/alerts/sector-watch",
             "tags": [{"label": "Sector Watch", "kind": "tag-up"}],
+            "count": sector_watch_count,
+            "action": "Open Track",
         },
         {
             "title": alert_defs["stock-movers"]["label"],
@@ -25796,6 +25956,8 @@ def build_alerts_hub_context(host_root):
             "copy": "Stock-mover alerts are the best bridge between live tape and a future personalized alert layer.",
             "href": "/market/alerts/stock-movers",
             "tags": [{"label": "Mover Watch", "kind": "tag-info"}],
+            "count": mover_count,
+            "action": "Open Track",
         },
         {
             "title": alert_defs["earnings-watch"]["label"],
@@ -25803,26 +25965,34 @@ def build_alerts_hub_context(host_root):
             "copy": "Earnings watch is where event-driven traders can start building a repeatable follow-up routine without waiting for full automation.",
             "href": "/market/alerts/earnings-watch",
             "tags": [{"label": "Earnings", "kind": "tag-warn"}],
+            "count": earnings_count,
+            "action": "Open Track",
         },
+    ]
+    busiest_track = max(track_cards, key=lambda item: item.get("count", 0), default=None)
+    workflow_steps = [
+        {"title": "Start With The Right Lane", "copy": "Use pre-market or post-market when you want routine. Use movers, sector watch, or earnings watch when the tape needs a more selective first click."},
+        {"title": "Verify Before You Chase", "copy": "Open the why-moving, stock, or sector page before treating one alert row as a full trading decision."},
+        {"title": "Build Repeat Routines", "copy": "The point of this hub is not noise. It is to teach traders which alert lane deserves attention first on different types of days."},
     ]
     today_iso = get_today_ist().isoformat()
     return {
         "page_mode": "alerts_hub",
-        "seo_title": "Market Alerts Hub | TraderHub",
-        "seo_description": "Explore TraderHub's public alert-prep tracks for pre-market, post-market, sector watch, stock movers, and earnings watch.",
+        "seo_title": "Market Alerts Dashboard, Pre-Market, Post-Market, Movers & Earnings | TraderHub",
+        "seo_description": "Track pre-market, post-market, stock movers, sector watch, and earnings watch in the TraderHub market alerts dashboard.",
         "canonical_url": f"{host_root.rstrip('/')}/market/alerts",
-        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Alerts Hub | TraderHub", "description": "Public market alerts preparation hub for TraderHub.", "url": f"{host_root.rstrip('/')}/market/alerts"}, indent=2),
+        "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Alerts Dashboard | TraderHub", "description": "Public market alerts dashboard for TraderHub.", "url": f"{host_root.rstrip('/')}/market/alerts"}, indent=2),
         "breadcrumb_text": "Market News › Alerts",
         "breadcrumb_meta_text": f"Phase 3 alert-prep layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market Alerts",
-        "hero_title": "Alerts Hub",
-        "hero_subtitle": "A public alert-prep layer that turns your live market system into repeatable watch tracks before full personalization arrives.",
+        "hero_title": "Market Alerts Dashboard",
+        "hero_subtitle": "Open the right alert lane first, then move into why-moving, sector, stock, and archive pages with cleaner market context.",
         "hero_metric_primary": str(len(track_cards)),
-        "hero_metric_secondary": "public alert tracks live right now",
-        "hero_badges": [{"label": "Phase 3 Prep", "kind": "tag-info"}, {"label": "Alerts Layer", "kind": "tag-up"}, {"label": "Habit Builder", "kind": "tag-warn"}],
+        "hero_metric_secondary": "alert tracks ready right now",
+        "hero_badges": [{"label": "Phase 3", "kind": "tag-info"}, {"label": "Alerts Dashboard", "kind": "tag-up"}, {"label": "Routine First", "kind": "tag-warn"}],
         "hero_stats": [
             {"label": "Tracks", "value": len(track_cards)},
-            {"label": "Sectors", "value": len(sector_cards)},
+            {"label": "Busiest", "value": busiest_track["title"] if busiest_track else "Pending"},
             {"label": "Earnings", "value": len(earnings_rows)},
             {"label": "Mode", "value": "Public"},
         ],
@@ -25832,19 +26002,31 @@ def build_alerts_hub_context(host_root):
             {"label": "Live Movers", "href": "/market/live-movers"},
             {"label": "Trend Hub", "href": "/market/trends"},
         ],
-        "section_title": "Alert Track Hub",
-        "section_note": "This hub organizes repeatable market alert patterns before they become personalized products. The goal is structure first, delivery later.",
+        "section_title": "Alert Command Center",
+        "section_note": "This dashboard organizes the alert lanes that matter most, so the user can choose the right first click instead of opening five different market pages blindly.",
         "summary_cards": [
-            {"label": "Pre/Post Tracks", "value": "2", "copy": "Daily market open and close habits."},
-            {"label": "Theme Tracks", "value": "2", "copy": "Sector and mover-first alert structures."},
-            {"label": "Event Track", "value": "1", "copy": "Earnings-led follow-up path."},
-            {"label": "Public Goal", "value": "Routine", "copy": "These pages help the user build repeat behavior before account-level delivery exists."},
+            {"label": "Pre-Market", "value": pre_market_count, "copy": "Before-open setup cards and watch framing."},
+            {"label": "Post-Market", "value": post_market_count, "copy": "Closing carry-forward and recap path."},
+            {"label": "Mover Focus", "value": mover_count, "copy": "Fastest tape-led alert lane right now."},
+            {"label": "Event Focus", "value": earnings_count, "copy": "Earnings-led event follow-up rows."},
         ],
         "lead_stories": track_cards[:4],
         "watch_sections": [
             {"title": "How To Use Alerts Hub", "items": ["Start with one track, not all of them", "Use pre/post tracks for routine", "Use movers or earnings when the tape gets noisy"]},
             {"title": "Next Phase", "items": ["Real delivery later", "Watchlist targeting later", "Sector and stock follow-up already visible in the page structure"]},
         ],
+        "alert_priority_title": "Today's Alert Priority",
+        "alert_priority_copy": (
+            f"{busiest_track['title']} is the busiest alert lane right now, so it is the clearest first page if you want the fastest high-signal market read."
+            if busiest_track else
+            "Use the track cards below to choose the best alert lane for the current market condition."
+        ),
+        "alert_priority_stats": [
+            {"label": "Active Lanes", "value": sum(1 for item in track_cards if item.get("count", 0) > 0)},
+            {"label": "Busiest Track", "value": busiest_track["title"] if busiest_track else "Pending"},
+            {"label": "Best First Click", "value": busiest_track["action"] if busiest_track else "Open Track"},
+        ],
+        "workflow_steps": workflow_steps,
         **build_market_editor_summary(
             "Market Editor Summary",
             "This layer is about shaping habits before full personalization. It helps users understand what an alert should feel like before it becomes a delivered product.",
@@ -39600,7 +39782,7 @@ def market_trend_group(trend_slug):
 @app.route("/market/alerts")
 def market_alerts_hub():
     context = build_alerts_hub_context(request.url_root.rstrip("/"))
-    return render_template_string(MARKET_NEWS_PHASE2_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
+    return render_template_string(MARKET_ALERTS_PHASE3_TEMPLATE, get_canonical_stock_slug=get_canonical_stock_slug, **context)
 
 
 @app.route("/market/alerts/<alert_slug>")
