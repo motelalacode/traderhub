@@ -36453,6 +36453,20 @@ def build_website_shell_trial4_context(host_root):
     canonical_url = f"{host_root.rstrip('/')}/website-shell-trial4"
     base_tape = build_website_shell_trial3_index_tape()
     ticker_rows = list(base_tape)
+    def format_trial4_label(text):
+        value = str(text or "").strip()
+        if not value:
+            return "Updated at -- IST"
+        if value.lower().startswith("updated at ") and not value.endswith(" IST"):
+            return f"{value} IST"
+        if value.lower() == "latest available":
+            return "Latest available IST"
+        if value.endswith(" IST"):
+            return value
+        return f"{value} IST"
+
+    for row in ticker_rows:
+        row["updated_label"] = format_trial4_label(row.get("updated_label"))
     gift_row = {
         "label": "Gift Nifty",
         "value": "Pending",
@@ -36461,7 +36475,7 @@ def build_website_shell_trial4_context(host_root):
         "tone": "flat",
         "href": "/market",
         "status": "Pending",
-        "updated_label": "Latest available",
+        "updated_label": "Latest available IST",
         "sparkline_svg": "",
         "open_label": "↗",
     }
@@ -37427,31 +37441,6 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
       <section>
         <div class="section-title">
           <div>
-            <h2>Indices Strip</h2>
-            <p>Open the major market lanes first, then move into deeper research with context already in place.</p>
-          </div>
-        </div>
-        <div class="indices-grid" id="trial4IndicesGrid">
-          {% for row in indices_panel %}
-          <a class="index-pulse-card" href="{{ row.href }}">
-            <div class="index-pulse-top">
-              <div class="index-pulse-name">{{ row.label }}</div>
-              <div class="index-pulse-arrow">{{ row.open_label }}</div>
-            </div>
-            <div class="index-pulse-value">{{ row.value }}</div>
-            <div class="index-pulse-meta {{ row.tone }}">{{ row.change }} | {{ row.percent }}</div>
-            <div class="index-pulse-foot">{{ row.status }}<br>{{ row.updated_label }}</div>
-            {% if row.sparkline_svg %}
-            <div class="index-pulse-spark">{{ row.sparkline_svg|safe }}</div>
-            {% endif %}
-          </a>
-          {% endfor %}
-        </div>
-      </section>
-
-      <section>
-        <div class="section-title">
-          <div>
             <h2>Core Modules</h2>
             <p>Three clicks should be enough to move from homepage context into the market page, research page, or trading tool that matters next.</p>
           </div>
@@ -37546,7 +37535,6 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
       const hero = document.getElementById("trial4Hero");
       const tickerTrack = document.getElementById("trial4TickerTrack");
       const indicesPanel = document.getElementById("trial4IndicesPanel");
-      const indicesGrid = document.getElementById("trial4IndicesGrid");
       const pulseStats = document.getElementById("trial4PulseStats");
 
       window.addEventListener("scroll", function () {
@@ -37589,21 +37577,6 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
         }).join("");
       }
 
-      function buildIndexGridMarkup(rows) {
-        return rows.map(function (row) {
-          return `<a class="index-pulse-card" href="${row.href || "/market"}">
-            <div class="index-pulse-top">
-              <div class="index-pulse-name">${row.label || ""}</div>
-              <div class="index-pulse-arrow">${row.open_label || "->"}</div>
-            </div>
-            <div class="index-pulse-value">${row.value || "Pending"}</div>
-            <div class="index-pulse-meta ${row.tone || "flat"}">${row.change || "Pending"} | ${row.percent || "Pending"}</div>
-            <div class="index-pulse-foot">${row.status || "Pending"}<br>${row.updated_label || "Latest available"}</div>
-            <div class="index-pulse-spark">${row.sparkline_svg || ""}</div>
-          </a>`;
-        }).join("");
-      }
-
       async function refreshTrial4() {
         try {
           const response = await fetch("/api/website-shell-trial4/ticker", { headers: { "Accept": "application/json" } });
@@ -37615,7 +37588,6 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
           });
           if (tickerTrack) tickerTrack.innerHTML = buildTickerMarkup(rows);
           if (indicesPanel) indicesPanel.innerHTML = buildIndexPanelMarkup(panelRows);
-          if (indicesGrid) indicesGrid.innerHTML = buildIndexGridMarkup(panelRows);
           if (pulseStats && payload.pulse) {
             pulseStats.innerHTML = `
               <article class="pulse-stat"><span>Positive</span><strong>${payload.pulse.positive ?? "0"}</strong></article>
@@ -37627,7 +37599,7 @@ WEBSITE_SHELL_TRIAL4_TEMPLATE = """
         }
       }
 
-      window.setInterval(refreshTrial4, 60000);
+      window.setInterval(refreshTrial4, 30000);
     })();
   </script>
 </body>
