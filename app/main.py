@@ -40456,6 +40456,450 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
 """
 
 
+HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  <style>
+    :root {
+      --cream:#fdfbf7;
+      --warm:#ffffff;
+      --sand:#f5f1ea;
+      --line:#e8e2d9;
+      --line-2:#d4ccc0;
+      --ink:#1a1815;
+      --soft-ink:#5c5750;
+      --muted:#8c877f;
+      --green:#1d6b4a;
+      --green-bg:#eaf4ee;
+      --blue:#1a4e8c;
+      --blue-bg:#ebf3fc;
+      --amber:#8b5a00;
+      --amber-bg:#fdf3dc;
+      --radius-sm:8px;
+      --radius-md:12px;
+      --radius-lg:18px;
+      --shadow-sm:0 1px 3px rgba(26,24,21,.06),0 1px 2px rgba(26,24,21,.04);
+      --shadow-md:0 8px 24px rgba(26,24,21,.08),0 2px 4px rgba(26,24,21,.04);
+      --nav-height:64px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:Arial,Helvetica,sans-serif;background:var(--cream);color:var(--ink);
+      line-height:1.6;-webkit-font-smoothing:antialiased;
+    }
+    a{color:inherit;text-decoration:none}
+    nav{
+      position:sticky;top:0;z-index:80;height:var(--nav-height);
+      background:rgba(253,251,247,.94);backdrop-filter:blur(12px);
+      border-bottom:1px solid var(--line);display:flex;align-items:center;padding:0 22px;
+    }
+    .nav-inner{max-width:1240px;width:100%;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:18px}
+    .nav-logo{font:600 22px Georgia,"Times New Roman",serif;letter-spacing:-.02em}
+    .nav-logo span{color:var(--green)}
+    .nav-links{display:flex;align-items:center;gap:6px;list-style:none;flex-wrap:wrap}
+    .nav-links a{
+      font-size:13.5px;font-weight:600;color:var(--soft-ink);padding:7px 12px;border-radius:999px;transition:.15s ease;
+    }
+    .nav-links a:hover,.nav-links a.active{background:var(--green-bg);color:var(--green)}
+    .nav-cta{
+      padding:9px 15px;border-radius:999px;background:var(--green);color:#fff;font-size:13px;font-weight:700;
+      box-shadow:var(--shadow-sm)
+    }
+    .container{max-width:1240px;margin:0 auto;padding:0 24px}
+    .hero{
+      padding:46px 0 34px;background:linear-gradient(135deg,#f0ede6 0%,#fdfbf7 60%);
+      border-bottom:1px solid var(--line)
+    }
+    .breadcrumb{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:18px}
+    .breadcrumb a:hover{color:var(--green)}
+    .hero h1{
+      font-family:Georgia,"Times New Roman",serif;font-size:clamp(28px,4vw,42px);line-height:1.2;
+      letter-spacing:-.03em;max-width:760px;margin-bottom:14px
+    }
+    .hero-sub{font-size:16px;color:var(--soft-ink);max-width:620px;line-height:1.7;margin-bottom:24px}
+    .hero-meta{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+    .badge{
+      display:inline-flex;align-items:center;gap:7px;padding:6px 11px;border-radius:999px;border:1px solid var(--line-2);
+      background:var(--warm);font-size:12px;font-weight:600;color:var(--soft-ink)
+    }
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+    .stats-row{
+      display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin:30px 0;
+    }
+    .stat-card{
+      background:var(--warm);border:1px solid var(--line);border-radius:var(--radius-md);padding:18px 20px;
+      box-shadow:var(--shadow-sm)
+    }
+    .stat-label{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:7px}
+    .stat-value{font:600 30px/1 Georgia,"Times New Roman",serif;margin-bottom:5px}
+    .stat-note{font-size:12.5px;color:var(--muted)}
+    .quick-links{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px}
+    .quick-link{
+      display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
+      background:var(--blue-bg);border:1px solid #c0d8f0;color:var(--blue);font-size:13px;font-weight:700
+    }
+    .main-grid{
+      display:grid;grid-template-columns:290px 1fr;gap:28px;align-items:start;padding:30px 0 54px
+    }
+    .sidebar{position:sticky;top:calc(var(--nav-height) + 16px)}
+    .filter-panel,.content-panel,.faq-item,.related-card{
+      background:var(--warm);border:1px solid var(--line);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm)
+    }
+    .filter-panel{padding:22px}
+    .filter-title{
+      font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);
+      margin-bottom:18px;padding-bottom:12px;border-bottom:1px solid var(--line)
+    }
+    .filter-group{margin-bottom:18px}
+    .filter-group:last-of-type{margin-bottom:0}
+    .filter-group label{display:block;font-size:12.5px;font-weight:700;color:var(--soft-ink);margin-bottom:8px}
+    .filter-chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{
+      display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid var(--line-2);
+      background:var(--cream);font-size:12px;font-weight:600;color:var(--soft-ink)
+    }
+    .field-select{
+      width:100%;padding:9px 12px;border:1px solid var(--line-2);border-radius:var(--radius-sm);background:var(--cream);
+      font:inherit;color:var(--ink)
+    }
+    .toggle-row{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0
+    }
+    .toggle-row span{font-size:13px;color:var(--ink);line-height:1.4}
+    .toggle-check{width:18px;height:18px}
+    .filter-actions{display:flex;gap:8px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}
+    .btn-apply,.btn-reset{
+      border:none;border-radius:var(--radius-sm);padding:10px 14px;font:600 13px Arial,Helvetica,sans-serif;cursor:pointer
+    }
+    .btn-apply{flex:1;background:var(--green);color:#fff}
+    .btn-reset{background:var(--sand);border:1px solid var(--line-2);color:var(--soft-ink)}
+    .warning-box{
+      margin-top:18px;padding:14px 16px;border-radius:var(--radius-md);background:var(--amber-bg);
+      border:1px solid #f5dfa0;font-size:12.5px;color:var(--amber);line-height:1.6
+    }
+    .warning-box strong{display:block;margin-bottom:6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+    .section-stack{display:grid;gap:20px}
+    .content-panel{padding:22px}
+    .panel-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-end;margin-bottom:16px}
+    .panel-head h2{font-family:Georgia,"Times New Roman",serif;font-size:30px;line-height:1.1}
+    .panel-head p{color:var(--soft-ink);max-width:700px;font-size:14px;line-height:1.7}
+    .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    .summary-note{
+      padding:16px;border-radius:var(--radius-md);background:#fcfdfd;border:1px solid var(--line)
+    }
+    .summary-note strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--blue);margin-bottom:8px}
+    .summary-note span{display:block;color:var(--ink);line-height:1.65}
+    .table-header{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+    .table-count{font-size:14px;color:var(--soft-ink)}
+    .table-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .table-scroll{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;min-width:1120px}
+    th,td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:13.5px}
+    th{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+    tbody tr:hover{background:#fcfdfd}
+    .score-pill{
+      display:inline-flex;align-items:center;justify-content:center;min-width:54px;padding:6px 10px;border-radius:999px;
+      font-size:12px;font-weight:700;background:var(--green-bg);color:var(--green)
+    }
+    .how-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+    .how-card{
+      padding:16px;border-radius:var(--radius-md);background:#fcfdfd;border:1px solid var(--line)
+    }
+    .how-card strong{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--blue)}
+    .how-card span{display:block;color:var(--soft-ink);line-height:1.65;font-size:13px}
+    .faq-section{padding:4px 0 0}
+    .faq-grid,.related-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .faq-item,.related-card{padding:18px}
+    .faq-q{font-size:17px;font-weight:700;line-height:1.45;margin-bottom:10px}
+    .faq-a,.related-card p{font-size:13.5px;color:var(--soft-ink);line-height:1.7}
+    .related-card h3{font-size:18px;margin-bottom:8px}
+    .related-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+    .footer-links{
+      margin-top:26px;padding-top:18px;border-top:1px solid var(--line);display:flex;gap:10px;flex-wrap:wrap
+    }
+    .footer-links a{
+      display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:var(--sand);
+      border:1px solid var(--line);font-size:12.5px;font-weight:700;color:var(--soft-ink)
+    }
+    @media (max-width:1080px){
+      .main-grid{grid-template-columns:1fr}
+      .sidebar{position:static}
+      .summary-grid,.faq-grid,.related-grid,.how-grid{grid-template-columns:1fr}
+    }
+    @media (max-width:760px){
+      nav{padding:0 14px}
+      .nav-links{display:none}
+      .container{padding:0 14px}
+      .hero{padding:32px 0 26px}
+      .stats-row{grid-template-columns:1fr 1fr}
+      .filter-actions{flex-direction:column}
+      .table-count{font-size:13px}
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="https://traderhub.in" class="nav-logo">Trader<span>Hub</span></a>
+      <ul class="nav-links" role="list">
+        <li><a href="/" >Home</a></li>
+        <li><a href="/stocks" class="active">Stocks</a></li>
+        <li><a href="/sectors">Sectors</a></li>
+        <li><a href="/derivatives">Derivatives</a></li>
+        <li><a href="/commodities">Commodities</a></li>
+      </ul>
+      <a href="/stocks/dividend-stocks" class="nav-cta">Explore All Screens</a>
+    </div>
+  </nav>
+
+  <header class="hero" role="banner">
+    <div class="container">
+      <div class="breadcrumb" aria-label="Breadcrumb">
+        <a href="/">Home</a>
+        <span>/</span>
+        <a href="/stocks">Stocks</a>
+        <span>/</span>
+        <a href="/stocks/dividend-stocks">Dividend Screens</a>
+        <span>/</span>
+        <span>High Dividend Stocks Redesign Sample</span>
+      </div>
+      <h1>High Dividend Paying Stocks in India With Better Structure, Cleaner Signals, and Stronger Research Flow</h1>
+      <p class="hero-sub">A separate redesign sample inspired by your uploaded layout. It keeps the page editorial and premium, with a sidebar filter flow, stronger trust cues, structured stock rankings, and better SEO depth before touching the original route.</p>
+      <div class="hero-meta">
+        <span class="badge"><span class="dot"></span>Live sample · {{ last_refresh }}</span>
+        <span class="badge">{{ filtered_rows_count }} stocks ranked</span>
+        <span class="badge">NSE listed</span>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-label">Average Yield</div>
+          <div class="stat-value">{{ avg_yield_display }}</div>
+          <div class="stat-note">Across the filtered shortlist</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Average Score</div>
+          <div class="stat-value">{{ avg_score_display }}</div>
+          <div class="stat-note">Dividend Attractiveness average</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Best Current Rank</div>
+          <div class="stat-value">{% if best_row %}{{ best_row.nse_symbol }}{% else %}Pending{% endif %}</div>
+          <div class="stat-note">{% if best_row %}{{ best_row.dividend_yield_display }} yield · score {{ best_row.total_score }}{% else %}Top row unavailable{% endif %}</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Screen Mode</div>
+          <div class="stat-value" style="font-size:22px">{{ live_mode_label }}</div>
+          <div class="stat-note">Separate redesign sample only</div>
+        </div>
+      </div>
+
+      <div class="quick-links">
+        <a class="quick-link" href="#results">View ranked table</a>
+        <a class="quick-link" href="#score">How the score works</a>
+        <a class="quick-link" href="#faq">Read FAQs</a>
+        <a class="quick-link" href="#related">Related screens</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="main-grid">
+      <aside class="sidebar">
+        <div class="filter-panel">
+          <div class="filter-title">Filter dashboard</div>
+          <form method="get">
+            <div class="filter-group">
+              <label for="yield_min_redesign">Dividend yield minimum</label>
+              <div class="filter-chips">
+                {% for option in yield_options %}
+                <span class="chip">{{ option }}%+</span>
+                {% endfor %}
+              </div>
+              <select class="field-select" id="yield_min_redesign" name="yield_min">
+                {% for option in yield_options %}
+                <option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="market_cap_redesign">Market cap bucket</label>
+              <select class="field-select" id="market_cap_redesign" name="market_cap">
+                {% for option in market_cap_options %}
+                <option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="sector_redesign">Sector</label>
+              <select class="field-select" id="sector_redesign" name="sector">
+                <option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>
+                {% for option in sector_options %}
+                <option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="filter-group">
+              <div class="toggle-row"><span>P/E below industry average</span><input class="toggle-check" type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}></div>
+              <div class="toggle-row"><span>Price below 52-week high by 20%+</span><input class="toggle-check" type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}></div>
+              <div class="toggle-row"><span>ROE above 12%</span><input class="toggle-check" type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}></div>
+              <div class="toggle-row"><span>Debt to equity below 1</span><input class="toggle-check" type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}></div>
+            </div>
+            <div class="filter-actions">
+              <button class="btn-apply" type="submit">Apply filters</button>
+              <a class="btn-reset" href="{{ canonical_url }}">Reset</a>
+            </div>
+          </form>
+          <div class="warning-box">
+            <strong>Important warning</strong>
+            {{ warning_copy }}
+          </div>
+        </div>
+      </aside>
+
+      <div class="section-stack">
+        <section class="content-panel">
+          <div class="panel-head">
+            <div>
+              <h2>AI Summary</h2>
+              <p>This redesign keeps the opening explanation shorter, but still gives enough context for both readers and AI systems to understand what the page is trying to do.</p>
+            </div>
+          </div>
+          <div class="summary-grid">
+            {% for bullet in ai_summary_bullets %}
+            <div class="summary-note">
+              <strong>Signal {{ loop.index }}</strong>
+              <span>{{ bullet }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="content-panel" id="results" aria-label="Stock results">
+          <div class="table-header">
+            <p class="table-count"><strong>{{ filtered_rows_count }}</strong> stocks · Ranked by Dividend Attractiveness Score</p>
+            <div class="table-actions">
+              <a class="quick-link" href="/stocks/high-dividend-paying-stocks">Original page</a>
+              <a class="quick-link" href="/stocks/dividend-stocks">Dividend hub</a>
+            </div>
+          </div>
+          <div class="table-scroll">
+            {% if rows %}
+            <table>
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Symbol</th>
+                  <th>Score</th>
+                  <th>Yield</th>
+                  <th>Price</th>
+                  <th>P/E</th>
+                  <th>ROE</th>
+                  <th>Debt / Equity</th>
+                  <th>Below 52W High</th>
+                  <th>Sector</th>
+                  <th>Stock Page</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in rows %}
+                <tr>
+                  <td>{{ row.company_name }}</td>
+                  <td>{{ row.nse_symbol }}</td>
+                  <td><span class="score-pill">{{ row.total_score }}</span></td>
+                  <td>{{ row.dividend_yield_display }}</td>
+                  <td>{{ row.current_price_display }}</td>
+                  <td>{{ row.pe_display }}</td>
+                  <td>{{ row.roe_display }}</td>
+                  <td>{{ row.de_display }}</td>
+                  <td>{{ row.below_high_display }}</td>
+                  <td>{{ row.sector }}</td>
+                  <td><a class="quick-link" href="{{ row.stock_url }}">Open</a></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <div class="summary-note"><strong>No matches</strong><span>These filters currently return no rows. Reset the sample filters and try again.</span></div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="content-panel" id="score">
+          <div class="panel-head">
+            <div>
+              <h2>How the Score Works</h2>
+              <p>This section explains the ranking without forcing too much text at the top of the page.</p>
+            </div>
+          </div>
+          <div class="how-grid">
+            <div class="how-card"><strong>Yield</strong><span>Higher yield helps, but only when the business is not under obvious stress.</span></div>
+            <div class="how-card"><strong>Valuation</strong><span>P/E comfort relative to peers improves the quality of the entry zone.</span></div>
+            <div class="how-card"><strong>Financial strength</strong><span>ROE and debt context help separate real income names from yield traps.</span></div>
+            <div class="how-card"><strong>Price opportunity</strong><span>Distance from 52-week highs gives extra context on whether the stock is overheated or overlooked.</span></div>
+          </div>
+        </section>
+
+        <section class="faq-section" id="faq">
+          <div class="panel-head">
+            <div>
+              <h2>Frequently Asked Questions</h2>
+              <p>Structured FAQs remain one of the fastest ways to improve both user trust and AI discoverability.</p>
+            </div>
+          </div>
+          <div class="faq-grid">
+            {% for item in faq_items %}
+            <div class="faq-item">
+              <div class="faq-q">{{ item.question }}</div>
+              <div class="faq-a">{{ item.answer }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="content-panel" id="related">
+          <div class="panel-head">
+            <div>
+              <h2>Related Screens</h2>
+              <p>These internal links keep the page connected to the rest of the TraderHub dividend research system.</p>
+            </div>
+          </div>
+          <div class="related-grid">
+            {% for item in related_articles %}
+            <div class="related-card">
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.copy }}</p>
+              <div class="related-links"><a class="quick-link" href="{{ item.href }}">Open page</a></div>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="footer-links">
+            {% for item in related_screeners %}
+            <a href="{{ item.href }}">{{ item.label }}</a>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
+"""
+
+
 @app.route("/stocks/high-dividend-paying-stocks")
 def high_dividend_paying_stocks():
     context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="high-dividend")
@@ -40466,6 +40910,22 @@ def high_dividend_paying_stocks():
 def high_dividend_paying_stocks_sample():
     context = build_high_dividend_sample_context(request.url_root.rstrip("/"))
     return render_template_string(HIGH_DIVIDEND_SAMPLE_TEMPLATE, **context)
+
+
+@app.route("/stocks/high-dividend-paying-stocks-redesign-sample")
+def high_dividend_paying_stocks_redesign_sample():
+    context = build_high_dividend_sample_context(request.url_root.rstrip("/"))
+    context.update(
+        {
+            "seo_title": "High Dividend Stocks Redesign Sample | TraderHub",
+            "seo_description": "A separate premium redesign sample for TraderHub high dividend stocks, inspired by the provided editorial layout with sticky filters, cleaner hero, and table-first research flow.",
+            "canonical_url": f"{request.url_root.rstrip('/')}/stocks/high-dividend-paying-stocks-redesign-sample",
+            "page_title": "High Dividend Stocks Redesign Sample",
+            "page_subtitle": "A second separate sample that mirrors the uploaded editorial dividend layout more closely, without changing the original TraderHub screen.",
+            "page_kicker": "TraderHub Dividend Redesign Sample",
+        }
+    )
+    return render_template_string(HIGH_DIVIDEND_REDESIGN_TEMPLATE, **context)
 
 
 @app.route("/stocks/undervalued-dividend-stocks")
