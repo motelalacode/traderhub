@@ -35446,12 +35446,44 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
 def build_high_dividend_sample_context(host_root):
     base = build_high_dividend_page_context(host_root, screen_key="high-dividend")
     rows = list(base.get("rows") or [])
-    top_rows = rows[:8]
+    top_rows = rows[:10]
     leaderboard_rows = rows[:5]
     best_row = base.get("best_row")
     avg_yield = base.get("avg_yield_display", "0.00%")
     avg_score = base.get("avg_score_display", "0.0")
     canonical_url = f"{host_root.rstrip('/')}/stocks/high-dividend-paying-stocks-sample"
+
+    def safe_display(value, fallback="Pending"):
+        text = str(value).strip() if value is not None else ""
+        return text if text else fallback
+
+    def score_verdict(score):
+        if score >= 76:
+            return "Strong Dividend Candidate", "safe"
+        if score >= 60:
+            return "High Yield but Risky", "watch"
+        return "Avoid for Now", "risky"
+
+    def score_quality(score):
+        if score >= 76:
+            return "Dividend Quality: Strong"
+        if score >= 60:
+            return "Dividend Quality: Watch"
+        return "Dividend Quality: Risky"
+
+    sector_icons = {
+        "Metals": "Fe",
+        "Oil & Gas": "Oil",
+        "Energy": "En",
+        "Power": "Pw",
+        "Utilities": "Ut",
+        "FMCG": "FG",
+        "Banks": "Bk",
+        "Financial Services": "Fs",
+        "Telecom": "Tl",
+        "Chemicals": "Ch",
+        "IT": "IT",
+    }
 
     sector_totals = {}
     bucket_totals = {}
@@ -35510,6 +35542,69 @@ def build_high_dividend_sample_context(host_root):
             f"{best_row['company_name']} leads the current ranking with a score of {best_row['total_score']}, yield of {best_row['dividend_yield_display']}, and market cap bucket of {best_row['market_cap_bucket']}."
         )
 
+    premium_cards = []
+    for index, row in enumerate(top_rows, start=1):
+        score = float(row.get("total_score") or 0.0)
+        verdict, tone = score_verdict(score)
+        premium_cards.append(
+            {
+                **row,
+                "rank": index,
+                "score_percent": max(0, min(100, round(score, 1))),
+                "score_text": f"{score:.1f}",
+                "safety_tone": tone,
+                "safety_label": verdict,
+                "quality_label": score_quality(score),
+                "sector_icon": sector_icons.get(row.get("sector") or "", (row.get("sector") or "?")[:2].title()),
+                "pe_display_safe": safe_display(row.get("pe_display")),
+                "de_display_safe": safe_display(row.get("de_display")),
+                "drawdown_display_safe": safe_display(row.get("below_high_display")),
+                "roe_display_safe": safe_display(row.get("roe_display")),
+                "dividend_per_share_safe": safe_display(row.get("dividend_per_share_display")),
+                "summary_copy": "Yield "
+                + safe_display(row.get("dividend_yield_display"))
+                + ", P/E "
+                + safe_display(row.get("pe_display"))
+                + ", debt/equity "
+                + safe_display(row.get("de_display"))
+                + ", drawdown "
+                + safe_display(row.get("below_high_display"))
+                + ".",
+            }
+        )
+
+    compare_modes = [
+        {"label": "Compare Top 5", "target": "leaderboard"},
+        {"label": "Compare by Sector", "target": "comparison"},
+        {"label": "Compare by Yield", "target": "matrix"},
+        {"label": "Compare by Safety", "target": "cards"},
+    ]
+
+    safety_meter = [
+        {"label": "Yield Score", "value": avg_yield, "tone": "safe"},
+        {"label": "Payout Safety", "value": f"{high_score_count} strong", "tone": "safe" if high_score_count >= 4 else "watch"},
+        {"label": "Debt Risk", "value": f"{low_debt_count} low debt", "tone": "safe" if low_debt_count >= 4 else "watch"},
+        {"label": "Valuation Comfort", "value": f"{pe_below_industry_count} below industry P/E", "tone": "safe" if pe_below_industry_count >= 4 else "watch"},
+        {"label": "Price Drawdown", "value": f"{sum(1 for row in rows if (row.get('price_below_52w_high_pct') or 0) >= 20)} deep value zones", "tone": "watch"},
+    ]
+
+    matrix_rows = []
+    for row in top_rows:
+        score = float(row.get("total_score") or 0.0)
+        verdict, tone = score_verdict(score)
+        matrix_rows.append(
+            {
+                "company_name": row.get("company_name"),
+                "yield_display": safe_display(row.get("dividend_yield_display")),
+                "score_display": f"{score:.1f}",
+                "debt_risk": "Low" if (row.get("debt_to_equity") or 999) < 1 else ("Moderate" if (row.get("debt_to_equity") or 999) < 2 else "High"),
+                "roe_display": safe_display(row.get("roe_display")),
+                "pe_vs_industry": "Below" if row.get("pe_ratio") is not None and row.get("industry_pe_avg") is not None and row.get("pe_ratio") < row.get("industry_pe_avg") else ("Above" if row.get("pe_ratio") is not None and row.get("industry_pe_avg") is not None else "Pending"),
+                "verdict": verdict,
+                "tone": tone,
+            }
+        )
+
     related_articles = [
         {"title": "Undervalued Dividend Stocks", "copy": "A valuation-first sibling screen for readers who want income plus stronger entry discipline.", "href": "/stocks/undervalued-dividend-stocks"},
         {"title": "Large Cap Dividend Stocks", "copy": "A stability-first dividend list built around bigger businesses and steadier balance sheets.", "href": "/stocks/large-cap-dividend-stocks"},
@@ -35526,8 +35621,8 @@ def build_high_dividend_sample_context(host_root):
 
     sample_context = {
         **base,
-        "seo_title": "High Dividend Stocks Sample Layout, AI Summary & Dividend Strength Score | TraderHub",
-        "seo_description": "Preview a richer High Dividend Stocks layout with AI summary, dividend strength score, stock cards, calculator, FAQ, and related screeners.",
+        "seo_title": "India’s Best High Dividend Stocks — Ranked by Yield, Quality & Valuation | TraderHub Sample",
+        "seo_description": "Preview a premium high dividend stocks sample page with AI dividend score, yield plus risk checks, comparison mode, safety meter, FAQ, calculator, and stronger stock cards.",
         "canonical_url": canonical_url,
         "page_title": "High Dividend Stocks Sample",
         "page_subtitle": "A cleaner dividend research layout designed to improve readability, SEO depth, AI discoverability, and user time on page before replacing the original screen.",
@@ -35537,7 +35632,7 @@ def build_high_dividend_sample_context(host_root):
         "ai_summary_copy": "Use this quick read to understand whether the current shortlist looks strong, crowded, or risky before moving into the leaderboard and stock cards.",
         "ai_summary_bullets": ai_bullets,
         "leaderboard_rows": leaderboard_rows,
-        "stock_cards": top_rows,
+        "stock_cards": premium_cards,
         "sector_comparison": sector_comparison,
         "bucket_comparison": bucket_comparison,
         "calculator_default_yield": f"{best_row['dividend_yield_pct']:.2f}" if best_row and best_row.get("dividend_yield_pct") is not None else "4.00",
@@ -35545,6 +35640,14 @@ def build_high_dividend_sample_context(host_root):
         "calculator_default_growth": "6",
         "related_articles": related_articles,
         "related_screeners": related_screeners,
+        "hero_heading": "India’s Best High Dividend Stocks — Ranked by Yield, Quality & Valuation",
+        "hero_badges": ["Updated Daily", "AI Dividend Score", "Yield + Risk Check"],
+        "compare_modes": compare_modes,
+        "safety_meter": safety_meter,
+        "safety_meter_label": "Strong Dividend Candidate" if high_score_count >= 4 else "High Yield but Risky",
+        "matrix_rows": matrix_rows,
+        "top_disclaimer": "Dividend yield changes with stock price and company payouts. This page is for research, not investment advice.",
+        "bottom_disclaimer": "Dividend yield changes with stock price and company payouts. This page is for research, not investment advice.",
     }
     return sample_context
 
@@ -39936,494 +40039,70 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
   <meta name="twitter:card" content="summary_large_image">
   <script type="application/ld+json">{{ schema_json|safe }}</script>
   <style>
-    :root{
-      --bg:#f4f8fb;
-      --paper:#ffffff;
-      --panel:#f9fcff;
-      --line:#d7e4ee;
-      --ink:#102032;
-      --muted:#617587;
-      --blue:#124f7f;
-      --blue-2:#1e75ba;
-      --green:#10856e;
-      --green-soft:#e9faf5;
-      --amber:#a56611;
-      --amber-soft:#fff3df;
-      --shadow:0 20px 42px rgba(16,32,50,.08);
-      --radius:24px;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Arial,Helvetica,sans-serif;
-      color:var(--ink);
-      background:
-        radial-gradient(circle at top left, rgba(30,117,186,.10), transparent 28%),
-        radial-gradient(circle at top right, rgba(16,133,110,.08), transparent 22%),
-        linear-gradient(180deg,#f9fbfd 0%,var(--bg) 100%);
-    }
-    a{color:inherit;text-decoration:none}
-    .page{max-width:1460px;margin:0 auto;padding:22px 16px 48px}
-    .hero{
-      background:linear-gradient(135deg,#0f2840 0%,#164a68 54%,#1d7f7a 100%);
-      color:#fff;border-radius:34px;padding:34px;position:relative;overflow:hidden;
-      box-shadow:0 26px 56px rgba(15,40,64,.22);margin-bottom:20px;
-    }
-    .hero::before,.hero::after{
-      content:"";position:absolute;border-radius:999px;filter:blur(0);
-      background:rgba(255,255,255,.10)
-    }
-    .hero::before{width:220px;height:220px;right:-60px;top:-40px}
-    .hero::after{width:140px;height:140px;left:-30px;bottom:-40px;background:rgba(255,255,255,.08)}
-    .hero-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:22px;align-items:end;position:relative;z-index:1}
-    .eyebrow{
-      display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;
-      background:rgba(255,255,255,.12);backdrop-filter:blur(10px);font-size:12px;
-      letter-spacing:.14em;text-transform:uppercase
-    }
-    .hero h1{margin:14px 0 10px;font-size:clamp(34px,4vw,56px);line-height:1.02;font-weight:800;max-width:760px}
-    .hero p{margin:0;max-width:760px;color:rgba(255,255,255,.82);font-size:16px;line-height:1.7}
-    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
-    .btn{
-      display:inline-flex;align-items:center;justify-content:center;padding:13px 18px;border-radius:16px;
-      font-weight:700;font-size:14px;border:1px solid transparent;transition:transform .18s ease,box-shadow .18s ease
-    }
-    .btn:hover{transform:translateY(-2px)}
-    .btn-primary{background:#fff;color:#0f2840;box-shadow:0 16px 28px rgba(7,15,24,.16)}
-    .btn-secondary{background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.26);backdrop-filter:blur(10px)}
-    .hero-meta{
-      display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px
-    }
-    .meta-card{
-      background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:22px;
-      padding:16px;backdrop-filter:blur(14px)
-    }
-    .meta-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.72)}
-    .meta-card strong{display:block;margin-top:10px;font-size:24px}
-    .meta-card span{display:block;margin-top:6px;font-size:13px;color:rgba(255,255,255,.82);line-height:1.55}
-    .notice{
-      margin-top:16px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.12);
-      border:1px solid rgba(255,255,255,.14);font-size:13px;color:rgba(255,255,255,.86)
-    }
-    .intro{
-      display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:16px 0 22px;
-      color:var(--muted);font-size:14px;line-height:1.7
-    }
-    .section{margin-top:22px}
-    .section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:14px}
-    .section h2{margin:0;font-size:28px;line-height:1.1;font-family:Georgia,"Times New Roman",serif}
-    .section p{margin:6px 0 0;color:var(--muted);max-width:760px;line-height:1.7}
-    .panel{
-      background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);
-      box-shadow:var(--shadow)
-    }
-    .ai-summary{display:grid;grid-template-columns:1.1fr .9fr;gap:18px;padding:18px}
-    .ai-copy{padding:6px 4px}
-    .ai-copy h3{margin:0 0 10px;font-size:22px}
-    .ai-copy p{margin:0;color:var(--muted);line-height:1.75}
-    .ai-bullets{display:grid;gap:10px}
-    .ai-bullet{
-      background:linear-gradient(180deg,#fbfdff,#f2f7fb);border:1px solid var(--line);border-radius:18px;padding:14px
-    }
-    .ai-bullet strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue)}
-    .ai-bullet span{display:block;margin-top:8px;line-height:1.65;color:var(--ink)}
-    .leaderboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
-    .leader-card{padding:18px;border-radius:22px;background:linear-gradient(180deg,#fff,#f6fbff);border:1px solid var(--line);box-shadow:var(--shadow)}
-    .leader-rank{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:700}
-    .leader-card h3{margin:10px 0 8px;font-size:21px;line-height:1.2}
-    .leader-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
-    .metric{padding:10px 12px;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
-    .metric .k{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
-    .metric .v{display:block;margin-top:6px;font-size:18px;font-weight:800}
-    .filter-shell{padding:18px}
-    .filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-    .field label{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}
-    .field select,.field input{
-      width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:var(--ink)
-    }
-    .toggle{
-      display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;height:48px
-    }
-    .filter-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
-    .stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    .stock-card{padding:18px}
-    .stock-top{display:flex;justify-content:space-between;gap:14px;align-items:start}
-    .stock-card h3{margin:0 0 6px;font-size:22px;line-height:1.2}
-    .stock-card .symbol{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}
-    .badge{
-      display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;
-      background:var(--green-soft);color:var(--green);font-size:12px;font-weight:700
-    }
-    .stock-copy{margin-top:12px;color:var(--muted);line-height:1.7}
-    .stock-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}
-    .score-bar{height:10px;border-radius:999px;background:#e5eef4;overflow:hidden;margin-top:12px}
-    .score-fill{height:100%;background:linear-gradient(90deg,var(--blue-2),#2dc18d)}
-    .stock-footer{margin-top:16px;display:flex;justify-content:space-between;gap:12px;align-items:center}
-    .ghost-link{font-weight:700;color:var(--blue)}
-    .compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    .table-card{padding:18px}
-    .table-card table{width:100%;border-collapse:collapse}
-    .table-card th,.table-card td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-    .table-card th{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
-    .calc-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:16px}
-    .calc-card{padding:18px}
-    .calc-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
-    .calc-result{
-      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px
-    }
-    .faq-list{display:grid;gap:12px}
-    .faq-item{padding:16px 18px}
-    .faq-item h3{margin:0 0 10px;font-size:18px}
-    .faq-item p{margin:0;color:var(--muted);line-height:1.7}
-    .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
-    .tile{padding:18px}
-    .tile h3{margin:0 0 10px;font-size:20px}
-    .tile p{margin:0;color:var(--muted);line-height:1.7}
-    .tile-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
-    .chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:var(--panel);border:1px solid var(--line);font-size:13px;font-weight:700}
-    .newsletter{
-      display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:22px;
-      background:linear-gradient(135deg,#102d46,#176f92);color:#fff
-    }
-    .newsletter h2{margin:0 0 10px;font-size:28px;font-family:Georgia,"Times New Roman",serif}
-    .newsletter p{margin:0;color:rgba(255,255,255,.82);max-width:720px;line-height:1.75}
-    .newsletter-form{display:flex;gap:10px;flex-wrap:wrap}
-    .newsletter-form input{
-      min-width:280px;padding:14px 16px;border:none;border-radius:14px;font:inherit
-    }
-    .mini-note{font-size:12px;color:var(--muted)}
-    @media (max-width:1180px){
-      .hero-grid,.ai-summary,.calc-grid{grid-template-columns:1fr}
-      .leaderboard{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .filter-grid,.stock-metrics,.calc-form,.calc-result{grid-template-columns:repeat(2,minmax(0,1fr))}
-      .stock-grid,.compare-grid,.tiles{grid-template-columns:1fr}
-    }
-    @media (max-width:760px){
-      .page{padding:14px 12px 34px}
-      .hero{padding:24px 18px;border-radius:28px}
-      .hero h1{font-size:34px}
-      .hero-meta,.leaderboard,.filter-grid,.stock-metrics,.calc-form,.calc-result,.newsletter{grid-template-columns:1fr}
-      .newsletter{padding:18px}
-      .newsletter-form input{min-width:0;width:100%}
-      .section h2{font-size:24px}
-      .intro,.section-head{display:block}
-    }
+    :root{--bg:#f5f8fb;--paper:#fff;--line:#d7e4ee;--ink:#102032;--muted:#617587;--blue:#124f7f;--green:#10856e;--green-soft:#e9faf5;--amber:#a56611;--amber-soft:#fff3df;--red:#9c3b49;--red-soft:#fff0f2;--shadow:0 20px 42px rgba(16,32,50,.08);--radius:24px}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top left, rgba(30,117,186,.10), transparent 28%),radial-gradient(circle at top right, rgba(16,133,110,.08), transparent 22%),linear-gradient(180deg,#f9fbfd 0%,var(--bg) 100%)}
+    a{color:inherit;text-decoration:none}.page{max-width:1460px;margin:0 auto;padding:22px 16px 48px}.hero,.panel,.cta-banner,.disclaimer{background:var(--paper);border:1px solid var(--line);border-radius:28px;box-shadow:var(--shadow)}
+    .hero{padding:34px;background:linear-gradient(135deg,#0f2840 0%,#164a68 54%,#1d7f7a 100%);color:#fff;position:relative;overflow:hidden}.hero:before,.hero:after{content:"";position:absolute;border-radius:999px;background:rgba(255,255,255,.10)}.hero:before{width:220px;height:220px;right:-60px;top:-40px}.hero:after{width:140px;height:140px;left:-30px;bottom:-40px;background:rgba(255,255,255,.08)}
+    .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;background:rgba(255,255,255,.12);font-size:12px;letter-spacing:.14em;text-transform:uppercase}.hero-grid{display:grid;grid-template-columns:1.25fr .75fr;gap:22px;align-items:end;position:relative;z-index:1}
+    .hero h1{margin:14px 0 10px;font:800 clamp(34px,4vw,58px)/1.02 Arial,Helvetica,sans-serif;max-width:880px}.hero p{margin:0;max-width:760px;color:rgba(255,255,255,.86);font-size:16px;line-height:1.7}
+    .badge-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}.hero-badge{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);font-size:12px;font-weight:700}
+    .hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 18px;border-radius:16px;font-weight:700;font-size:14px;border:1px solid transparent;transition:transform .18s ease}.btn:hover{transform:translateY(-2px)}.btn-primary{background:#fff;color:#0f2840}.btn-secondary{background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.26)}
+    .hero-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.meta-card{background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.16);border-radius:22px;padding:16px}.meta-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:rgba(255,255,255,.72)}.meta-card strong{display:block;margin-top:10px;font-size:24px}.meta-card span{display:block;margin-top:6px;font-size:13px;color:rgba(255,255,255,.82);line-height:1.55}
+    .sample-note,.disclaimer{margin-top:16px;padding:12px 14px;font-size:13px;line-height:1.6}.sample-note{border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.88)}.disclaimer{background:linear-gradient(135deg,#fff8ef,var(--amber-soft));color:var(--amber)}
+    .intro{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:16px 0 22px;color:var(--muted);font-size:14px;line-height:1.7}.section{margin-top:22px}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:14px}.section h2{margin:0;font-size:28px;line-height:1.1;font-family:Georgia,"Times New Roman",serif}.section p{margin:6px 0 0;color:var(--muted);max-width:780px;line-height:1.7}
+    .panel{padding:18px}.ai-summary{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.ai-copy h3{margin:0 0 10px;font-size:22px}.ai-copy p{margin:0;color:var(--muted);line-height:1.75}.ai-bullets{display:grid;gap:10px}.ai-bullet{background:linear-gradient(180deg,#fbfdff,#f2f7fb);border:1px solid var(--line);border-radius:18px;padding:14px}.ai-bullet strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue)}.ai-bullet span{display:block;margin-top:8px;line-height:1.65}
+    .leaderboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.leader-card{padding:18px;border-radius:22px;background:linear-gradient(180deg,#fff,#f6fbff);border:1px solid var(--line);box-shadow:var(--shadow)}.leader-rank{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:700}.leader-card h3{margin:10px 0 8px;font-size:21px;line-height:1.2}.leader-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+    .metric{padding:10px 12px;border-radius:16px;background:#f9fcff;border:1px solid var(--line)}.metric .k{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.metric .v{display:block;margin-top:6px;font-size:18px;font-weight:800}
+    .compare-mode{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}.compare-chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:#eef5fa;border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--blue)}
+    .filter-shell{padding:18px}.filter-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.field label{display:block;margin-bottom:8px;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:700}.field select,.field input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;font:inherit;color:var(--ink)}.toggle{display:flex;align-items:center;gap:8px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;height:48px}.filter-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+    .stock-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.stock-card{position:relative;padding:20px;overflow:hidden;background:linear-gradient(160deg,#ffffff 0%,#f6fbff 58%,#eef8f5 100%)}.stock-card:before{content:"";position:absolute;inset:auto -40px -40px auto;width:150px;height:150px;border-radius:50%;background:rgba(30,117,186,.08)}.rank-badge{position:absolute;top:18px;right:18px;display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:46px;border-radius:16px;background:#102d46;color:#fff;font-weight:800;font-size:14px;box-shadow:0 12px 24px rgba(16,45,70,.18)}
+    .stock-top{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;position:relative;z-index:1}.stock-card h3{margin:8px 0 5px;font-size:26px;line-height:1.15}.stock-card .symbol{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:700}.subline{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}.sector-icon{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:12px;background:#eaf2fb;color:var(--blue);font-size:11px;font-weight:800}
+    .score-ring{width:96px;height:96px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--green) calc(var(--score)*1%), #dfeaf2 0);padding:8px}.score-ring .inner{width:100%;height:100%;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center}.score-ring strong{font-size:24px;line-height:1}.score-ring span{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+    .metrics-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:16px;position:relative;z-index:1}.metrics-row .metric{padding:12px}.stock-copy{margin-top:14px;color:var(--muted);line-height:1.7;position:relative;z-index:1}
+    .safety-meter{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-top:16px;position:relative;z-index:1}.safety-meter .meter{padding:10px 12px;border-radius:16px;background:#fbfdff;border:1px solid var(--line)}.meter .k{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.meter .v{display:block;margin-top:6px;font-size:14px;font-weight:700}
+    .tag{display:inline-flex;align-items:center;padding:9px 12px;border-radius:999px;font-size:12px;font-weight:800;margin-top:16px;position:relative;z-index:1}.tag.safe{background:var(--green-soft);color:var(--green)}.tag.watch{background:var(--amber-soft);color:var(--amber)}.tag.risky{background:var(--red-soft);color:var(--red)}.stock-footer{margin-top:16px;display:flex;justify-content:space-between;gap:12px;align-items:center;position:relative;z-index:1}.ghost-link{font-weight:700;color:var(--blue)}
+    .cta-banner{padding:18px 20px;background:linear-gradient(135deg,#102d46,#176f92);color:#fff}.cta-banner h3{margin:0 0 8px;font-size:22px;font-family:Georgia,"Times New Roman",serif}.cta-banner p{margin:0;color:rgba(255,255,255,.86);line-height:1.75}
+    .compare-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.table-card{padding:18px}.table-card table,.matrix-table{width:100%;border-collapse:collapse}.table-card th,.table-card td,.matrix-table th,.matrix-table td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}.table-card th,.matrix-table th{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.verdict-pill{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:800}.verdict-pill.safe{background:var(--green-soft);color:var(--green)}.verdict-pill.watch{background:var(--amber-soft);color:var(--amber)}.verdict-pill.risky{background:var(--red-soft);color:var(--red)}
+    .calc-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:16px}.calc-card{padding:18px}.calc-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.calc-result{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}.faq-list{display:grid;gap:12px}.faq-item{padding:16px 18px}.faq-item h3{margin:0 0 10px;font-size:18px}.faq-item p{margin:0;color:var(--muted);line-height:1.7}
+    .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.tile{padding:18px}.tile h3{margin:0 0 10px;font-size:20px}.tile p{margin:0;color:var(--muted);line-height:1.7}.tile-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:#f9fcff;border:1px solid var(--line);font-size:13px;font-weight:700}
+    .newsletter{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:22px;background:linear-gradient(135deg,#102d46,#176f92);color:#fff}.newsletter h2{margin:0 0 10px;font-size:28px;font-family:Georgia,"Times New Roman",serif}.newsletter p{margin:0;color:rgba(255,255,255,.82);max-width:720px;line-height:1.75}.newsletter-form{display:flex;gap:10px;flex-wrap:wrap}.newsletter-form input{min-width:280px;padding:14px 16px;border:none;border-radius:14px;font:inherit}.mini-note{font-size:12px;color:var(--muted)}
+    @media (max-width:1180px){.hero-grid,.ai-summary,.calc-grid{grid-template-columns:1fr}.leaderboard{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-grid,.compare-grid,.tiles{grid-template-columns:1fr}} @media (max-width:760px){.page{padding:14px 12px 34px}.hero{padding:24px 18px;border-radius:28px}.hero h1{font-size:34px}.hero-meta,.leaderboard,.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result,.newsletter{grid-template-columns:1fr}.newsletter{padding:18px}.newsletter-form input{min-width:0;width:100%}.section h2{font-size:24px}.intro,.section-head{display:block}}
   </style>
 </head>
 <body>
   <div class="page">
+    <div class="disclaimer">{{ top_disclaimer }}</div>
     <section class="hero">
       <div class="hero-grid">
         <div>
           <div class="eyebrow">{{ page_kicker }}</div>
-          <h1>High Dividend Stocks With Stronger AI Summary, Better Cards, and Deeper Comparison Flow</h1>
+          <h1>{{ hero_heading }}</h1>
           <p>{{ page_subtitle }}</p>
-          <div class="hero-actions">
-            <a class="btn btn-primary" href="#leaderboard">Explore Leaderboard</a>
-            <a class="btn btn-secondary" href="#cards">View Stock Cards</a>
-          </div>
-          <div class="notice">{{ sample_notice }}</div>
+          <div class="badge-row">{% for badge in hero_badges %}<span class="hero-badge">{{ badge }}</span>{% endfor %}</div>
+          <div class="hero-actions"><a class="btn btn-primary" href="#leaderboard">Explore Leaderboard</a><a class="btn btn-secondary" href="#cards">View Stock Cards</a></div>
+          <div class="sample-note">{{ sample_notice }}</div>
         </div>
         <div class="hero-meta">
-          <div class="meta-card">
-            <div class="label">Screen Snapshot</div>
-            <strong>{{ filtered_rows_count }}</strong>
-            <span>Dividend names currently match the active filter set on this sample page.</span>
-          </div>
-          <div class="meta-card">
-            <div class="label">Average Yield</div>
-            <strong>{{ avg_yield_display }}</strong>
-            <span>Current sample-wide yield average across the filtered shortlist.</span>
-          </div>
-          <div class="meta-card">
-            <div class="label">Average Strength Score</div>
-            <strong>{{ avg_score_display }}</strong>
-            <span>Composite score keeps payout, valuation, quality, and drawdown context together.</span>
-          </div>
-          <div class="meta-card">
-            <div class="label">Last Refresh</div>
-            <strong>{{ last_refresh }}</strong>
-            <span>{{ data_source_note }}</span>
-          </div>
+          <div class="meta-card"><div class="label">Screen Snapshot</div><strong>{{ filtered_rows_count }}</strong><span>Dividend names currently match the active filter set on this sample page.</span></div>
+          <div class="meta-card"><div class="label">Average Yield</div><strong>{{ avg_yield_display }}</strong><span>Current sample-wide yield average across the filtered shortlist.</span></div>
+          <div class="meta-card"><div class="label">Average Strength Score</div><strong>{{ avg_score_display }}</strong><span>Composite score keeps payout, valuation, quality, and drawdown context together.</span></div>
+          <div class="meta-card"><div class="label">Last Refresh</div><strong>{{ last_refresh }}</strong><span>{{ data_source_note }}</span></div>
         </div>
       </div>
     </section>
-
-    <div class="intro">
-      <div>
-        <h2 style="margin:0 0 8px;font-size:28px;font-family:Georgia,'Times New Roman',serif">{{ page_title }}</h2>
-        <p style="margin:0;max-width:840px">{{ seo_description }}</p>
-      </div>
-    </div>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>{{ ai_summary_heading }}</h2>
-          <p>{{ ai_summary_copy }}</p>
-        </div>
-      </div>
-      <div class="panel ai-summary">
-        <div class="ai-copy">
-          <h3>What this page is trying to improve</h3>
-          <p>This sample is built to make the dividend screen easier to scan, easier to trust, and easier for both Google and AI systems to understand. The focus is on stronger summaries, clearer stock cards, more structured comparisons, and lighter but richer on-page context.</p>
-        </div>
-        <div class="ai-bullets">
-          {% for bullet in ai_summary_bullets %}
-          <div class="ai-bullet">
-            <strong>AI Insight {{ loop.index }}</strong>
-            <span>{{ bullet }}</span>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </section>
-
-    <section class="section" id="leaderboard">
-      <div class="section-head">
-        <div>
-          <h2>Dividend Leaderboard</h2>
-          <p>Quick ranking cards make the top of the screen easier to browse before you open the full stock list.</p>
-        </div>
-      </div>
-      <div class="leaderboard">
-        {% for row in leaderboard_rows %}
-        <article class="leader-card">
-          <div class="leader-rank">Rank {{ loop.index }}</div>
-          <h3>{{ row.company_name }}</h3>
-          <div class="mini-note">{{ row.nse_symbol }} · {{ row.market_cap_bucket }} cap · {{ row.sector }}</div>
-          <div class="leader-meta">
-            <div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div>
-            <div class="metric"><div class="k">Score</div><span class="v">{{ row.total_score }}</span></div>
-            <div class="metric"><div class="k">Price</div><span class="v">{{ row.current_price_display }}</span></div>
-            <div class="metric"><div class="k">P/E</div><span class="v">{{ row.pe_display }}</span></div>
-          </div>
-        </article>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>Filter Dashboard</h2>
-          <p>Use the same live filter logic as the original page, but with a cleaner layout that encourages more interaction.</p>
-        </div>
-      </div>
-      <div class="panel filter-shell">
-        <form method="get">
-          <div class="filter-grid">
-            <div class="field">
-              <label for="yield_min">Dividend Yield</label>
-              <select id="yield_min" name="yield_min">
-                {% for option in yield_options %}
-                <option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label for="market_cap">Market Cap</label>
-              <select id="market_cap" name="market_cap">
-                {% for option in market_cap_options %}
-                <option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label for="sector">Sector</label>
-              <select id="sector" name="sector">
-                <option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>
-                {% for option in sector_options %}
-                <option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="field">
-              <label for="roe_above_12">ROE filter</label>
-              <div class="toggle"><input id="roe_above_12" type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}> ROE above 12%</div>
-            </div>
-            <div class="field">
-              <label for="pe_below_industry">Valuation filter</label>
-              <div class="toggle"><input id="pe_below_industry" type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}> P/E below industry</div>
-            </div>
-            <div class="field">
-              <label for="below_high_20">52-week high filter</label>
-              <div class="toggle"><input id="below_high_20" type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}> 20% below high</div>
-            </div>
-            <div class="field">
-              <label for="de_below_1">Debt filter</label>
-              <div class="toggle"><input id="de_below_1" type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}> Debt to equity below 1</div>
-            </div>
-          </div>
-          <div class="filter-actions">
-            <button class="btn btn-primary" type="submit">Apply Filters</button>
-            <a class="btn btn-secondary" href="{{ canonical_url }}">Reset Sample</a>
-          </div>
-        </form>
-      </div>
-    </section>
-
-    <section class="section" id="cards">
-      <div class="section-head">
-        <div>
-          <h2>Dividend Stock Cards</h2>
-          <p>These cards are the fastest design win for readability. They surface yield, score, valuation, and capital bucket without forcing a full table scan first.</p>
-        </div>
-      </div>
-      <div class="stock-grid">
-        {% for row in stock_cards %}
-        <article class="panel stock-card">
-          <div class="stock-top">
-            <div>
-              <div class="symbol">{{ row.nse_symbol }}</div>
-              <h3>{{ row.company_name }}</h3>
-              <div class="mini-note">{{ row.sector }} · {{ row.market_cap_bucket }} cap · Price {{ row.current_price_display }}</div>
-            </div>
-            <div class="badge">Score {{ row.total_score }}</div>
-          </div>
-          <div class="stock-copy">Dividend yield at {{ row.dividend_yield_display }}, with P/E {{ row.pe_display }}, debt to equity {{ row.de_display }}, and 52-week-high drawdown of {{ row.below_high_display }}.</div>
-          <div class="score-bar"><div class="score-fill" style="width: {{ [row.total_score, 100]|min }}%"></div></div>
-          <div class="stock-metrics">
-            <div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div>
-            <div class="metric"><div class="k">Dividend / Share</div><span class="v">{{ row.dividend_per_share_display }}</span></div>
-            <div class="metric"><div class="k">ROE</div><span class="v">{{ row.roe_display }}</span></div>
-            <div class="metric"><div class="k">Debt / Equity</div><span class="v">{{ row.de_display }}</span></div>
-          </div>
-          <div class="stock-footer">
-            <a class="ghost-link" href="{{ row.stock_url }}">Open Stock Page</a>
-            <span class="mini-note">Updated {{ row.last_updated_display }}</span>
-          </div>
-        </article>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>Comparison Tables</h2>
-          <p>These tables make the page more useful for AI summaries and richer for users who want a quick macro read before opening stock cards.</p>
-        </div>
-      </div>
-      <div class="compare-grid">
-        <div class="panel table-card">
-          <h3 style="margin-top:0">Sector Comparison</h3>
-          <table>
-            <thead>
-              <tr><th>Sector</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr>
-            </thead>
-            <tbody>
-              {% for row in sector_comparison %}
-              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        <div class="panel table-card">
-          <h3 style="margin-top:0">Market Cap Comparison</h3>
-          <table>
-            <thead>
-              <tr><th>Bucket</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr>
-            </thead>
-            <tbody>
-              {% for row in bucket_comparison %}
-              <tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>Dividend Calculator</h2>
-          <p>A simple calculator block adds interaction and usually helps both time on page and ad visibility without making the page feel heavy.</p>
-        </div>
-      </div>
-      <div class="panel calc-card">
-        <div class="calc-grid">
-          <div>
-            <div class="calc-form">
-              <div class="field">
-                <label for="calc-investment">Investment</label>
-                <input id="calc-investment" type="number" value="{{ calculator_default_investment }}">
-              </div>
-              <div class="field">
-                <label for="calc-yield">Yield %</label>
-                <input id="calc-yield" type="number" step="0.01" value="{{ calculator_default_yield }}">
-              </div>
-              <div class="field">
-                <label for="calc-growth">Growth %</label>
-                <input id="calc-growth" type="number" step="0.1" value="{{ calculator_default_growth }}">
-              </div>
-            </div>
-          </div>
-          <div>
-            <div class="calc-result">
-              <div class="metric"><div class="k">Year 1 Income</div><span class="v" id="calc-income">-</span></div>
-              <div class="metric"><div class="k">5Y Income Run Rate</div><span class="v" id="calc-five">-</span></div>
-              <div class="metric"><div class="k">Yield On Cost</div><span class="v" id="calc-yoc">-</span></div>
-            </div>
-            <div class="mini-note" style="margin-top:14px">This is only a planning estimate and not a promise of future payouts.</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <h2>FAQ Section</h2>
-          <p>Keeping strong FAQs on the page helps readers and also improves AI citation and structured search coverage.</p>
-        </div>
-      </div>
-      <div class="faq-list">
-        {% for item in faq_items %}
-        <article class="panel faq-item">
-          <h3>{{ item.question }}</h3>
-          <p>{{ item.answer }}</p>
-        </article>
-        {% endfor %}
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="tiles">
-        <div class="panel tile">
-          <h3>Related Articles</h3>
-          <p>Keep the reader inside the dividend research journey with sibling pages that add valuation or market-cap context.</p>
-          <div class="tile-links">
-            {% for item in related_articles %}
-            <a class="chip" href="{{ item.href }}">{{ item.title }}</a>
-            {% endfor %}
-          </div>
-        </div>
-        <div class="panel tile">
-          <h3>Related Screeners</h3>
-          <p>These links give the page stronger internal-link depth and make the sample closer to a production SEO layout.</p>
-          <div class="tile-links">
-            {% for item in related_screeners %}
-            <a class="chip" href="{{ item.href }}">{{ item.label }}</a>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="section">
-      <div class="panel newsletter">
-        <div>
-          <h2>Newsletter Signup</h2>
-          <p>Get future dividend screens, stock ideas, and strategy updates in a simple reader-friendly format without refreshing every section manually.</p>
-        </div>
-        <form class="newsletter-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Subscribed';">
-          <input type="email" placeholder="Enter your email for TraderHub dividend updates">
-          <button class="btn btn-primary" type="submit">Subscribe</button>
-        </form>
-      </div>
-    </section>
+    <div class="intro"><div><h2 style="margin:0 0 8px;font-size:28px;font-family:Georgia,'Times New Roman',serif">{{ page_title }}</h2><p style="margin:0;max-width:840px">{{ seo_description }}</p></div></div>
+    <section class="section"><div class="section-head"><div><h2>{{ ai_summary_heading }}</h2><p>{{ ai_summary_copy }}</p></div></div><div class="panel ai-summary"><div class="ai-copy"><h3>What this page is trying to improve</h3><p>This sample is built to make the dividend screen easier to scan, easier to trust, and easier for both Google and AI systems to understand. The focus is on stronger summaries, clearer stock cards, more structured comparisons, and lighter but richer on-page context.</p></div><div class="ai-bullets">{% for bullet in ai_summary_bullets %}<div class="ai-bullet"><strong>AI Insight {{ loop.index }}</strong><span>{{ bullet }}</span></div>{% endfor %}</div></div></section>
+    <section class="section" id="leaderboard"><div class="section-head"><div><h2>Dividend Leaderboard</h2><p>Quick ranking cards make the top of the screen easier to browse before you open the full stock list.</p></div></div><div class="compare-mode">{% for mode in compare_modes %}<a class="compare-chip" href="#{{ mode.target }}">{{ mode.label }}</a>{% endfor %}</div><div class="leaderboard">{% for row in leaderboard_rows %}<article class="leader-card"><div class="leader-rank">Rank {{ loop.index }}</div><h3>{{ row.company_name }}</h3><div class="mini-note">{{ row.nse_symbol }} ? {{ row.market_cap_bucket }} cap ? {{ row.sector }}</div><div class="leader-meta"><div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div><div class="metric"><div class="k">Score</div><span class="v">{{ row.total_score }}</span></div><div class="metric"><div class="k">Price</div><span class="v">{{ row.current_price_display }}</span></div><div class="metric"><div class="k">P/E</div><span class="v">{{ row.pe_display }}</span></div></div></article>{% endfor %}</div></section>
+    <section class="section"><div class="section-head"><div><h2>Filter Dashboard</h2><p>Use the same live filter logic as the original page, but with a cleaner layout that encourages more interaction.</p></div></div><div class="panel filter-shell"><form method="get"><div class="filter-grid"><div class="field"><label for="yield_min">Dividend Yield</label><select id="yield_min" name="yield_min">{% for option in yield_options %}<option value="{{ option }}" {% if filter_state.yield_min == option %}selected{% endif %}>{{ option }}%+</option>{% endfor %}</select></div><div class="field"><label for="market_cap">Market Cap</label><select id="market_cap" name="market_cap">{% for option in market_cap_options %}<option value="{{ option }}" {% if filter_state.market_cap == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></div><div class="field"><label for="sector">Sector</label><select id="sector" name="sector"><option value="All" {% if filter_state.sector == "All" %}selected{% endif %}>All sectors</option>{% for option in sector_options %}<option value="{{ option }}" {% if filter_state.sector == option %}selected{% endif %}>{{ option }}</option>{% endfor %}</select></div><div class="field"><label for="roe_above_12">ROE filter</label><div class="toggle"><input id="roe_above_12" type="checkbox" name="roe_above_12" value="1" {% if filter_state.roe_above_12 %}checked{% endif %}> ROE above 12%</div></div><div class="field"><label for="pe_below_industry">Valuation filter</label><div class="toggle"><input id="pe_below_industry" type="checkbox" name="pe_below_industry" value="1" {% if filter_state.pe_below_industry %}checked{% endif %}> P/E below industry</div></div><div class="field"><label for="below_high_20">52-week high filter</label><div class="toggle"><input id="below_high_20" type="checkbox" name="below_high_20" value="1" {% if filter_state.below_high_20 %}checked{% endif %}> 20% below high</div></div><div class="field"><label for="de_below_1">Debt filter</label><div class="toggle"><input id="de_below_1" type="checkbox" name="de_below_1" value="1" {% if filter_state.de_below_1 %}checked{% endif %}> Debt to equity below 1</div></div></div><div class="filter-actions"><button class="btn btn-primary" type="submit">Apply Filters</button><a class="btn btn-secondary" href="{{ canonical_url }}">Reset Sample</a></div></form></div></section>
+    <section class="section" id="cards"><div class="section-head"><div><h2>Dividend Stock Cards</h2><p>These premium cards surface yield, score, valuation, safety, and sector context without forcing a full table scan first.</p></div></div><div class="stock-grid">{% for row in stock_cards %}<article class="panel stock-card"><div class="rank-badge">#{{ row.rank }}</div><div class="stock-top"><div><div class="symbol">{{ row.nse_symbol }}</div><h3>{{ row.company_name }}</h3><div class="subline"><span class="sector-icon">{{ row.sector_icon }}</span><span>{{ row.sector }} ? {{ row.market_cap_bucket }} cap</span><span>Price {{ row.current_price_display }}</span></div></div><div class="score-ring" style="--score: {{ row.score_percent }};"><div class="inner"><div><strong>{{ row.score_text }}</strong><span>AI Score</span></div></div></div></div><div class="stock-copy">{{ row.summary_copy }}</div><div class="metrics-row"><div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div><div class="metric"><div class="k">ROE</div><span class="v">{{ row.roe_display_safe }}</span></div><div class="metric"><div class="k">Dividend</div><span class="v">{{ row.dividend_per_share_safe }}</span></div></div><div class="safety-meter"><div class="meter"><div class="k">Yield Score</div><span class="v">{{ row.dividend_yield_display }}</span></div><div class="meter"><div class="k">Payout Safety</div><span class="v">{{ row.quality_label }}</span></div><div class="meter"><div class="k">Debt Risk</div><span class="v">{{ row.de_display_safe }}</span></div><div class="meter"><div class="k">Valuation Comfort</div><span class="v">{{ row.pe_display_safe }}</span></div><div class="meter"><div class="k">Price Drawdown</div><span class="v">{{ row.drawdown_display_safe }}</span></div></div><div class="tag {{ row.safety_tone }}">{{ row.safety_label }}</div><div class="stock-footer"><a class="ghost-link" href="{{ row.stock_url }}">Open Stock Page</a><span class="mini-note">Updated {{ row.last_updated_display }}</span></div></article>{% if loop.index % 5 == 0 and not loop.last %}<div class="cta-banner" style="grid-column:1 / -1;"><h3>Want AI to find better dividend stocks daily?</h3><p>Join the TraderHub Watchlist and keep your dividend shortlist updated with fresher yield, quality, and valuation context.</p></div>{% endif %}{% endfor %}</div></section>
+    <section class="section" id="comparison"><div class="section-head"><div><h2>Comparison Tables</h2><p>These tables make the page more useful for AI summaries and richer for users who want a quick macro read before opening stock cards.</p></div></div><div class="compare-grid"><div class="panel table-card"><h3 style="margin-top:0">Sector Comparison</h3><table><thead><tr><th>Sector</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr></thead><tbody>{% for row in sector_comparison %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>{% endfor %}</tbody></table></div><div class="panel table-card"><h3 style="margin-top:0">Market Cap Comparison</h3><table><thead><tr><th>Bucket</th><th>Stocks</th><th>Avg Score</th><th>Avg Yield</th></tr></thead><tbody>{% for row in bucket_comparison %}<tr><td>{{ row.name }}</td><td>{{ row.count }}</td><td>{{ row.avg_score }}</td><td>{{ row.avg_yield }}</td></tr>{% endfor %}</tbody></table></div></div></section>
+    <section class="section" id="matrix"><div class="section-head"><div><h2>Dividend Safety Meter</h2><p>Read the screen as a quality filter, not just a raw yield list. This safety meter gives the page a clearer final verdict.</p></div></div><div class="panel"><div class="compare-grid" style="grid-template-columns:repeat(5,minmax(0,1fr));">{% for item in safety_meter %}<div class="metric"><div class="k">{{ item.label }}</div><span class="v">{{ item.value }}</span></div>{% endfor %}</div><div class="tag {{ 'safe' if safety_meter_label == 'Strong Dividend Candidate' else 'watch' }}" style="margin-top:18px;">{{ safety_meter_label }}</div></div></section>
+    <section class="section"><div class="section-head"><div><h2>High Dividend Stocks: Yield vs Safety Matrix</h2><p>This table is the serious comparison layer. It brings yield, debt risk, ROE, valuation, and the final verdict into one view.</p></div></div><div class="panel table-card"><table class="matrix-table"><thead><tr><th>Stock</th><th>Yield</th><th>Dividend Score</th><th>Debt Risk</th><th>ROE</th><th>P/E vs Industry</th><th>Verdict</th></tr></thead><tbody>{% for row in matrix_rows %}<tr><td>{{ row.company_name }}</td><td>{{ row.yield_display }}</td><td>{{ row.score_display }}</td><td>{{ row.debt_risk }}</td><td>{{ row.roe_display }}</td><td>{{ row.pe_vs_industry }}</td><td><span class="verdict-pill {{ row.tone }}">{{ row.verdict }}</span></td></tr>{% endfor %}</tbody></table></div></section>
+    <section class="section"><div class="section-head"><div><h2>Dividend Calculator</h2><p>A simple calculator block adds interaction and usually helps both time on page and ad visibility without making the page feel heavy.</p></div></div><div class="panel calc-card"><div class="calc-grid"><div><div class="calc-form"><div class="field"><label for="calc-investment">Investment</label><input id="calc-investment" type="number" value="{{ calculator_default_investment }}"></div><div class="field"><label for="calc-yield">Yield %</label><input id="calc-yield" type="number" step="0.01" value="{{ calculator_default_yield }}"></div><div class="field"><label for="calc-growth">Growth %</label><input id="calc-growth" type="number" step="0.1" value="{{ calculator_default_growth }}"></div></div></div><div><div class="calc-result"><div class="metric"><div class="k">Year 1 Income</div><span class="v" id="calc-income">-</span></div><div class="metric"><div class="k">5Y Income Run Rate</div><span class="v" id="calc-five">-</span></div><div class="metric"><div class="k">Yield On Cost</div><span class="v" id="calc-yoc">-</span></div></div><div class="mini-note" style="margin-top:14px">This is only a planning estimate and not a promise of future payouts.</div></div></div></div></section>
+    <section class="section"><div class="section-head"><div><h2>FAQ Section</h2><p>Keeping strong FAQs on the page helps readers and also improves AI citation and structured search coverage.</p></div></div><div class="faq-list">{% for item in faq_items %}<article class="panel faq-item"><h3>{{ item.question }}</h3><p>{{ item.answer }}</p></article>{% endfor %}</div></section>
+    <section class="section"><div class="tiles"><div class="panel tile"><h3>Related Articles</h3><p>Keep the reader inside the dividend research journey with sibling pages that add valuation or market-cap context.</p><div class="tile-links">{% for item in related_articles %}<a class="chip" href="{{ item.href }}">{{ item.title }}</a>{% endfor %}</div></div><div class="panel tile"><h3>Related Screeners</h3><p>These links give the page stronger internal-link depth and make the sample closer to a production SEO layout.</p><div class="tile-links">{% for item in related_screeners %}<a class="chip" href="{{ item.href }}">{{ item.label }}</a>{% endfor %}</div></div></div></section>
+    <section class="section"><div class="panel newsletter"><div><h2>Newsletter Signup</h2><p>Get future dividend screens, stock ideas, and strategy updates in a simple reader-friendly format without refreshing every section manually.</p></div><form class="newsletter-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Subscribed';"><input type="email" placeholder="Enter your email for TraderHub dividend updates"><button class="btn btn-primary" type="submit">Subscribe</button></form></div></section>
+    <div class="disclaimer">{{ bottom_disclaimer }}</div>
   </div>
   <script>
     (function() {
@@ -40454,7 +40133,6 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
 </body>
 </html>
 """
-
 
 HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
 <!doctype html>
