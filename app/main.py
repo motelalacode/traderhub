@@ -35443,7 +35443,7 @@ def build_high_dividend_page_context(host_root, screen_key="high-dividend"):
     return context
 
 
-def build_high_dividend_sample_context(host_root):
+def build_high_dividend_sample_context(host_root, canonical_path="/stocks/high-dividend-paying-stocks-sample", is_live=False):
     base = build_high_dividend_page_context(host_root, screen_key="high-dividend")
     rows = list(base.get("rows") or [])
     top_rows = rows[:10]
@@ -35451,7 +35451,7 @@ def build_high_dividend_sample_context(host_root):
     best_row = base.get("best_row")
     avg_yield = base.get("avg_yield_display", "0.00%")
     avg_score = base.get("avg_score_display", "0.0")
-    canonical_url = f"{host_root.rstrip('/')}/stocks/high-dividend-paying-stocks-sample"
+    canonical_url = f"{host_root.rstrip('/')}{canonical_path}"
 
     def safe_display(value, fallback="Pending"):
         text = str(value).strip() if value is not None else ""
@@ -35619,15 +35619,71 @@ def build_high_dividend_sample_context(host_root):
         {"label": "Small Cap Dividend Screen", "href": "/stocks/small-cap-high-dividend-stocks"},
     ]
 
+    schema_json = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "CollectionPage",
+                    "name": "India's Best High Dividend Stocks - Ranked by Yield, Quality & Valuation | TraderHub",
+                    "description": "High dividend stocks in India ranked by yield, quality, valuation, and risk checks.",
+                    "url": canonical_url,
+                    "mainEntity": {
+                        "@type": "ItemList",
+                        "itemListElement": [
+                            {
+                                "@type": "ListItem",
+                                "position": index + 1,
+                                "name": row["company_name"],
+                                "url": f"{host_root.rstrip('/')}{row['stock_url']}",
+                            }
+                            for index, row in enumerate(rows[:10])
+                        ],
+                    },
+                },
+                {
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {
+                            "@type": "Question",
+                            "name": item["question"],
+                            "acceptedAnswer": {"@type": "Answer", "text": item["answer"]},
+                        }
+                        for item in base.get("faq_items", [])
+                    ],
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {"@type": "ListItem", "position": 1, "name": "Home", "item": host_root.rstrip("/") + "/"},
+                        {"@type": "ListItem", "position": 2, "name": "Stocks", "item": host_root.rstrip("/") + "/stocks"},
+                        {"@type": "ListItem", "position": 3, "name": "Dividend Stocks", "item": host_root.rstrip("/") + "/stocks/dividend-stocks"},
+                        {"@type": "ListItem", "position": 4, "name": "High Dividend Paying Stocks", "item": canonical_url},
+                    ],
+                },
+                {
+                    "@type": "FinancialProduct",
+                    "name": "High Dividend Paying Stocks Screen",
+                    "description": "TraderHub screen for Indian high dividend stocks using yield, quality, valuation, and risk checks.",
+                    "provider": {"@type": "Organization", "name": "TraderHub", "url": host_root.rstrip("/") + "/"},
+                    "url": canonical_url,
+                    "areaServed": {"@type": "Country", "name": "India"},
+                },
+            ],
+        },
+        indent=2,
+    )
+
     sample_context = {
         **base,
-        "seo_title": "India’s Best High Dividend Stocks — Ranked by Yield, Quality & Valuation | TraderHub Sample",
-        "seo_description": "Preview a premium high dividend stocks sample page with AI dividend score, yield plus risk checks, comparison mode, safety meter, FAQ, calculator, and stronger stock cards.",
+        "seo_title": "India’s Best High Dividend Stocks — Ranked by Yield, Quality & Valuation | TraderHub",
+        "seo_description": "Find high dividend paying stocks in India ranked by yield, quality, valuation, debt risk, and price drawdown with AI dividend scoring from TraderHub.",
         "canonical_url": canonical_url,
-        "page_title": "High Dividend Stocks Sample",
-        "page_subtitle": "A cleaner dividend research layout designed to improve readability, SEO depth, AI discoverability, and user time on page before replacing the original screen.",
-        "page_kicker": "TraderHub Dividend Screen Sample",
-        "sample_notice": "This is a separate sample page for feedback. The original high dividend route stays unchanged until you approve this design.",
+        "schema_json": schema_json,
+        "page_title": "High Dividend Stocks" if is_live else "High Dividend Stocks Sample",
+        "page_subtitle": "A premium dividend research layout built to improve readability, SEO depth, answer-engine discoverability, and user trust." if is_live else "A cleaner dividend research layout designed to improve readability, SEO depth, AI discoverability, and user time on page before replacing the original screen.",
+        "page_kicker": "TraderHub Dividend Research" if is_live else "TraderHub Dividend Screen Sample",
+        "sample_notice": "" if is_live else "This is a separate sample page for feedback. The original high dividend route stays unchanged until you approve this design.",
         "ai_summary_heading": "AI Summary",
         "ai_summary_copy": "Use this quick read to understand whether the current shortlist looks strong, crowded, or risky before moving into the leaderboard and stock cards.",
         "ai_summary_bullets": ai_bullets,
@@ -40080,7 +40136,9 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
           <p>{{ page_subtitle }}</p>
           <div class="badge-row">{% for badge in hero_badges %}<span class="hero-badge">{{ badge }}</span>{% endfor %}</div>
           <div class="hero-actions"><a class="btn btn-primary" href="#leaderboard">Explore Leaderboard</a><a class="btn btn-secondary" href="#cards">View Stock Cards</a></div>
+          {% if sample_notice %}
           <div class="sample-note">{{ sample_notice }}</div>
+          {% endif %}
         </div>
         <div class="hero-meta">
           <div class="meta-card"><div class="label">Screen Snapshot</div><strong>{{ filtered_rows_count }}</strong><span>Dividend names currently match the active filter set on this sample page.</span></div>
@@ -40580,8 +40638,12 @@ HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
 
 @app.route("/stocks/high-dividend-paying-stocks")
 def high_dividend_paying_stocks():
-    context = build_high_dividend_page_context(request.url_root.rstrip("/"), screen_key="high-dividend")
-    return render_template_string(HIGH_DIVIDEND_STOCKS_TEMPLATE, **context)
+    context = build_high_dividend_sample_context(
+        request.url_root.rstrip("/"),
+        canonical_path="/stocks/high-dividend-paying-stocks",
+        is_live=True,
+    )
+    return render_template_string(HIGH_DIVIDEND_SAMPLE_TEMPLATE, **context)
 
 
 @app.route("/stocks/high-dividend-paying-stocks-sample")
