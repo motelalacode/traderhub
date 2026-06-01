@@ -40107,6 +40107,7 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
     .sample-note,.disclaimer{margin-top:16px;padding:12px 14px;font-size:13px;line-height:1.6}.sample-note{border-radius:16px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.88)}.disclaimer{background:linear-gradient(135deg,#fff8ef,var(--amber-soft));color:var(--amber)}
     .intro{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;margin:16px 0 22px;color:var(--muted);font-size:14px;line-height:1.7}.section{margin-top:22px}.section-head{display:flex;justify-content:space-between;gap:16px;align-items:end;margin-bottom:14px}.section h2{margin:0;font-size:28px;line-height:1.1;font-family:Georgia,"Times New Roman",serif}.section p{margin:6px 0 0;color:var(--muted);max-width:780px;line-height:1.7}
     .panel{padding:18px}.ai-summary{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}.ai-copy h3{margin:0 0 10px;font-size:22px}.ai-copy p{margin:0;color:var(--muted);line-height:1.75}.ai-bullets{display:grid;gap:10px}.ai-bullet{background:linear-gradient(180deg,#fbfdff,#f2f7fb);border:1px solid var(--line);border-radius:18px;padding:14px}.ai-bullet strong{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--blue)}.ai-bullet span{display:block;margin-top:8px;line-height:1.65}
+.ad-band{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:22px}.ad-card{padding:18px;border-radius:24px;background:linear-gradient(180deg,#ffffff 0%,#f5f8fb 100%);border:1px solid var(--line);box-shadow:var(--shadow)}.ad-label{display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;background:#edf4f9;color:var(--muted);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.ad-card h2{margin:12px 0 8px;font-size:24px;font-family:Georgia,"Times New Roman",serif}.ad-card p{margin:0;color:var(--muted);line-height:1.7}.google-ad-shell{margin-top:14px;min-height:140px;border:1px dashed var(--line);border-radius:18px;background:#fff;padding:12px}.ad-disclaimer{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.6}
     .leaderboard{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.leader-card{padding:18px;border-radius:22px;background:linear-gradient(180deg,#fff,#f6fbff);border:1px solid var(--line);box-shadow:var(--shadow)}.leader-rank{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);font-weight:700}.leader-card h3{margin:10px 0 8px;font-size:21px;line-height:1.2}.leader-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
     .metric{padding:10px 12px;border-radius:16px;background:#f9fcff;border:1px solid var(--line)}.metric .k{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}.metric .v{display:block;margin-top:6px;font-size:18px;font-weight:800}
     .compare-mode{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}.compare-chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:#eef5fa;border:1px solid var(--line);font-size:13px;font-weight:700;color:var(--blue)}
@@ -40122,7 +40123,7 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
     .calc-grid{display:grid;grid-template-columns:.85fr 1.15fr;gap:16px}.calc-card{padding:18px}.calc-form{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.calc-result{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}.faq-list{display:grid;gap:12px}.faq-item{padding:16px 18px}.faq-item h3{margin:0 0 10px;font-size:18px}.faq-item p{margin:0;color:var(--muted);line-height:1.7}
     .tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.tile{padding:18px}.tile h3{margin:0 0 10px;font-size:20px}.tile p{margin:0;color:var(--muted);line-height:1.7}.tile-links{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.chip{display:inline-flex;align-items:center;padding:10px 14px;border-radius:999px;background:#f9fcff;border:1px solid var(--line);font-size:13px;font-weight:700}
     .newsletter{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center;padding:22px;background:linear-gradient(135deg,#102d46,#176f92);color:#fff}.newsletter h2{margin:0 0 10px;font-size:28px;font-family:Georgia,"Times New Roman",serif}.newsletter p{margin:0;color:rgba(255,255,255,.82);max-width:720px;line-height:1.75}.newsletter-form{display:flex;gap:10px;flex-wrap:wrap}.newsletter-form input{min-width:280px;padding:14px 16px;border:none;border-radius:14px;font:inherit}.mini-note{font-size:12px;color:var(--muted)}
-    @media (max-width:1180px){.hero-grid,.ai-summary,.calc-grid{grid-template-columns:1fr}.leaderboard{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-grid,.compare-grid,.tiles{grid-template-columns:1fr}} @media (max-width:760px){.page{padding:14px 12px 34px}.hero{padding:24px 18px;border-radius:28px}.hero h1{font-size:34px}.hero-meta,.leaderboard,.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result,.newsletter{grid-template-columns:1fr}.newsletter{padding:18px}.newsletter-form input{min-width:0;width:100%}.section h2{font-size:24px}.intro,.section-head{display:block}}
+    @media (max-width:1180px){.hero-grid,.ai-summary,.calc-grid{grid-template-columns:1fr}.leaderboard{grid-template-columns:repeat(2,minmax(0,1fr))}.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result{grid-template-columns:repeat(2,minmax(0,1fr))}.stock-grid,.compare-grid,.tiles,.ad-band{grid-template-columns:1fr}} @media (max-width:760px){.page{padding:14px 12px 34px}.hero{padding:24px 18px;border-radius:28px}.hero h1{font-size:34px}.hero-meta,.leaderboard,.filter-grid,.metrics-row,.safety-meter,.calc-form,.calc-result,.newsletter{grid-template-columns:1fr}.newsletter{padding:18px}.newsletter-form input{min-width:0;width:100%}.section h2{font-size:24px}.intro,.section-head{display:block}}
   </style>
 </head>
 <body>
@@ -40148,6 +40149,34 @@ HIGH_DIVIDEND_SAMPLE_TEMPLATE = """
         </div>
       </div>
     </section>
+    {% if sponsor_ad or google_inline_ad_html %}
+    <div class="ad-band">
+      {% if sponsor_ad %}
+      <section class="ad-card">
+        <div class="ad-label">{{ sponsor_ad.label }}</div>
+        <h2>{{ sponsor_ad.name }}</h2>
+        <p>{{ sponsor_ad.copy }}</p>
+        {% if sponsor_ad.embed_html %}
+        <div style="margin-top:14px;">{{ sponsor_ad.embed_html|safe }}</div>
+        {% elif sponsor_ad.url %}
+        <div class="hero-actions" style="margin-top:14px;">
+          <a class="btn btn-primary" href="{{ sponsor_ad.url }}" target="_blank" rel="sponsored noopener">{{ sponsor_ad.cta }}</a>
+        </div>
+        {% endif %}
+        <div class="ad-disclaimer">{{ sponsor_ad.disclaimer }}</div>
+      </section>
+      {% endif %}
+      {% if google_inline_ad_html %}
+      <section class="ad-card">
+        <div class="ad-label">Ad by Google</div>
+        <h2>Automated Marketplace Ads</h2>
+        <p>Google ads can appear here without affecting TraderHub dividend ranking, AI scoring, or editorial analysis.</p>
+        <div class="google-ad-shell">{{ google_inline_ad_html|safe }}</div>
+        <div class="ad-disclaimer">Automated ad serving. Not investment advice and not a TraderHub recommendation.</div>
+      </section>
+      {% endif %}
+    </div>
+    {% endif %}
     <div class="intro"><div><h2 style="margin:0 0 8px;font-size:28px;font-family:Georgia,'Times New Roman',serif">{{ page_title }}</h2><p style="margin:0;max-width:840px">{{ seo_description }}</p></div></div>
     <section class="section"><div class="section-head"><div><h2>{{ ai_summary_heading }}</h2><p>{{ ai_summary_copy }}</p></div></div><div class="panel ai-summary"><div class="ai-copy"><h3>What this page is trying to improve</h3><p>This sample is built to make the dividend screen easier to scan, easier to trust, and easier for both Google and AI systems to understand. The focus is on stronger summaries, clearer stock cards, more structured comparisons, and lighter but richer on-page context.</p></div><div class="ai-bullets">{% for bullet in ai_summary_bullets %}<div class="ai-bullet"><strong>AI Insight {{ loop.index }}</strong><span>{{ bullet }}</span></div>{% endfor %}</div></div></section>
     <section class="section" id="leaderboard"><div class="section-head"><div><h2>Dividend Leaderboard</h2><p>Quick ranking cards make the top of the screen easier to browse before you open the full stock list.</p></div></div><div class="compare-mode">{% for mode in compare_modes %}<a class="compare-chip" href="#{{ mode.target }}">{{ mode.label }}</a>{% endfor %}</div><div class="leaderboard">{% for row in leaderboard_rows %}<article class="leader-card"><div class="leader-rank">Rank {{ loop.index }}</div><h3>{{ row.company_name }}</h3><div class="mini-note">{{ row.nse_symbol }} ? {{ row.market_cap_bucket }} cap ? {{ row.sector }}</div><div class="leader-meta"><div class="metric"><div class="k">Yield</div><span class="v">{{ row.dividend_yield_display }}</span></div><div class="metric"><div class="k">Score</div><span class="v">{{ row.total_score }}</span></div><div class="metric"><div class="k">Price</div><span class="v">{{ row.current_price_display }}</span></div><div class="metric"><div class="k">P/E</div><span class="v">{{ row.pe_display }}</span></div></div></article>{% endfor %}</div></section>
