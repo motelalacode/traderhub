@@ -37858,6 +37858,122 @@ def build_website_shell_trial5_context(host_root):
     return context
 
 
+def build_website_shell_trial6_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial6"
+    hero_metrics = [
+        {"label": "Stocks Mapped", "value": "5,000+", "copy": "Public stock discovery universe"},
+        {"label": "Core Screeners", "value": "8", "copy": "Dividend, value, growth, momentum, and more"},
+        {"label": "Revenue Priority", "value": "Subscriptions First", "copy": "Pro and Premium before ads"},
+        {"label": "Design Rule", "value": "70 / 30", "copy": "Premium SaaS first, research second"},
+    ]
+    nav_links = [
+        {"label": "Home", "href": "/website-shell-trial6"},
+        {"label": "Stocks", "href": "/stocks/itc"},
+        {"label": "Screeners", "href": "/stocks/high-dividend-paying-stocks"},
+        {"label": "Trade Audit", "href": "#trade-audit"},
+        {"label": "Pricing", "href": "#pricing"},
+        {"label": "Blog", "href": "#blog"},
+        {"label": "Login", "href": "/login"},
+    ]
+    discovery_cards = [
+        {"title": "Dividend Stocks", "copy": "Yield-led ideas with quality, valuation, and risk context.", "href": "/stocks/high-dividend-paying-stocks"},
+        {"title": "Value Stocks", "copy": "Reasonable valuation names where the downside narrative looks overdone.", "href": "/stocks/undervalued-dividend-stocks"},
+        {"title": "Growth Stocks", "copy": "Companies still compounding business strength and market attention.", "href": "/stocks/itc"},
+        {"title": "Momentum Stocks", "copy": "Names where price strength is still doing the heavy lifting.", "href": "/market/live-movers"},
+        {"title": "Small Caps", "copy": "Smaller opportunities with higher upside and tighter risk needs.", "href": "/stocks/small-cap-high-dividend-stocks"},
+        {"title": "Sector Leaders", "copy": "Open leadership lanes before drilling into individual stocks.", "href": "/sectors/strongest"},
+        {"title": "AI Picks", "copy": "Priority names surfaced by score, context, and setup quality.", "href": "/stocks/equity-stock-page"},
+        {"title": "Custom Screeners", "copy": "Build and refine filters around yield, ROCE, PE, and momentum.", "href": "/stocks/dividend-stocks"},
+    ]
+    trade_audit_cards = [
+        {"label": "CSV Upload", "value": "1 Step", "copy": "Upload broker exports without forcing traders into manual journaling first."},
+        {"label": "P&L Analytics", "value": "Full View", "copy": "Win rate, drawdown, best day, worst day, and time-based behavior."},
+        {"label": "Profit Leakage", "value": "-INR 28K", "copy": "See where weak exits, oversizing, and repeat mistakes are hurting results."},
+        {"label": "AI Recommendations", "value": "7 Flags", "copy": "Get improvement cues instead of just another static report export."},
+    ]
+    leakage_points = [
+        "Late exits after strong intraday reversals",
+        "Position-size drift after consecutive wins",
+        "Low-quality re-entry on names already exhausted",
+        "Holding weak trades longer than high-quality ones",
+    ]
+    score_metrics = [
+        {"label": "Discipline", "value": "84"},
+        {"label": "Risk", "value": "76"},
+        {"label": "Psychology", "value": "69"},
+        {"label": "Consistency", "value": "81"},
+        {"label": "Execution", "value": "78"},
+    ]
+    coach_steps = [
+        {"title": "Weekly Review", "copy": "Summarise what worked, what leaked, and which setups are repeating."},
+        {"title": "Monthly Review", "copy": "Separate sustainable edge from one-off luck across multiple sessions."},
+        {"title": "Improvement Plan", "copy": "Push one clear change at a time instead of collecting random trading tips."},
+    ]
+    pricing_cards = [
+        {"name": "Free", "price": "INR 0", "copy": "Public stock pages, market discovery, and starter watchlists.", "features": ["Homepage access", "Stocks hub", "Basic screeners", "Blog research"], "href": "/stocks/high-dividend-paying-stocks", "tone": "free"},
+        {"name": "Pro", "price": "INR 999 / month", "copy": "For traders who want trade audit, health score, and stronger setup review.", "features": ["Trade Audit", "Trade Health Score", "Profit Leakage", "AI Coach Starter"], "href": "/derivatives/options/strategy-engine", "tone": "pro"},
+        {"name": "Premium", "price": "INR 1999 / month", "copy": "For traders who want deeper analytics, broker integration, and stronger coaching.", "features": ["Everything in Pro", "Broker-linked flows", "Advanced reports", "Priority AI suggestions"], "href": "/stocks/equity-stock-page", "tone": "premium"},
+    ]
+    blog_cards = [
+        {"title": "How high dividend screens should balance yield and safety", "copy": "Dividend pages work best when quality and valuation stand beside raw yield.", "href": "/stocks/high-dividend-paying-stocks"},
+        {"title": "Why profit leakage matters more than a lucky high-return week", "copy": "Most traders improve faster by cutting repeat leakage than by finding one new signal.", "href": "/derivatives/options/strategy-engine"},
+        {"title": "How sector pages should lead stock discovery", "copy": "A cleaner stock journey often starts with the strongest lane, not a random ticker.", "href": "/sectors"},
+    ]
+    sitemap_groups = [
+        {"title": "Public Pages", "links": ["/", "/stocks", "/screeners", "/pricing", "/blog"]},
+        {"title": "User Area", "links": ["/dashboard", "/watchlist", "/portfolio"]},
+        {"title": "Trade Analytics", "links": ["/trade-audit", "/trade-health-score", "/ai-coach"]},
+        {"title": "Company", "links": ["/about", "/contact", "/privacy-policy", "/terms"]},
+    ]
+    milestones = [
+        {"phase": "Month 1", "items": "Homepage, Stocks, Screeners, Watchlist, Registration, Blog"},
+        {"phase": "Month 2", "items": "CSV Upload, Trade Import, P&L Analytics, Trade Health Score, Profit Leakage"},
+        {"phase": "Month 3", "items": "AI Coach, Subscription Billing, Broker Integration"},
+    ]
+    context = {
+        "seo_title": "TraderHub V1 Homepage Sample | AI Stock Discovery and Trade Audit",
+        "seo_description": "V1 homepage sample for TraderHub focused on AI stock discovery, screeners, trade audit, trade health score, AI coach, pricing, and blog discovery.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "WebPage",
+                        "name": "TraderHub V1 Homepage Sample",
+                        "description": "V1 SaaS-focused homepage sample for TraderHub built from the sitemap and business blueprint.",
+                        "url": canonical_url,
+                    },
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {"@type": "ListItem", "position": 1, "name": "Home", "item": host_root.rstrip("/") + "/"},
+                            {"@type": "ListItem", "position": 2, "name": "Website Shell Trial 6", "item": canonical_url},
+                        ],
+                    },
+                ],
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Homepage trial 6 | Updated {get_today_ist().isoformat()}",
+        "hero_title": "Discover Better Stocks. Become a Better Trader.",
+        "hero_subtitle": "India's AI-powered stock discovery and trading performance platform built to convert visitors into registrations, promote AI Trade Audit, and guide users from research into stronger trading decisions.",
+        "hero_metrics": hero_metrics,
+        "nav_links": nav_links,
+        "discovery_cards": discovery_cards,
+        "trade_audit_cards": trade_audit_cards,
+        "leakage_points": leakage_points,
+        "score_metrics": score_metrics,
+        "coach_steps": coach_steps,
+        "pricing_cards": pricing_cards,
+        "blog_cards": blog_cards,
+        "sitemap_groups": sitemap_groups,
+        "milestones": milestones,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    return context
+
+
 WEBSITE_SHELL_TRIAL5_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -38843,6 +38959,740 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
   <div class="mobile-sticky">
     <a class="btn btn-primary" href="/stocks/equity-stock-page">Free Audit</a>
     <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Explore Stocks</a>
+  </div>
+</body>
+</html>
+"""
+
+
+WEBSITE_SHELL_TRIAL6_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #f8fbff;
+      --paper: #ffffff;
+      --line: #e2e8f0;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-2: #0ea5e9;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --slate: #eaf1f9;
+      --shadow: 0 26px 60px rgba(15, 23, 42, 0.08);
+      --shadow-soft: 0 16px 34px rgba(15, 23, 42, 0.05);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 26%),
+        radial-gradient(circle at bottom right, rgba(14,165,233,0.08), transparent 24%),
+        linear-gradient(180deg, #fbfdff 0%, var(--bg) 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page {
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 0 18px 60px;
+    }
+    .topnav {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      margin-top: 14px;
+      padding: 14px 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.80);
+      border: 1px solid rgba(226,232,240,0.95);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 40px rgba(15,23,42,0.06);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+    }
+    .brand strong {
+      display: block;
+      font-size: 22px;
+      line-height: 1;
+    }
+    .brand span {
+      display: block;
+      margin-top: 4px;
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav-links a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .hero {
+      margin-top: 18px;
+      padding: 40px;
+      border-radius: 34px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(244,249,255,0.98) 100%);
+      border: 1px solid rgba(226,232,240,0.95);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      top: -120px;
+      right: -120px;
+      width: 320px;
+      height: 320px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,0.18), transparent 68%);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      left: -120px;
+      bottom: -130px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,0.14), transparent 70%);
+    }
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 24px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: var(--blue);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+    }
+    .hero h1 {
+      margin: 16px 0 12px;
+      max-width: 780px;
+      font-size: clamp(42px, 5.3vw, 74px);
+      line-height: 0.98;
+      letter-spacing: -0.03em;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.82;
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 20px;
+      border-radius: 18px;
+      font-size: 14px;
+      font-weight: 800;
+      border: 1px solid transparent;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      color: #fff;
+      box-shadow: 0 16px 34px rgba(37,99,235,0.22);
+    }
+    .btn-secondary {
+      background: #fff;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    .hero-right {
+      display: grid;
+      gap: 14px;
+    }
+    .hero-panel {
+      padding: 20px;
+      border-radius: 26px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+    .hero-panel h3 {
+      margin: 0;
+      font-size: 22px;
+    }
+    .hero-panel p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.72;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .metric-card, .panel-card {
+      padding: 18px;
+      border-radius: 22px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+    .metric-card .label, .tiny-label {
+      font-size: 11px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+    }
+    .metric-card strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 28px;
+    }
+    .metric-card span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      line-height: 1.65;
+      font-size: 13px;
+    }
+    .section {
+      margin-top: 28px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.08;
+    }
+    .section-head p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.8;
+      max-width: 760px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .discovery-card {
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    }
+    .discovery-card h3 {
+      margin: 16px 0 10px;
+      font-size: 23px;
+      line-height: 1.14;
+    }
+    .discovery-card p, .text-block, .panel-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.75;
+      font-size: 14px;
+    }
+    .link {
+      margin-top: 18px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .split {
+      display: grid;
+      grid-template-columns: 0.94fr 1.06fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .feature-dark {
+      padding: 24px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #0f172a 0%, #19324b 100%);
+      color: #fff;
+      box-shadow: 0 24px 56px rgba(15,23,42,0.16);
+    }
+    .feature-dark h3 {
+      margin: 14px 0 10px;
+      font-size: 34px;
+      line-height: 1.08;
+    }
+    .feature-dark p {
+      margin: 0;
+      color: rgba(255,255,255,0.84);
+      line-height: 1.82;
+      font-size: 15px;
+    }
+    .bullet-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 18px;
+    }
+    .bullet-item {
+      padding: 13px 14px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: rgba(255,255,255,0.88);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .score-strip {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .score-box {
+      padding: 16px;
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fff 0%, #f7fbff 100%);
+      border: 1px solid var(--line);
+    }
+    .score-box strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 30px;
+    }
+    .coach-card h3, .price-card h3, .blog-card h3, .sitemap-card h3 {
+      margin: 14px 0 10px;
+      font-size: 24px;
+      line-height: 1.15;
+    }
+    .price-card.pro {
+      background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+      border-color: rgba(37,99,235,0.24);
+      box-shadow: 0 20px 46px rgba(37,99,235,0.12);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .price-value {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .price-features {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0 20px;
+      font-size: 14px;
+      color: var(--ink);
+    }
+    .price-features span::before {
+      content: "•";
+      margin-right: 8px;
+      color: var(--green);
+    }
+    .sitemap-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .sitemap-card ul {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 14px;
+    }
+    .milestone-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .final-cta {
+      padding: 30px;
+      border-radius: 30px;
+      background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 56%, #0ea5e9 100%);
+      color: #fff;
+      box-shadow: 0 28px 68px rgba(15,23,42,0.18);
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .final-cta h2 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.05;
+    }
+    .final-cta p {
+      margin: 0;
+      color: rgba(255,255,255,0.84);
+      line-height: 1.8;
+      max-width: 760px;
+    }
+    .footer-note {
+      margin-top: 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    @media (max-width: 1220px) {
+      .hero-grid, .split, .grid-4, .grid-3, .sitemap-grid, .milestone-grid, .score-strip {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 0 12px 44px; }
+      .topnav {
+        padding: 12px 14px;
+        border-radius: 18px;
+        flex-direction: column;
+        align-items: start;
+      }
+      .nav-links {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        padding-bottom: 4px;
+      }
+      .hero {
+        padding: 24px 18px;
+        border-radius: 28px;
+      }
+      .hero h1 {
+        font-size: 40px;
+      }
+      .hero-grid, .split, .grid-4, .grid-3, .sitemap-grid, .milestone-grid, .score-strip, .metric-grid {
+        grid-template-columns: 1fr;
+      }
+      .section-head {
+        display: block;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="topnav">
+      <div class="brand">
+        <strong>TraderHub</strong>
+        <span>V1 Blueprint Sample</span>
+      </div>
+      <div class="nav-links">
+        {% for link in nav_links %}
+        <a href="{{ link.href }}">{{ link.label }}</a>
+        {% endfor %}
+      </div>
+      <a class="btn btn-primary" href="/stocks/equity-stock-page">Sign Up</a>
+    </nav>
+
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">V1 Business Blueprint</div>
+          <h1>{{ hero_title }}</h1>
+          <p>{{ hero_subtitle }}</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#trade-audit">Get Free Trade Audit</a>
+            <a class="btn btn-secondary" href="#discovery">Explore Stocks</a>
+          </div>
+        </div>
+        <div class="hero-right">
+          <div class="hero-panel">
+            <span class="badge">Core Positioning</span>
+            <h3>70% Premium SaaS Product. 30% Stock Research Website.</h3>
+            <p>This homepage sample is built around conversion, product trust, and subscription value before content sprawl or news-style clutter.</p>
+          </div>
+          <div class="metric-grid">
+            {% for card in hero_metrics %}
+            <div class="metric-card">
+              <div class="label">{{ card.label }}</div>
+              <strong>{{ card.value }}</strong>
+              <span>{{ card.copy }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="discovery">
+      <div class="section-head">
+        <div>
+          <span class="badge">Homepage Flow 1</span>
+          <h2>Stock Discovery Cards</h2>
+          <p>The blueprint wants TraderHub to convert visitors into registrations through clean stock discovery. This section pushes that first instead of overloading the page with news or repeated summaries.</p>
+        </div>
+      </div>
+      <div class="grid-4">
+        {% for card in discovery_cards %}
+        <article class="panel-card discovery-card">
+          <div>
+            <span class="badge">{{ loop.index }}</span>
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.copy }}</p>
+          </div>
+          <a class="link" href="{{ card.href }}">Open {{ card.title }} -></a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="trade-audit">
+      <div class="section-head">
+        <div>
+          <span class="badge">Homepage Flow 2</span>
+          <h2>AI Trade Audit</h2>
+          <p>This is one of the strongest business levers in the blueprint. It should feel like a product hook, not just a feature paragraph.</p>
+        </div>
+      </div>
+      <div class="split">
+        <div class="feature-dark">
+          <span class="badge" style="background:rgba(255,255,255,0.12);color:#fff;">Trade Audit</span>
+          <h3>Upload CSV or broker statements. Get a report that traders can actually use.</h3>
+          <p>The V1 blueprint says this section should convert curiosity into action. Show the trader what they gain: better P&L context, a repeatable audit loop, and clear AI recommendations.</p>
+          <div style="margin-top:22px;">
+            <a class="btn btn-primary" href="/stocks/equity-stock-page">Upload Trade History</a>
+          </div>
+        </div>
+        <div class="grid-4" style="grid-template-columns:repeat(2,minmax(0,1fr));">
+          {% for card in trade_audit_cards %}
+          <article class="panel-card">
+            <div class="tiny-label">{{ card.label }}</div>
+            <h3 style="margin:12px 0 10px;font-size:28px;">{{ card.value }}</h3>
+            <p>{{ card.copy }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="badge">Homepage Flow 3</span>
+          <h2>Profit Leakage Report</h2>
+          <p>Instead of generic analytics, the blueprint pushes a very practical angle: show where money is leaking and why that matters.</p>
+        </div>
+      </div>
+      <div class="split">
+        <article class="panel-card">
+          <span class="badge">Leakage View</span>
+          <h3 style="margin:14px 0 12px;font-size:30px;">Where profits quietly disappear</h3>
+          <p class="text-block">Leakage is one of the strongest hooks for TraderHub because it turns weak habits into visible numbers. This is a better conversion story than promising one more signal.</p>
+          <div class="bullet-list" style="margin-top:18px;">
+            {% for item in leakage_points %}
+            <div class="bullet-item" style="background:#f8fbff;border:1px solid var(--line);color:var(--ink);">{{ item }}</div>
+            {% endfor %}
+          </div>
+        </article>
+        <article class="panel-card">
+          <span class="badge">Why It Works</span>
+          <h3 style="margin:14px 0 12px;font-size:30px;">Make trading performance measurable</h3>
+          <p class="text-block">The page should make it obvious that profit leakage is not abstract. It affects exits, discipline, revenge trades, and sizing. That makes this a premium product feature, not a blog concept.</p>
+          <div style="margin-top:20px;">
+            <a class="btn btn-secondary" href="/trade-audit">Open Trade Audit Concept</a>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="badge">Homepage Flow 4</span>
+          <h2>Trade Health Score</h2>
+          <p>The blueprint calls for a score that feels more serious than a generic dashboard stat. These sub-scores help explain what that would look like.</p>
+        </div>
+      </div>
+      <div class="score-strip">
+        {% for metric in score_metrics %}
+        <article class="score-box">
+          <div class="tiny-label">{{ metric.label }}</div>
+          <strong>{{ metric.value }}</strong>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="badge">Homepage Flow 5</span>
+          <h2>AI Coach</h2>
+          <p>The AI coach should feel like a structured improvement layer with weekly review, monthly review, and a practical action plan.</p>
+        </div>
+      </div>
+      <div class="grid-3">
+        {% for card in coach_steps %}
+        <article class="panel-card coach-card">
+          <span class="badge">{{ loop.index }}</span>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.copy }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="pricing">
+      <div class="section-head">
+        <div>
+          <span class="badge">Pricing</span>
+          <h2>Subscriptions Before Everything Else</h2>
+          <p>The blueprint is clear: revenue priority starts with Pro and Premium subscriptions, then referrals, sponsored research, and only then AdSense.</p>
+        </div>
+      </div>
+      <div class="grid-3">
+        {% for card in pricing_cards %}
+        <article class="panel-card price-card {{ card.tone }}">
+          <span class="badge">{% if card.tone == "pro" %}Most Popular{% else %}{{ card.name }}{% endif %}</span>
+          <h3>{{ card.name }}</h3>
+          <div class="price-value">{{ card.price }}</div>
+          <p style="margin-top:10px;">{{ card.copy }}</p>
+          <div class="price-features">
+            {% for feature in card.features %}
+            <span>{{ feature }}</span>
+            {% endfor %}
+          </div>
+          <a class="btn {% if card.tone == 'pro' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ card.href }}">Choose {{ card.name }}</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="blog">
+      <div class="section-head">
+        <div>
+          <span class="badge">Blog</span>
+          <h2>Research Content That Supports Product Trust</h2>
+          <p>The blog should exist, but the homepage should still feel like a premium fintech product rather than a finance portal.</p>
+        </div>
+      </div>
+      <div class="grid-3">
+        {% for card in blog_cards %}
+        <article class="panel-card blog-card">
+          <span class="badge">Research</span>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.copy }}</p>
+          <div style="margin-top:16px;">
+            <a class="btn btn-secondary" href="{{ card.href }}">Open Article</a>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="badge">V1 Sitemap</span>
+          <h2>Core Product Structure</h2>
+          <p>This section reflects the blueprint directly so you can judge how the homepage aligns with the broader TraderHub product map.</p>
+        </div>
+      </div>
+      <div class="sitemap-grid">
+        {% for group in sitemap_groups %}
+        <article class="panel-card sitemap-card">
+          <span class="badge">{{ group.title }}</span>
+          <h3>{{ group.title }}</h3>
+          <ul>
+            {% for link in group.links %}
+            <li>{{ link }}</li>
+            {% endfor %}
+          </ul>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="badge">Build Order</span>
+          <h2>Milestones for V1</h2>
+          <p>The blueprint also defines what should land month by month and what should stay out until real paying-user proof exists.</p>
+        </div>
+      </div>
+      <div class="milestone-grid">
+        {% for card in milestones %}
+        <article class="panel-card">
+          <span class="badge">{{ card.phase }}</span>
+          <h3 style="margin:14px 0 10px;font-size:26px;">{{ card.phase }}</h3>
+          <p>{{ card.items }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="final-cta">
+        <div>
+          <h2>Ready To Turn TraderHub Into a Real Product Homepage?</h2>
+          <p>This sample keeps the blueprint’s intent clear: convert visitors, promote AI Trade Audit, push stock discovery, and make subscriptions feel like the natural next step.</p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="/stocks/equity-stock-page">Start Free Audit</a>
+          <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Explore Stocks</a>
+        </div>
+      </div>
+      <div class="footer-note">Trial 6 is a separate homepage sample built from the TraderHub V1 sitemap and business blueprint.</div>
+    </section>
   </div>
 </body>
 </html>
@@ -41199,6 +42049,12 @@ def website_shell_trial4():
 def website_shell_trial5():
     context = build_website_shell_trial5_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL5_TEMPLATE, **context)
+
+
+@app.route("/website-shell-trial6")
+def website_shell_trial6():
+    context = build_website_shell_trial6_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL6_TEMPLATE, **context)
 
 
 @app.route("/api/website-shell-trial3/indices")
