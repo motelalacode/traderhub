@@ -22272,6 +22272,7 @@ def build_bar_svg(values, color="#2563EB"):
 def build_premium_stock_detail_context(stock_slug, host_root):
     slug = str(stock_slug or "").strip().lower()
     sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
+    is_curated_sample = bool(sample)
     if not sample:
         master = load_symbol_master()
         by_symbol = master.get("by_symbol", {})
@@ -22345,7 +22346,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "checklist": [("Profit Growing", True), ("ROCE > 15%", True), ("Debt Under Control", True), ("Positive Cash Flow", True), ("Dividend Paying", True), ("Promoter Holding Stable", True)],
             "related": [(peer_name, f"/stocks/research/{slugify_stock_search_term(peer_name)}") for peer_name in named_peers[:5]],
             "sector_label": sector_label,
+            "shareholding_available": False,
         }
+    else:
+        sample["shareholding_available"] = True
     sample_metric_defaults = {label: value for label, value in sample.get("metrics", [])}
 
     def _get_metric_value(metric_rows, label):
@@ -22462,6 +22466,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         live_peer_rows = live_context.get("peer_comparison_rows") or []
         live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
         sample["shareholding"] = live_shareholding
+        sample["shareholding_available"] = bool(resolved_shareholding_table) or is_curated_sample
 
         if live_stock.get("ltp") and live_stock.get("ltp") != "-":
             sample["price"] = f"INR {live_stock['ltp']}"
@@ -22585,10 +22590,20 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     _format_holding_percent(public_value),
                     signal,
                 ))
-            if len(institutional_rows) < 4:
+            if len(institutional_rows) < 4 and is_curated_sample:
                 sample["institutional_activity"] = {
                     "rows": _build_fallback_institutional_rows(sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}),
                     "insight": "Institutional holding trend uses the latest shareholding snapshot and a restored quarterly view until the full quarter-wise history source is available again.",
+                }
+            elif len(institutional_rows) < 4:
+                sample["institutional_activity"] = {
+                    "rows": [
+                        ("Q4 2026", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q3 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q2 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q1 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                    ],
+                    "insight": "Quarter-wise institutional history is still updating for this stock, so TraderHub is not inventing historical ownership data.",
                 }
             else:
                 sample["institutional_activity"] = {
@@ -22597,10 +22612,21 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 }
         else:
             current_holding = sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}
-            sample["institutional_activity"] = {
-                "rows": _build_fallback_institutional_rows(current_holding),
-                "insight": "Institutional activity is currently using the latest available ownership snapshot and a restored quarter view because historical quarter-wise rows are not available from the active source.",
-            }
+            if is_curated_sample:
+                sample["institutional_activity"] = {
+                    "rows": _build_fallback_institutional_rows(current_holding),
+                    "insight": "Institutional activity is currently using the latest available ownership snapshot and a restored quarter view because historical quarter-wise rows are not available from the active source.",
+                }
+            else:
+                sample["institutional_activity"] = {
+                    "rows": [
+                        ("Q4 2026", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q3 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q2 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                        ("Q1 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
+                    ],
+                    "insight": "Institutional activity is updating for this stock. TraderHub will show quarter-wise ownership once the verified source is available.",
+                }
 
         valuation_text = sample.get("fair_value", {}).get("status", "Fairly Valued")
         dividend_text = dividend_yield_value or "moderate dividend support"
@@ -23115,6 +23141,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     </section>
 
     <section class="section card shareholding-wrap" style="--shareholding-style: {{ shareholding_style }};">
+      {% if stock.shareholding_available %}
       <div class="donut"></div>
       <div>
         <h2>Shareholding Pattern</h2>
@@ -23125,6 +23152,13 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
           <div class="share-item"><span>Public</span><strong>{{ stock.shareholding.public }}%</strong></div>
         </div>
       </div>
+      {% else %}
+      <div>
+        <h2>Shareholding Pattern</h2>
+        <div class="institutional-note">Verified shareholding data is still updating for this stock, so TraderHub is not showing a placeholder ownership mix.</div>
+      </div>
+      <div></div>
+      {% endif %}
     </section>
 
     <!-- Institutional Activity Start -->
