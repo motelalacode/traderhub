@@ -38783,13 +38783,13 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       </div>
       <div class="card-grid">
         {% for card in categories %}
-        <article class="panel-card opportunity-card {{ card.tone }}">
+        <article class="panel-card opportunity-card {{ card['tone'] }}">
           <div>
             <span class="section-tag">{{ loop.index }} / 8</span>
-            <h3>{{ card.title }}</h3>
-            <p>{{ card.copy }}</p>
+            <h3>{{ card['title'] }}</h3>
+            <p>{{ card['copy'] }}</p>
           </div>
-          <a class="link" href="{{ card.href }}">Open {{ card.title }} -></a>
+          <a class="link" href="{{ card['href'] }}">Open {{ card['title'] }} -></a>
         </article>
         {% endfor %}
       </div>
@@ -38813,9 +38813,9 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
         <div class="audit-grid">
           {% for card in trade_audit_cards %}
           <article class="panel-card audit-card">
-            <span class="section-tag">{{ card.label }}</span>
-            <strong>{{ card.value }}</strong>
-            <p>{{ card.copy }}</p>
+            <span class="section-tag">{{ card['label'] }}</span>
+            <strong>{{ card['value'] }}</strong>
+            <p>{{ card['copy'] }}</p>
           </article>
           {% endfor %}
         </div>
@@ -38870,8 +38870,8 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
         {% for card in features %}
         <article class="panel-card feature-card">
           <span class="section-tag">{{ loop.index }}</span>
-          <h3>{{ card.title }}</h3>
-          <p>{{ card.copy }}</p>
+          <h3>{{ card['title'] }}</h3>
+          <p>{{ card['copy'] }}</p>
         </article>
         {% endfor %}
       </div>
@@ -38887,17 +38887,17 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       </div>
       <div class="pricing-grid">
         {% for card in pricing_cards %}
-        <article class="price-card {{ card.tone }}">
-          <span class="badge">{% if card.tone == "pro" %}Most Popular{% else %}{{ card.name }}{% endif %}</span>
-          <h3>{{ card.name }}</h3>
-          <div class="price-value">{{ card.price }}</div>
-          <div class="price-copy">{{ card.copy }}</div>
+        <article class="price-card {{ card['tone'] }}">
+          <span class="badge">{% if card['tone'] == "pro" %}Most Popular{% else %}{{ card['name'] }}{% endif %}</span>
+          <h3>{{ card['name'] }}</h3>
+          <div class="price-value">{{ card['price'] }}</div>
+          <div class="price-copy">{{ card['copy'] }}</div>
           <div class="price-features">
-            {% for feature in card.features %}
+            {% for feature in card['features'] %}
             <span>{{ feature }}</span>
             {% endfor %}
           </div>
-          <a class="btn {% if card.tone == 'pro' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ card.href }}">Choose {{ card.name }}</a>
+          <a class="btn {% if card['tone'] == 'pro' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ card['href'] }}">Choose {{ card['name'] }}</a>
         </article>
         {% endfor %}
       </div>
@@ -38914,8 +38914,8 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       <div class="proof-grid">
         {% for card in testimonials %}
         <article class="panel-card quote-card">
-          <blockquote>"{{ card.quote }}"</blockquote>
-          <footer>{{ card.name }}</footer>
+          <blockquote>"{{ card['quote'] }}"</blockquote>
+          <footer>{{ card['name'] }}</footer>
         </article>
         {% endfor %}
       </div>
@@ -38933,9 +38933,9 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
         {% for card in blog_cards %}
         <article class="panel-card blog-card">
           <span class="section-tag">Research Note</span>
-          <h3>{{ card.title }}</h3>
-          <p>{{ card.copy }}</p>
-          <div style="margin-top:16px;"><a class="btn btn-secondary" href="{{ card.href }}">Open Article</a></div>
+          <h3>{{ card['title'] }}</h3>
+          <p>{{ card['copy'] }}</p>
+          <div style="margin-top:16px;"><a class="btn btn-secondary" href="{{ card['href'] }}">Open Article</a></div>
         </article>
         {% endfor %}
       </div>
