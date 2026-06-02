@@ -21957,6 +21957,576 @@ def build_public_info_context(host_root, slug):
     }
 
 
+def build_trial_home_nav_links():
+    return [
+        {"label": "Home", "href": "/website-shell-trial5"},
+        {"label": "Stocks", "href": "/stocks"},
+        {"label": "Screeners", "href": "/screeners"},
+        {"label": "Watchlist", "href": "/stocks/dividend-stocks"},
+        {"label": "Trade Audit", "href": "/stocks/equity-stock-page"},
+        {"label": "Pricing", "href": "/pricing"},
+        {"label": "Blog", "href": "/website-shell-trial5#blog"},
+        {"label": "Login", "href": "/login"},
+    ]
+
+
+def slugify_stock_search_term(raw_text):
+    value = re.sub(r"[^a-z0-9]+", "-", str(raw_text or "").strip().lower()).strip("-")
+    return value or "reliance-industries"
+
+
+PREMIUM_STOCK_SAMPLE_MAP = {
+    "reliance-industries": {
+        "company_name": "Reliance Industries Ltd",
+        "symbol": "RELIANCE",
+        "exchange": "NSE",
+        "price": "INR 2,945.50",
+        "change": "+52.45",
+        "change_pct": "1.82%",
+        "tone": "up",
+        "status": "Market Closed",
+        "updated": "30 May 2026, 03:30 PM IST",
+        "ai_score": 82,
+        "verdict": "Good for Long-term Investors",
+        "risk": "Moderate",
+        "metrics": [
+            ("Market Cap", "INR 19.75 Lakh Cr"),
+            ("PE Ratio", "27.41"),
+            ("ROE", "18.35%"),
+            ("ROCE", "16.48%"),
+            ("Dividend Yield", "0.36%"),
+            ("Debt/Equity", "0.42"),
+            ("52 Week High", "INR 3,608"),
+            ("52 Week Low", "INR 2,601"),
+        ],
+        "ai_verdict_rows": [
+            ("Valuation", "Fairly Valued"),
+            ("Growth", "Strong"),
+            ("Dividend", "Average"),
+            ("Financial Strength", "Strong"),
+            ("Risk", "Moderate"),
+        ],
+        "buy_for": [
+            "Long-term wealth creation",
+            "Strong business fundamentals",
+            "Consistent cash flow generation",
+            "Leader in multiple high-growth sectors",
+        ],
+        "avoid_if": [
+            "Looking for high dividend yield",
+            "Expecting short-term quick gains",
+            "Very low-risk investment preference",
+        ],
+        "business_overview": "Reliance Industries Ltd is India's largest private sector company with diverse interests in Oil & Gas, Petrochemicals, Retail, Digital Services, Telecom and Renewable Energy.",
+        "financial_cards": [
+            ("Revenue", ["5.6", "6.2", "7.0", "7.8", "8.5"], "INR 8.5L Cr"),
+            ("Net Profit", ["0.42", "0.48", "0.55", "0.61", "0.68"], "INR 68K Cr"),
+            ("EPS", ["62", "71", "83", "92", "104"], "INR 104"),
+            ("Free Cash Flow", ["0.18", "0.22", "0.26", "0.31", "0.35"], "INR 35K Cr"),
+            ("Net Worth", ["2.8", "3.1", "3.5", "3.9", "4.4"], "INR 4.4L Cr"),
+        ],
+        "dividend": {
+            "yield": "0.36%",
+            "payout": "9.4%",
+            "annual": "INR 10.50",
+            "ex_date": "22 Aug 2026",
+            "growth": "8.2%",
+        },
+        "peers": [
+            ("Reliance Industries", "INR 19.75L Cr", "27.41", "18.35%", "16.48%", "0.36%"),
+            ("ONGC", "INR 3.82L Cr", "8.92", "16.40%", "18.12%", "4.60%"),
+            ("Indian Oil Corp", "INR 2.41L Cr", "9.85", "18.20%", "16.71%", "6.40%"),
+            ("BPCL", "INR 1.39L Cr", "10.24", "19.60%", "17.10%", "5.20%"),
+        ],
+        "shareholding": {"promoters": 50.27, "fiis": 24.81, "diis": 12.95, "public": 11.97},
+        "checklist": [
+            ("Profit Growing", True),
+            ("ROCE > 15%", True),
+            ("Debt Under Control", True),
+            ("Positive Cash Flow", True),
+            ("Dividend Paying", True),
+            ("Promoter Holding Stable", True),
+        ],
+        "related": [
+            ("ONGC", "/stocks/research/ongc"),
+            ("Indian Oil Corp", "/stocks/research/indian-oil-corp"),
+            ("BPCL", "/stocks/research/bpcl"),
+            ("HPCL", "/stocks/research/hpcl"),
+            ("Adani Total Gas", "/stocks/research/adani-total-gas"),
+        ],
+    },
+}
+
+
+def build_simple_line_svg():
+    return """
+    <svg viewBox="0 0 520 220" width="100%" height="220" aria-hidden="true">
+      <defs>
+        <linearGradient id="stock-line-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="rgba(37,99,235,0.26)"/>
+          <stop offset="100%" stop-color="rgba(37,99,235,0.02)"/>
+        </linearGradient>
+      </defs>
+      <rect x="0" y="0" width="520" height="220" rx="22" fill="#f8fbff"/>
+      <g stroke="#dbe6f2" stroke-width="1">
+        <line x1="28" y1="40" x2="492" y2="40"/>
+        <line x1="28" y1="90" x2="492" y2="90"/>
+        <line x1="28" y1="140" x2="492" y2="140"/>
+        <line x1="28" y1="190" x2="492" y2="190"/>
+      </g>
+      <path d="M28 168 C88 150, 104 130, 156 126 S252 82, 302 96 S392 56, 492 70 L492 190 L28 190 Z" fill="url(#stock-line-fill)"/>
+      <path d="M28 168 C88 150, 104 130, 156 126 S252 82, 302 96 S392 56, 492 70" fill="none" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="492" cy="70" r="6" fill="#10B981"/>
+    </svg>
+    """
+
+
+def build_bar_svg(values, color="#2563EB"):
+    cleaned = [float(value) for value in values]
+    max_value = max(cleaned) if cleaned else 1
+    bars = []
+    width = 180
+    base = 92
+    bar_width = 20
+    gap = 14
+    x = 8
+    for value in cleaned:
+        height = max(16, int((value / max_value) * 68))
+        y = base - height
+        bars.append(f'<rect x="{x}" y="{y}" width="{bar_width}" height="{height}" rx="8" fill="{color}" opacity="0.88"/>')
+        x += bar_width + gap
+    return f'<svg viewBox="0 0 180 100" width="100%" height="100" aria-hidden="true"><rect width="180" height="100" rx="16" fill="#f8fbff"/><line x1="8" y1="92" x2="172" y2="92" stroke="#dbe6f2"/>' + "".join(bars) + '</svg>'
+
+
+def build_premium_stock_detail_context(stock_slug, host_root):
+    slug = str(stock_slug or "").strip().lower()
+    sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
+    if not sample:
+        pretty = " ".join(part.capitalize() for part in slug.split("-") if part) or "Sample Stock"
+        symbol = "".join(part[:3] for part in pretty.split()).upper()[:8] or "STOCK"
+        sample = {
+            "company_name": pretty,
+            "symbol": symbol,
+            "exchange": "NSE",
+            "price": "INR 1,245.80",
+            "change": "+18.40",
+            "change_pct": "1.50%",
+            "tone": "up",
+            "status": "Market Closed",
+            "updated": "30 May 2026, 03:30 PM IST",
+            "ai_score": 76,
+            "verdict": "Worth deeper research",
+            "risk": "Moderate",
+            "metrics": [
+                ("Market Cap", "INR 1.42L Cr"),
+                ("PE Ratio", "24.60"),
+                ("ROE", "16.10%"),
+                ("ROCE", "15.40%"),
+                ("Dividend Yield", "0.80%"),
+                ("Debt/Equity", "0.36"),
+                ("52 Week High", "INR 1,420"),
+                ("52 Week Low", "INR 960"),
+            ],
+            "ai_verdict_rows": [("Valuation", "Fairly Valued"), ("Growth", "Stable"), ("Dividend", "Average"), ("Financial Strength", "Good"), ("Risk", "Moderate")],
+            "buy_for": ["Long-term research", "Balanced quality and growth", "Reasonable financial strength", "Sector leadership potential"],
+            "avoid_if": ["Need high dividend income", "Need fast momentum only", "Prefer very low-risk setups"],
+            "business_overview": f"{pretty} is shown here with sample TraderHub stock detail data so the page layout can be reviewed before backend wiring is connected.",
+            "financial_cards": [
+                ("Revenue", ["2.1", "2.4", "2.8", "3.0", "3.4"], "INR 3.4L Cr"),
+                ("Net Profit", ["0.18", "0.22", "0.27", "0.30", "0.34"], "INR 34K Cr"),
+                ("EPS", ["28", "32", "37", "41", "46"], "INR 46"),
+                ("Free Cash Flow", ["0.11", "0.16", "0.18", "0.22", "0.26"], "INR 26K Cr"),
+                ("Net Worth", ["1.0", "1.2", "1.4", "1.55", "1.72"], "INR 1.72L Cr"),
+            ],
+            "dividend": {"yield": "0.80%", "payout": "14.0%", "annual": "INR 9.00", "ex_date": "18 Jul 2026", "growth": "7.5%"},
+            "peers": [
+                (pretty, "INR 1.42L Cr", "24.60", "16.10%", "15.40%", "0.80%"),
+                ("Peer One", "INR 1.10L Cr", "22.10", "14.80%", "14.40%", "0.72%"),
+                ("Peer Two", "INR 0.92L Cr", "19.80", "13.90%", "13.70%", "0.68%"),
+                ("Peer Three", "INR 1.25L Cr", "25.20", "15.40%", "14.90%", "0.76%"),
+            ],
+            "shareholding": {"promoters": 48.0, "fiis": 21.0, "diis": 16.0, "public": 15.0},
+            "checklist": [("Profit Growing", True), ("ROCE > 15%", True), ("Debt Under Control", True), ("Positive Cash Flow", True), ("Dividend Paying", True), ("Promoter Holding Stable", True)],
+            "related": [("Peer One", "/stocks/research/peer-one"), ("Peer Two", "/stocks/research/peer-two"), ("Peer Three", "/stocks/research/peer-three"), ("Peer Four", "/stocks/research/peer-four"), ("Peer Five", "/stocks/research/peer-five")],
+        }
+    company_name = sample["company_name"]
+    canonical_url = f"{host_root.rstrip('/')}/stocks/research/{slug}"
+    schema_json = json.dumps(
+        {
+            "@context": "https://schema.org",
+            "@graph": [
+                {
+                    "@type": "WebPage",
+                    "name": f"{company_name} Share Price, AI Analysis & Stock Research | TraderHub",
+                    "description": f"Premium TraderHub stock detail page for {company_name} with price, AI score, quick metrics, peer comparison, and dividend overview.",
+                    "url": canonical_url,
+                },
+                {
+                    "@type": "BreadcrumbList",
+                    "itemListElement": [
+                        {"@type": "ListItem", "position": 1, "name": "Home", "item": host_root.rstrip("/") + "/"},
+                        {"@type": "ListItem", "position": 2, "name": "Stocks", "item": host_root.rstrip("/") + "/stocks"},
+                        {"@type": "ListItem", "position": 3, "name": company_name, "item": canonical_url},
+                    ],
+                },
+                {
+                    "@type": "FinancialProduct",
+                    "name": company_name,
+                    "description": f"Sample premium stock research page for {company_name} on TraderHub.",
+                    "url": canonical_url,
+                },
+                {
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {"@type": "Question", "name": f"What does the TraderHub AI Score mean for {company_name}?", "acceptedAnswer": {"@type": "Answer", "text": "It is a simplified composite score that helps combine quality, valuation, financial strength, and risk into one quick stock research signal."}},
+                        {"@type": "Question", "name": f"Is {company_name} shown with live data on this page?", "acceptedAnswer": {"@type": "Answer", "text": "This current premium sample uses dummy data so the page design can be reviewed before backend connections are added."}},
+                    ],
+                },
+            ],
+        },
+        indent=2,
+    )
+    sample["chart_svg"] = build_simple_line_svg()
+    sample["financial_cards"] = [(title, build_bar_svg(values), value) for title, values, value in sample["financial_cards"]]
+    shareholding = sample["shareholding"]
+    shareholding_style = f"conic-gradient(#2563EB 0 {shareholding['promoters']}%, #10B981 {shareholding['promoters']}% {shareholding['promoters'] + shareholding['fiis']}%, #0EA5E9 {shareholding['promoters'] + shareholding['fiis']}% {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}%, #E2E8F0 {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}% 100%)"
+    return {
+        "seo_title": f"{company_name} Share Price, AI Analysis & Stock Research | TraderHub",
+        "seo_description": f"Review {company_name} with a premium TraderHub stock detail page covering price, AI score, valuation, dividend overview, peer comparison, and related stocks.",
+        "canonical_url": canonical_url,
+        "schema_json": schema_json,
+        "nav_links": build_trial_home_nav_links(),
+        "stock": sample,
+        "shareholding_style": shareholding_style,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+
+
+def build_premium_stocks_hub_context(host_root):
+    featured = [
+        ("Reliance Industries Ltd", "reliance-industries"),
+        ("ONGC", "ongc"),
+        ("Indian Oil Corp", "indian-oil-corp"),
+        ("BPCL", "bpcl"),
+        ("HPCL", "hpcl"),
+        ("Adani Total Gas", "adani-total-gas"),
+    ]
+    canonical_url = f"{host_root.rstrip('/')}/stocks"
+    return {
+        "seo_title": "Stocks Hub | Premium Stock Research | TraderHub",
+        "seo_description": "Search and open premium TraderHub stock detail pages with AI score, quick metrics, charts, peer comparison, and dividend context.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@type": "WebPage",
+                "name": "Stocks Hub | TraderHub",
+                "description": "Premium stock research hub for TraderHub.",
+                "url": canonical_url,
+            },
+            indent=2,
+        ),
+        "nav_links": build_trial_home_nav_links(),
+        "featured": featured,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+
+
+PREMIUM_STOCKS_HUB_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root{--bg:#f8fbff;--paper:#fff;--line:#e2e8f0;--ink:#0f172a;--muted:#64748b;--blue:#2563EB;--green:#10B981;--shadow:0 22px 52px rgba(15,23,42,.07)}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top left, rgba(37,99,235,.10), transparent 26%),linear-gradient(180deg,#fbfdff 0%,var(--bg) 100%)} a{text-decoration:none;color:inherit}
+    .page{max-width:1420px;margin:0 auto;padding:0 18px 42px}.topnav{position:sticky;top:0;z-index:20;margin-top:14px;padding:14px 18px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid var(--line);backdrop-filter:blur(18px);display:flex;justify-content:space-between;gap:16px;align-items:center;box-shadow:0 18px 40px rgba(15,23,42,.06)}
+    .brand strong{display:block;font-size:22px;line-height:1}.brand span{display:block;margin-top:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.nav-links{display:flex;flex-wrap:wrap;gap:10px}.nav-links a{padding:10px 14px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:700}.hero{margin-top:18px;padding:34px;border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(245,249,255,.98));border:1px solid var(--line);box-shadow:var(--shadow)}
+    .eyebrow{display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
+    h1{margin:16px 0 10px;font-size:clamp(34px,4vw,58px);line-height:1.02}.hero p{margin:0;max-width:780px;color:var(--muted);line-height:1.8;font-size:16px}
+    .search-shell{margin-top:24px;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:16px 18px;border-radius:18px;border:1px solid var(--line);font:inherit;font-size:15px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
+    .section{margin-top:26px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}.card{padding:20px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05)}.card h3{margin:12px 0 8px;font-size:24px}.card p{margin:0;color:var(--muted);line-height:1.7}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.search-shell{grid-template-columns:1fr}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="topnav">
+      <div class="brand"><strong>TraderHub</strong><span>Stocks Hub</span></div>
+      <div class="nav-links">{% for link in nav_links %}<a href="{{ link.href }}">{{ link.label }}</a>{% endfor %}</div>
+    </nav>
+    <section class="hero">
+      <div class="eyebrow">Premium Stock Research</div>
+      <h1>Search and open stock details in a cleaner TraderHub research flow.</h1>
+      <p>Type any stock name or slug and open a premium stock detail page built to feel like a SaaS research product, not a news portal.</p>
+      <form class="search-shell" action="/stocks/search" method="get">
+        <input type="text" name="q" placeholder="Search any stock...">
+        <button class="btn" type="submit">Open Stock Page</button>
+      </form>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <h2>Featured sample pages</h2>
+        <p>These are ready sample routes you can open right now while the backend wiring stays separate.</p>
+      </div>
+      <div class="grid">
+        {% for label, slug in featured %}
+        <article class="card">
+          <span class="chip">Sample</span>
+          <h3>{{ label }}</h3>
+          <p>Open the premium stock detail layout with AI score, chart area, quick metrics, dividend section, and peer comparison.</p>
+          <div style="margin-top:16px;"><a class="btn" href="/stocks/research/{{ slug }}">Open {{ label }}</a></div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</body>
+</html>
+"""
+
+
+PREMIUM_STOCK_DETAIL_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="article">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root{--bg:#f8fbff;--paper:#fff;--line:#e2e8f0;--ink:#0f172a;--muted:#64748b;--blue:#2563EB;--green:#10B981;--red:#EF4444;--shadow:0 22px 52px rgba(15,23,42,.07)}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top left, rgba(37,99,235,.10), transparent 26%),linear-gradient(180deg,#fbfdff 0%,var(--bg) 100%)} a{text-decoration:none;color:inherit}
+    .page{max-width:1460px;margin:0 auto;padding:0 18px 72px}.topnav{position:sticky;top:0;z-index:20;margin-top:14px;padding:14px 18px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid var(--line);backdrop-filter:blur(18px);display:flex;justify-content:space-between;gap:16px;align-items:center;box-shadow:0 18px 40px rgba(15,23,42,.06)}
+    .brand strong{display:block;font-size:22px;line-height:1}.brand span{display:block;margin-top:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.nav-links{display:flex;flex-wrap:wrap;gap:10px}.nav-links a{padding:10px 14px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:700}
+    .nav-search{display:flex;gap:10px;align-items:center}.nav-search input{padding:12px 14px;border-radius:16px;border:1px solid var(--line);font:inherit;min-width:220px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;padding:13px 16px;border-radius:16px;font-size:13px;font-weight:800;border:1px solid transparent}.btn-primary{background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff}.btn-secondary{background:#fff;color:var(--ink);border-color:var(--line)}
+    .breadcrumb{margin-top:18px;color:var(--muted);font-size:13px}.hero-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px;margin-top:14px}.card{background:#fff;border:1px solid var(--line);border-radius:28px;box-shadow:0 16px 34px rgba(15,23,42,.05);padding:22px}
+    .hero-main{display:grid;gap:18px}.logo-placeholder{width:74px;height:74px;border-radius:22px;background:linear-gradient(135deg,#eef4ff,#f6fbff);display:grid;place-items:center;color:var(--blue);font-weight:900;font-size:22px;border:1px solid var(--line)} h1{margin:0;font-size:clamp(34px,4vw,48px);line-height:1.04}.ticker{color:var(--muted);font-size:14px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+    .price-line{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px}.price-line strong{font-size:42px;line-height:1}.price-change.up{color:var(--green)}.price-change.down{color:var(--red)}.meta-line{display:flex;flex-wrap:wrap;gap:14px;color:var(--muted);font-size:14px}
+    .action-row{display:flex;gap:10px;flex-wrap:wrap}
+    .score-card{display:grid;gap:14px;align-content:start}.score-gauge{width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--green) 82%, #dbe7f3 0);display:grid;place-items:center;padding:10px}.score-gauge .inner{width:100%;height:100%;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center}.score-gauge strong{font-size:28px;line-height:1}
+    .quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}.metric-card{padding:16px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 28px rgba(15,23,42,.04)}.metric-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800}.metric-card strong{display:block;margin-top:10px;font-size:24px}
+    .main-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px;margin-top:18px}.section{margin-top:18px}.section h2{margin:0 0 14px;font-size:28px;line-height:1.08}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.tab{padding:9px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
+    .verdict-rows{display:grid;gap:12px}.verdict-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+    .two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.list-card ul{margin:12px 0 0;padding-left:18px;color:var(--muted);line-height:1.8}
+    .overview-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:center}.overview-illustration{min-height:220px;border-radius:24px;background:linear-gradient(135deg,#eef4ff,#f8fbff);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue);font-weight:800;text-align:center;padding:18px}
+    .finance-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.finance-card{padding:16px;border-radius:22px;background:#fff;border:1px solid var(--line)}.finance-card strong{display:block;margin-top:10px;font-size:20px}
+    .dividend-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+    .peer-table,.checklist-table{width:100%;border-collapse:collapse}.peer-table th,.peer-table td,.checklist-table td{padding:12px 10px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}.peer-table th{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted)}
+    .shareholding-wrap{display:grid;grid-template-columns:.78fr 1.22fr;gap:18px;align-items:center}.donut{width:220px;height:220px;border-radius:50%;margin:0 auto;background:var(--shareholding-style);position:relative}.donut:after{content:"";position:absolute;inset:40px;border-radius:50%;background:#fff}.share-list{display:grid;gap:10px}.share-item{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+    .checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.check-item{padding:14px 16px;border-radius:18px;background:#f8fbff;border:1px solid var(--line);font-size:14px;font-weight:700}
+    .premium-banner{padding:28px;border-radius:30px;background:linear-gradient(135deg,#0f172a 0%,#194674 62%,#0EA5E9 100%);color:#fff;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;box-shadow:0 24px 56px rgba(15,23,42,.16)}.premium-banner ul{margin:14px 0 0;padding-left:18px;color:rgba(255,255,255,.86);line-height:1.8}
+    .related-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.related-card{padding:18px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 28px rgba(15,23,42,.04)}.related-card h3{margin:12px 0 8px;font-size:21px}
+    .sticky-cta{display:none}
+    @media (max-width:1180px){.hero-grid,.main-grid,.two-col,.overview-grid,.shareholding-wrap{grid-template-columns:1fr}.quick-grid,.finance-grid,.dividend-grid,.related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
+    @media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <nav class="topnav">
+      <div class="brand"><strong>TraderHub</strong><span>Premium Stock Detail</span></div>
+      <div class="nav-links">{% for link in nav_links %}<a href="{{ link.href }}">{{ link.label }}</a>{% endfor %}</div>
+      <form class="nav-search" action="/stocks/search" method="get">
+        <input type="text" name="q" placeholder="Search any stock...">
+        <button class="btn btn-primary" type="submit">Open</button>
+      </form>
+    </nav>
+
+    <div class="breadcrumb">Home &gt; Stocks &gt; {{ stock.company_name }}</div>
+
+    <section class="hero-grid">
+      <article class="card hero-main">
+        <div class="logo-placeholder">{{ stock.symbol[:2] }}</div>
+        <div>
+          <h1>{{ stock.company_name }}</h1>
+          <div class="ticker">{{ stock.symbol }} • {{ stock.exchange }}</div>
+        </div>
+        <div class="price-line">
+          <strong>{{ stock.price }}</strong>
+          <span class="price-change {{ stock.tone }}">{{ stock.change }} ({{ stock.change_pct }})</span>
+        </div>
+        <div class="meta-line">
+          <span>{{ stock.status }}</span>
+          <span>{{ stock.updated }}</span>
+        </div>
+        <div class="action-row">
+          <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
+          <a class="btn btn-secondary" href="/stocks/research/ongc">Compare</a>
+          <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Download Report</a>
+        </div>
+      </article>
+      <article class="card score-card">
+        <div class="score-gauge"><div class="inner"><div><strong>{{ stock.ai_score }}</strong><div>/ 100</div></div></div></div>
+        <div>
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800;">TraderHub AI Score</div>
+          <div style="margin-top:10px;font-size:22px;font-weight:800;">{{ stock.verdict }}</div>
+          <div style="margin-top:8px;color:var(--muted);">Risk: {{ stock.risk }}</div>
+        </div>
+        <a class="btn btn-primary" href="#ai-analysis">View AI Analysis</a>
+      </article>
+    </section>
+
+    <section class="quick-grid">
+      {% for label, value in stock.metrics %}
+      <article class="metric-card"><div class="label">{{ label }}</div><strong>{{ value }}</strong></article>
+      {% endfor %}
+    </section>
+
+    <section class="main-grid">
+      <article class="card">
+        <h2>Price Chart</h2>
+        <div class="tabs"><span class="tab">1D</span><span class="tab">1W</span><span class="tab">1M</span><span class="tab">6M</span><span class="tab">1Y</span><span class="tab">5Y</span><span class="tab">MAX</span></div>
+        {{ stock.chart_svg|safe }}
+      </article>
+      <article class="card" id="ai-analysis">
+        <h2>AI Verdict</h2>
+        <div class="verdict-rows">
+          {% for label, value in stock.ai_verdict_rows %}
+          <div class="verdict-row"><span>{{ label }}</span><strong>{{ value }}</strong></div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:16px;padding:16px;border-radius:18px;background:#f8fbff;border:1px solid var(--line);"><strong>Overall Verdict</strong><div style="margin-top:8px;color:var(--muted);">Suitable for long-term investors.</div></div>
+      </article>
+    </section>
+
+    <section class="section card two-col">
+      <article class="list-card">
+        <h2>Buy For</h2>
+        <ul>{% for item in stock.buy_for %}<li>{{ item }}</li>{% endfor %}</ul>
+      </article>
+      <article class="list-card">
+        <h2>Avoid If</h2>
+        <ul>{% for item in stock.avoid_if %}<li>{{ item }}</li>{% endfor %}</ul>
+      </article>
+    </section>
+
+    <section class="section card overview-grid">
+      <div>
+        <h2>Business Overview</h2>
+        <p style="margin:0;color:var(--muted);line-height:1.85;">{{ stock.business_overview }}</p>
+      </div>
+      <div class="overview-illustration">Business Mix Illustration Area<br>Retail • Energy • Digital • Telecom</div>
+    </section>
+
+    <section class="section">
+      <h2>Financial Performance</h2>
+      <div class="finance-grid">
+        {% for title, svg, value in stock.financial_cards %}
+        <article class="finance-card">
+          <div class="label" style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;">{{ title }}</div>
+          <div style="margin-top:10px;">{{ svg|safe }}</div>
+          <strong>{{ value }}</strong>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>Dividend Overview</h2>
+      <div class="dividend-grid">
+        <article class="metric-card"><div class="label">Dividend Yield</div><strong>{{ stock.dividend.yield }}</strong></article>
+        <article class="metric-card"><div class="label">Payout Ratio</div><strong>{{ stock.dividend.payout }}</strong></article>
+        <article class="metric-card"><div class="label">Annual Dividend</div><strong>{{ stock.dividend.annual }}</strong></article>
+        <article class="metric-card"><div class="label">Ex-Dividend Date</div><strong>{{ stock.dividend.ex_date }}</strong></article>
+        <article class="metric-card"><div class="label">Dividend Growth 3Y</div><strong>{{ stock.dividend.growth }}</strong></article>
+      </div>
+      <div style="margin-top:16px;"><a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">View Dividend History</a></div>
+    </section>
+
+    <section class="section card">
+      <h2>Peer Comparison</h2>
+      <table class="peer-table">
+        <thead><tr><th>Company</th><th>Market Cap</th><th>PE</th><th>ROE</th><th>ROCE</th><th>Dividend Yield</th></tr></thead>
+        <tbody>
+          {% for row in stock.peers %}
+          <tr>{% for item in row %}<td>{{ item }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section class="section card shareholding-wrap" style="--shareholding-style: {{ shareholding_style }};">
+      <div class="donut"></div>
+      <div>
+        <h2>Shareholding Pattern</h2>
+        <div class="share-list">
+          <div class="share-item"><span>Promoters</span><strong>{{ stock.shareholding.promoters }}%</strong></div>
+          <div class="share-item"><span>FIIs</span><strong>{{ stock.shareholding.fiis }}%</strong></div>
+          <div class="share-item"><span>DIIs</span><strong>{{ stock.shareholding.diis }}%</strong></div>
+          <div class="share-item"><span>Public</span><strong>{{ stock.shareholding.public }}%</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section card">
+      <h2>Investment Checklist</h2>
+      <div class="checklist-grid">
+        {% for label, state in stock.checklist %}
+        <div class="check-item">{% if state %}✓{% else %}•{% endif %} {{ label }}</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section premium-banner">
+      <div>
+        <h2 style="margin:0 0 10px;font-size:38px;line-height:1.05;">Unlock Premium Stock Analysis</h2>
+        <ul>
+          <li>Fair Value Estimate</li>
+          <li>AI Insights</li>
+          <li>Entry Zone</li>
+          <li>Sector Ranking</li>
+          <li>Institutional Activity</li>
+          <li>Risk Alerts</li>
+        </ul>
+      </div>
+      <div>
+        <a class="btn btn-primary" href="/pricing">Upgrade to Pro</a>
+        <div style="margin-top:10px;color:rgba(255,255,255,.82);font-weight:700;">7 Day Free Trial</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Related Stocks</h2>
+      <div class="related-grid">
+        {% for label, href in stock.related %}
+        <article class="related-card">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;">Related</div>
+          <h3>{{ label }}</h3>
+          <a class="btn btn-secondary" href="{{ href }}">Open Stock</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+  <div class="sticky-cta">
+    <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
+    <a class="btn btn-secondary" href="#ai-analysis">Unlock AI Analysis</a>
+  </div>
+</body>
+</html>
+"""
+
+
 def get_phase2_market_symbols(limit=18):
     symbols = []
     seen = set()
@@ -37792,7 +38362,7 @@ def build_website_shell_trial5_context(host_root):
     ]
     nav_links = [
         {"label": "Home", "href": "/website-shell-trial5"},
-        {"label": "Stocks", "href": "/stocks/itc"},
+        {"label": "Stocks", "href": "/stocks"},
         {"label": "Screeners", "href": "/stocks/high-dividend-paying-stocks"},
         {"label": "Watchlist", "href": "/stocks/dividend-stocks"},
         {"label": "Trade Audit", "href": "#trade-audit"},
@@ -38003,7 +38573,7 @@ def build_website_shell_trial6_context(host_root):
     ]
     nav_links = [
         {"label": "Home", "href": "/website-shell-trial6"},
-        {"label": "Stocks", "href": "/stocks/itc"},
+        {"label": "Stocks", "href": "/stocks"},
         {"label": "Screeners", "href": "/stocks/high-dividend-paying-stocks"},
         {"label": "Trade Audit", "href": "#trade-audit"},
         {"label": "Pricing", "href": "#pricing"},
@@ -43753,7 +44323,18 @@ def public_about_page():
 
 @app.route("/stocks")
 def public_stocks_hub_page():
-    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "stocks"))
+    return render_template_string(PREMIUM_STOCKS_HUB_TEMPLATE, **build_premium_stocks_hub_context(request.url_root.rstrip("/")))
+
+
+@app.route("/stocks/search")
+def public_stocks_search_redirect():
+    query = request.args.get("q", "")
+    return redirect(f"/stocks/research/{slugify_stock_search_term(query)}")
+
+
+@app.route("/stocks/research/<stock_slug>")
+def premium_stock_detail_page(stock_slug):
+    return render_template_string(PREMIUM_STOCK_DETAIL_TEMPLATE, **build_premium_stock_detail_context(stock_slug, request.url_root.rstrip("/")))
 
 
 @app.route("/screeners")
