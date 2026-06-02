@@ -22161,6 +22161,47 @@ def build_sample_chart_ranges(base_price, tone="up"):
     }
 
 
+def build_real_stock_chart_ranges(symbol):
+    creds = get_active_kite_credentials()
+    instrument_map = get_nse_instrument_map()
+    instrument = instrument_map.get(symbol)
+    if not creds["api_key"] or not creds["access_token"] or not instrument:
+        raise ValueError("Live broker history is not available right now.")
+
+    client = build_kite_client(with_access_token=True)
+    today = get_today_ist()
+    daily_from = datetime.datetime.combine(today - datetime.timedelta(days=1900), datetime.time(0, 0), tzinfo=APP_TZ)
+    daily_to = datetime.datetime.combine(today, datetime.time(23, 59), tzinfo=APP_TZ)
+    daily_candles = client.historical_data(instrument["instrument_token"], daily_from, daily_to, "day", continuous=False, oi=False)
+    if not daily_candles:
+        raise ValueError("Daily history is unavailable for this stock right now.")
+
+    intraday_from = datetime.datetime.combine(today, datetime.time(9, 15), tzinfo=APP_TZ)
+    intraday_to = datetime.datetime.combine(today, min(datetime.datetime.now(APP_TZ).time(), datetime.time(15, 30)), tzinfo=APP_TZ)
+    intraday_candles = client.historical_data(instrument["instrument_token"], intraday_from, intraday_to, "5minute", continuous=False, oi=False)
+
+    def extract_close_series(candles, limit=None):
+        closes = [round(float(candle.get("close") or 0), 2) for candle in candles if candle.get("close") is not None]
+        if limit and len(closes) > limit:
+            closes = closes[-limit:]
+        return closes
+
+    daily_closes = extract_close_series(daily_candles)
+    intraday_closes = extract_close_series(intraday_candles, limit=78)
+    if not daily_closes:
+        raise ValueError("Closing history is unavailable for this stock right now.")
+
+    return {
+        "1D": intraday_closes or daily_closes[-24:],
+        "1W": daily_closes[-5:] if len(daily_closes) >= 5 else daily_closes,
+        "1M": daily_closes[-22:] if len(daily_closes) >= 22 else daily_closes,
+        "6M": daily_closes[-132:] if len(daily_closes) >= 132 else daily_closes,
+        "1Y": daily_closes[-252:] if len(daily_closes) >= 252 else daily_closes,
+        "5Y": daily_closes[-1260:] if len(daily_closes) >= 1260 else daily_closes,
+        "MAX": daily_closes,
+    }
+
+
 def build_price_chart_svg(values, ma_values=None):
     series = [float(value) for value in values]
     if not series:
@@ -22330,7 +22371,12 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         indent=2,
     )
     numeric_price = float(re.sub(r"[^0-9.]", "", str(sample.get("price") or "0")) or 0)
-    chart_ranges = sample.get("chart_ranges") or build_sample_chart_ranges(numeric_price or 100.0, sample.get("tone") or "up")
+    chart_ranges = sample.get("chart_ranges")
+    if not chart_ranges:
+        try:
+            chart_ranges = build_real_stock_chart_ranges(sample["symbol"])
+        except Exception:
+            chart_ranges = build_sample_chart_ranges(numeric_price or 100.0, sample.get("tone") or "up")
     sample["chart_ranges_json"] = json.dumps(chart_ranges)
     sample["chart_svg"] = build_price_chart_svg(chart_ranges.get("1Y") or next(iter(chart_ranges.values())), None)
     sample["financial_cards"] = [(title, build_bar_svg(values), value) for title, values, value in sample["financial_cards"]]
@@ -22483,6 +22529,11 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     .checklist-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.check-item{padding:14px 16px;border-radius:18px;background:#f8fbff;border:1px solid var(--line);font-size:14px;font-weight:700}
     .premium-banner{padding:28px;border-radius:30px;background:linear-gradient(135deg,#0f172a 0%,#194674 62%,#0EA5E9 100%);color:#fff;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;box-shadow:0 24px 56px rgba(15,23,42,.16)}.premium-banner ul{margin:14px 0 0;padding-left:18px;color:rgba(255,255,255,.86);line-height:1.8}
     .related-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.related-card{padding:18px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 28px rgba(15,23,42,.04)}.related-card h3{margin:12px 0 8px;font-size:21px}
+    .smart-modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.42);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;padding:18px;z-index:60}.smart-modal-backdrop.open{display:flex}
+    .smart-modal{max-width:560px;width:100%;padding:26px;border-radius:28px;background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.6);box-shadow:0 32px 80px rgba(15,23,42,.24)}
+    .smart-modal h3{margin:0;font-size:30px;line-height:1.06}.smart-modal p{margin:12px 0 0;color:var(--muted);line-height:1.8}
+    .smart-badges{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0}.smart-badge{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eff6ff;color:var(--blue);font-size:12px;font-weight:800}
+    .smart-modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
     .sticky-cta{display:none}
     @media (max-width:1180px){.hero-grid,.main-grid,.two-col,.overview-grid,.shareholding-wrap{grid-template-columns:1fr}.quick-grid,.finance-grid,.dividend-grid,.related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
     @media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
@@ -22519,7 +22570,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <div class="action-row">
           <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
           <a class="btn btn-secondary" href="/stocks/research/ongc">Compare</a>
-          <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Download Report</a>
+          <a class="btn btn-secondary" href="/pricing" id="download-report-trigger">Download Report</a>
         </div>
       </article>
       <article class="card score-card">
@@ -22678,6 +22729,22 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
     <a class="btn btn-secondary" href="#ai-analysis">Unlock AI Analysis</a>
   </div>
+  <div class="smart-modal-backdrop" id="report-upgrade-modal" aria-hidden="true">
+    <div class="smart-modal">
+      <div class="smart-badge">Premium Report Access</div>
+      <h3>Report download is part of TraderHub Pro.</h3>
+      <p>Free users can review the full stock page, AI verdict, peer comparison, and dividend overview here. PDF report download unlocks with Pro so the export can include AI insights, fair value, and risk notes in one clean file.</p>
+      <div class="smart-badges">
+        <span class="smart-badge">AI Summary Included</span>
+        <span class="smart-badge">Printable PDF</span>
+        <span class="smart-badge">Risk + Valuation Notes</span>
+      </div>
+      <div class="smart-modal-actions">
+        <a class="btn btn-primary" href="/pricing">Unlock Pro</a>
+        <button class="btn btn-secondary" type="button" id="report-upgrade-close">Keep Exploring</button>
+      </div>
+    </div>
+  </div>
   <script>
     (function () {
       const chartRoot = document.getElementById("premium-stock-chart");
@@ -22777,6 +22844,37 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       }
 
       renderChart();
+    })();
+  </script>
+  <script>
+    (function () {
+      const trigger = document.getElementById("download-report-trigger");
+      const modal = document.getElementById("report-upgrade-modal");
+      const closeButton = document.getElementById("report-upgrade-close");
+      if (!trigger || !modal || !closeButton) return;
+
+      function closeModal() {
+        modal.classList.remove("open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+
+      trigger.addEventListener("click", function (event) {
+        event.preventDefault();
+        modal.classList.add("open");
+        modal.setAttribute("aria-hidden", "false");
+      });
+
+      closeButton.addEventListener("click", closeModal);
+      modal.addEventListener("click", function (event) {
+        if (event.target === modal) {
+          closeModal();
+        }
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeModal();
+        }
+      });
     })();
   </script>
 </body>
