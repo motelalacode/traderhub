@@ -22379,6 +22379,49 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             chart_ranges = build_sample_chart_ranges(numeric_price or 100.0, sample.get("tone") or "up")
     sample["chart_ranges_json"] = json.dumps(chart_ranges)
     sample["chart_svg"] = build_price_chart_svg(chart_ranges.get("1Y") or next(iter(chart_ranges.values())), None)
+    sample.setdefault(
+        "fair_value",
+        {
+            "current_price": sample.get("price") or "INR 1,245.80",
+            "estimate": "INR 1,080",
+            "gap": "15.35% Overvalued",
+            "status": "Slightly Expensive",
+            "tone": "overvalued",
+            "pointer_percent": 78,
+        },
+    )
+    sample.setdefault(
+        "entry_zone",
+        {
+            "accumulation": "INR 980 - INR 1,080",
+            "aggressive_buy": "Below INR 950",
+            "avoid_above": "INR 1,320",
+            "investor_type": "Long-term only",
+            "risk_level": "Moderate",
+        },
+    )
+    sample.setdefault(
+        "ai_summary",
+        {
+            "copy": f"TraderHub AI suggests that {sample['company_name']} is financially stable with reasonable dividend support, but current valuation is slightly above its fair value range. Long-term investors may wait for better entry near the accumulation zone. Short-term traders should monitor price momentum and volume confirmation.",
+            "confidence": "78%",
+            "time_horizon": "1–3 years",
+            "risk": sample.get("risk") or "Moderate",
+            "best_for": "Value + Dividend investors",
+        },
+    )
+    sample.setdefault(
+        "institutional_activity",
+        {
+            "rows": [
+                ("Q1 2026", "21.0%", "16.0%", "48.0%", "15.0%", "Stable"),
+                ("Q4 2025", "20.4%", "15.6%", "48.0%", "16.0%", "FII Buying"),
+                ("Q3 2025", "19.8%", "15.2%", "48.0%", "17.0%", "Accumulation"),
+                ("Q2 2025", "19.1%", "14.9%", "48.0%", "18.0%", "Improving"),
+            ],
+            "insight": "Institutional holding trend looks mildly positive because FII and DII participation has increased over recent quarters while promoter holding remains stable.",
+        },
+    )
     sample["financial_cards"] = [(title, build_bar_svg(values), value) for title, values, value in sample["financial_cards"]]
     shareholding = sample["shareholding"]
     shareholding_style = f"conic-gradient(#2563EB 0 {shareholding['promoters']}%, #10B981 {shareholding['promoters']}% {shareholding['promoters'] + shareholding['fiis']}%, #0EA5E9 {shareholding['promoters'] + shareholding['fiis']}% {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}%, #E2E8F0 {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}% 100%)"
@@ -22520,6 +22563,25 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.tab-button{padding:9px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800;border:none;cursor:pointer;transition:all .18s ease}.tab-button.active{background:linear-gradient(135deg,#2563EB,#0EA5E9);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.18)}.tab-button.tab-ma{background:#f0fdf4;color:#047857}.tab-button.tab-ma.active{background:linear-gradient(135deg,#10B981,#34D399);color:#fff}
     .chart-shell{border-radius:22px;overflow:hidden}
     .verdict-rows{display:grid;gap:12px}.verdict-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
+    .ai-summary-card{margin-top:16px;padding:18px;border-radius:20px;background:#f8fbff;border:1px solid var(--line)}
+    .ai-summary-copy{margin:10px 0 0;color:var(--muted);line-height:1.85}
+    .summary-mini-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:16px}
+    .summary-mini-item{padding:14px;border-radius:18px;background:#fff;border:1px solid var(--line)}
+    .summary-mini-item span{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800}
+    .summary-mini-item strong{display:block;margin-top:8px;font-size:15px}
+    .fair-value-grid{display:grid;grid-template-columns:.94fr 1.06fr;gap:18px}
+    .fair-meter-shell{padding:18px;border-radius:22px;background:#f8fbff;border:1px solid var(--line)}
+    .meter-track{position:relative;height:16px;border-radius:999px;background:linear-gradient(90deg,#10B981 0 33.33%, #2563EB 33.33% 66.66%, #EF4444 66.66% 100%);margin-top:18px}
+    .meter-pointer{position:absolute;top:-8px;width:18px;height:32px;border-radius:999px;background:#fff;border:3px solid var(--ink);box-shadow:0 12px 24px rgba(15,23,42,.14);transform:translateX(-50%)}
+    .meter-labels{display:flex;justify-content:space-between;gap:10px;margin-top:10px;font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .status-pill{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800}
+    .status-pill.undervalued{background:#ecfdf5;color:#047857}.status-pill.fair{background:#eff6ff;color:#1d4ed8}.status-pill.overvalued{background:#fef2f2;color:#b91c1c}
+    .entry-zone-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+    .zone-card{padding:18px;border-radius:22px;border:1px solid var(--line);box-shadow:0 14px 28px rgba(15,23,42,.04)}
+    .zone-card.green{background:linear-gradient(180deg,#effcf6 0%,#ffffff 100%)}.zone-card.blue{background:linear-gradient(180deg,#eef5ff 0%,#ffffff 100%)}.zone-card.orange{background:linear-gradient(180deg,#fff7ed 0%,#ffffff 100%)}
+    .zone-card .zone-title{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800}
+    .zone-card strong{display:block;margin-top:10px;font-size:22px}
+    .institutional-note{margin-top:16px;padding:16px;border-radius:18px;background:#f8fbff;border:1px solid var(--line);color:var(--muted);line-height:1.8}
     .two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.list-card ul{margin:12px 0 0;padding-left:18px;color:var(--muted);line-height:1.8}
     .overview-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:center}.overview-illustration{min-height:220px;border-radius:24px;background:linear-gradient(135deg,#eef4ff,#f8fbff);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue);font-weight:800;text-align:center;padding:18px}
     .finance-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.finance-card{padding:16px;border-radius:22px;background:#fff;border:1px solid var(--line)}.finance-card strong{display:block;margin-top:10px;font-size:20px}
@@ -22535,8 +22597,8 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     .smart-badges{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 0}.smart-badge{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eff6ff;color:var(--blue);font-size:12px;font-weight:800}
     .smart-modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
     .sticky-cta{display:none}
-    @media (max-width:1180px){.hero-grid,.main-grid,.two-col,.overview-grid,.shareholding-wrap{grid-template-columns:1fr}.quick-grid,.finance-grid,.dividend-grid,.related-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
-    @media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
+    @media (max-width:1180px){.hero-grid,.main-grid,.two-col,.overview-grid,.shareholding-wrap,.fair-value-grid{grid-template-columns:1fr}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
+    @media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
   </style>
 </head>
 <body>
@@ -22613,8 +22675,44 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
           {% endfor %}
         </div>
         <div style="margin-top:16px;padding:16px;border-radius:18px;background:#f8fbff;border:1px solid var(--line);"><strong>Overall Verdict</strong><div style="margin-top:8px;color:var(--muted);">Suitable for long-term investors.</div></div>
+        <!-- AI Summary Start -->
+        <div class="ai-summary-card">
+          <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800;">AI Summary</div>
+          <p class="ai-summary-copy">{{ stock.ai_summary.copy }}</p>
+          <div class="summary-mini-grid">
+            <div class="summary-mini-item"><span>Confidence</span><strong>{{ stock.ai_summary.confidence }}</strong></div>
+            <div class="summary-mini-item"><span>Time Horizon</span><strong>{{ stock.ai_summary.time_horizon }}</strong></div>
+            <div class="summary-mini-item"><span>Risk</span><strong>{{ stock.ai_summary.risk }}</strong></div>
+            <div class="summary-mini-item"><span>Best For</span><strong>{{ stock.ai_summary.best_for }}</strong></div>
+          </div>
+        </div>
+        <!-- AI Summary End -->
       </article>
     </section>
+
+    <!-- Fair Value Meter Start -->
+    <section class="section card fair-value-grid">
+      <div>
+        <h2>Fair Value Meter</h2>
+        <div class="fair-meter-shell">
+          <div class="label" style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;">Valuation Range</div>
+          <div class="meter-track">
+            <div class="meter-pointer" style="left: {{ stock.fair_value.pointer_percent }}%;"></div>
+          </div>
+          <div class="meter-labels"><span>Cheap</span><span>Fair</span><span>Expensive</span></div>
+        </div>
+      </div>
+      <div>
+        <h2 style="margin-bottom:14px;">Valuation Snapshot</h2>
+        <div class="summary-mini-grid" style="margin-top:0;">
+          <div class="summary-mini-item"><span>Current Price</span><strong>{{ stock.fair_value.current_price }}</strong></div>
+          <div class="summary-mini-item"><span>Fair Value Estimate</span><strong>{{ stock.fair_value.estimate }}</strong></div>
+          <div class="summary-mini-item"><span>Valuation Gap</span><strong>{{ stock.fair_value.gap }}</strong></div>
+          <div class="summary-mini-item"><span>Status</span><strong><span class="status-pill {{ 'undervalued' if stock.fair_value.tone == 'undervalued' else 'fair' if stock.fair_value.tone == 'fair' else 'overvalued' }}">{{ stock.fair_value.status }}</span></strong></div>
+        </div>
+      </div>
+    </section>
+    <!-- Fair Value Meter End -->
 
     <section class="section card two-col">
       <article class="list-card">
@@ -22626,6 +22724,33 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <ul>{% for item in stock.avoid_if %}<li>{{ item }}</li>{% endfor %}</ul>
       </article>
     </section>
+
+    <!-- Entry Zone Start -->
+    <section class="section card">
+      <h2>Smart Entry Zone</h2>
+      <div class="entry-zone-grid">
+        <article class="zone-card green">
+          <div class="zone-title">Attractive Zone</div>
+          <strong>{{ stock.entry_zone.accumulation }}</strong>
+          <div style="margin-top:8px;color:var(--muted);line-height:1.7;">Accumulation Zone for patient investors who want better risk-reward.</div>
+        </article>
+        <article class="zone-card blue">
+          <div class="zone-title">Fair Zone</div>
+          <strong>{{ stock.entry_zone.aggressive_buy }}</strong>
+          <div style="margin-top:8px;color:var(--muted);line-height:1.7;">Aggressive Buy Zone when valuation and momentum align together.</div>
+        </article>
+        <article class="zone-card orange">
+          <div class="zone-title">Avoid Zone</div>
+          <strong>{{ stock.entry_zone.avoid_above }}</strong>
+          <div style="margin-top:8px;color:var(--muted);line-height:1.7;">Avoid Fresh Entry Above this range unless growth improves sharply.</div>
+        </article>
+      </div>
+      <div class="summary-mini-grid">
+        <div class="summary-mini-item"><span>Suggested Investor Type</span><strong>{{ stock.entry_zone.investor_type }}</strong></div>
+        <div class="summary-mini-item"><span>Risk Level</span><strong>{{ stock.entry_zone.risk_level }}</strong></div>
+      </div>
+    </section>
+    <!-- Entry Zone End -->
 
     <section class="section card overview-grid">
       <div>
@@ -22684,6 +22809,21 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         </div>
       </div>
     </section>
+
+    <!-- Institutional Activity Start -->
+    <section class="section card">
+      <h2>Institutional Activity - Last 4 Quarters</h2>
+      <table class="peer-table">
+        <thead><tr><th>Quarter</th><th>FII Holding</th><th>DII Holding</th><th>Promoter Holding</th><th>Public Holding</th><th>Signal</th></tr></thead>
+        <tbody>
+          {% for row in stock.institutional_activity.rows %}
+          <tr>{% for item in row %}<td>{{ item }}</td>{% endfor %}</tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="institutional-note">{{ stock.institutional_activity.insight }}</div>
+    </section>
+    <!-- Institutional Activity End -->
 
     <section class="section card">
       <h2>Investment Checklist</h2>
