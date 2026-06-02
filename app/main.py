@@ -37884,7 +37884,12 @@ def build_website_shell_trial5_context(host_root):
         {"title": "Small Cap Opportunities", "copy": "Smaller ideas where upside is higher but discipline matters more.", "href": "/stocks/small-cap-high-dividend-stocks"},
         {"title": "Sector Analysis", "copy": "Start with the lane carrying strength before drilling into names.", "href": "/sectors"},
     ]
-    broker_logos = ["Zerodha", "Upstox", "Angel One", "Dhan"]
+    broker_logos = [
+        {"name": "Zerodha", "logo_url": "https://technicals.zerodha.com/static/media/zerodha_logo.fc5d1a9b.svg"},
+        {"name": "Upstox", "logo_url": "https://www.google.com/s2/favicons?domain=upstox.com&sz=128"},
+        {"name": "Angel One", "logo_url": "https://www.google.com/s2/favicons?domain=angelone.in&sz=128"},
+        {"name": "Dhan", "logo_url": "https://www.google.com/s2/favicons?domain=dhan.co&sz=128"},
+    ]
     audit_process = [
         {"step": "1", "title": "Upload CSV", "copy": "Import your trade history quickly without rebuilding everything manually."},
         {"step": "2", "title": "AI Analyzes Trades", "copy": "The system detects behavior patterns, setup quality, and recurring leaks."},
@@ -38742,14 +38747,27 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       gap: 14px;
     }
     .broker-chip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       padding: 16px;
       border-radius: 18px;
       background: #fff;
       border: 1px solid var(--line);
       box-shadow: var(--shadow-soft);
-      text-align: center;
       font-size: 15px;
       font-weight: 800;
+    }
+    .broker-chip img {
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+      flex: 0 0 auto;
+    }
+    .footer-heart {
+      color: #ef4444;
+      font-weight: 900;
     }
     .why-table {
       width: 100%;
@@ -39176,7 +39194,10 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       </div>
       <div class="broker-row">
         {% for broker in broker_logos %}
-        <div class="broker-chip">{{ broker }}</div>
+        <div class="broker-chip">
+          <img src="{{ broker['logo_url'] }}" alt="{{ broker['name'] }} logo" loading="lazy" referrerpolicy="no-referrer">
+          <span>{{ broker['name'] }}</span>
+        </div>
         {% endfor %}
       </div>
     </section>
@@ -39543,7 +39564,7 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
 
       <div class="copyright-row">
         <div>&copy; 2026 TraderHub Technologies Pvt. Ltd. All Rights Reserved.</div>
-        <div>Made with &#10084; in India for Investors & Traders</div>
+        <div>Made with <span class="footer-heart">&#10084;</span> in India for Investors & Traders</div>
       </div>
     </footer>
   </div>
