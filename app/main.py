@@ -37885,10 +37885,10 @@ def build_website_shell_trial5_context(host_root):
         {"title": "Sector Analysis", "copy": "Start with the lane carrying strength before drilling into names.", "href": "/sectors"},
     ]
     broker_logos = [
-        {"name": "Zerodha", "logo_url": "https://technicals.zerodha.com/static/media/zerodha_logo.fc5d1a9b.svg"},
-        {"name": "Upstox", "logo_url": "https://www.google.com/s2/favicons?domain=upstox.com&sz=128"},
-        {"name": "Angel One", "logo_url": "https://www.google.com/s2/favicons?domain=angelone.in&sz=128"},
-        {"name": "Dhan", "logo_url": "https://www.google.com/s2/favicons?domain=dhan.co&sz=128"},
+        {"name": "Zerodha", "logo_url": "/website-shell-assets/zerodha-logo"},
+        {"name": "Upstox", "logo_url": "/website-shell-assets/upstox-logo"},
+        {"name": "Angel One", "logo_url": "/website-shell-assets/angelone-logo"},
+        {"name": "Dhan", "logo_url": "/website-shell-assets/dhan-logo"},
     ]
     audit_process = [
         {"step": "1", "title": "Upload CSV", "copy": "Import your trade history quickly without rebuilding everything manually."},
@@ -37983,9 +37983,13 @@ def build_website_shell_trial5_context(host_root):
 
 
 WEBSITE_SHELL_TRIAL_ASSET_MAP = {
-    "hero-audit": Path(__file__).resolve().parent.parent / "images" / "AI Trade Audit Dashboard (Hero).png",
-    "profit-leakage": Path(__file__).resolve().parent.parent / "images" / "Profit Leakage Report (Conversion Section).png",
-    "ai-coach": Path(__file__).resolve().parent.parent / "images" / "AI Coach Insights Dashboard (Premium Section).png",
+    "hero-audit": Path(__file__).resolve().parent.parent / "website-shell-assets" / "AI Trade Audit Dashboard (Hero).png",
+    "profit-leakage": Path(__file__).resolve().parent.parent / "website-shell-assets" / "Profit Leakage Report (Conversion Section).png",
+    "ai-coach": Path(__file__).resolve().parent.parent / "website-shell-assets" / "AI Coach Insights Dashboard (Premium Section).png",
+    "zerodha-logo": Path(__file__).resolve().parent.parent / "website-shell-assets" / "zerodha_logo.77086150.svg",
+    "upstox-logo": Path(__file__).resolve().parent.parent / "website-shell-assets" / "UpstoxfaviconV2.png",
+    "angelone-logo": Path(__file__).resolve().parent.parent / "website-shell-assets" / "AngelonefaviconV2.png",
+    "dhan-logo": Path(__file__).resolve().parent.parent / "website-shell-assets" / "DhanfaviconV2.png",
 }
 
 
@@ -38498,13 +38502,14 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
     .snapshot-card .v {
       display: block;
       margin-top: 8px;
-      font-size: 22px;
+      font-size: 18px;
       font-weight: 800;
+      letter-spacing: -0.01em;
     }
     .snapshot-card .m {
       display: block;
       margin-top: 6px;
-      font-size: 13px;
+      font-size: 12px;
       color: var(--muted);
     }
     .section {
@@ -42673,7 +42678,15 @@ def website_shell_asset(asset_key):
     asset_path = WEBSITE_SHELL_TRIAL_ASSET_MAP.get(str(asset_key or "").strip().lower())
     if not asset_path or not asset_path.exists():
         return "Not found", 404
-    return Response(asset_path.read_bytes(), mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
+    suffix = asset_path.suffix.lower()
+    mime = "image/png"
+    if suffix == ".svg":
+        mime = "image/svg+xml"
+    elif suffix in {".jpg", ".jpeg"}:
+        mime = "image/jpeg"
+    elif suffix == ".webp":
+        mime = "image/webp"
+    return Response(asset_path.read_bytes(), mimetype=mime, headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.route("/website-shell-trial6")
