@@ -37958,6 +37958,9 @@ def build_website_shell_trial5_context(host_root):
         "audit_example": {"actual": "INR 1,84,000", "potential": "INR 3,12,000", "leakage": "INR 1,28,000"},
         "hero_trust": hero_trust,
         "hero_market_snapshot": market_snapshot,
+        "hero_visual_url": "/website-shell-assets/hero-audit",
+        "leakage_visual_url": "/website-shell-assets/profit-leakage",
+        "coach_visual_url": "/website-shell-assets/ai-coach",
         "nav_links": nav_links,
         "categories": categories,
         "trade_audit_cards": trade_audit_cards,
@@ -37972,6 +37975,13 @@ def build_website_shell_trial5_context(host_root):
         "public_head_injection": build_public_ops_head_injection(),
     }
     return context
+
+
+WEBSITE_SHELL_TRIAL_ASSET_MAP = {
+    "hero-audit": Path(__file__).resolve().parent.parent / "images" / "AI Trade Audit Dashboard (Hero).png",
+    "profit-leakage": Path(__file__).resolve().parent.parent / "images" / "Profit Leakage Report (Conversion Section).png",
+    "ai-coach": Path(__file__).resolve().parent.parent / "images" / "AI Coach Insights Dashboard (Premium Section).png",
+}
 
 
 def build_website_shell_trial6_context(host_root):
@@ -38324,12 +38334,50 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
     }
     .hero-panel {
       display: grid;
-      gap: 16px;
+      gap: 18px;
       background: linear-gradient(180deg, #ffffff, #f7fbff);
       border: 1px solid rgba(226,232,240,0.96);
       border-radius: 30px;
+      padding: 22px;
+      box-shadow: 0 22px 52px rgba(15, 23, 42, 0.08);
+    }
+    .hero-visual,
+    .section-visual {
+      width: 100%;
+      display: block;
+      border-radius: 22px;
+      border: 1px solid rgba(226,232,240,0.9);
+      box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+      background: #fff;
+    }
+    .section-visual-shell {
       padding: 20px;
-      box-shadow: var(--shadow-soft);
+      border-radius: 28px;
+      background:
+        radial-gradient(circle at top right, rgba(37,99,235,0.08), transparent 24%),
+        linear-gradient(180deg, #ffffff, #f8fbff);
+      border: 1px solid var(--line);
+      box-shadow: 0 20px 46px rgba(15, 23, 42, 0.06);
+    }
+    .visual-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eef5ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .visual-note {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
     }
     .panel-head {
       display: flex;
@@ -38497,7 +38545,7 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       background: #fff;
       border: 1px solid var(--line);
       border-radius: 24px;
-      box-shadow: var(--shadow-soft);
+      box-shadow: 0 16px 34px rgba(15, 23, 42, 0.05);
       padding: 20px;
     }
     .opportunity-card {
@@ -39076,6 +39124,11 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
             </div>
             <span class="section-tag">Powered by AI</span>
           </div>
+          <div>
+            <div class="visual-kicker">Live Product Preview</div>
+            <img class="hero-visual" src="{{ hero_visual_url }}" alt="TraderHub AI Trade Audit dashboard preview">
+            <div class="visual-note">A cleaner dashboard view helps the hero explain the product before the visitor reads every section.</div>
+          </div>
           <div class="score-band">
             <div>
               <strong>Trade Health Score</strong>
@@ -39180,6 +39233,21 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
     <section class="section">
       <div class="section-head">
         <div>
+          <span class="section-tag">Profit Leakage Visual</span>
+          <h2>See where your money leaks</h2>
+          <p>This conversion image should make the value obvious in seconds by comparing actual profit, potential profit, and the cost of weak execution.</p>
+        </div>
+      </div>
+      <div class="section-visual-shell">
+        <div class="visual-kicker">Strongest Conversion Visual</div>
+        <img class="section-visual" src="{{ leakage_visual_url }}" alt="TraderHub profit leakage report preview">
+        <div class="visual-note">This image works because it makes the paid value obvious: better execution changes the money outcome, not just the chart view.</div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
           <span class="section-tag">Free AI Audit Process</span>
           <h2>How the free audit works</h2>
           <p>Keep the path simple so the visitor immediately understands the conversion flow.</p>
@@ -39248,6 +39316,21 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
           <p>{{ card['copy'] }}</p>
         </article>
         {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">AI Coach</span>
+          <h2>Your personal trading coach</h2>
+          <p>Make AI feel real with a dashboard view that turns behavior patterns into specific coaching insights.</p>
+        </div>
+      </div>
+      <div class="section-visual-shell">
+        <div class="visual-kicker">AI Coach Preview</div>
+        <img class="section-visual" src="{{ coach_visual_url }}" alt="TraderHub AI Coach insights dashboard preview">
+        <div class="visual-note">Use the AI Coach visual to show specific trading feedback instead of abstract AI claims.</div>
       </div>
     </section>
 
@@ -42562,6 +42645,14 @@ def website_shell_trial4():
 def website_shell_trial5():
     context = build_website_shell_trial5_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL5_TEMPLATE, **context)
+
+
+@app.route("/website-shell-assets/<asset_key>")
+def website_shell_asset(asset_key):
+    asset_path = WEBSITE_SHELL_TRIAL_ASSET_MAP.get(str(asset_key or "").strip().lower())
+    if not asset_path or not asset_path.exists():
+        return "Not found", 404
+    return Response(asset_path.read_bytes(), mimetype="image/png", headers={"Cache-Control": "public, max-age=3600"})
 
 
 @app.route("/website-shell-trial6")
