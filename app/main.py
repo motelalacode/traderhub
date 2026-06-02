@@ -22347,6 +22347,12 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         except ValueError:
             return None
 
+    def _premium_placeholder(value):
+        text = str(value or "").strip()
+        if text in {"Pending", "Source Pending", "Retry Pending", "-"}:
+            return "Data updating"
+        return value
+
     def _derive_shareholding_snapshot(table_payload, fallback_shareholding):
         if not (table_payload or {}).get("rows") or not (table_payload or {}).get("columns"):
             return fallback_shareholding, None
@@ -22357,9 +22363,9 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             if not values:
                 continue
             latest_values[label] = parse_numeric_text(values[0])
-        promoters = latest_values.get("promoter")
-        fiis = latest_values.get("fii")
-        diis = latest_values.get("dii")
+        promoters = latest_values.get("promoters")
+        fiis = latest_values.get("fiis")
+        diis = latest_values.get("diis")
         public = latest_values.get("public")
         if None in {promoters, fiis, diis, public}:
             return fallback_shareholding, None
@@ -22384,7 +22390,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         if live_stock.get("change_rupees") and live_stock.get("change_rupees") != "-":
             sample["change"] = str(live_stock["change_rupees"])
         if live_stock.get("change_pct") and live_stock.get("change_pct") != "-":
-            sample["change_pct"] = str(live_stock["change_pct"]).replace("%", "").strip()
+            sample["change_pct"] = str(live_stock["change_pct"]).strip()
         sample["status"] = "Market Live" if is_market_open() else "Market Closed"
         sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
 
@@ -22411,25 +22417,25 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             week_high = _parse_currency_number(range_bits[1])
 
         sample["metrics"] = [
-            ("Market Cap", market_cap_value or "Source Pending"),
-            ("PE Ratio", pe_value or "Pending"),
-            ("ROE", roe_value or "Pending"),
-            ("ROCE", roce_value or "Pending"),
-            ("Dividend Yield", dividend_yield_value or "Pending"),
-            ("Debt/Equity", debt_equity_value or "Pending"),
-            ("52 Week High", f"INR {week_high:,.2f}".replace(".00", "") if week_high is not None else "Pending"),
-            ("52 Week Low", f"INR {week_low:,.2f}".replace(".00", "") if week_low is not None else "Pending"),
+            ("Market Cap", _premium_placeholder(market_cap_value or "Source Pending")),
+            ("PE Ratio", _premium_placeholder(pe_value or "Pending")),
+            ("ROE", _premium_placeholder(roe_value or "Pending")),
+            ("ROCE", _premium_placeholder(roce_value or "Pending")),
+            ("Dividend Yield", _premium_placeholder(dividend_yield_value or "Pending")),
+            ("Debt/Equity", _premium_placeholder(debt_equity_value or "Pending")),
+            ("52 Week High", f"INR {week_high:,.2f}".replace(".00", "") if week_high is not None else "Data updating"),
+            ("52 Week Low", f"INR {week_low:,.2f}".replace(".00", "") if week_low is not None else "Data updating"),
         ]
 
         if live_peer_rows:
             sample["peers"] = [
                 (
                     row.get("company") or "Peer",
-                    row.get("market_cap") or "Pending",
-                    row.get("pe") or "Pending",
-                    roe_value or "Pending",
-                    row.get("roce") or "Pending",
-                    row.get("dividend_yield") or "Pending",
+                    _premium_placeholder(row.get("market_cap") or "Pending"),
+                    _premium_placeholder(row.get("pe") or "Pending"),
+                    _premium_placeholder(roe_value or "Pending"),
+                    _premium_placeholder(row.get("roce") or "Pending"),
+                    _premium_placeholder(row.get("dividend_yield") or "Pending"),
                 )
                 for row in live_peer_rows[:4]
             ]
@@ -22479,20 +22485,28 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     "risk_level": sample.get("risk") or "Moderate",
                 }
 
-        if current_price_numeric and resolved_shareholding_table and resolved_shareholding_table.get("columns"):
+        if resolved_shareholding_table and resolved_shareholding_table.get("columns"):
             columns = resolved_shareholding_table.get("columns") or []
             row_map = {str(row.get("label") or "").strip().lower(): row.get("values") or [] for row in resolved_shareholding_table.get("rows") or []}
             institutional_rows = []
             for index, quarter in enumerate(columns[:4]):
-                fii_value = (row_map.get("fii") or [])[index] if index < len(row_map.get("fii") or []) else "Pending"
-                dii_value = (row_map.get("dii") or [])[index] if index < len(row_map.get("dii") or []) else "Pending"
-                promoter_value = (row_map.get("promoter") or [])[index] if index < len(row_map.get("promoter") or []) else "Pending"
+                fii_value = (row_map.get("fiis") or [])[index] if index < len(row_map.get("fiis") or []) else "Pending"
+                dii_value = (row_map.get("diis") or [])[index] if index < len(row_map.get("diis") or []) else "Pending"
+                promoter_value = (row_map.get("promoters") or [])[index] if index < len(row_map.get("promoters") or []) else "Pending"
                 public_value = (row_map.get("public") or [])[index] if index < len(row_map.get("public") or []) else "Pending"
                 signal = "Stable"
-                institutional_rows.append((quarter, fii_value, dii_value, promoter_value, public_value, signal))
+                institutional_rows.append((quarter, _premium_placeholder(fii_value), _premium_placeholder(dii_value), _premium_placeholder(promoter_value), _premium_placeholder(public_value), signal))
             sample["institutional_activity"] = {
                 "rows": institutional_rows,
                 "insight": "Institutional holding trend is based on the current shareholding table available to TraderHub. FII and DII movement should be read along with promoter stability, not in isolation.",
+            }
+        else:
+            current_holding = sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}
+            sample["institutional_activity"] = {
+                "rows": [
+                    ("Latest", f"{current_holding.get('fiis', 0.0)}%", f"{current_holding.get('diis', 0.0)}%", f"{current_holding.get('promoters', 0.0)}%", f"{current_holding.get('public', 0.0)}%", "Current Snapshot"),
+                ],
+                "insight": "Institutional activity is currently showing the latest available ownership snapshot because historical quarter-wise rows are not available from the active source.",
             }
 
         valuation_text = sample.get("fair_value", {}).get("status", "Fairly Valued")
@@ -22507,6 +22521,19 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         }
     except Exception:
         pass
+    sample["metrics"] = [(label, _premium_placeholder(value)) for label, value in sample.get("metrics", [])]
+    sample["dividend"] = {key: _premium_placeholder(value) for key, value in (sample.get("dividend") or {}).items()}
+    sample["peers"] = [
+        (
+            company,
+            _premium_placeholder(market_cap),
+            _premium_placeholder(pe),
+            _premium_placeholder(roe),
+            _premium_placeholder(roce),
+            _premium_placeholder(dividend_yield),
+        )
+        for company, market_cap, pe, roe, roce, dividend_yield in sample.get("peers", [])
+    ]
     company_name = sample["company_name"]
     canonical_url = f"{host_root.rstrip('/')}/stocks/research/{slug}"
     schema_json = json.dumps(
@@ -22537,7 +22564,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     "@type": "FAQPage",
                     "mainEntity": [
                         {"@type": "Question", "name": f"What does the TraderHub AI Score mean for {company_name}?", "acceptedAnswer": {"@type": "Answer", "text": "It is a simplified composite score that helps combine quality, valuation, financial strength, and risk into one quick stock research signal."}},
-                        {"@type": "Question", "name": f"Is {company_name} shown with live data on this page?", "acceptedAnswer": {"@type": "Answer", "text": "This current premium sample uses dummy data so the page design can be reviewed before backend connections are added."}},
+                        {"@type": "Question", "name": f"Is {company_name} shown with live data on this page?", "acceptedAnswer": {"@type": "Answer", "text": "This premium stock page uses live or derived data where TraderHub can verify it, and shows pending states where the active source is still incomplete."}},
                     ],
                 },
             ],
@@ -22772,7 +22799,8 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     .smart-modal-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
     .sticky-cta{display:none}
     @media (max-width:1180px){.hero-grid,.main-grid,.two-col,.overview-grid,.shareholding-wrap,.fair-value-grid{grid-template-columns:1fr}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
-    @media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
+@media (max-width:760px){.page{padding:0 12px 88px}.topnav{padding:12px 14px;border-radius:18px}.nav-search{width:100%;display:grid;grid-template-columns:1fr}.nav-search input{min-width:0}.card{padding:18px;border-radius:24px}.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:1fr 1fr}.sticky-cta{position:fixed;left:12px;right:12px;bottom:14px;display:flex;gap:10px;z-index:40}.sticky-cta .btn{flex:1 1 auto}}
+@media (max-width:480px){.quick-grid,.finance-grid,.dividend-grid,.related-grid,.checklist-grid,.entry-zone-grid,.summary-mini-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -22805,7 +22833,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         </div>
         <div class="action-row">
           <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
-          <a class="btn btn-secondary" href="/stocks/research/ongc">Compare</a>
+<a class="btn btn-secondary" href="/stocks/compare?symbol={{ stock.symbol }}">Compare</a>
           <a class="btn btn-secondary" href="/pricing" id="download-report-trigger">Download Report</a>
         </div>
       </article>
@@ -22852,7 +22880,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <!-- AI Summary Start -->
         <div class="ai-summary-card">
           <div style="font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800;">AI Summary</div>
-          <p class="ai-summary-copy">{{ stock.ai_summary.copy }}</p>
+          <p class="ai-summary-copy">{{ stock.ai_summary["copy"] }}</p>
           <div class="summary-mini-grid">
             <div class="summary-mini-item"><span>Confidence</span><strong>{{ stock.ai_summary.confidence }}</strong></div>
             <div class="summary-mini-item"><span>Time Horizon</span><strong>{{ stock.ai_summary.time_horizon }}</strong></div>
