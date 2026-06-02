@@ -38622,6 +38622,166 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       font-size: 13px;
       line-height: 1.8;
     }
+    .site-footer {
+      margin-top: 28px;
+      padding: 30px;
+      border-radius: 32px;
+      background: linear-gradient(180deg, #ffffff 0%, #f7fbff 100%);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+    .footer-top {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .footer-brand h3 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.02;
+    }
+    .footer-brand strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 20px;
+      line-height: 1.3;
+    }
+    .footer-brand p,
+    .footer-newsletter p,
+    .footer-seo,
+    .footer-disclaimer,
+    .footer-cta-copy {
+      color: var(--muted);
+      line-height: 1.78;
+      font-size: 14px;
+    }
+    .footer-newsletter {
+      padding: 22px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #eef5ff 0%, #f6fbff 100%);
+      border: 1px solid var(--line);
+    }
+    .footer-newsletter h4,
+    .footer-cta h4 {
+      margin: 0 0 10px;
+      font-size: 26px;
+      line-height: 1.1;
+    }
+    .footer-form {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .footer-form input {
+      flex: 1 1 260px;
+      min-width: 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: #fff;
+      font: inherit;
+      color: var(--ink);
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 22px;
+    }
+    .footer-column h5 {
+      margin: 0 0 12px;
+      font-size: 13px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .footer-column a {
+      display: block;
+      margin-top: 10px;
+      font-size: 14px;
+      color: var(--ink);
+    }
+    .social-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .social-row a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: var(--shadow-soft);
+    }
+    .trust-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .trust-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+    .trust-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      flex: 0 0 auto;
+    }
+    .footer-seo,
+    .footer-disclaimer {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(226,232,240,0.9);
+    }
+    .footer-cta {
+      margin-top: 20px;
+      padding: 22px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #0f172a 0%, #194674 62%, #0ea5e9 100%);
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+      box-shadow: 0 24px 56px rgba(15,23,42,0.16);
+    }
+    .footer-cta-copy {
+      color: rgba(255,255,255,0.84);
+      max-width: 720px;
+    }
+    .copyright-row {
+      margin-top: 18px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.7;
+    }
     .mobile-sticky {
       display: none;
     }
@@ -38634,6 +38794,10 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       .proof-grid,
       .blog-grid {
         grid-template-columns: 1fr;
+      }
+      .footer-top,
+      .footer-grid {
+        grid-template-columns: 1fr 1fr;
       }
       .card-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -38667,6 +38831,15 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       .hero p,
       .section-head p {
         font-size: 14px;
+      }
+      .footer-top,
+      .footer-grid,
+      .copyright-row {
+        grid-template-columns: 1fr;
+        display: grid;
+      }
+      .site-footer {
+        padding: 22px 18px;
       }
       .panel-grid,
       .audit-grid,
@@ -38954,6 +39127,114 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       </div>
       <div class="footer-note">Trial 5 is a separate premium SaaS homepage sample for review. Subscription value should stay above ad-first design decisions.</div>
     </section>
+
+    <footer class="site-footer">
+      <div class="footer-top">
+        <div class="footer-brand">
+          <h3>TraderHub</h3>
+          <strong>Discover Better Stocks. Become a Better Trader.</strong>
+          <p>AI-powered stock research, stock screeners, watchlists, and trading performance analytics designed to help investors and traders make smarter decisions.</p>
+        </div>
+        <div class="footer-newsletter">
+          <h4>Stay Ahead of the Market</h4>
+          <p>Get weekly stock ideas, dividend opportunities, and trading insights directly in your inbox.</p>
+          <form class="footer-form" onsubmit="event.preventDefault(); this.querySelector('button').textContent='Subscribed';">
+            <input type="email" placeholder="Email Address">
+            <button class="btn btn-primary" type="submit">Subscribe</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="footer-grid">
+        <div class="footer-column">
+          <h5>Stock Research</h5>
+          <a href="/stocks/high-dividend-paying-stocks">Dividend Stocks</a>
+          <a href="/stocks/undervalued-dividend-stocks">Value Stocks</a>
+          <a href="/stocks/itc">Growth Stocks</a>
+          <a href="/market/live-movers">Momentum Stocks</a>
+          <a href="/stocks/small-cap-high-dividend-stocks">Small Cap Stocks</a>
+          <a href="/sectors">Sector Analysis</a>
+          <a href="/market/alerts/earnings-watch">Earnings Analysis</a>
+          <a href="/stocks/equity-stock-page">AI Stock Picks</a>
+        </div>
+        <div class="footer-column">
+          <h5>Trading Tools</h5>
+          <a href="/stocks/equity-stock-page">Trade Audit</a>
+          <a href="/stocks/equity-stock-page">Trade Health Score</a>
+          <a href="/stocks/equity-stock-page">AI Trading Coach</a>
+          <a href="/stocks/dividend-stocks">Watchlists</a>
+          <a href="/stocks/equity-stock-page">Portfolio Tracker</a>
+          <a href="/stocks/equity-stock-page">Profit Leakage Report</a>
+          <a href="/stocks/equity-stock-page">Trading Analytics</a>
+          <a href="/stocks/equity-stock-page">Performance Reports</a>
+        </div>
+        <div class="footer-column">
+          <h5>Resources</h5>
+          <a href="#blog">Blog</a>
+          <a href="/stocks/high-dividend-paying-stocks">Investor Guides</a>
+          <a href="/stocks/high-dividend-paying-stocks">FAQs</a>
+          <a href="/market">Market Glossary</a>
+          <a href="/stocks/equity-stock-page">Trading Journal Guide</a>
+          <a href="/stocks/high-dividend-paying-stocks">Dividend Investing Guide</a>
+          <a href="/market">Stock Market Basics</a>
+        </div>
+        <div class="footer-column">
+          <h5>Company</h5>
+          <a href="/about">About Us</a>
+          <a href="/contact">Contact Us</a>
+          <a href="/pricing">Pricing</a>
+          <a href="/about">Careers</a>
+          <a href="/contact">Affiliate Program</a>
+          <a href="/contact">Partner With Us</a>
+        </div>
+        <div class="footer-column">
+          <h5>Legal</h5>
+          <a href="/privacy-policy">Privacy Policy</a>
+          <a href="/terms">Terms of Service</a>
+          <a href="/terms">Disclaimer</a>
+          <a href="/terms">Refund Policy</a>
+          <a href="/privacy-policy">Cookie Policy</a>
+          <a href="/terms">Risk Disclosure</a>
+          <h5 style="margin-top:18px;">Social Links</h5>
+          <div class="social-row">
+            <a href="/contact" aria-label="YouTube">YT</a>
+            <a href="/contact" aria-label="LinkedIn">IN</a>
+            <a href="/contact" aria-label="X">X</a>
+            <a href="/contact" aria-label="Telegram">TG</a>
+            <a href="/contact" aria-label="Instagram">IG</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="trust-row">
+        <span class="trust-badge"><span class="trust-dot"></span>Secure Login</span>
+        <span class="trust-badge"><span class="trust-dot"></span>Data Driven Insights</span>
+        <span class="trust-badge"><span class="trust-dot"></span>AI Powered Analytics</span>
+        <span class="trust-badge"><span class="trust-dot"></span>Fast & Lightweight Platform</span>
+        <span class="trust-badge"><span class="trust-dot"></span>Built For Indian Markets</span>
+      </div>
+
+      <div class="footer-seo">
+        TraderHub is an AI-powered stock research and trading analytics platform designed for Indian investors and traders. Discover dividend stocks, value stocks, growth opportunities, sector leaders, and AI-generated stock insights. Analyze your trading performance with Trade Audit, Trade Health Score, Profit Leakage Analysis, and AI Trading Coach.
+      </div>
+
+      <div class="footer-disclaimer">
+        Disclaimer: TraderHub provides research, analytics, and educational tools only. We do not provide investment advice, stock recommendations, portfolio management, or guaranteed returns. Investments in securities markets are subject to market risks. Please consult a SEBI-registered financial advisor before making investment decisions.
+      </div>
+
+      <div class="footer-cta">
+        <div>
+          <h4>Ready to Improve Your Trading?</h4>
+          <div class="footer-cta-copy">Upload your trade history and get a Free AI Trade Audit in minutes.</div>
+        </div>
+        <a class="btn btn-primary" href="/stocks/equity-stock-page">Get Free AI Trade Audit</a>
+      </div>
+
+      <div class="copyright-row">
+        <div>&copy; 2026 TraderHub Technologies Pvt. Ltd. All Rights Reserved.</div>
+        <div>Made with &#10084; in India for Investors & Traders</div>
+      </div>
+    </footer>
   </div>
 
   <div class="mobile-sticky">
