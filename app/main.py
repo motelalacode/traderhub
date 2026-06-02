@@ -37785,10 +37785,10 @@ def build_website_shell_trial5_context(host_root):
     canonical_url = f"{host_root.rstrip('/')}/website-shell-trial5"
     market_tape = build_website_shell_trial3_index_tape()
     hero_trust = [
-        "AI Powered",
-        "5000+ Stocks",
-        "Trading Analytics",
-        "Broker Integration",
+        "5000+ Stocks Tracked",
+        "AI Trade Audit",
+        "Broker Integrations",
+        "Built For Indian Traders",
     ]
     nav_links = [
         {"label": "Home", "href": "/website-shell-trial5"},
@@ -37810,12 +37810,12 @@ def build_website_shell_trial5_context(host_root):
         {"title": "AI Picks", "copy": "Priority ideas surfaced through score-based filtering and context checks.", "href": "/stocks/equity-stock-page", "tone": "green"},
     ]
     trade_audit_cards = [
-        {"label": "Total P&L", "value": "+INR 1.84L", "copy": "Clean sample month after cutting weak entries."},
-        {"label": "Profit Leakage", "value": "-INR 28K", "copy": "Mostly from late exits and oversized revenge trades."},
+        {"label": "Behavior Pattern", "value": "After Third Trade", "copy": "You lose money after your third trade. That is where discipline breaks most often."},
+        {"label": "Time Edge", "value": "68% Before Noon", "copy": "You make 68% of profits before noon, so late-session trades need tighter filters."},
+        {"label": "Instrument Edge", "value": "Bank Nifty Wins", "copy": "Bank Nifty performs better than stock options in your current sample."},
         {"label": "Trade Health Score", "value": "82 / 100", "copy": "Discipline and sizing improved, but exits still need work."},
-        {"label": "Best Setup", "value": "Bull Call Spread", "copy": "Highest quality structure in the latest sample review."},
-        {"label": "Worst Setup", "value": "Late Naked Call", "copy": "Momentum chase with weak reward-to-risk."},
-        {"label": "AI Recommendations", "value": "7 New Flags", "copy": "Journal gaps, repeat mistakes, and better next-step suggestions."},
+        {"label": "Best Setup", "value": "Bull Call Spread", "copy": "Defined-risk structures are carrying better consistency than naked directional chases."},
+        {"label": "Leakage Trigger", "value": "Late Exits", "copy": "Delayed profit-taking is one of the clearest repeat leaks in the sample review."},
     ]
     before_after = {
         "before": [
@@ -37856,6 +37856,8 @@ def build_website_shell_trial5_context(host_root):
             "name": "Pro",
             "price": "INR 999 / month",
             "copy": "Best for active traders who want audit feedback and stronger idea flow.",
+            "annual_price": "INR 9,999 / year",
+            "annual_note": "Save 17%",
             "features": ["AI Trade Audit", "Trade Health Score", "Option strategy tools", "Advanced screen filters"],
             "href": "/derivatives/options/strategy-engine",
             "tone": "pro",
@@ -37864,20 +37866,36 @@ def build_website_shell_trial5_context(host_root):
             "name": "Premium",
             "price": "INR 1999 / month",
             "copy": "For serious traders who want deeper analytics, coaching, and workflow support.",
+            "annual_price": "INR 19,999 / year",
+            "annual_note": "Save 16%",
             "features": ["Everything in Pro", "Broker-linked analytics", "Priority AI insights", "Deeper performance breakdowns"],
             "href": "/stocks/equity-stock-page",
             "tone": "premium",
         },
     ]
-    testimonials = [
-        {"name": "Swing Trader, Pune", "quote": "The audit layer makes it obvious where my money leaks instead of leaving me to guess."},
-        {"name": "Options Trader, Bengaluru", "quote": "It feels more like a fintech product than a content site, and that builds trust fast."},
-        {"name": "Investor, Mumbai", "quote": "The stock discovery flow is much cleaner when sectors, dividends, and strategy tools live together."},
+    sample_findings = [
+        {"name": "Sample Audit Finding", "quote": "Overtrading cost INR 42,000.", "copy": "The trader kept firing after the quality window had already closed."},
+        {"name": "Sample Audit Finding", "quote": "Holding losers cost INR 28,000.", "copy": "Losses expanded because weak trades were given more room than strong ones."},
+        {"name": "Sample Audit Finding", "quote": "Poor position sizing cost INR 17,000.", "copy": "The edge was real, but sizing discipline was inconsistent."},
     ]
     blog_cards = [
-        {"title": "How to find strong dividend stocks without yield traps", "copy": "Use quality, payout discipline, and drawdown context before chasing a raw yield number.", "href": "/stocks/high-dividend-paying-stocks"},
-        {"title": "What traders can learn from profit leakage data", "copy": "The biggest improvement often comes from fixing repeat mistakes, not finding one magic setup.", "href": "/derivatives/options/strategy-engine"},
-        {"title": "Why sector leadership matters before stock selection", "copy": "Start with the market lane that is actually carrying strength before drilling into names.", "href": "/sectors"},
+        {"title": "High Dividend Stocks", "copy": "Dividend ideas ranked with yield, safety, and valuation context.", "href": "/stocks/high-dividend-paying-stocks"},
+        {"title": "Best Value Stocks", "copy": "Open lower-valuation ideas with stronger business and risk context.", "href": "/stocks/undervalued-dividend-stocks"},
+        {"title": "Small Cap Opportunities", "copy": "Smaller ideas where upside is higher but discipline matters more.", "href": "/stocks/small-cap-high-dividend-stocks"},
+        {"title": "Sector Analysis", "copy": "Start with the lane carrying strength before drilling into names.", "href": "/sectors"},
+    ]
+    broker_logos = ["Zerodha", "Upstox", "Angel One", "Dhan"]
+    audit_process = [
+        {"step": "1", "title": "Upload CSV", "copy": "Import your trade history quickly without rebuilding everything manually."},
+        {"step": "2", "title": "AI Analyzes Trades", "copy": "The system detects behavior patterns, setup quality, and recurring leaks."},
+        {"step": "3", "title": "Receive Profit Leakage Report", "copy": "Get a cleaner action plan instead of one more generic dashboard."},
+    ]
+    why_traderhub = [
+        {"feature": "Stock Research", "status": "Yes"},
+        {"feature": "Watchlists", "status": "Yes"},
+        {"feature": "Trade Analytics", "status": "Yes"},
+        {"feature": "AI Coach", "status": "Yes"},
+        {"feature": "Profit Leakage Detection", "status": "Yes"},
     ]
     market_snapshot = market_tape[:4]
     context = {
@@ -37901,6 +37919,34 @@ def build_website_shell_trial5_context(host_root):
                             {"@type": "ListItem", "position": 2, "name": "Website Shell Trial 5", "item": canonical_url},
                         ],
                     },
+                    {
+                        "@type": "Organization",
+                        "name": "TraderHub",
+                        "url": host_root.rstrip("/") + "/",
+                    },
+                    {
+                        "@type": "WebSite",
+                        "name": "TraderHub",
+                        "url": host_root.rstrip("/") + "/",
+                        "potentialAction": {
+                            "@type": "SearchAction",
+                            "target": host_root.rstrip("/") + "/stocks?query={search_term_string}",
+                            "query-input": "required name=search_term_string",
+                        },
+                    },
+                    {
+                        "@type": "FAQPage",
+                        "mainEntity": [
+                            {"@type": "Question", "name": "What does TraderHub help traders do?", "acceptedAnswer": {"@type": "Answer", "text": "TraderHub helps users discover stocks, analyze trading performance, and surface profit leakage through AI-driven audit workflows."}},
+                            {"@type": "Question", "name": "Why is profit leakage important?", "acceptedAnswer": {"@type": "Answer", "text": "Profit leakage highlights where sizing, exits, overtrading, or weak discipline are quietly reducing returns."}},
+                        ],
+                    },
+                    {
+                        "@type": "FinancialService",
+                        "name": "TraderHub",
+                        "url": canonical_url,
+                        "description": "AI-powered stock research and trading analytics platform for Indian investors and traders.",
+                    },
                 ],
             },
             indent=2,
@@ -37908,6 +37954,8 @@ def build_website_shell_trial5_context(host_root):
         "page_meta_text": f"Homepage trial 5 | Updated {get_today_ist().isoformat()}",
         "hero_title": "Discover Better Stocks. Become a Better Trader.",
         "hero_subtitle": "India's AI-powered stock discovery and trading performance platform for researching stocks, tracking trading performance, and uncovering hidden profit leaks with data-driven insights.",
+        "hero_support_copy": "Discover opportunities across 5000+ stocks and analyze trading performance across 100+ parameters.",
+        "audit_example": {"actual": "INR 1,84,000", "potential": "INR 3,12,000", "leakage": "INR 1,28,000"},
         "hero_trust": hero_trust,
         "hero_market_snapshot": market_snapshot,
         "nav_links": nav_links,
@@ -37916,8 +37964,11 @@ def build_website_shell_trial5_context(host_root):
         "before_after": before_after,
         "features": features,
         "pricing_cards": pricing_cards,
-        "testimonials": testimonials,
+        "sample_findings": sample_findings,
         "blog_cards": blog_cards,
+        "broker_logos": broker_logos,
+        "audit_process": audit_process,
+        "why_traderhub": why_traderhub,
         "public_head_injection": build_public_ops_head_injection(),
     }
     return context
@@ -38371,6 +38422,13 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 12px;
     }
+    .hero-support-copy {
+      margin-top: 14px;
+      color: var(--ink);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.7;
+    }
     .snapshot-card {
       padding: 14px;
       border-radius: 18px;
@@ -38629,6 +38687,40 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
+    .broker-row,
+    .process-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .broker-chip {
+      padding: 16px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      text-align: center;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .why-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+    }
+    .why-table th,
+    .why-table td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      font-size: 14px;
+    }
+    .why-table th {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+    }
     .quote-card blockquote {
       margin: 0;
       font-size: 18px;
@@ -38864,6 +38956,10 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       .footer-grid {
         grid-template-columns: 1fr 1fr;
       }
+      .broker-row,
+      .process-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
       .card-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -38958,18 +39054,19 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
     <section class="hero">
       <div class="hero-grid">
         <div>
-          <div class="eyebrow">Premium Fintech Trial</div>
+          <div class="eyebrow">AI-Powered Stock Discovery & Trading Analytics</div>
           <h1>{{ hero_title }}</h1>
           <p>{{ hero_subtitle }}</p>
           <div class="hero-trust">
             {% for item in hero_trust %}
-            <span>{{ item }}</span>
+            <span>&#10003; {{ item }}</span>
             {% endfor %}
           </div>
           <div class="hero-actions">
             <a class="btn btn-primary" href="#trade-audit">Get Free Trade Audit</a>
             <a class="btn btn-secondary" href="#categories">Explore Stocks</a>
           </div>
+          <div class="hero-support-copy">{{ hero_support_copy }}</div>
         </div>
         <div class="hero-panel">
           <div class="panel-head">
@@ -38988,15 +39085,20 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
           </div>
           <div class="panel-grid">
             <div class="mini-card">
-              <div class="label">Profit Leakage Report</div>
-              <strong>-INR 28K</strong>
-              <span>Mostly from late exits, size creep, and low-quality repeat entries.</span>
+              <div class="label">AI Audit Example</div>
+              <strong>{{ audit_example.actual }}</strong>
+              <span>Actual Profit</span>
             </div>
             <div class="mini-card">
-              <div class="label">AI Coach Insights</div>
-              <strong>7 Action Flags</strong>
-              <span>Stop weak revenge trades, tighten exits, and reuse your highest quality setups.</span>
+              <div class="label">Potential Profit</div>
+              <strong>{{ audit_example.potential }}</strong>
+              <span>What better discipline could have captured.</span>
             </div>
+          </div>
+          <div class="mini-card">
+            <div class="label">Profit Leakage</div>
+            <strong>{{ audit_example.leakage }}</strong>
+            <span>Visible before the fold so the real product edge is impossible to miss.</span>
           </div>
           <div class="snapshot-strip">
             {% for row in hero_market_snapshot %}
@@ -39008,6 +39110,21 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
             {% endfor %}
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Broker Imports</span>
+          <h2>Import trades from leading brokers</h2>
+          <p>Broker visibility builds trust fast. This block makes the audit workflow feel real before the user even uploads a file.</p>
+        </div>
+      </div>
+      <div class="broker-row">
+        {% for broker in broker_logos %}
+        <div class="broker-chip">{{ broker }}</div>
+        {% endfor %}
       </div>
     </section>
 
@@ -39057,6 +39174,25 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
           </article>
           {% endfor %}
         </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Free AI Audit Process</span>
+          <h2>How the free audit works</h2>
+          <p>Keep the path simple so the visitor immediately understands the conversion flow.</p>
+        </div>
+      </div>
+      <div class="process-grid">
+        {% for card in audit_process %}
+        <article class="panel-card">
+          <span class="badge">Step {{ card['step'] }}</span>
+          <h3 style="margin:14px 0 10px;font-size:24px;">{{ card['title'] }}</h3>
+          <p>{{ card['copy'] }}</p>
+        </article>
+        {% endfor %}
       </div>
     </section>
 
@@ -39130,6 +39266,10 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
           <h3>{{ card['name'] }}</h3>
           <div class="price-value">{{ card['price'] }}</div>
           <div class="price-copy">{{ card['copy'] }}</div>
+          {% if card.get('annual_price') %}
+          <div style="margin-top:10px;font-size:15px;font-weight:800;color:var(--ink);">{{ card['annual_price'] }}</div>
+          <div style="margin-top:4px;color:var(--green);font-size:13px;font-weight:800;">{{ card['annual_note'] }}</div>
+          {% endif %}
           <div class="price-features">
             {% for feature in card['features'] %}
             <span>{{ feature }}</span>
@@ -39144,33 +39284,56 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
     <section class="section">
       <div class="section-head">
         <div>
-          <span class="section-tag">Proof</span>
-          <h2>Trust Matters More Than Noise</h2>
-          <p>A strong homepage should show that the platform is used for decisions, not just browsing. These proof blocks help the page feel like a serious fintech product.</p>
+          <span class="section-tag">Sample Audit Findings</span>
+          <h2>Concrete findings beat placeholder testimonials</h2>
+          <p>These sample findings explain the product value faster than generic praise because the user can immediately imagine their own report.</p>
         </div>
       </div>
       <div class="proof-grid">
-        {% for card in testimonials %}
+        {% for card in sample_findings %}
         <article class="panel-card quote-card">
           <blockquote>"{{ card['quote'] }}"</blockquote>
           <footer>{{ card['name'] }}</footer>
+          <p style="margin-top:12px;">{{ card['copy'] }}</p>
         </article>
         {% endfor %}
       </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Why TraderHub?</span>
+          <h2>Explain the platform in 10 seconds</h2>
+          <p>This simple comparison makes the homepage easier to understand for first-time visitors.</p>
+        </div>
+      </div>
+      <article class="panel-card">
+        <table class="why-table">
+          <thead>
+            <tr><th>Feature</th><th>TraderHub</th></tr>
+          </thead>
+          <tbody>
+            {% for row in why_traderhub %}
+            <tr><td>{{ row['feature'] }}</td><td>&#10003; {{ row['status'] }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </article>
     </section>
 
     <section class="section" id="blog">
       <div class="section-head">
         <div>
           <span class="section-tag">Blog Preview</span>
-          <h2>Research Content That Supports the Product</h2>
-          <p>Keep the blog useful, but secondary. It should strengthen trust and discovery, not make the homepage feel like a content portal.</p>
+          <h2>Trending now</h2>
+          <p>Use SEO-intent article cards that match what users are already searching for.</p>
         </div>
       </div>
       <div class="blog-grid">
         {% for card in blog_cards %}
         <article class="panel-card blog-card">
-          <span class="section-tag">Research Note</span>
+          <span class="section-tag">Trending Now</span>
           <h3>{{ card['title'] }}</h3>
           <p>{{ card['copy'] }}</p>
           <div style="margin-top:16px;"><a class="btn btn-secondary" href="{{ card['href'] }}">Open Article</a></div>
@@ -39765,6 +39928,10 @@ WEBSITE_SHELL_TRIAL6_TEMPLATE = """
         font-size: 40px;
       }
       .hero-grid, .split, .grid-4, .grid-3, .sitemap-grid, .milestone-grid, .score-strip, .metric-grid {
+        grid-template-columns: 1fr;
+      }
+      .broker-row,
+      .process-grid {
         grid-template-columns: 1fr;
       }
       .section-head {
