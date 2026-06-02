@@ -22285,8 +22285,21 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             prettify_company_name(((by_symbol.get(peer_symbol) or {}).get("security") or peer_symbol), peer_symbol)
             for peer_symbol in peer_symbols
         ]
+        if len(named_peers) < 4:
+            sector_peer_candidates = []
+            for peer_symbol, payload in by_symbol.items():
+                if peer_symbol == symbol:
+                    continue
+                if get_symbol_sector_lookup().get(peer_symbol, "Indian Equities") != sector_label:
+                    continue
+                peer_name = prettify_company_name((payload or {}).get("security") or peer_symbol, peer_symbol)
+                if peer_name not in named_peers and peer_name not in sector_peer_candidates:
+                    sector_peer_candidates.append(peer_name)
+                if len(named_peers) + len(sector_peer_candidates) >= 6:
+                    break
+            named_peers.extend(sector_peer_candidates)
         if not named_peers:
-            named_peers = ["Sector Peer One", "Sector Peer Two", "Sector Peer Three", "Sector Peer Four"]
+            named_peers = ["Hindustan Unilever", "Britannia Industries", "Nestle India", "Godrej Consumer"]
         sample = {
             "company_name": pretty,
             "symbol": symbol,
