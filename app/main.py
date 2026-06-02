@@ -37716,6 +37716,1139 @@ def build_website_shell_trial4_context(host_root):
     return context
 
 
+def build_website_shell_trial5_context(host_root):
+    canonical_url = f"{host_root.rstrip('/')}/website-shell-trial5"
+    market_tape = build_website_shell_trial3_index_tape()
+    hero_trust = [
+        "AI Powered",
+        "5000+ Stocks",
+        "Trading Analytics",
+        "Broker Integration",
+    ]
+    nav_links = [
+        {"label": "Home", "href": "/website-shell-trial5"},
+        {"label": "Stocks", "href": "/stocks/itc"},
+        {"label": "Screeners", "href": "/stocks/high-dividend-paying-stocks"},
+        {"label": "Watchlist", "href": "/stocks/dividend-stocks"},
+        {"label": "Trade Audit", "href": "#trade-audit"},
+        {"label": "Pricing", "href": "#pricing"},
+        {"label": "Blog", "href": "#blog"},
+    ]
+    categories = [
+        {"title": "Dividend Stocks", "copy": "Stable yield ideas with payout quality and valuation checks.", "href": "/stocks/high-dividend-paying-stocks", "tone": "blue"},
+        {"title": "Value Stocks", "copy": "Lower valuation setups with cleaner balance-sheet context.", "href": "/stocks/undervalued-dividend-stocks", "tone": "slate"},
+        {"title": "Growth Stocks", "copy": "Companies still compounding earnings without losing technical support.", "href": "/stocks/itc", "tone": "green"},
+        {"title": "Momentum Stocks", "copy": "Names where price strength is doing the talking right now.", "href": "/market/live-movers", "tone": "green"},
+        {"title": "Small Cap Gems", "copy": "Smaller names with stronger upside and higher execution risk.", "href": "/stocks/small-cap-high-dividend-stocks", "tone": "amber"},
+        {"title": "Sector Leaders", "copy": "Open the sectors that are actually carrying market strength.", "href": "/sectors/strongest", "tone": "blue"},
+        {"title": "Earnings Winners", "copy": "Stocks where results are driving both narrative and price response.", "href": "/market/alerts/earnings-watch", "tone": "slate"},
+        {"title": "AI Picks", "copy": "Priority ideas surfaced through score-based filtering and context checks.", "href": "/stocks/equity-stock-page", "tone": "green"},
+    ]
+    trade_audit_cards = [
+        {"label": "Total P&L", "value": "+INR 1.84L", "copy": "Clean sample month after cutting weak entries."},
+        {"label": "Profit Leakage", "value": "-INR 28K", "copy": "Mostly from late exits and oversized revenge trades."},
+        {"label": "Trade Health Score", "value": "82 / 100", "copy": "Discipline and sizing improved, but exits still need work."},
+        {"label": "Best Setup", "value": "Bull Call Spread", "copy": "Highest quality structure in the latest sample review."},
+        {"label": "Worst Setup", "value": "Late Naked Call", "copy": "Momentum chase with weak reward-to-risk."},
+        {"label": "AI Recommendations", "value": "7 New Flags", "copy": "Journal gaps, repeat mistakes, and better next-step suggestions."},
+    ]
+    before_after = {
+        "before": [
+            "Random trading without a repeatable process",
+            "No trade journal or pattern review loop",
+            "No way to separate skill from luck",
+            "Emotional decisions after wins or losses",
+        ],
+        "after": [
+            "Higher discipline with clearer setup selection",
+            "Better risk management and sizing control",
+            "Improved win-rate awareness and journaling",
+            "AI insights that surface hidden leakage faster",
+        ],
+    }
+    features = [
+        {"title": "AI Trade Audit", "copy": "Surface avoidable mistakes and recurring setup problems from your own history."},
+        {"title": "Trade Health Score", "copy": "One composite score that helps traders track discipline and execution quality."},
+        {"title": "Profit Leakage Detection", "copy": "Find where money is leaving through bad exits, overtrading, or revenge setups."},
+        {"title": "Broker Integration", "copy": "Bring broker-linked trade data into one cleaner review workflow."},
+        {"title": "Performance Analytics", "copy": "Understand what works by setup, sector, session, and holding style."},
+        {"title": "AI Coach", "copy": "Get suggestions that explain what to stop, what to repeat, and where to focus."},
+        {"title": "Trading Journal", "copy": "Turn raw trades into a reviewable process instead of scattered screenshots."},
+        {"title": "Watchlists", "copy": "Keep opportunity lists connected to sectors, dividends, and momentum signals."},
+        {"title": "Price Alerts", "copy": "Track key price zones without sitting on every screen all day."},
+        {"title": "Dividend Alerts", "copy": "Stay close to payout changes and yield-driven screen shifts."},
+    ]
+    pricing_cards = [
+        {
+            "name": "Free",
+            "price": "INR 0",
+            "copy": "Good for early discovery and public market exploration.",
+            "features": ["Public stock pages", "Basic screeners", "Market dashboard", "Starter watchlists"],
+            "href": "/stocks/high-dividend-paying-stocks",
+            "tone": "free",
+        },
+        {
+            "name": "Pro",
+            "price": "INR 999 / month",
+            "copy": "Best for active traders who want audit feedback and stronger idea flow.",
+            "features": ["AI Trade Audit", "Trade Health Score", "Option strategy tools", "Advanced screen filters"],
+            "href": "/derivatives/options/strategy-engine",
+            "tone": "pro",
+        },
+        {
+            "name": "Premium",
+            "price": "INR 1999 / month",
+            "copy": "For serious traders who want deeper analytics, coaching, and workflow support.",
+            "features": ["Everything in Pro", "Broker-linked analytics", "Priority AI insights", "Deeper performance breakdowns"],
+            "href": "/stocks/equity-stock-page",
+            "tone": "premium",
+        },
+    ]
+    testimonials = [
+        {"name": "Swing Trader, Pune", "quote": "The audit layer makes it obvious where my money leaks instead of leaving me to guess."},
+        {"name": "Options Trader, Bengaluru", "quote": "It feels more like a fintech product than a content site, and that builds trust fast."},
+        {"name": "Investor, Mumbai", "quote": "The stock discovery flow is much cleaner when sectors, dividends, and strategy tools live together."},
+    ]
+    blog_cards = [
+        {"title": "How to find strong dividend stocks without yield traps", "copy": "Use quality, payout discipline, and drawdown context before chasing a raw yield number.", "href": "/stocks/high-dividend-paying-stocks"},
+        {"title": "What traders can learn from profit leakage data", "copy": "The biggest improvement often comes from fixing repeat mistakes, not finding one magic setup.", "href": "/derivatives/options/strategy-engine"},
+        {"title": "Why sector leadership matters before stock selection", "copy": "Start with the market lane that is actually carrying strength before drilling into names.", "href": "/sectors"},
+    ]
+    market_snapshot = market_tape[:4]
+    context = {
+        "seo_title": "AI Stock Discovery and Trading Performance Platform India | TraderHub",
+        "seo_description": "Discover better stocks, track trading performance, and uncover profit leaks with AI-powered stock discovery, screeners, watchlists, and trade audit tools from TraderHub.",
+        "canonical_url": canonical_url,
+        "schema_json": json.dumps(
+            {
+                "@context": "https://schema.org",
+                "@graph": [
+                    {
+                        "@type": "WebPage",
+                        "name": "AI Stock Discovery and Trading Performance Platform India | TraderHub",
+                        "description": "Premium SaaS-style homepage trial for TraderHub focused on stock discovery and AI trading analytics.",
+                        "url": canonical_url,
+                    },
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {"@type": "ListItem", "position": 1, "name": "Home", "item": host_root.rstrip("/") + "/"},
+                            {"@type": "ListItem", "position": 2, "name": "Website Shell Trial 5", "item": canonical_url},
+                        ],
+                    },
+                ],
+            },
+            indent=2,
+        ),
+        "page_meta_text": f"Homepage trial 5 | Updated {get_today_ist().isoformat()}",
+        "hero_title": "Discover Better Stocks. Become a Better Trader.",
+        "hero_subtitle": "India's AI-powered stock discovery and trading performance platform for researching stocks, tracking trading performance, and uncovering hidden profit leaks with data-driven insights.",
+        "hero_trust": hero_trust,
+        "hero_market_snapshot": market_snapshot,
+        "nav_links": nav_links,
+        "categories": categories,
+        "trade_audit_cards": trade_audit_cards,
+        "before_after": before_after,
+        "features": features,
+        "pricing_cards": pricing_cards,
+        "testimonials": testimonials,
+        "blog_cards": blog_cards,
+        "public_head_injection": build_public_ops_head_injection(),
+    }
+    return context
+
+
+WEBSITE_SHELL_TRIAL5_TEMPLATE = """
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ seo_title }}</title>
+  <meta name="description" content="{{ seo_description }}">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:title" content="{{ seo_title }}">
+  <meta property="og:description" content="{{ seo_description }}">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary_large_image">
+  <script type="application/ld+json">{{ schema_json|safe }}</script>
+  {{ public_head_injection|safe }}
+  <style>
+    :root {
+      --bg: #ffffff;
+      --card: #f8fafc;
+      --line: #e2e8f0;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --blue: #2563eb;
+      --blue-2: #0ea5e9;
+      --green: #10b981;
+      --amber: #f59e0b;
+      --shell: #eef5ff;
+      --shadow: 0 28px 70px rgba(15, 23, 42, 0.08);
+      --shadow-soft: 0 18px 42px rgba(15, 23, 42, 0.06);
+      --radius: 28px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(37,99,235,0.10), transparent 28%),
+        radial-gradient(circle at top right, rgba(16,185,129,0.08), transparent 18%),
+        linear-gradient(180deg, #fbfdff 0%, #f4f8fc 100%);
+    }
+    a { color: inherit; text-decoration: none; }
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 0 18px 56px;
+    }
+    .nav-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding-top: 14px;
+    }
+    .topnav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 14px 18px;
+      border-radius: 22px;
+      background: rgba(255,255,255,0.78);
+      border: 1px solid rgba(226,232,240,0.95);
+      backdrop-filter: blur(18px);
+      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+    }
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .brand strong {
+      font-size: 22px;
+      line-height: 1;
+      color: var(--ink);
+    }
+    .brand span {
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .nav-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .nav-links a {
+      padding: 10px 14px;
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .nav-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .nav-login {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .nav-signup {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 11px 16px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      color: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 0 16px 30px rgba(37,99,235,0.24);
+    }
+    .hero {
+      margin-top: 18px;
+      padding: 42px;
+      border-radius: 36px;
+      background:
+        linear-gradient(145deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%);
+      border: 1px solid rgba(226,232,240,0.95);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      position: relative;
+    }
+    .hero::before {
+      content: "";
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      right: -140px;
+      top: -150px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(37,99,235,0.16), transparent 68%);
+    }
+    .hero::after {
+      content: "";
+      position: absolute;
+      width: 320px;
+      height: 320px;
+      left: -120px;
+      bottom: -130px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(16,185,129,0.14), transparent 68%);
+    }
+    .hero-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 28px;
+      align-items: center;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #edf4ff;
+      color: var(--blue);
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+    .hero h1 {
+      margin: 16px 0 12px;
+      font-size: clamp(40px, 5vw, 72px);
+      line-height: 0.98;
+      letter-spacing: -0.03em;
+      max-width: 760px;
+    }
+    .hero p {
+      margin: 0;
+      max-width: 690px;
+      color: var(--muted);
+      font-size: 17px;
+      line-height: 1.8;
+    }
+    .hero-trust {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+    .hero-trust span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: #ffffff;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink);
+      box-shadow: var(--shadow-soft);
+    }
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 15px 20px;
+      border-radius: 18px;
+      font-size: 14px;
+      font-weight: 800;
+      border: 1px solid transparent;
+      transition: transform 0.18s ease, box-shadow 0.18s ease;
+    }
+    .btn:hover {
+      transform: translateY(-2px);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--blue), var(--blue-2));
+      color: #fff;
+      box-shadow: 0 18px 36px rgba(37,99,235,0.24);
+    }
+    .btn-secondary {
+      background: #fff;
+      color: var(--ink);
+      border-color: var(--line);
+    }
+    .hero-panel {
+      display: grid;
+      gap: 16px;
+      background: linear-gradient(180deg, #ffffff, #f7fbff);
+      border: 1px solid rgba(226,232,240,0.96);
+      border-radius: 30px;
+      padding: 20px;
+      box-shadow: var(--shadow-soft);
+    }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+    .panel-head strong {
+      font-size: 18px;
+    }
+    .panel-head span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .score-band {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: center;
+      padding: 18px;
+      border-radius: 24px;
+      background: linear-gradient(135deg, #edf4ff, #f8fbff);
+      border: 1px solid var(--line);
+    }
+    .score-band strong {
+      display: block;
+      font-size: 36px;
+      line-height: 1;
+    }
+    .score-band .meta {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 8px;
+      line-height: 1.6;
+    }
+    .ring {
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: conic-gradient(var(--green) 82%, #dbe7f3 0);
+      display: grid;
+      place-items: center;
+      padding: 7px;
+    }
+    .ring .inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--ink);
+      text-align: center;
+    }
+    .panel-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .mini-card {
+      padding: 16px;
+      border-radius: 20px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .mini-card .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .mini-card strong {
+      display: block;
+      margin-top: 10px;
+      font-size: 23px;
+    }
+    .mini-card span {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .snapshot-strip {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .snapshot-card {
+      padding: 14px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .snapshot-card .k {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .snapshot-card .v {
+      display: block;
+      margin-top: 8px;
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .snapshot-card .m {
+      display: block;
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .section {
+      margin-top: 28px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 16px;
+    }
+    .section-head h2 {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.06;
+    }
+    .section-head p {
+      margin: 8px 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.8;
+      font-size: 15px;
+    }
+    .section-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eef5ff;
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .panel-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      box-shadow: var(--shadow-soft);
+      padding: 20px;
+    }
+    .opportunity-card {
+      min-height: 210px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+    .opportunity-card.blue { box-shadow: 0 18px 42px rgba(37,99,235,0.10); }
+    .opportunity-card.green { box-shadow: 0 18px 42px rgba(16,185,129,0.10); }
+    .opportunity-card.amber { box-shadow: 0 18px 42px rgba(245,158,11,0.10); }
+    .opportunity-card h3 {
+      margin: 16px 0 10px;
+      font-size: 23px;
+      line-height: 1.14;
+    }
+    .opportunity-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+      font-size: 14px;
+    }
+    .opportunity-card .link {
+      margin-top: 18px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .audit-shell {
+      display: grid;
+      grid-template-columns: 0.96fr 1.04fr;
+      gap: 18px;
+      align-items: start;
+    }
+    .audit-callout {
+      padding: 24px;
+      border-radius: 28px;
+      background: linear-gradient(135deg, #0f172a, #1e3a5f);
+      color: #fff;
+      box-shadow: 0 24px 60px rgba(15,23,42,0.16);
+    }
+    .audit-callout h3 {
+      margin: 14px 0 10px;
+      font-size: 34px;
+      line-height: 1.06;
+    }
+    .audit-callout p {
+      margin: 0;
+      color: rgba(255,255,255,0.82);
+      line-height: 1.8;
+    }
+    .audit-callout .btn {
+      margin-top: 22px;
+    }
+    .audit-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .audit-card strong {
+      display: block;
+      margin-top: 12px;
+      font-size: 28px;
+    }
+    .audit-card p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 14px;
+    }
+    .compare-shell {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 18px;
+    }
+    .compare-panel h3 {
+      margin: 14px 0 12px;
+      font-size: 28px;
+    }
+    .compare-list {
+      display: grid;
+      gap: 12px;
+    }
+    .compare-item {
+      display: flex;
+      gap: 12px;
+      align-items: start;
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: #fff;
+      border: 1px solid var(--line);
+    }
+    .compare-mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 800;
+      flex: 0 0 auto;
+    }
+    .compare-before .compare-mark {
+      background: #fff3df;
+      color: var(--amber);
+    }
+    .compare-after .compare-mark {
+      background: #e8faf3;
+      color: var(--green);
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .feature-card h3 {
+      margin: 14px 0 10px;
+      font-size: 20px;
+    }
+    .feature-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.72;
+      font-size: 14px;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .price-card {
+      padding: 24px;
+      border-radius: 28px;
+      background: #fff;
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow-soft);
+      position: relative;
+    }
+    .price-card.pro {
+      background: linear-gradient(180deg, #f8fbff 0%, #eef5ff 100%);
+      border-color: rgba(37,99,235,0.28);
+      box-shadow: 0 22px 52px rgba(37,99,235,0.14);
+    }
+    .price-card .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #edf4ff;
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .price-card h3 {
+      margin: 16px 0 8px;
+      font-size: 28px;
+    }
+    .price-value {
+      font-size: 38px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .price-copy {
+      margin-top: 10px;
+      color: var(--muted);
+      line-height: 1.72;
+      font-size: 14px;
+    }
+    .price-features {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0 20px;
+      color: var(--ink);
+      font-size: 14px;
+    }
+    .price-features span::before {
+      content: "•";
+      margin-right: 8px;
+      color: var(--green);
+    }
+    .proof-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .quote-card blockquote {
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+    .quote-card footer {
+      margin-top: 14px;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .blog-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .blog-card h3 {
+      margin: 12px 0 10px;
+      font-size: 24px;
+      line-height: 1.18;
+    }
+    .blog-card p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.74;
+      font-size: 14px;
+    }
+    .final-cta {
+      padding: 30px;
+      border-radius: 32px;
+      background: linear-gradient(135deg, #0f172a 0%, #17406b 60%, #0ea5e9 100%);
+      color: #fff;
+      box-shadow: 0 30px 70px rgba(15,23,42,0.18);
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .final-cta h2 {
+      margin: 0 0 10px;
+      font-size: 38px;
+      line-height: 1.04;
+    }
+    .final-cta p {
+      margin: 0;
+      color: rgba(255,255,255,0.84);
+      line-height: 1.8;
+      max-width: 760px;
+    }
+    .footer-note {
+      margin-top: 22px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.8;
+    }
+    .mobile-sticky {
+      display: none;
+    }
+    @media (max-width: 1220px) {
+      .hero-grid,
+      .audit-shell,
+      .compare-shell,
+      .feature-grid,
+      .pricing-grid,
+      .proof-grid,
+      .blog-grid {
+        grid-template-columns: 1fr;
+      }
+      .card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .snapshot-strip {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 760px) {
+      .page { padding: 0 12px 84px; }
+      .nav-wrap { padding-top: 10px; }
+      .topnav {
+        padding: 12px 14px;
+        border-radius: 18px;
+        align-items: start;
+        flex-direction: column;
+      }
+      .nav-links {
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        width: 100%;
+        padding-bottom: 4px;
+      }
+      .hero {
+        padding: 24px 18px;
+        border-radius: 28px;
+      }
+      .hero h1 {
+        font-size: 40px;
+      }
+      .hero p,
+      .section-head p {
+        font-size: 14px;
+      }
+      .panel-grid,
+      .audit-grid,
+      .snapshot-strip,
+      .card-grid {
+        grid-template-columns: 1fr;
+      }
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+      .section-head {
+        display: block;
+      }
+      .mobile-sticky {
+        position: fixed;
+        left: 12px;
+        right: 12px;
+        bottom: 14px;
+        display: flex;
+        gap: 10px;
+        z-index: 40;
+      }
+      .mobile-sticky .btn {
+        flex: 1 1 auto;
+        padding: 14px 16px;
+        border-radius: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="nav-wrap">
+      <nav class="topnav">
+        <div class="brand">
+          <strong>TraderHub</strong>
+          <span>AI Stock Discovery</span>
+        </div>
+        <div class="nav-links">
+          {% for link in nav_links %}
+          <a href="{{ link.href }}">{{ link.label }}</a>
+          {% endfor %}
+        </div>
+        <div class="nav-actions">
+          <a class="nav-login" href="/login">Login</a>
+          <a class="nav-signup" href="/stocks/equity-stock-page">Sign Up</a>
+        </div>
+      </nav>
+    </div>
+
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <div class="eyebrow">Premium Fintech Trial</div>
+          <h1>{{ hero_title }}</h1>
+          <p>{{ hero_subtitle }}</p>
+          <div class="hero-trust">
+            {% for item in hero_trust %}
+            <span>{{ item }}</span>
+            {% endfor %}
+          </div>
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="#trade-audit">Get Free Trade Audit</a>
+            <a class="btn btn-secondary" href="#categories">Explore Stocks</a>
+          </div>
+        </div>
+        <div class="hero-panel">
+          <div class="panel-head">
+            <div>
+              <strong>Trade Performance Command Center</strong>
+              <span>See how TraderHub can connect stock discovery with trade analytics in one premium product layer.</span>
+            </div>
+            <span class="section-tag">Powered by AI</span>
+          </div>
+          <div class="score-band">
+            <div>
+              <strong>Trade Health Score</strong>
+              <div class="meta">One clean score to show discipline, execution quality, and the hidden cost of weak decisions.</div>
+            </div>
+            <div class="ring"><div class="inner">82 / 100</div></div>
+          </div>
+          <div class="panel-grid">
+            <div class="mini-card">
+              <div class="label">Profit Leakage Report</div>
+              <strong>-INR 28K</strong>
+              <span>Mostly from late exits, size creep, and low-quality repeat entries.</span>
+            </div>
+            <div class="mini-card">
+              <div class="label">AI Coach Insights</div>
+              <strong>7 Action Flags</strong>
+              <span>Stop weak revenge trades, tighten exits, and reuse your highest quality setups.</span>
+            </div>
+          </div>
+          <div class="snapshot-strip">
+            {% for row in hero_market_snapshot %}
+            <div class="snapshot-card">
+              <div class="k">{{ row.label }}</div>
+              <span class="v">{{ row.value }}</span>
+              <span class="m">{{ row.percent }} | {{ row.status }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="categories">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Stock Discovery</span>
+          <h2>Find Your Next Opportunity</h2>
+          <p>Start with stock categories that match real investor and trader intent, not a content portal layout. This section is built to feel like a premium discovery product.</p>
+        </div>
+      </div>
+      <div class="card-grid">
+        {% for card in categories %}
+        <article class="panel-card opportunity-card {{ card.tone }}">
+          <div>
+            <span class="section-tag">{{ loop.index }} / 8</span>
+            <h3>{{ card.title }}</h3>
+            <p>{{ card.copy }}</p>
+          </div>
+          <a class="link" href="{{ card.href }}">Open {{ card.title }} -></a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="trade-audit">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">AI Trade Audit</span>
+          <h2>See Where Your Money Leaks</h2>
+          <p>TraderHub should not only help users find ideas. It should also show why performance stays below potential and where smarter review changes real outcomes.</p>
+        </div>
+      </div>
+      <div class="audit-shell">
+        <div class="audit-callout">
+          <span class="section-tag" style="background:rgba(255,255,255,0.12);color:#fff;">Audit Workflow</span>
+          <h3>Upload trade history. Surface avoidable mistakes. Improve faster.</h3>
+          <p>Turn broker exports into a cleaner feedback loop. See total P&L, recurring profit leakage, weak setup repetition, and what your best trades are actually teaching you.</p>
+          <a class="btn btn-primary" href="/stocks/equity-stock-page">Upload Trade History</a>
+        </div>
+        <div class="audit-grid">
+          {% for card in trade_audit_cards %}
+          <article class="panel-card audit-card">
+            <span class="section-tag">{{ card.label }}</span>
+            <strong>{{ card.value }}</strong>
+            <p>{{ card.copy }}</p>
+          </article>
+          {% endfor %}
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Before vs After</span>
+          <h2>What Happens When Traders Understand Their Data</h2>
+          <p>The biggest upgrade is not one more indicator. It is the move from random activity into a measurable system that traders can actually improve.</p>
+        </div>
+      </div>
+      <div class="compare-shell">
+        <article class="panel-card compare-panel compare-before">
+          <span class="section-tag" style="background:#fff3df;color:#b45309;">Before</span>
+          <h3>Trading without a feedback loop</h3>
+          <div class="compare-list">
+            {% for item in before_after.before %}
+            <div class="compare-item">
+              <span class="compare-mark">!</span>
+              <div>{{ item }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+        <article class="panel-card compare-panel compare-after">
+          <span class="section-tag" style="background:#e8faf3;color:#0f8a69;">After</span>
+          <h3>Trading with cleaner process awareness</h3>
+          <div class="compare-list">
+            {% for item in before_after.after %}
+            <div class="compare-item">
+              <span class="compare-mark">+</span>
+              <div>{{ item }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Platform Features</span>
+          <h2>Built Like a Product, Not a Blog</h2>
+          <p>These blocks push the page toward a premium subscription product feel, with stock discovery and trader performance workflows living in the same system.</p>
+        </div>
+      </div>
+      <div class="feature-grid">
+        {% for card in features %}
+        <article class="panel-card feature-card">
+          <span class="section-tag">{{ loop.index }}</span>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.copy }}</p>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="pricing">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Pricing</span>
+          <h2>Simple Plans for Research and Performance Growth</h2>
+          <p>Keep the business model subscription-first. The pricing layer should feel premium, clear, and connected to the real value of better decisions.</p>
+        </div>
+      </div>
+      <div class="pricing-grid">
+        {% for card in pricing_cards %}
+        <article class="price-card {{ card.tone }}">
+          <span class="badge">{% if card.tone == "pro" %}Most Popular{% else %}{{ card.name }}{% endif %}</span>
+          <h3>{{ card.name }}</h3>
+          <div class="price-value">{{ card.price }}</div>
+          <div class="price-copy">{{ card.copy }}</div>
+          <div class="price-features">
+            {% for feature in card.features %}
+            <span>{{ feature }}</span>
+            {% endfor %}
+          </div>
+          <a class="btn {% if card.tone == 'pro' %}btn-primary{% else %}btn-secondary{% endif %}" href="{{ card.href }}">Choose {{ card.name }}</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Proof</span>
+          <h2>Trust Matters More Than Noise</h2>
+          <p>A strong homepage should show that the platform is used for decisions, not just browsing. These proof blocks help the page feel like a serious fintech product.</p>
+        </div>
+      </div>
+      <div class="proof-grid">
+        {% for card in testimonials %}
+        <article class="panel-card quote-card">
+          <blockquote>"{{ card.quote }}"</blockquote>
+          <footer>{{ card.name }}</footer>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section" id="blog">
+      <div class="section-head">
+        <div>
+          <span class="section-tag">Blog Preview</span>
+          <h2>Research Content That Supports the Product</h2>
+          <p>Keep the blog useful, but secondary. It should strengthen trust and discovery, not make the homepage feel like a content portal.</p>
+        </div>
+      </div>
+      <div class="blog-grid">
+        {% for card in blog_cards %}
+        <article class="panel-card blog-card">
+          <span class="section-tag">Research Note</span>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.copy }}</p>
+          <div style="margin-top:16px;"><a class="btn btn-secondary" href="{{ card.href }}">Open Article</a></div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="final-cta">
+        <div>
+          <h2>Ready To Improve Your Trading?</h2>
+          <p>Use TraderHub to discover better stocks, track trading performance, and uncover the hidden patterns that separate random activity from repeatable process.</p>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <a class="btn btn-primary" href="/stocks/equity-stock-page">Start Free Audit</a>
+          <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Explore Screeners</a>
+        </div>
+      </div>
+      <div class="footer-note">Trial 5 is a separate premium SaaS homepage sample for review. Subscription value should stay above ad-first design decisions.</div>
+    </section>
+  </div>
+
+  <div class="mobile-sticky">
+    <a class="btn btn-primary" href="/stocks/equity-stock-page">Free Audit</a>
+    <a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">Explore Stocks</a>
+  </div>
+</body>
+</html>
+"""
+
+
 WEBSITE_SHELL_TRIAL4_TEMPLATE = """
 <!doctype html>
 <html lang="en">
@@ -40060,6 +41193,12 @@ def website_shell_trial3():
 def website_shell_trial4():
     context = build_website_shell_trial4_context(request.url_root.rstrip("/"))
     return render_template_string(WEBSITE_SHELL_TRIAL4_TEMPLATE, **context)
+
+
+@app.route("/website-shell-trial5")
+def website_shell_trial5():
+    context = build_website_shell_trial5_context(request.url_root.rstrip("/"))
+    return render_template_string(WEBSITE_SHELL_TRIAL5_TEMPLATE, **context)
 
 
 @app.route("/api/website-shell-trial3/indices")
