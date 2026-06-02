@@ -22055,11 +22055,140 @@ PREMIUM_STOCK_SAMPLE_MAP = {
             ("Adani Total Gas", "/stocks/research/adani-total-gas"),
         ],
     },
+    "itc": {
+        "company_name": "ITC Ltd",
+        "symbol": "ITC",
+        "exchange": "NSE",
+        "price": "INR 428.60",
+        "change": "+4.85",
+        "change_pct": "1.14%",
+        "tone": "up",
+        "status": "Market Closed",
+        "updated": "30 May 2026, 03:30 PM IST",
+        "ai_score": 79,
+        "verdict": "Balanced income and stability candidate",
+        "risk": "Low to Moderate",
+        "metrics": [
+            ("Market Cap", "INR 5.36 Lakh Cr"),
+            ("PE Ratio", "26.80"),
+            ("ROE", "28.10%"),
+            ("ROCE", "34.45%"),
+            ("Dividend Yield", "3.15%"),
+            ("Debt/Equity", "0.01"),
+            ("52 Week High", "INR 528"),
+            ("52 Week Low", "INR 399"),
+        ],
+        "ai_verdict_rows": [
+            ("Valuation", "Reasonable"),
+            ("Growth", "Steady"),
+            ("Dividend", "Strong"),
+            ("Financial Strength", "Strong"),
+            ("Risk", "Low to Moderate"),
+        ],
+        "buy_for": [
+            "Stable cash-generating business mix",
+            "Above-average dividend support",
+            "Strong return ratios and balance sheet comfort",
+            "Defensive large-cap exposure",
+        ],
+        "avoid_if": [
+            "Need very high growth right away",
+            "Want deep value at any price",
+            "Prefer aggressive cyclical opportunities",
+        ],
+        "business_overview": "ITC Ltd operates across cigarettes, FMCG, hotels, paperboards, packaging and agri businesses, making it one of India's most cash-generative and diversified consumer-facing large caps.",
+        "financial_cards": [
+            ("Revenue", ["0.62", "0.67", "0.71", "0.76", "0.82"], "INR 82K Cr"),
+            ("Net Profit", ["0.14", "0.16", "0.18", "0.20", "0.22"], "INR 22K Cr"),
+            ("EPS", ["11.8", "12.9", "14.2", "15.8", "17.3"], "INR 17.3"),
+            ("Free Cash Flow", ["0.10", "0.12", "0.14", "0.16", "0.18"], "INR 18K Cr"),
+            ("Net Worth", ["0.56", "0.61", "0.67", "0.73", "0.80"], "INR 80K Cr"),
+        ],
+        "dividend": {
+            "yield": "3.15%",
+            "payout": "83.0%",
+            "annual": "INR 13.50",
+            "ex_date": "28 May 2026",
+            "growth": "7.8%",
+        },
+        "peers": [
+            ("ITC", "INR 5.36L Cr", "26.80", "28.10%", "34.45%", "3.15%"),
+            ("Hindustan Unilever", "INR 5.58L Cr", "56.40", "20.10%", "27.80%", "1.75%"),
+            ("Britannia Industries", "INR 1.36L Cr", "52.10", "52.40%", "46.20%", "1.40%"),
+            ("Nestle India", "INR 2.42L Cr", "74.30", "95.60%", "131.40%", "1.10%"),
+        ],
+        "shareholding": {"promoters": 0.0, "fiis": 40.62, "diis": 45.13, "public": 14.25},
+        "checklist": [
+            ("Profit Growing", True),
+            ("ROCE > 15%", True),
+            ("Debt Under Control", True),
+            ("Positive Cash Flow", True),
+            ("Dividend Paying", True),
+            ("Promoter Holding Stable", True),
+        ],
+        "related": [
+            ("Hindustan Unilever", "/stocks/research/hindustan-unilever"),
+            ("Britannia Industries", "/stocks/research/britannia-industries"),
+            ("Nestle India", "/stocks/research/nestle-india"),
+            ("Dabur India", "/stocks/research/dabur-india"),
+            ("Godrej Consumer", "/stocks/research/godrej-consumer"),
+        ],
+    },
 }
 
 
-def build_simple_line_svg():
-    return """
+def build_chart_moving_average(values, window_size=3):
+    cleaned = [float(value) for value in values]
+    averaged = []
+    for index in range(len(cleaned)):
+        start = max(0, index - window_size + 1)
+        bucket = cleaned[start : index + 1]
+        averaged.append(round(sum(bucket) / len(bucket), 2))
+    return averaged
+
+
+def build_sample_chart_ranges(base_price, tone="up"):
+    base = float(base_price or 100.0)
+    daily_shift = 1 if tone == "up" else -1
+    return {
+        "1D": [round(base + value * daily_shift, 2) for value in [-14, -8, -3, 2, 8, 5, 11, 16]],
+        "1W": [round(base + value, 2) for value in [-24, -18, -6, 4, 12, 7, 18]],
+        "1M": [round(base + value, 2) for value in [-38, -30, -24, -16, -10, -2, 8, 15, 21, 17, 26, 34]],
+        "6M": [round(base + value, 2) for value in [-64, -58, -42, -25, -14, -3, 9, 18, 26, 19, 34, 48]],
+        "1Y": [round(base + value, 2) for value in [-92, -81, -74, -52, -39, -21, -8, 6, 18, 34, 27, 46]],
+        "5Y": [round(base + value, 2) for value in [-168, -146, -128, -112, -86, -58, -34, -8, 22, 48, 79, 106]],
+        "MAX": [round(base + value, 2) for value in [-210, -188, -162, -138, -118, -94, -63, -28, 4, 41, 78, 122]],
+    }
+
+
+def build_price_chart_svg(values, ma_values=None):
+    series = [float(value) for value in values]
+    if not series:
+        series = [100.0, 100.0]
+    low = min(series)
+    high = max(series)
+    span = max(high - low, 1.0)
+
+    def to_points(point_values):
+        points = []
+        count = max(len(point_values) - 1, 1)
+        for index, value in enumerate(point_values):
+            x = 28 + (464 * (index / count))
+            y = 182 - (((float(value) - low) / span) * 118)
+            points.append((round(x, 2), round(y, 2)))
+        return points
+
+    def to_path(point_values):
+        points = to_points(point_values)
+        return " ".join(f"{'M' if idx == 0 else 'L'}{x} {y}" for idx, (x, y) in enumerate(points))
+
+    price_path = to_path(series)
+    price_points = to_points(series)
+    area_path = f"{price_path} L{price_points[-1][0]} 194 L{price_points[0][0]} 194 Z"
+    ma_path = to_path(ma_values) if ma_values else ""
+    last_x, last_y = price_points[-1]
+    ma_markup = f'<path d="{ma_path}" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 8"/>' if ma_path else ""
+    return f"""
     <svg viewBox="0 0 520 220" width="100%" height="220" aria-hidden="true">
       <defs>
         <linearGradient id="stock-line-fill" x1="0" x2="0" y1="0" y2="1">
@@ -22074,9 +22203,10 @@ def build_simple_line_svg():
         <line x1="28" y1="140" x2="492" y2="140"/>
         <line x1="28" y1="190" x2="492" y2="190"/>
       </g>
-      <path d="M28 168 C88 150, 104 130, 156 126 S252 82, 302 96 S392 56, 492 70 L492 190 L28 190 Z" fill="url(#stock-line-fill)"/>
-      <path d="M28 168 C88 150, 104 130, 156 126 S252 82, 302 96 S392 56, 492 70" fill="none" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
-      <circle cx="492" cy="70" r="6" fill="#10B981"/>
+      <path d="{area_path}" fill="url(#stock-line-fill)"/>
+      <path d="{price_path}" fill="none" stroke="#2563EB" stroke-width="5" stroke-linecap="round"/>
+      {ma_markup}
+      <circle cx="{last_x}" cy="{last_y}" r="6" fill="#10B981"/>
     </svg>
     """
 
@@ -22102,8 +22232,20 @@ def build_premium_stock_detail_context(stock_slug, host_root):
     slug = str(stock_slug or "").strip().lower()
     sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
     if not sample:
-        pretty = " ".join(part.capitalize() for part in slug.split("-") if part) or "Sample Stock"
-        symbol = "".join(part[:3] for part in pretty.split()).upper()[:8] or "STOCK"
+        master = load_symbol_master()
+        by_symbol = master.get("by_symbol", {})
+        resolved_symbol = resolve_stock_symbol_from_slug(slug)
+        security_name = ((by_symbol.get(resolved_symbol) or {}).get("security") or "")
+        pretty = prettify_company_name(security_name or " ".join(part.capitalize() for part in slug.split("-") if part), resolved_symbol or "STOCK")
+        symbol = resolved_symbol or "".join(part[:3] for part in pretty.split()).upper()[:8] or "STOCK"
+        sector_label = get_symbol_sector_lookup().get(symbol, "Indian Equities")
+        peer_symbols = [peer_symbol for peer_symbol in get_stock_page_peer_symbols(symbol) if peer_symbol != symbol][:4]
+        named_peers = [
+            prettify_company_name(((by_symbol.get(peer_symbol) or {}).get("security") or peer_symbol), peer_symbol)
+            for peer_symbol in peer_symbols
+        ]
+        if not named_peers:
+            named_peers = ["Sector Peer One", "Sector Peer Two", "Sector Peer Three", "Sector Peer Four"]
         sample = {
             "company_name": pretty,
             "symbol": symbol,
@@ -22130,7 +22272,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "ai_verdict_rows": [("Valuation", "Fairly Valued"), ("Growth", "Stable"), ("Dividend", "Average"), ("Financial Strength", "Good"), ("Risk", "Moderate")],
             "buy_for": ["Long-term research", "Balanced quality and growth", "Reasonable financial strength", "Sector leadership potential"],
             "avoid_if": ["Need high dividend income", "Need fast momentum only", "Prefer very low-risk setups"],
-            "business_overview": f"{pretty} is shown here with sample TraderHub stock detail data so the page layout can be reviewed before backend wiring is connected.",
+            "business_overview": f"{pretty} is shown here with sample TraderHub stock detail data so the premium layout can be reviewed before backend wiring is connected. The peer set is pulled from the same sector context used across TraderHub so the page feels closer to the final experience.",
             "financial_cards": [
                 ("Revenue", ["2.1", "2.4", "2.8", "3.0", "3.4"], "INR 3.4L Cr"),
                 ("Net Profit", ["0.18", "0.22", "0.27", "0.30", "0.34"], "INR 34K Cr"),
@@ -22141,13 +22283,14 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "dividend": {"yield": "0.80%", "payout": "14.0%", "annual": "INR 9.00", "ex_date": "18 Jul 2026", "growth": "7.5%"},
             "peers": [
                 (pretty, "INR 1.42L Cr", "24.60", "16.10%", "15.40%", "0.80%"),
-                ("Peer One", "INR 1.10L Cr", "22.10", "14.80%", "14.40%", "0.72%"),
-                ("Peer Two", "INR 0.92L Cr", "19.80", "13.90%", "13.70%", "0.68%"),
-                ("Peer Three", "INR 1.25L Cr", "25.20", "15.40%", "14.90%", "0.76%"),
+                (named_peers[0], "INR 1.10L Cr", "22.10", "14.80%", "14.40%", "0.72%"),
+                (named_peers[1], "INR 0.92L Cr", "19.80", "13.90%", "13.70%", "0.68%"),
+                (named_peers[2], "INR 1.25L Cr", "25.20", "15.40%", "14.90%", "0.76%"),
             ],
             "shareholding": {"promoters": 48.0, "fiis": 21.0, "diis": 16.0, "public": 15.0},
             "checklist": [("Profit Growing", True), ("ROCE > 15%", True), ("Debt Under Control", True), ("Positive Cash Flow", True), ("Dividend Paying", True), ("Promoter Holding Stable", True)],
-            "related": [("Peer One", "/stocks/research/peer-one"), ("Peer Two", "/stocks/research/peer-two"), ("Peer Three", "/stocks/research/peer-three"), ("Peer Four", "/stocks/research/peer-four"), ("Peer Five", "/stocks/research/peer-five")],
+            "related": [(peer_name, f"/stocks/research/{slugify_stock_search_term(peer_name)}") for peer_name in named_peers[:5]],
+            "sector_label": sector_label,
         }
     company_name = sample["company_name"]
     canonical_url = f"{host_root.rstrip('/')}/stocks/research/{slug}"
@@ -22186,7 +22329,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         },
         indent=2,
     )
-    sample["chart_svg"] = build_simple_line_svg()
+    numeric_price = float(re.sub(r"[^0-9.]", "", str(sample.get("price") or "0")) or 0)
+    chart_ranges = sample.get("chart_ranges") or build_sample_chart_ranges(numeric_price or 100.0, sample.get("tone") or "up")
+    sample["chart_ranges_json"] = json.dumps(chart_ranges)
+    sample["chart_svg"] = build_price_chart_svg(chart_ranges.get("1Y") or next(iter(chart_ranges.values())), None)
     sample["financial_cards"] = [(title, build_bar_svg(values), value) for title, values, value in sample["financial_cards"]]
     shareholding = sample["shareholding"]
     shareholding_style = f"conic-gradient(#2563EB 0 {shareholding['promoters']}%, #10B981 {shareholding['promoters']}% {shareholding['promoters'] + shareholding['fiis']}%, #0EA5E9 {shareholding['promoters'] + shareholding['fiis']}% {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}%, #E2E8F0 {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}% 100%)"
@@ -22325,7 +22471,8 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     .score-card{display:grid;gap:14px;align-content:start}.score-gauge{width:120px;height:120px;border-radius:50%;background:conic-gradient(var(--green) 82%, #dbe7f3 0);display:grid;place-items:center;padding:10px}.score-gauge .inner{width:100%;height:100%;border-radius:50%;background:#fff;display:grid;place-items:center;text-align:center}.score-gauge strong{font-size:28px;line-height:1}
     .quick-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:18px}.metric-card{padding:16px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 14px 28px rgba(15,23,42,.04)}.metric-card .label{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800}.metric-card strong{display:block;margin-top:10px;font-size:24px}
     .main-grid{display:grid;grid-template-columns:1.12fr .88fr;gap:18px;margin-top:18px}.section{margin-top:18px}.section h2{margin:0 0 14px;font-size:28px;line-height:1.08}
-    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.tab{padding:9px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
+    .tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}.tab-button{padding:9px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800;border:none;cursor:pointer;transition:all .18s ease}.tab-button.active{background:linear-gradient(135deg,#2563EB,#0EA5E9);color:#fff;box-shadow:0 10px 24px rgba(37,99,235,.18)}.tab-button.tab-ma{background:#f0fdf4;color:#047857}.tab-button.tab-ma.active{background:linear-gradient(135deg,#10B981,#34D399);color:#fff}
+    .chart-shell{border-radius:22px;overflow:hidden}
     .verdict-rows{display:grid;gap:12px}.verdict-row{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}
     .two-col{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}.list-card ul{margin:12px 0 0;padding-left:18px;color:var(--muted);line-height:1.8}
     .overview-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:18px;align-items:center}.overview-illustration{min-height:220px;border-radius:24px;background:linear-gradient(135deg,#eef4ff,#f8fbff);border:1px solid var(--line);display:grid;place-items:center;color:var(--blue);font-weight:800;text-align:center;padding:18px}
@@ -22395,8 +22542,17 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     <section class="main-grid">
       <article class="card">
         <h2>Price Chart</h2>
-        <div class="tabs"><span class="tab">1D</span><span class="tab">1W</span><span class="tab">1M</span><span class="tab">6M</span><span class="tab">1Y</span><span class="tab">5Y</span><span class="tab">MAX</span></div>
-        {{ stock.chart_svg|safe }}
+        <div class="tabs">
+          <button class="tab-button" type="button" data-range="1D">1D</button>
+          <button class="tab-button" type="button" data-range="1W">1W</button>
+          <button class="tab-button" type="button" data-range="1M">1M</button>
+          <button class="tab-button" type="button" data-range="6M">6M</button>
+          <button class="tab-button active" type="button" data-range="1Y">1Y</button>
+          <button class="tab-button" type="button" data-range="5Y">5Y</button>
+          <button class="tab-button" type="button" data-range="MAX">MAX</button>
+          <button class="tab-button tab-ma" type="button" data-toggle-ma="true">MA</button>
+        </div>
+        <div id="premium-stock-chart" class="chart-shell" data-ranges='{{ stock.chart_ranges_json|safe }}'>{{ stock.chart_svg|safe }}</div>
       </article>
       <article class="card" id="ai-analysis">
         <h2>AI Verdict</h2>
@@ -22522,6 +22678,107 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     <a class="btn btn-primary" href="/stocks/dividend-stocks">Add to Watchlist</a>
     <a class="btn btn-secondary" href="#ai-analysis">Unlock AI Analysis</a>
   </div>
+  <script>
+    (function () {
+      const chartRoot = document.getElementById("premium-stock-chart");
+      if (!chartRoot) return;
+      const rangeButtons = Array.from(document.querySelectorAll(".tab-button[data-range]"));
+      const maButton = document.querySelector(".tab-button[data-toggle-ma]");
+      let chartRanges = {};
+      try {
+        chartRanges = JSON.parse(chartRoot.dataset.ranges || "{}");
+      } catch (error) {
+        chartRanges = {};
+      }
+      let activeRange = "1Y";
+      let maEnabled = false;
+
+      function movingAverage(values, windowSize) {
+        return values.map(function (_, index) {
+          const start = Math.max(0, index - windowSize + 1);
+          const bucket = values.slice(start, index + 1);
+          const total = bucket.reduce(function (sum, value) { return sum + Number(value || 0); }, 0);
+          return Number((total / bucket.length).toFixed(2));
+        });
+      }
+
+      function seriesToPoints(values, low, span) {
+        const count = Math.max(values.length - 1, 1);
+        return values.map(function (value, index) {
+          const x = 28 + (464 * (index / count));
+          const y = 182 - (((Number(value) - low) / span) * 118);
+          return [x.toFixed(2), y.toFixed(2)];
+        });
+      }
+
+      function toPath(points) {
+        return points.map(function (point, index) {
+          return (index === 0 ? "M" : "L") + point[0] + " " + point[1];
+        }).join(" ");
+      }
+
+      function renderChart() {
+        const values = (chartRanges[activeRange] || chartRanges["1Y"] || []).map(Number);
+        if (!values.length) return;
+        const low = Math.min.apply(null, values);
+        const high = Math.max.apply(null, values);
+        const span = Math.max(high - low, 1);
+        const points = seriesToPoints(values, low, span);
+        const pricePath = toPath(points);
+        const lastPoint = points[points.length - 1];
+        const areaPath = pricePath + " L" + lastPoint[0] + " 194 L" + points[0][0] + " 194 Z";
+        let maMarkup = "";
+        if (maEnabled) {
+          const maSeries = movingAverage(values, 3);
+          const maPoints = seriesToPoints(maSeries, low, span);
+          maMarkup = '<path d="' + toPath(maPoints) + '" fill="none" stroke="#10B981" stroke-width="3" stroke-linecap="round" stroke-dasharray="8 8"/>';
+        }
+        chartRoot.innerHTML = `
+          <svg viewBox="0 0 520 220" width="100%" height="220" aria-hidden="true">
+            <defs>
+              <linearGradient id="stock-line-fill" x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0%" stop-color="rgba(37,99,235,0.26)"></stop>
+                <stop offset="100%" stop-color="rgba(37,99,235,0.02)"></stop>
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="520" height="220" rx="22" fill="#f8fbff"></rect>
+            <g stroke="#dbe6f2" stroke-width="1">
+              <line x1="28" y1="40" x2="492" y2="40"></line>
+              <line x1="28" y1="90" x2="492" y2="90"></line>
+              <line x1="28" y1="140" x2="492" y2="140"></line>
+              <line x1="28" y1="190" x2="492" y2="190"></line>
+            </g>
+            <path d="${areaPath}" fill="url(#stock-line-fill)"></path>
+            <path d="${pricePath}" fill="none" stroke="#2563EB" stroke-width="5" stroke-linecap="round"></path>
+            ${maMarkup}
+            <circle cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="6" fill="#10B981"></circle>
+          </svg>
+        `;
+        rangeButtons.forEach(function (button) {
+          button.classList.toggle("active", button.dataset.range === activeRange);
+        });
+        if (maButton) {
+          maButton.classList.toggle("active", maEnabled);
+        }
+      }
+
+      rangeButtons.forEach(function (button) {
+        button.addEventListener("click", function () {
+          activeRange = button.dataset.range;
+          renderChart();
+        });
+      });
+
+      if (maButton) {
+        maButton.addEventListener("click", function () {
+          maEnabled = !maEnabled;
+          renderChart();
+        });
+      }
+
+      renderChart();
+    })();
+  </script>
 </body>
 </html>
 """
