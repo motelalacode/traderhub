@@ -22673,27 +22673,29 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             chart_ranges = build_sample_chart_ranges(numeric_price or 100.0, sample.get("tone") or "up")
     sample["chart_ranges_json"] = json.dumps(chart_ranges)
     sample["chart_svg"] = build_price_chart_svg(chart_ranges.get("1Y") or next(iter(chart_ranges.values())), None)
-    sample.setdefault(
-        "fair_value",
-        {
-            "current_price": sample.get("price") or "INR 1,245.80",
-            "estimate": "INR 1,080",
-            "gap": "15.35% Overvalued",
-            "status": "Slightly Expensive",
-            "tone": "overvalued",
-            "pointer_percent": 78,
-        },
-    )
-    sample.setdefault(
-        "entry_zone",
-        {
-            "accumulation": "INR 980 - INR 1,080",
-            "aggressive_buy": "Below INR 950",
-            "avoid_above": "INR 1,320",
-            "investor_type": "Long-term only",
-            "risk_level": "Moderate",
-        },
-    )
+    if sample.get("fair_value"):
+        sample["fair_value"]["available"] = True
+    else:
+        sample["fair_value"] = {
+            "available": False,
+            "current_price": _premium_placeholder(sample.get("price") or "Data updating"),
+            "estimate": "Data updating",
+            "gap": "Data updating",
+            "status": "Data updating",
+            "tone": "fair",
+            "pointer_percent": 50,
+        }
+    if sample.get("entry_zone"):
+        sample["entry_zone"]["available"] = True
+    else:
+        sample["entry_zone"] = {
+            "available": False,
+            "accumulation": "Data updating",
+            "aggressive_buy": "Data updating",
+            "avoid_above": "Data updating",
+            "investor_type": "Data updating",
+            "risk_level": sample.get("risk") or "Data updating",
+        }
     sample.setdefault(
         "ai_summary",
         {
@@ -22987,6 +22989,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
 
     <!-- Fair Value Meter Start -->
     <section class="section card fair-value-grid">
+      {% if stock.fair_value.available %}
       <div>
         <h2>Fair Value Meter</h2>
         <div class="fair-meter-shell">
@@ -23006,6 +23009,21 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
           <div class="summary-mini-item"><span>Status</span><strong><span class="status-pill {{ 'undervalued' if stock.fair_value.tone == 'undervalued' else 'fair' if stock.fair_value.tone == 'fair' else 'overvalued' }}">{{ stock.fair_value.status }}</span></strong></div>
         </div>
       </div>
+      {% else %}
+      <div>
+        <h2>Fair Value Meter</h2>
+        <div class="institutional-note">Valuation model is still updating for this stock, so TraderHub is not showing an invented fair value range.</div>
+      </div>
+      <div>
+        <h2 style="margin-bottom:14px;">Valuation Snapshot</h2>
+        <div class="summary-mini-grid" style="margin-top:0;">
+          <div class="summary-mini-item"><span>Current Price</span><strong>{{ stock.fair_value.current_price }}</strong></div>
+          <div class="summary-mini-item"><span>Fair Value Estimate</span><strong>{{ stock.fair_value.estimate }}</strong></div>
+          <div class="summary-mini-item"><span>Valuation Gap</span><strong>{{ stock.fair_value.gap }}</strong></div>
+          <div class="summary-mini-item"><span>Status</span><strong>{{ stock.fair_value.status }}</strong></div>
+        </div>
+      </div>
+      {% endif %}
     </section>
     <!-- Fair Value Meter End -->
 
@@ -23023,6 +23041,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     <!-- Entry Zone Start -->
     <section class="section card">
       <h2>Smart Entry Zone</h2>
+      {% if stock.entry_zone.available %}
       <div class="entry-zone-grid">
         <article class="zone-card green">
           <div class="zone-title">Attractive Zone</div>
@@ -23044,6 +23063,9 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <div class="summary-mini-item"><span>Suggested Investor Type</span><strong>{{ stock.entry_zone.investor_type }}</strong></div>
         <div class="summary-mini-item"><span>Risk Level</span><strong>{{ stock.entry_zone.risk_level }}</strong></div>
       </div>
+      {% else %}
+      <div class="institutional-note">Entry-zone guidance will appear once TraderHub has enough verified valuation and range data for this stock.</div>
+      {% endif %}
     </section>
     <!-- Entry Zone End -->
 
