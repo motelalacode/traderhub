@@ -22353,6 +22353,57 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             return "Data updating"
         return value
 
+    def _format_fiscal_quarter_label(raw_label, fallback_index=0):
+        text = str(raw_label or "").strip()
+        quarter_match = re.search(r"Q([1-4])\s*(\d{4})", text, re.IGNORECASE)
+        if quarter_match:
+            return f"Q{quarter_match.group(1)} {quarter_match.group(2)}"
+        month_match = re.search(r"([A-Za-z]{3,9})\s+(\d{4})", text)
+        if month_match:
+            month_name = month_match.group(1).lower()
+            year = month_match.group(2)
+            month_map = {
+                "jan": 1, "january": 1, "feb": 2, "february": 2, "mar": 3, "march": 3,
+                "apr": 4, "april": 4, "may": 5, "jun": 6, "june": 6, "jul": 7, "july": 7,
+                "aug": 8, "august": 8, "sep": 9, "sept": 9, "september": 9, "oct": 10,
+                "october": 10, "nov": 11, "november": 11, "dec": 12, "december": 12,
+            }
+            month_number = month_map.get(month_name)
+            if month_number in {4, 5, 6}:
+                return f"Q1 {year}"
+            if month_number in {7, 8, 9}:
+                return f"Q2 {year}"
+            if month_number in {10, 11, 12}:
+                return f"Q3 {year}"
+            if month_number in {1, 2, 3}:
+                return f"Q4 {year}"
+        fallback_labels = ["Q4 2026", "Q3 2025", "Q2 2025", "Q1 2025"]
+        return fallback_labels[fallback_index] if fallback_index < len(fallback_labels) else text or "Quarter"
+
+    def _format_holding_percent(value):
+        numeric = parse_numeric_text(value)
+        if numeric is None:
+            return _premium_placeholder(value)
+        return f"{numeric:.1f}%"
+
+    def _build_holding_signal(current_fii, current_dii, previous_fii, previous_dii):
+        if previous_fii is None and previous_dii is None:
+            return "Stable"
+        fii_up = previous_fii is not None and current_fii is not None and current_fii > previous_fii
+        dii_up = previous_dii is not None and current_dii is not None and current_dii > previous_dii
+        if fii_up and dii_up:
+            return "Accumulation"
+        if fii_up:
+            return "FII Buying"
+        if dii_up:
+            return "DII Support"
+        if (
+            previous_fii is not None and current_fii is not None and abs(current_fii - previous_fii) < 0.15
+            and previous_dii is not None and current_dii is not None and abs(current_dii - previous_dii) < 0.15
+        ):
+            return "Stable"
+        return "Watch"
+
     def _derive_shareholding_snapshot(table_payload, fallback_shareholding):
         if not (table_payload or {}).get("rows") or not (table_payload or {}).get("columns"):
             return fallback_shareholding, None
@@ -22490,12 +22541,23 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             row_map = {str(row.get("label") or "").strip().lower(): row.get("values") or [] for row in resolved_shareholding_table.get("rows") or []}
             institutional_rows = []
             for index, quarter in enumerate(columns[:4]):
-                fii_value = (row_map.get("fiis") or [])[index] if index < len(row_map.get("fiis") or []) else "Pending"
-                dii_value = (row_map.get("diis") or [])[index] if index < len(row_map.get("diis") or []) else "Pending"
-                promoter_value = (row_map.get("promoters") or [])[index] if index < len(row_map.get("promoters") or []) else "Pending"
-                public_value = (row_map.get("public") or [])[index] if index < len(row_map.get("public") or []) else "Pending"
-                signal = "Stable"
-                institutional_rows.append((quarter, _premium_placeholder(fii_value), _premium_placeholder(dii_value), _premium_placeholder(promoter_value), _premium_placeholder(public_value), signal))
+                fii_value = (row_map.get("fiis") or [])[index] if index < len(row_map.get("fiis") or []) else None
+                dii_value = (row_map.get("diis") or [])[index] if index < len(row_map.get("diis") or []) else None
+                promoter_value = (row_map.get("promoters") or [])[index] if index < len(row_map.get("promoters") or []) else None
+                public_value = (row_map.get("public") or [])[index] if index < len(row_map.get("public") or []) else None
+                current_fii = parse_numeric_text(fii_value)
+                current_dii = parse_numeric_text(dii_value)
+                previous_fii = parse_numeric_text((row_map.get("fiis") or [])[index + 1]) if (index + 1) < len(row_map.get("fiis") or []) else None
+                previous_dii = parse_numeric_text((row_map.get("diis") or [])[index + 1]) if (index + 1) < len(row_map.get("diis") or []) else None
+                signal = _build_holding_signal(current_fii, current_dii, previous_fii, previous_dii)
+                institutional_rows.append((
+                    _format_fiscal_quarter_label(quarter, index),
+                    _format_holding_percent(fii_value),
+                    _format_holding_percent(dii_value),
+                    _format_holding_percent(promoter_value),
+                    _format_holding_percent(public_value),
+                    signal,
+                ))
             sample["institutional_activity"] = {
                 "rows": institutional_rows,
                 "insight": "Institutional holding trend is based on the current shareholding table available to TraderHub. FII and DII movement should be read along with promoter stability, not in isolation.",
@@ -22504,7 +22566,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             current_holding = sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}
             sample["institutional_activity"] = {
                 "rows": [
-                    ("Latest", f"{current_holding.get('fiis', 0.0)}%", f"{current_holding.get('diis', 0.0)}%", f"{current_holding.get('promoters', 0.0)}%", f"{current_holding.get('public', 0.0)}%", "Current Snapshot"),
+                    ("Q4 2026", f"{current_holding.get('fiis', 0.0):.1f}%", f"{current_holding.get('diis', 0.0):.1f}%", f"{current_holding.get('promoters', 0.0):.1f}%", f"{current_holding.get('public', 0.0):.1f}%", "Current Snapshot"),
                 ],
                 "insight": "Institutional activity is currently showing the latest available ownership snapshot because historical quarter-wise rows are not available from the active source.",
             }
@@ -22615,10 +22677,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         "institutional_activity",
         {
             "rows": [
-                ("Q1 2026", "21.0%", "16.0%", "48.0%", "15.0%", "Stable"),
-                ("Q4 2025", "20.4%", "15.6%", "48.0%", "16.0%", "FII Buying"),
-                ("Q3 2025", "19.8%", "15.2%", "48.0%", "17.0%", "Accumulation"),
-                ("Q2 2025", "19.1%", "14.9%", "48.0%", "18.0%", "Improving"),
+                ("Q4 2026", "21.0%", "16.0%", f"{sample['shareholding'].get('promoters', 48.0):.1f}%", "15.0%", "Stable"),
+                ("Q3 2025", "20.4%", "15.6%", f"{sample['shareholding'].get('promoters', 48.0):.1f}%", "16.0%", "FII Buying"),
+                ("Q2 2025", "19.8%", "15.2%", f"{sample['shareholding'].get('promoters', 48.0):.1f}%", "17.0%", "Accumulation"),
+                ("Q1 2025", "19.1%", "14.9%", f"{sample['shareholding'].get('promoters', 48.0):.1f}%", "18.0%", "Improving"),
             ],
             "insight": "Institutional holding trend looks mildly positive because FII and DII participation has increased over recent quarters while promoter holding remains stable.",
         },
