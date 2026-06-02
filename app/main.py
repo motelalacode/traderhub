@@ -21821,6 +21821,45 @@ def build_market_news_context(host_root, mode):
 def build_public_info_context(host_root, slug):
     updated_label = format_article_timestamp_display(utcnow_iso())
     pages = {
+        "stocks": {
+            "title": "Stocks Hub",
+            "subtitle": "This is the public TraderHub stocks hub placeholder while the fuller stock discovery index is being expanded.",
+            "sections": [
+                {
+                    "title": "What You Can Open Now",
+                    "paragraphs": [
+                        "Use this page as the main public entry point into stock research, dividend screens, and linked stock pages.",
+                    ],
+                    "items": ["Dividend Stocks", "Value Stocks", "Growth Stocks", "Momentum Stocks", "Small Cap Stocks", "Sector Leaders", "AI Picks"],
+                }
+            ],
+        },
+        "screeners": {
+            "title": "Screeners Hub",
+            "subtitle": "This is the public TraderHub screeners placeholder while the dedicated screener hub is being built out.",
+            "sections": [
+                {
+                    "title": "Current Screener Scope",
+                    "paragraphs": [
+                        "TraderHub screeners are meant to help users move from stock discovery into deeper research without starting from a blank search box.",
+                    ],
+                    "items": ["High Dividend", "Value", "Growth", "Momentum", "Small Cap", "Custom Screener"],
+                }
+            ],
+        },
+        "pricing": {
+            "title": "Pricing",
+            "subtitle": "This page will become the main TraderHub pricing page for Free, Pro, and Premium plans.",
+            "sections": [
+                {
+                    "title": "Pricing Direction",
+                    "paragraphs": [
+                        "TraderHub is meant to prioritize subscription value before ads, with Free, Pro, and Premium plans tied to research and trading analytics depth.",
+                    ],
+                    "items": ["Free plan", "Pro subscription", "Premium subscription"],
+                }
+            ],
+        },
         "about": {
             "title": "About TraderHub",
             "subtitle": "TraderHub builds public market pages that connect live market context, grouped themes, archives, and derivatives research into one readable system.",
@@ -21871,6 +21910,32 @@ def build_public_info_context(host_root, slug):
                         "TraderHub is the named publisher of the public market, archive, and derivatives content surfaces served on traderhub.in.",
                     ],
                     "items": ["Publisher: TraderHub", "Public domain: traderhub.in", "Coverage: markets, sectors, stocks, archives, derivatives"],
+                }
+            ],
+        },
+        "privacy-policy": {
+            "title": "Privacy Policy",
+            "subtitle": "This placeholder privacy page keeps TraderHub navigation clean until the final privacy policy text is published.",
+            "sections": [
+                {
+                    "title": "Privacy Scope",
+                    "paragraphs": [
+                        "TraderHub will need a full privacy policy covering account data, analytics usage, uploaded trade history, and contact or newsletter data.",
+                    ],
+                    "items": ["Account information", "Trade-upload handling", "Cookies and analytics", "Newsletter and contact data"],
+                }
+            ],
+        },
+        "terms": {
+            "title": "Terms of Service",
+            "subtitle": "This placeholder terms page keeps public navigation complete until the full TraderHub terms set is finalised.",
+            "sections": [
+                {
+                    "title": "Terms Scope",
+                    "paragraphs": [
+                        "TraderHub will need a full terms page that clearly separates research and analytics tools from regulated investment advice.",
+                    ],
+                    "items": ["Research-only use", "No guaranteed returns", "User responsibility", "Risk disclosure and service terms"],
                 }
             ],
         },
@@ -43394,9 +43459,34 @@ def public_about_page():
     return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "about"))
 
 
+@app.route("/stocks")
+def public_stocks_hub_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "stocks"))
+
+
+@app.route("/screeners")
+def public_screeners_hub_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "screeners"))
+
+
+@app.route("/pricing")
+def public_pricing_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "pricing"))
+
+
 @app.route("/contact")
 def public_contact_page():
     return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "contact"))
+
+
+@app.route("/privacy-policy")
+def public_privacy_policy_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "privacy-policy"))
+
+
+@app.route("/terms")
+def public_terms_page():
+    return render_template_string(PUBLIC_INFO_TEMPLATE, **build_public_info_context(request.url_root.rstrip("/"), "terms"))
 
 
 @app.route("/editorial-policy")
