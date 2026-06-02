@@ -22333,6 +22333,180 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "related": [(peer_name, f"/stocks/research/{slugify_stock_search_term(peer_name)}") for peer_name in named_peers[:5]],
             "sector_label": sector_label,
         }
+
+    def _get_metric_value(metric_rows, label):
+        for row in metric_rows or []:
+            if str(row.get("label") or "").strip().lower() == str(label).strip().lower():
+                return row.get("value"), row.get("subtext")
+        return None, None
+
+    def _parse_currency_number(value):
+        cleaned = re.sub(r"[^0-9.\-]", "", str(value or ""))
+        try:
+            return float(cleaned) if cleaned else None
+        except ValueError:
+            return None
+
+    def _derive_shareholding_snapshot(table_payload, fallback_shareholding):
+        if not (table_payload or {}).get("rows") or not (table_payload or {}).get("columns"):
+            return fallback_shareholding, None
+        latest_values = {}
+        for row in table_payload.get("rows") or []:
+            label = str(row.get("label") or "").strip().lower()
+            values = row.get("values") or []
+            if not values:
+                continue
+            latest_values[label] = parse_numeric_text(values[0])
+        promoters = latest_values.get("promoter")
+        fiis = latest_values.get("fii")
+        diis = latest_values.get("dii")
+        public = latest_values.get("public")
+        if None in {promoters, fiis, diis, public}:
+            return fallback_shareholding, None
+        return {
+            "promoters": round(promoters, 2),
+            "fiis": round(fiis, 2),
+            "diis": round(diis, 2),
+            "public": round(public, 2),
+        }, table_payload
+
+    try:
+        live_context = build_stock_page_context(sample["symbol"], host_root)
+        live_stock = live_context.get("stock") or {}
+        live_financial_metrics = live_context.get("financial_metrics") or []
+        live_shareholding_table = live_context.get("shareholding_pattern_table") or {}
+        live_peer_rows = live_context.get("peer_comparison_rows") or []
+        live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
+        sample["shareholding"] = live_shareholding
+
+        if live_stock.get("ltp") and live_stock.get("ltp") != "-":
+            sample["price"] = f"INR {live_stock['ltp']}"
+        if live_stock.get("change_rupees") and live_stock.get("change_rupees") != "-":
+            sample["change"] = str(live_stock["change_rupees"])
+        if live_stock.get("change_pct") and live_stock.get("change_pct") != "-":
+            sample["change_pct"] = str(live_stock["change_pct"]).replace("%", "").strip()
+        sample["status"] = "Market Live" if is_market_open() else "Market Closed"
+        sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
+
+        market_cap_value = live_stock.get("market_cap") or "Source Pending"
+        pe_value = None
+        dividend_yield_value = None
+        roce_value, _ = _get_metric_value(live_financial_metrics, "ROCE")
+        roe_value, _ = _get_metric_value(live_financial_metrics, "ROE")
+        debt_equity_value, _ = _get_metric_value(live_financial_metrics, "Debt / Equity")
+        eps_value, _ = _get_metric_value(live_financial_metrics, "EPS (TTM)")
+        book_value, _ = _get_metric_value(live_financial_metrics, "Book Value")
+        if live_peer_rows:
+            first_peer = live_peer_rows[0]
+            pe_value = first_peer.get("pe") or None
+            dividend_yield_value = first_peer.get("dividend_yield") or None
+            if not market_cap_value or market_cap_value == "Source Pending":
+                market_cap_value = first_peer.get("market_cap") or market_cap_value
+
+        week_high = None
+        week_low = None
+        range_bits = str(live_stock.get("range_52w") or "").split(" - ")
+        if len(range_bits) == 2:
+            week_low = _parse_currency_number(range_bits[0])
+            week_high = _parse_currency_number(range_bits[1])
+
+        sample["metrics"] = [
+            ("Market Cap", market_cap_value or "Source Pending"),
+            ("PE Ratio", pe_value or "Pending"),
+            ("ROE", roe_value or "Pending"),
+            ("ROCE", roce_value or "Pending"),
+            ("Dividend Yield", dividend_yield_value or "Pending"),
+            ("Debt/Equity", debt_equity_value or "Pending"),
+            ("52 Week High", f"INR {week_high:,.2f}".replace(".00", "") if week_high is not None else "Pending"),
+            ("52 Week Low", f"INR {week_low:,.2f}".replace(".00", "") if week_low is not None else "Pending"),
+        ]
+
+        if live_peer_rows:
+            sample["peers"] = [
+                (
+                    row.get("company") or "Peer",
+                    row.get("market_cap") or "Pending",
+                    row.get("pe") or "Pending",
+                    roe_value or "Pending",
+                    row.get("roce") or "Pending",
+                    row.get("dividend_yield") or "Pending",
+                )
+                for row in live_peer_rows[:4]
+            ]
+            sample["related"] = [
+                (
+                    row.get("company") or "Peer",
+                    f"/stocks/research/{slugify_stock_search_term(row.get('company') or 'peer')}",
+                )
+                for row in live_peer_rows[1:6]
+            ] or sample.get("related") or []
+
+        current_price_numeric = _parse_currency_number(sample.get("price"))
+        fair_value_numeric = None
+        if week_high is not None and week_low is not None:
+            fair_value_numeric = round((week_high + week_low) / 2.0, 2)
+        elif book_value not in {None, "Source Pending", "Pending"}:
+            fair_value_numeric = _parse_currency_number(book_value)
+        if current_price_numeric and fair_value_numeric:
+            gap_pct = ((current_price_numeric - fair_value_numeric) / fair_value_numeric) * 100.0
+            if gap_pct <= -8:
+                tone = "undervalued"
+                status = "Undervalued"
+                pointer_percent = 18
+            elif gap_pct >= 8:
+                tone = "overvalued"
+                status = "Slightly Expensive"
+                pointer_percent = 82
+            else:
+                tone = "fair"
+                status = "Fairly Valued"
+                pointer_percent = 50
+            sample["fair_value"] = {
+                "current_price": f"INR {current_price_numeric:,.2f}",
+                "estimate": f"INR {fair_value_numeric:,.2f}",
+                "gap": f"{abs(gap_pct):.2f}% {'Overvalued' if gap_pct > 0 else 'Undervalued' if gap_pct < 0 else 'Fair'}",
+                "status": status,
+                "tone": tone,
+                "pointer_percent": pointer_percent,
+            }
+            if week_low is not None and week_high is not None:
+                accumulation_top = round((week_low + fair_value_numeric) / 2.0, 2)
+                sample["entry_zone"] = {
+                    "accumulation": f"INR {week_low:,.2f} - INR {accumulation_top:,.2f}",
+                    "aggressive_buy": f"Below INR {max(0.0, week_low * 1.05):,.2f}",
+                    "avoid_above": f"Above INR {max(fair_value_numeric, week_high * 0.96):,.2f}",
+                    "investor_type": "Long-term only" if (dividend_yield_value and _parse_currency_number(dividend_yield_value) and _parse_currency_number(dividend_yield_value) >= 2.0) else "Quality focused investors",
+                    "risk_level": sample.get("risk") or "Moderate",
+                }
+
+        if current_price_numeric and resolved_shareholding_table and resolved_shareholding_table.get("columns"):
+            columns = resolved_shareholding_table.get("columns") or []
+            row_map = {str(row.get("label") or "").strip().lower(): row.get("values") or [] for row in resolved_shareholding_table.get("rows") or []}
+            institutional_rows = []
+            for index, quarter in enumerate(columns[:4]):
+                fii_value = (row_map.get("fii") or [])[index] if index < len(row_map.get("fii") or []) else "Pending"
+                dii_value = (row_map.get("dii") or [])[index] if index < len(row_map.get("dii") or []) else "Pending"
+                promoter_value = (row_map.get("promoter") or [])[index] if index < len(row_map.get("promoter") or []) else "Pending"
+                public_value = (row_map.get("public") or [])[index] if index < len(row_map.get("public") or []) else "Pending"
+                signal = "Stable"
+                institutional_rows.append((quarter, fii_value, dii_value, promoter_value, public_value, signal))
+            sample["institutional_activity"] = {
+                "rows": institutional_rows,
+                "insight": "Institutional holding trend is based on the current shareholding table available to TraderHub. FII and DII movement should be read along with promoter stability, not in isolation.",
+            }
+
+        valuation_text = sample.get("fair_value", {}).get("status", "Fairly Valued")
+        dividend_text = dividend_yield_value or "moderate dividend support"
+        debt_text = debt_equity_value or "pending leverage read"
+        sample["ai_summary"] = {
+            "copy": f"TraderHub AI suggests that {sample['company_name']} is showing {valuation_text.lower()} characteristics with {dividend_text.lower()} and a debt profile near {debt_text}. Long-term investors may wait for stronger alignment with the accumulation zone, while short-term traders should still confirm momentum and volume behavior before acting.",
+            "confidence": "82%" if live_peer_rows else "68%",
+            "time_horizon": "1–3 years",
+            "risk": sample.get("risk") or "Moderate",
+            "best_for": "Value + Dividend investors" if dividend_yield_value not in {None, "Pending", "-"} else "Long-term quality investors",
+        }
+    except Exception:
+        pass
     company_name = sample["company_name"]
     canonical_url = f"{host_root.rstrip('/')}/stocks/research/{slug}"
     schema_json = json.dumps(
