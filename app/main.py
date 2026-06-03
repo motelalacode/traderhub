@@ -21971,7 +21971,21 @@ def build_trial_home_nav_links():
 
 
 def slugify_stock_search_term(raw_text):
-    value = re.sub(r"[^a-z0-9]+", "-", str(raw_text or "").strip().lower()).strip("-")
+    raw_value = str(raw_text or "").strip()
+    if not raw_value:
+        return "reliance-industries"
+    resolved_symbol = resolve_stock_symbol_from_slug(raw_value)
+    if resolved_symbol:
+        return get_canonical_stock_slug(resolved_symbol)
+
+    master = load_symbol_master()
+    normalized_query = normalize_lookup_value(raw_value)
+    for symbol, row in (master.get("by_symbol") or {}).items():
+        security = str((row or {}).get("security") or symbol).strip()
+        if normalize_lookup_value(symbol) == normalized_query or normalize_lookup_value(security) == normalized_query:
+            return get_canonical_stock_slug(symbol)
+
+    value = re.sub(r"[^a-z0-9]+", "-", raw_value.lower()).strip("-")
     return value or "reliance-industries"
 
 
@@ -22011,7 +22025,7 @@ def build_stock_search_suggestions(query, limit=8):
                 "symbol": symbol,
                 "exchange": exchange,
                 "sector": sector.split(" / ")[0] if " / " in sector else sector,
-                "slug": slugify_stock_search_term(security),
+                "slug": get_canonical_stock_slug(symbol),
                 "_score": score,
             }
         )
@@ -45478,6 +45492,11 @@ def public_stock_suggestions_api():
 
 @app.route("/stocks/research/<stock_slug>")
 def premium_stock_detail_page(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    if symbol:
+        canonical_slug = get_canonical_stock_slug(symbol)
+        if str(stock_slug or "").strip().lower() != canonical_slug:
+            return redirect(f"/stocks/research/{canonical_slug}")
     return render_template_string(PREMIUM_STOCK_DETAIL_TEMPLATE, **build_premium_stock_detail_context(stock_slug, request.url_root.rstrip("/")))
 
 
