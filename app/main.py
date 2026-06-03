@@ -22693,6 +22693,94 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "growth": _premium_placeholder(sample.get("dividend", {}).get("growth") or "Data updating"),
         }
 
+        sales_growth_value, _ = _get_metric_value(live_financial_metrics, "Sales Growth")
+        profit_growth_value, _ = _get_metric_value(live_financial_metrics, "Profit Growth")
+        sales_growth_numeric = _parse_currency_number(sales_growth_value)
+        profit_growth_numeric = _parse_currency_number(profit_growth_value)
+        roe_numeric = _parse_currency_number(roe_value)
+        roce_numeric = _parse_currency_number(roce_value)
+        debt_equity_numeric = _parse_currency_number(debt_equity_value)
+        dividend_numeric = _parse_currency_number(sample["dividend"].get("yield"))
+
+        if sample.get("fair_value", {}).get("status"):
+            valuation_label = sample["fair_value"]["status"]
+        else:
+            pe_numeric = _parse_currency_number(pe_value)
+            if pe_numeric is not None and pe_numeric <= 20:
+                valuation_label = "Reasonable"
+            elif pe_numeric is not None and pe_numeric >= 45:
+                valuation_label = "Expensive"
+            elif pe_numeric is not None:
+                valuation_label = "Fairly Valued"
+            else:
+                valuation_label = "Data updating"
+
+        if sales_growth_numeric is not None or profit_growth_numeric is not None:
+            if (sales_growth_numeric or 0) > 12 or (profit_growth_numeric or 0) > 12:
+                growth_label = "Strong"
+            elif (sales_growth_numeric or 0) > 0 or (profit_growth_numeric or 0) > 0:
+                growth_label = "Stable"
+            else:
+                growth_label = "Weak"
+        else:
+            growth_label = "Data updating"
+
+        if dividend_numeric is not None and dividend_numeric >= 2.0:
+            dividend_label = "Strong"
+        elif dividend_numeric is not None and dividend_numeric > 0:
+            dividend_label = "Average"
+        else:
+            dividend_label = "Low"
+
+        if (
+            roe_numeric is not None and roe_numeric >= 15
+            and roce_numeric is not None and roce_numeric >= 15
+            and (debt_equity_numeric is None or debt_equity_numeric <= 1)
+        ):
+            strength_label = "Strong"
+        elif roe_numeric is not None or roce_numeric is not None:
+            strength_label = "Average"
+        else:
+            strength_label = "Data updating"
+
+        if debt_equity_numeric is not None and debt_equity_numeric > 1.5:
+            risk_label = "High"
+        elif debt_equity_numeric is not None and debt_equity_numeric <= 0.7:
+            risk_label = "Low to Moderate"
+        else:
+            risk_label = "Moderate"
+        sample["risk"] = risk_label
+        sample["ai_verdict_rows"] = [
+            ("Valuation", valuation_label),
+            ("Growth", growth_label),
+            ("Dividend", dividend_label),
+            ("Financial Strength", strength_label),
+            ("Risk", risk_label),
+        ]
+
+        score_value = 50
+        if roe_numeric is not None:
+            score_value += 8 if roe_numeric >= 15 else 4 if roe_numeric >= 10 else 0
+        if roce_numeric is not None:
+            score_value += 8 if roce_numeric >= 15 else 4 if roce_numeric >= 10 else 0
+        if debt_equity_numeric is not None:
+            score_value += 8 if debt_equity_numeric <= 0.7 else 4 if debt_equity_numeric <= 1.2 else 0
+        if dividend_numeric is not None:
+            score_value += 6 if dividend_numeric >= 2 else 3 if dividend_numeric > 0 else 0
+        if profit_growth_numeric is not None:
+            score_value += 8 if profit_growth_numeric > 12 else 4 if profit_growth_numeric > 0 else 0
+        if sales_growth_numeric is not None:
+            score_value += 6 if sales_growth_numeric > 10 else 3 if sales_growth_numeric > 0 else 0
+        sample["ai_score"] = max(45, min(int(round(score_value)), 92))
+        if risk_label == "High":
+            sample["verdict"] = "Higher Risk - Review Carefully"
+        elif valuation_label in {"Undervalued", "Reasonable"} and growth_label in {"Strong", "Stable"}:
+            sample["verdict"] = "Good for Long-term Investors"
+        elif strength_label == "Strong":
+            sample["verdict"] = "Worth deeper research"
+        else:
+            sample["verdict"] = "Research before entry"
+
         current_price_numeric = _parse_currency_number(sample.get("price"))
         fair_value_numeric = None
         if week_high is not None and week_low is not None:
