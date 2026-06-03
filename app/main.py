@@ -22423,6 +22423,43 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         except ValueError:
             return None
 
+    def _get_table_row(table_payload, label_candidates):
+        rows = (table_payload or {}).get("rows") or []
+        normalized_candidates = [str(candidate).strip().lower() for candidate in label_candidates]
+        for row in rows:
+            label = str(row.get("label") or "").strip().lower()
+            if label in normalized_candidates:
+                return row
+        return None
+
+    def _get_table_row_values(table_payload, label_candidates):
+        row = _get_table_row(table_payload, label_candidates)
+        return (row or {}).get("values") or []
+
+    def _get_latest_table_value(table_payload, label_candidates):
+        values = _get_table_row_values(table_payload, label_candidates)
+        return values[0] if values else None
+
+    def _build_bar_series_from_values(values):
+        numeric_values = []
+        for value in values:
+            numeric = _parse_currency_number(value)
+            if numeric is not None:
+                numeric_values.append(abs(numeric))
+        if len(numeric_values) >= 2:
+            return [f"{value:.2f}" for value in numeric_values[:5]]
+        return None
+
+    def _format_currency_table_value(value):
+        numeric = _parse_currency_number(value)
+        if numeric is None:
+            return "Data updating"
+        if abs(numeric) >= 100000:
+            return f"INR {numeric / 100000:.2f}L Cr"
+        if abs(numeric) >= 1000:
+            return f"INR {numeric / 1000:.2f}K Cr"
+        return f"INR {numeric:,.2f}".replace(".00", "")
+
     def _premium_placeholder(value):
         text = str(value or "").strip()
         if text in {"Pending", "Source Pending", "Retry Pending", "-"}:
@@ -22523,6 +22560,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         live_shareholding_table = live_context.get("shareholding_pattern_table") or {}
         live_peer_rows = live_context.get("peer_comparison_rows") or []
         live_overview_metrics = live_context.get("overview_metrics") or []
+        live_annual_profit_loss_table = live_context.get("annual_profit_loss_table") or {}
+        live_balance_sheet_table = live_context.get("balance_sheet_table") or {}
+        live_cash_flow_table = live_context.get("cash_flow_table") or {}
+        live_ratios_table = live_context.get("ratios_table") or {}
         live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
         sample["shareholding"] = live_shareholding
         sample["shareholding_available"] = bool(resolved_shareholding_table) or is_curated_sample
@@ -22563,6 +22604,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             first_peer = live_peer_rows[0]
             pe_value = first_peer.get("pe") or None
             dividend_yield_value = first_peer.get("dividend_yield") or None
+            if roe_value in {None, "", "Source Pending", "Pending"}:
+                roe_value = first_peer.get("roe") or roe_value
+            if roce_value in {None, "", "Source Pending", "Pending"}:
+                roce_value = first_peer.get("roce") or roce_value
             if not market_cap_value or market_cap_value == "Source Pending":
                 market_cap_value = first_peer.get("market_cap") or market_cap_value
 
@@ -22615,6 +22660,38 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 f"This premium research page is using the same core stock engine for price context, studies, and peer coverage. Current market mode: {mode_value}."
                 + (f" {summary_note}" if summary_note else "")
             )
+
+        revenue_values = _get_table_row_values(live_annual_profit_loss_table, ["Sales", "Revenue"])
+        profit_values = _get_table_row_values(live_annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"])
+        eps_table_values = _get_table_row_values(live_ratios_table, ["EPS", "EPS (TTM)"])
+        free_cash_flow_values = _get_table_row_values(live_cash_flow_table, ["Free Cash Flow", "FCF"])
+        net_worth_values = _get_table_row_values(live_balance_sheet_table, ["Net Worth", "Reserves", "Reserves and Surplus", "Other Equity"])
+        sample["financial_cards"] = [
+            ("Revenue", _build_bar_series_from_values(revenue_values) or values, _format_currency_table_value(revenue_values[0]) if revenue_values else "Data updating")
+            if title == "Revenue"
+            else ("Net Profit", _build_bar_series_from_values(profit_values) or values, _format_currency_table_value(profit_values[0]) if profit_values else "Data updating")
+            if title == "Net Profit"
+            else ("EPS", _build_bar_series_from_values(eps_table_values) or values, _premium_placeholder((eps_table_values[0] if eps_table_values else eps_value) or "Data updating"))
+            if title == "EPS"
+            else ("Free Cash Flow", _build_bar_series_from_values(free_cash_flow_values) or values, _format_currency_table_value(free_cash_flow_values[0]) if free_cash_flow_values else "Data updating")
+            if title == "Free Cash Flow"
+            else ("Net Worth", _build_bar_series_from_values(net_worth_values) or values, _format_currency_table_value(net_worth_values[0]) if net_worth_values else _premium_placeholder(book_value or "Data updating"))
+            for title, values, _value in sample.get("financial_cards", [])
+        ]
+
+        payout_ratio_value = _get_latest_table_value(live_annual_profit_loss_table, ["Dividend Payout"])
+        price_numeric_for_dividend = _parse_currency_number(sample.get("price"))
+        dividend_yield_numeric = _parse_currency_number(dividend_yield_value)
+        annual_dividend_value = None
+        if price_numeric_for_dividend not in (None, 0) and dividend_yield_numeric is not None:
+            annual_dividend_value = f"INR {(price_numeric_for_dividend * dividend_yield_numeric / 100.0):.2f}".replace(".00", "")
+        sample["dividend"] = {
+            "yield": _premium_placeholder(dividend_yield_value or sample.get("dividend", {}).get("yield") or "Data updating"),
+            "payout": _premium_placeholder(payout_ratio_value or sample.get("dividend", {}).get("payout") or "Data updating"),
+            "annual": _premium_placeholder(annual_dividend_value or sample.get("dividend", {}).get("annual") or "Data updating"),
+            "ex_date": _premium_placeholder(sample.get("dividend", {}).get("ex_date") or "Data updating"),
+            "growth": _premium_placeholder(sample.get("dividend", {}).get("growth") or "Data updating"),
+        }
 
         current_price_numeric = _parse_currency_number(sample.get("price"))
         fair_value_numeric = None
@@ -22724,6 +22801,20 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "risk": sample.get("risk") or "Moderate",
             "best_for": "Value + Dividend investors" if dividend_yield_value not in {None, "Pending", "-"} else "Long-term quality investors",
         }
+        latest_profit = _parse_currency_number(profit_values[0]) if 'profit_values' in locals() and profit_values else None
+        previous_profit = _parse_currency_number(profit_values[1]) if 'profit_values' in locals() and len(profit_values) > 1 else None
+        latest_fcf = _parse_currency_number(free_cash_flow_values[0]) if 'free_cash_flow_values' in locals() and free_cash_flow_values else None
+        roce_numeric = _parse_currency_number(roce_value) if 'roce_value' in locals() else None
+        debt_equity_numeric = _parse_currency_number(debt_equity_value) if 'debt_equity_value' in locals() else None
+        dividend_numeric = _parse_currency_number((sample.get("dividend") or {}).get("yield"))
+        sample["checklist"] = [
+            ("Profit Growing", latest_profit is not None and previous_profit is not None and latest_profit >= previous_profit),
+            ("ROCE > 15%", roce_numeric is not None and roce_numeric > 15),
+            ("Debt Under Control", debt_equity_numeric is not None and debt_equity_numeric <= 1),
+            ("Positive Cash Flow", latest_fcf is not None and latest_fcf > 0),
+            ("Dividend Paying", dividend_numeric is not None and dividend_numeric > 0),
+            ("Promoter Holding Stable", sample["shareholding_available"] and sample["shareholding"].get("promoters", 0) >= 0),
+        ]
     except Exception:
         pass
     sample["metrics"] = [(label, _premium_placeholder(value)) for label, value in sample.get("metrics", [])]
