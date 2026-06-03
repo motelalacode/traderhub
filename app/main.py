@@ -22566,6 +22566,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         live_balance_sheet_table = live_context.get("balance_sheet_table") or {}
         live_cash_flow_table = live_context.get("cash_flow_table") or {}
         live_ratios_table = live_context.get("ratios_table") or {}
+        live_disclosure_links = live_context.get("disclosure_links") or []
+        live_research_notes = live_context.get("research_notes") or []
         live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
         sample["shareholding"] = live_shareholding
         sample["shareholding_available"] = bool(resolved_shareholding_table) or is_curated_sample
@@ -22662,6 +22664,24 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 f"This premium research page is using the same core stock engine for price context, studies, and peer coverage. Current market mode: {mode_value}."
                 + (f" {summary_note}" if summary_note else "")
             )
+        sample["market_context_cards"] = [
+            {
+                "label": row.get("label") or "Market Context",
+                "value": row.get("value") or "Data updating",
+                "copy": row.get("subtext") or "Live market context from the core stock engine.",
+            }
+            for row in live_overview_metrics[:4]
+        ] or sample.get("market_context_cards") or []
+        sample["research_links"] = [
+            {
+                "title": item.get("title") or "Research Link",
+                "meta": item.get("meta") or "Primary source",
+                "url": item.get("url") or "#",
+            }
+            for item in live_disclosure_links[:4]
+            if item.get("url")
+        ]
+        sample["research_notes_live"] = [str(note or "").strip() for note in live_research_notes if str(note or "").strip()][:3]
 
         revenue_values = _get_table_row_values(live_annual_profit_loss_table, ["Sales", "Revenue"])
         profit_values = _get_table_row_values(live_annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"])
@@ -22694,6 +22714,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "ex_date": _premium_placeholder(sample.get("dividend", {}).get("ex_date") or "Data updating"),
             "growth": _premium_placeholder(sample.get("dividend", {}).get("growth") or "Data updating"),
         }
+        dividend_history_link = next((item.get("url") for item in live_disclosure_links if "corporate actions" in str(item.get("title") or "").lower()), "")
+        sample["dividend"]["history_href"] = dividend_history_link or f"/stocks/{get_canonical_stock_slug(sample['symbol'])}/news-archive"
 
         sales_growth_value, _ = _get_metric_value(live_financial_metrics, "Sales Growth")
         profit_growth_value, _ = _get_metric_value(live_financial_metrics, "Profit Growth")
@@ -23468,6 +23490,21 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       {% endfor %}
     </section>
 
+    {% if stock.market_context_cards %}
+    <section class="section card">
+      <h2>Market Context Snapshot</h2>
+      <div class="summary-mini-grid">
+        {% for item in stock.market_context_cards %}
+        <div class="summary-mini-item">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+          <div style="margin-top:8px;color:var(--muted);line-height:1.65;font-size:12px;">{{ item["copy"] }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
     <section class="main-grid">
       <article class="card">
         <h2>Price Chart</h2>
@@ -23592,6 +23629,13 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       <div>
         <h2>Business Overview</h2>
         <p style="margin:0;color:var(--muted);line-height:1.85;">{{ stock.business_overview }}</p>
+        {% if stock.research_notes_live %}
+        <div style="margin-top:18px;display:grid;gap:10px;">
+          {% for note in stock.research_notes_live %}
+          <div style="padding:14px 16px;border-radius:16px;background:#f8fbff;border:1px solid var(--line);color:var(--muted);line-height:1.7;">{{ note }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
       </div>
       <div class="overview-illustration">Business Mix Illustration Area<br>Retail • Energy • Digital • Telecom</div>
     </section>
@@ -23618,7 +23662,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <article class="metric-card"><div class="label">Ex-Dividend Date</div><strong>{{ stock.dividend.ex_date }}</strong></article>
         <article class="metric-card"><div class="label">Dividend Growth 3Y</div><strong>{{ stock.dividend.growth }}</strong></article>
       </div>
-      <div style="margin-top:16px;"><a class="btn btn-secondary" href="/stocks/high-dividend-paying-stocks">View Dividend History</a></div>
+      <div style="margin-top:16px;"><a class="btn btn-secondary" href="{{ stock.dividend.history_href }}">View Dividend History</a></div>
     </section>
 
     <section class="section card">
@@ -23668,6 +23712,21 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       <div class="institutional-note">{{ stock.institutional_activity.insight }}</div>
     </section>
     <!-- Institutional Activity End -->
+
+    {% if stock.research_links %}
+    <section class="section card">
+      <h2>Research & Official Links</h2>
+      <div class="finance-grid">
+        {% for link in stock.research_links %}
+        <article class="finance-card">
+          <div class="label" style="font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:800;">{{ link.meta }}</div>
+          <strong style="display:block;margin-top:10px;font-size:20px;line-height:1.35;">{{ link.title }}</strong>
+          <a class="btn btn-secondary" style="margin-top:16px;" href="{{ link.url }}" target="_blank" rel="noopener">Open Source</a>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
 
     <section class="section card">
       <h2>Investment Checklist</h2>
