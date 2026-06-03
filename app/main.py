@@ -11339,6 +11339,10 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
     if annual_dividend_per_share not in (None, 0) and period_price_numeric not in (None, 0):
         dividend_yield_pct = (annual_dividend_per_share / period_price_numeric) * 100.0
 
+    payout_ratio_pct = None
+    if annual_dividend_per_share not in (None, 0) and eps_value not in (None, 0):
+        payout_ratio_pct = (annual_dividend_per_share / eps_value) * 100.0
+
     quarterly_dividend_values = collect_upstox_nested_numeric_values(
         fundamentals_bundle,
         [
@@ -11380,6 +11384,7 @@ def build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=
         "annual_dividend_per_share": annual_dividend_per_share,
         "dividend_yield_pct": dividend_yield_pct,
         "quarterly_dividend_amount": quarterly_dividend_amount,
+        "payout_ratio_pct": payout_ratio_pct,
     }
 
 
@@ -11498,27 +11503,33 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     if revenue_latest and operating_profit_latest is not None and revenue_latest != 0:
         operating_margin_value = (operating_profit_latest / revenue_latest) * 100
 
-    roe_value = (ratio_map.get("ROE") or {}).get("company_value")
-    roce_value = (ratio_map.get("ROCE") or {}).get("company_value")
-    pb_numeric = parse_numeric_text((ratio_map.get("P/B") or {}).get("company_value"))
+    roe_value = (get_upstox_ratio_row(ratio_map, ["ROE", "ROE %", "RETURN ON EQUITY"]) or {}).get("company_value")
+    roce_value = (get_upstox_ratio_row(ratio_map, ["ROCE", "ROCE %", "RETURN ON CAPITAL EMPLOYED"]) or {}).get("company_value")
+    pb_numeric = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["P/B", "PRICE TO BOOK", "P/BV"]) or {}).get("company_value"))
     screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
     market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
     if market_cap_display in {"Source Pending", "Pending", "-", ""}:
-        market_cap_display = (
-            get_upstox_profile_metric_display(
-                profile_data,
-                ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
+        if pb_numeric not in (None, 0) and shareholder_equity_value not in (None, 0):
+            derived_market_cap_inr = pb_numeric * shareholder_equity_value * 10000000.0
+            market_cap_display = format_crore_display(derived_market_cap_inr / 10000000.0)
+        else:
+            market_cap_display = (
+                get_upstox_profile_metric_display(
+                    profile_data,
+                    ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
+                )
+                or get_upstox_nested_metric_display(
+                    profile_data,
+                    ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
+                )
+                or "Source Pending"
             )
-            or get_upstox_nested_metric_display(
-                profile_data,
-                ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
-            )
-            or "Source Pending"
-        )
     eps_value = screener_snapshot.get("eps_value")
     pe_numeric = screener_snapshot.get("pe_value")
     shares_issued = screener_snapshot.get("shares_issued")
     dividend_yield_pct = screener_snapshot.get("dividend_yield_pct")
+    annual_dividend_per_share = screener_snapshot.get("annual_dividend_per_share")
+    payout_ratio_pct = screener_snapshot.get("payout_ratio_pct")
 
     book_value = None
     if shareholder_equity_value not in (None, 0) and shares_issued not in (None, 0):
@@ -11575,6 +11586,16 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
             "label": "Dividend Yield",
             "value": f"{dividend_yield_pct:.2f}%" if dividend_yield_pct is not None else "Source Pending",
             "subtext": "Yield reading from the current fundamentals source or derived from annual dividend per share.",
+        },
+        {
+            "label": "Annual Dividend",
+            "value": format_price(annual_dividend_per_share) if annual_dividend_per_share is not None else "Source Pending",
+            "subtext": "Latest annual dividend per share recovered from the active fundamentals bundle where possible.",
+        },
+        {
+            "label": "Dividend Payout",
+            "value": f"{payout_ratio_pct:.2f}%" if payout_ratio_pct is not None else "Source Pending",
+            "subtext": "Approximate payout ratio derived from annual dividend per share and earnings per share when available.",
         },
     ]
     if debt_equity_value:
@@ -11813,8 +11834,8 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
 
     screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
     pe_value = screener_snapshot.get("pe_value")
-    roe_value = parse_numeric_text((ratio_map.get("ROE") or {}).get("company_value"))
-    roce_value = parse_numeric_text((ratio_map.get("ROCE") or {}).get("company_value"))
+    roe_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROE", "ROE %", "RETURN ON EQUITY"]) or {}).get("company_value"))
+    roce_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROCE", "ROCE %", "RETURN ON CAPITAL EMPLOYED"]) or {}).get("company_value"))
     dividend_yield_value = screener_snapshot.get("dividend_yield_pct")
     market_cap_value = screener_snapshot.get("market_cap_inr")
     market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
@@ -22815,6 +22836,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         debt_equity_value, _ = _get_metric_value_any(live_financial_metrics, ["Debt / Equity", "Debt/Equity", "Debt To Equity"])
         financial_dividend_yield_value, _ = _get_metric_value_any(live_financial_metrics, ["Dividend Yield", "Dividend Yield %"])
         annual_dividend_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Annual Dividend", "Dividend Per Share"])
+        payout_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Dividend Payout", "Payout Ratio"])
         eps_value, _ = _get_metric_value_any(live_financial_metrics, ["EPS (TTM)", "EPS"])
         book_value, _ = _get_metric_value_any(live_financial_metrics, ["Book Value", "Book value"])
         pe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["P/E", "PE", "PE RATIO"])
@@ -22960,6 +22982,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         ]
 
         payout_ratio_value = _first_usable_value(
+            payout_metric_value,
             _get_latest_table_value(live_annual_profit_loss_table, ["Dividend Payout"]),
             _get_latest_ratio_history_value(live_ratios_table, ["DIVIDEND PAYOUT", "DIVIDEND PAYOUT %", "PAYOUT RATIO"]),
         )
