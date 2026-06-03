@@ -22508,9 +22508,25 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         live_financial_metrics = live_context.get("financial_metrics") or []
         live_shareholding_table = live_context.get("shareholding_pattern_table") or {}
         live_peer_rows = live_context.get("peer_comparison_rows") or []
+        live_overview_metrics = live_context.get("overview_metrics") or []
         live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
         sample["shareholding"] = live_shareholding
         sample["shareholding_available"] = bool(resolved_shareholding_table) or is_curated_sample
+
+        if live_stock.get("company_name"):
+            sample["company_name"] = live_stock["company_name"]
+        if live_stock.get("symbol"):
+            sample["symbol"] = live_stock["symbol"]
+        if live_stock.get("exchange"):
+            sample["exchange"] = live_stock["exchange"]
+        if live_stock.get("sector") and live_stock.get("sector") not in {"Research Layer Pending", "Public View"}:
+            sample["sector_label"] = live_stock["sector"]
+        if not is_curated_sample:
+            sector_context = sample.get("sector_label") or "Indian Equities"
+            sample["business_overview"] = (
+                f"{sample['company_name']} is being rendered through TraderHub's live stock engine with {sector_context} context, "
+                "current price structure, connected peer mapping, and linked research blocks. Verified fundamentals will keep filling into this premium layout as the active source updates."
+            )
 
         if live_stock.get("ltp") and live_stock.get("ltp") != "-":
             sample["price"] = f"INR {live_stock['ltp']}"
@@ -22572,7 +22588,19 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     f"/stocks/research/{slugify_stock_search_term(row.get('company') or 'peer')}",
                 )
                 for row in live_peer_rows[1:6]
+                if (row.get("company") or "").strip()
             ] or sample.get("related") or []
+
+        if not is_curated_sample and live_overview_metrics:
+            market_mode_metric = next((row for row in live_overview_metrics if str(row.get("label") or "").strip().lower() == "market mode"), None)
+            summary_note = str((market_mode_metric or {}).get("subtext") or "").strip()
+            mode_value = str((market_mode_metric or {}).get("value") or sample.get("status") or "Market Context").strip()
+            sector_context = sample.get("sector_label") or "Indian Equities"
+            sample["business_overview"] = (
+                f"{sample['company_name']} is currently mapped under {sector_context} on TraderHub. "
+                f"This premium research page is using the same core stock engine for price context, studies, and peer coverage. Current market mode: {mode_value}."
+                + (f" {summary_note}" if summary_note else "")
+            )
 
         current_price_numeric = _parse_currency_number(sample.get("price"))
         fair_value_numeric = None
@@ -45039,6 +45067,10 @@ def stock_hub_public(stock_slug):
             return render_template_string(STOCK_HUB_NOT_FOUND_TEMPLATE), 404
 
         canonical_slug = get_canonical_stock_slug(symbol)
+        request_host = str(request.host or "").split(":")[0].strip().lower()
+        premium_path = f"/stocks/research/{canonical_slug}"
+        if request_host != "bot.traderhub.in":
+            return redirect(premium_path)
         if stock_slug.strip().lower() != canonical_slug:
             return redirect(f"/stocks/{canonical_slug}")
 
