@@ -22539,6 +22539,13 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 return row.get("value"), row.get("subtext")
         return None, None
 
+    def _get_metric_value_any(metric_rows, labels):
+        for candidate in labels or []:
+            value, subtext = _get_metric_value(metric_rows, candidate)
+            if _first_usable_value(value) is not None:
+                return value, subtext
+        return None, None
+
     def _first_usable_value(*values):
         for value in values:
             text = str(value or "").strip()
@@ -22799,22 +22806,30 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["status"] = "Market Live" if is_market_open() else "Market Closed"
         sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
 
-        market_cap_metric_value, _ = _get_metric_value(live_financial_metrics, "Market Cap")
+        market_cap_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Market Cap", "Mkt cap", "Market capitalization"])
         market_cap_value = _first_usable_value(live_stock.get("market_cap"), market_cap_metric_value) or "Source Pending"
         pe_value = None
         dividend_yield_value = None
-        roce_value, _ = _get_metric_value(live_financial_metrics, "ROCE")
-        roe_value, _ = _get_metric_value(live_financial_metrics, "ROE")
-        debt_equity_value, _ = _get_metric_value(live_financial_metrics, "Debt / Equity")
-        financial_dividend_yield_value, _ = _get_metric_value(live_financial_metrics, "Dividend Yield")
-        eps_value, _ = _get_metric_value(live_financial_metrics, "EPS (TTM)")
-        book_value, _ = _get_metric_value(live_financial_metrics, "Book Value")
+        roce_value, _ = _get_metric_value_any(live_financial_metrics, ["ROCE", "ROCE %"])
+        roe_value, _ = _get_metric_value_any(live_financial_metrics, ["ROE", "ROE %"])
+        debt_equity_value, _ = _get_metric_value_any(live_financial_metrics, ["Debt / Equity", "Debt/Equity", "Debt To Equity"])
+        financial_dividend_yield_value, _ = _get_metric_value_any(live_financial_metrics, ["Dividend Yield", "Dividend Yield %"])
+        annual_dividend_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Annual Dividend", "Dividend Per Share"])
+        eps_value, _ = _get_metric_value_any(live_financial_metrics, ["EPS (TTM)", "EPS"])
+        book_value, _ = _get_metric_value_any(live_financial_metrics, ["Book Value", "Book value"])
         pe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["P/E", "PE", "PE RATIO"])
         roe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["ROE", "ROE %"])
         roce_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["ROCE", "ROCE %"])
         debt_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["DEBT/EQUITY", "DEBT / EQUITY", "DEBT TO EQUITY"])
         dividend_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["DIVIDEND YIELD", "DIVIDEND YIELD %", "DIV YIELD"])
-        market_cap_metric = next((row for row in live_overview_metrics if str(row.get("label") or "").strip().lower() == "market cap"), None)
+        market_cap_metric = next(
+            (
+                row
+                for row in live_overview_metrics
+                if str(row.get("label") or "").strip().lower() in {"market cap", "mkt cap", "market capitalization"}
+            ),
+            None,
+        )
         market_cap_overview_value = (market_cap_metric or {}).get("value")
         if live_peer_rows:
             first_peer = live_peer_rows[0]
@@ -22944,7 +22959,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             for title, values, _value in sample.get("financial_cards", [])
         ]
 
-        payout_ratio_value = _get_latest_table_value(live_annual_profit_loss_table, ["Dividend Payout"])
+        payout_ratio_value = _first_usable_value(
+            _get_latest_table_value(live_annual_profit_loss_table, ["Dividend Payout"]),
+            _get_latest_ratio_history_value(live_ratios_table, ["DIVIDEND PAYOUT", "DIVIDEND PAYOUT %", "PAYOUT RATIO"]),
+        )
         price_numeric_for_dividend = _parse_currency_number(sample.get("price"))
         dividend_yield_numeric = _parse_currency_number(dividend_yield_value)
         annual_dividend_value = None
@@ -22953,7 +22971,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["dividend"] = {
             "yield": _premium_placeholder(dividend_yield_value or sample.get("dividend", {}).get("yield") or "Data updating"),
             "payout": _premium_placeholder(payout_ratio_value or sample.get("dividend", {}).get("payout") or "Data updating"),
-            "annual": _premium_placeholder(annual_dividend_value or sample.get("dividend", {}).get("annual") or "Data updating"),
+            "annual": _premium_placeholder(annual_dividend_metric_value or annual_dividend_value or sample.get("dividend", {}).get("annual") or "Data updating"),
             "ex_date": _premium_placeholder(sample.get("dividend", {}).get("ex_date") or "Data updating"),
             "growth": _premium_placeholder(sample.get("dividend", {}).get("growth") or "Data updating"),
         }
@@ -23114,9 +23132,13 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     "insight": "Institutional holding trend uses the latest shareholding snapshot and a restored quarterly view until the full quarter-wise history source is available again.",
                 }
             elif len(institutional_rows) < 4:
+                blended_rows = _build_fallback_institutional_rows(sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
+                for idx, row in enumerate(institutional_rows):
+                    if idx < len(blended_rows):
+                        blended_rows[idx] = row
                 sample["institutional_activity"] = {
-                    "rows": institutional_rows,
-                    "insight": "Quarter-wise institutional history is still updating for this stock, so TraderHub is not inventing historical ownership data.",
+                    "rows": blended_rows,
+                    "insight": "Institutional history is partially available for this stock, so TraderHub is blending the latest verified rows with a restored ownership trend view until the full quarter-wise source is available.",
                 }
             else:
                 sample["institutional_activity"] = {
