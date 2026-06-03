@@ -22760,30 +22760,92 @@ def build_premium_stock_detail_context(stock_slug, host_root):
 
 
 def build_premium_stocks_hub_context(host_root):
-    featured = [
-        ("Reliance Industries Ltd", "reliance-industries"),
-        ("ONGC", "ongc"),
-        ("Indian Oil Corp", "indian-oil-corp"),
-        ("BPCL", "bpcl"),
-        ("HPCL", "hpcl"),
-        ("Adani Total Gas", "adani-total-gas"),
+    featured_slugs = [
+        "reliance-industries",
+        "itc",
+        "ongc",
+        "indian-oil-corp",
+        "bpcl",
+        "hpcl",
     ]
+    featured = []
+    for slug in featured_slugs:
+        sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
+        if not sample:
+            continue
+        metrics_map = {label: value for label, value in sample.get("metrics", [])}
+        featured.append(
+            {
+                "name": sample.get("company_name"),
+                "slug": slug,
+                "symbol": sample.get("symbol"),
+                "sector": sample.get("sector_label") or ("Energy" if sample.get("symbol") in {"RELIANCE", "ONGC", "BPCL", "HPCL", "IOC"} else "Consumer"),
+                "ai_score": sample.get("ai_score", "Data updating"),
+                "risk": sample.get("risk", "Data updating"),
+                "dividend_yield": metrics_map.get("Dividend Yield", sample.get("dividend", {}).get("yield", "Data updating")),
+            }
+        )
     canonical_url = f"{host_root.rstrip('/')}/stocks"
     return {
-        "seo_title": "Stocks Hub | Premium Stock Research | TraderHub",
-        "seo_description": "Search and open premium TraderHub stock detail pages with AI score, quick metrics, charts, peer comparison, and dividend context.",
+        "seo_title": "Search Any Indian Stock in Seconds | TraderHub Stocks",
+        "seo_description": "Find stock price, AI score, valuation, dividend, financials, peer comparison and investment checklist in one clean TraderHub research page.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps(
             {
                 "@context": "https://schema.org",
-                "@type": "WebPage",
-                "name": "Stocks Hub | TraderHub",
-                "description": "Premium stock research hub for TraderHub.",
-                "url": canonical_url,
+                "@graph": [
+                    {
+                        "@type": "WebPage",
+                        "name": "Search Any Indian Stock in Seconds | TraderHub Stocks",
+                        "description": "Premium stock research search page for Indian stocks on TraderHub.",
+                        "url": canonical_url,
+                    },
+                    {
+                        "@type": "BreadcrumbList",
+                        "itemListElement": [
+                            {"@type": "ListItem", "position": 1, "name": "Home", "item": host_root.rstrip("/") + "/"},
+                            {"@type": "ListItem", "position": 2, "name": "Stocks", "item": canonical_url},
+                        ],
+                    },
+                    {
+                        "@type": "WebSite",
+                        "name": "TraderHub",
+                        "url": host_root.rstrip("/") + "/",
+                        "potentialAction": {
+                            "@type": "SearchAction",
+                            "target": host_root.rstrip("/") + "/stocks/search?q={search_term_string}",
+                            "query-input": "required name=search_term_string",
+                        },
+                    },
+                ],
             },
             indent=2,
         ),
         "nav_links": build_trial_home_nav_links(),
+        "popular_chips": ["Reliance", "TCS", "Infosys", "HDFC Bank", "ITC", "SBI"],
+        "autocomplete_rows": [
+            {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy"},
+            {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT"},
+            {"name": "Infosys Ltd", "symbol": "INFY", "exchange": "NSE", "sector": "IT"},
+        ],
+        "research_cards": [
+            {"title": "AI Score", "copy": "Read a quick TraderHub conviction layer before going deeper."},
+            {"title": "Fair Value", "copy": "Check if price looks cheap, fair or stretched."},
+            {"title": "Price Chart", "copy": "Open timeframe views and trend structure in one place."},
+            {"title": "Dividend History", "copy": "Track yield, payout consistency and ex-date context."},
+            {"title": "Financial Performance", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
+            {"title": "Peer Comparison", "copy": "Compare valuation and quality side by side."},
+            {"title": "Risk Meter", "copy": "See whether the stock suits low, moderate or higher risk."},
+            {"title": "Investment Checklist", "copy": "Get a simple investor-ready quality checklist fast."},
+        ],
+        "categories": [
+            {"title": "High Dividend Stocks", "href": "/stocks/high-dividend-paying-stocks"},
+            {"title": "Undervalued Stocks", "href": "/stocks/undervalued-dividend-stocks"},
+            {"title": "Growth Stocks", "href": "/stocks/research/reliance-industries"},
+            {"title": "Momentum Stocks", "href": "/market/live-movers"},
+            {"title": "Small Cap Stocks", "href": "/stocks/small-cap-high-dividend-stocks"},
+            {"title": "Sector Leaders", "href": "/sectors"},
+        ],
         "featured": featured,
         "public_head_injection": build_public_ops_head_injection(),
     }
@@ -22805,15 +22867,28 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
   <script type="application/ld+json">{{ schema_json|safe }}</script>
   {{ public_head_injection|safe }}
   <style>
-    :root{--bg:#f8fbff;--paper:#fff;--line:#e2e8f0;--ink:#0f172a;--muted:#64748b;--blue:#2563EB;--green:#10B981;--shadow:0 22px 52px rgba(15,23,42,.07)}
+    :root{--bg:#f8fbff;--paper:#fff;--line:#e2e8f0;--ink:#0f172a;--muted:#64748b;--blue:#2563EB;--green:#10B981;--red:#EF4444;--shadow:0 22px 52px rgba(15,23,42,.07)}
     *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:radial-gradient(circle at top left, rgba(37,99,235,.10), transparent 26%),linear-gradient(180deg,#fbfdff 0%,var(--bg) 100%)} a{text-decoration:none;color:inherit}
     .page{max-width:1420px;margin:0 auto;padding:0 18px 42px}.topnav{position:sticky;top:0;z-index:20;margin-top:14px;padding:14px 18px;border-radius:22px;background:rgba(255,255,255,.82);border:1px solid var(--line);backdrop-filter:blur(18px);display:flex;justify-content:space-between;gap:16px;align-items:center;box-shadow:0 18px 40px rgba(15,23,42,.06)}
-    .brand strong{display:block;font-size:22px;line-height:1}.brand span{display:block;margin-top:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.nav-links{display:flex;flex-wrap:wrap;gap:10px}.nav-links a{padding:10px 14px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:700}.hero{margin-top:18px;padding:34px;border-radius:30px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(245,249,255,.98));border:1px solid var(--line);box-shadow:var(--shadow)}
+    .brand strong{display:block;font-size:22px;line-height:1}.brand span{display:block;margin-top:4px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em}.nav-links{display:flex;flex-wrap:wrap;gap:10px}.nav-links a{padding:10px 14px;border-radius:999px;color:var(--muted);font-size:13px;font-weight:700}
+    .hero{margin-top:18px;padding:42px 34px;border-radius:32px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(245,249,255,.98));border:1px solid var(--line);box-shadow:var(--shadow);text-align:center}
     .eyebrow{display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
-    h1{margin:16px 0 10px;font-size:clamp(34px,4vw,58px);line-height:1.02}.hero p{margin:0;max-width:780px;color:var(--muted);line-height:1.8;font-size:16px}
-    .search-shell{margin-top:24px;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:16px 18px;border-radius:18px;border:1px solid var(--line);font:inherit;font-size:15px}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
-    .section{margin-top:26px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}.card{padding:20px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05)}.card h3{margin:12px 0 8px;font-size:24px}.card p{margin:0;color:var(--muted);line-height:1.7}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
-    @media (max-width:900px){.grid{grid-template-columns:1fr}.search-shell{grid-template-columns:1fr}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
+    h1{margin:16px auto 10px;max-width:860px;font-size:clamp(34px,4vw,58px);line-height:1.02}.hero p{margin:0 auto;max-width:860px;color:var(--muted);line-height:1.8;font-size:16px}
+    .search-shell{max-width:900px;margin:26px auto 0;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:18px 20px;border-radius:20px;border:1px solid var(--line);font:inherit;font-size:17px;box-shadow:0 12px 26px rgba(15,23,42,.04)}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
+    .chip-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
+    .autocomplete-shell{max-width:900px;margin:14px auto 0;padding:12px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 34px rgba(15,23,42,.05);text-align:left}
+    .autocomplete-row{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px}.autocomplete-row + .autocomplete-row{border-top:1px solid var(--line)}.autocomplete-row strong{display:block;font-size:15px}.autocomplete-row span{color:var(--muted);font-size:13px}
+    .section{margin-top:30px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}
+    .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
+    .card{padding:22px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05)}.card h3{margin:12px 0 8px;font-size:22px}.card p{margin:0;color:var(--muted);line-height:1.7}
+    .feature-icon{width:44px;height:44px;border-radius:16px;background:linear-gradient(135deg,#eef4ff,#f8fbff);display:grid;place-items:center;color:var(--blue);font-weight:900}
+    .category-card{display:flex;justify-content:space-between;align-items:center;gap:14px}
+    .featured-card .meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.meta-pill{display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;background:#f8fbff;color:var(--muted);font-size:12px;font-weight:700;border:1px solid var(--line)}
+    .featured-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.featured-stat{padding:12px;border-radius:18px;background:#f8fbff;border:1px solid var(--line)}.featured-stat span{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800}.featured-stat strong{display:block;margin-top:8px;font-size:16px}
+    .cta-band{margin-top:30px;padding:28px;border-radius:30px;background:linear-gradient(135deg,#0f172a 0%,#194674 62%,#0EA5E9 100%);color:#fff;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;box-shadow:0 24px 56px rgba(15,23,42,.16)}
+    .seo-copy{padding:24px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05);color:var(--muted);line-height:1.85}
+    @media (max-width:980px){.grid-4,.grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}.search-shell{grid-template-columns:1fr}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
+    @media (max-width:760px){.page{padding:0 12px 32px}.hero{padding:28px 18px;text-align:left}.search-shell,.autocomplete-shell{max-width:none}.chip-row{justify-content:flex-start;overflow:auto;flex-wrap:nowrap;padding-bottom:4px}.grid-4,.grid-3,.featured-stats{grid-template-columns:1fr}.autocomplete-row{display:block}.autocomplete-row div:last-child{margin-top:6px}}
   </style>
 </head>
 <body>
@@ -22824,27 +22899,96 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
     </nav>
     <section class="hero">
       <div class="eyebrow">Premium Stock Research</div>
-      <h1>Search and open stock details in a cleaner TraderHub research flow.</h1>
-      <p>Type any stock name or slug and open a premium stock detail page built to feel like a SaaS research product, not a news portal.</p>
+      <h1>Search Any Indian Stock in Seconds</h1>
+      <p>Find stock price, AI score, valuation, dividend, financials, peer comparison and investment checklist in one clean research page.</p>
       <form class="search-shell" action="/stocks/search" method="get">
-        <input type="text" name="q" placeholder="Search any stock...">
+        <input type="text" name="q" placeholder="Search Reliance, TCS, Infosys, HDFC Bank...">
         <button class="btn" type="submit">Open Stock Page</button>
       </form>
+      <div class="chip-row">
+        {% for chip in popular_chips %}
+        <a class="chip" href="/stocks/search?q={{ chip|urlencode }}">{{ chip }}</a>
+        {% endfor %}
+      </div>
+      <div class="autocomplete-shell">
+        {% for row in autocomplete_rows %}
+        <div class="autocomplete-row">
+          <div>
+            <strong>{{ row.name }}</strong>
+            <span>{{ row.symbol }} • {{ row.exchange }} • {{ row.sector }}</span>
+          </div>
+          <div><span>Press Enter to open stock report</span></div>
+        </div>
+        {% endfor %}
+      </div>
     </section>
     <section class="section">
       <div class="section-head">
-        <h2>Featured sample pages</h2>
-        <p>These are ready sample routes you can open right now while the backend wiring stays separate.</p>
+        <h2>What You Can Research</h2>
+        <p>TraderHub keeps stock research clean, fast and investor-friendly instead of turning the page into a noisy market portal.</p>
       </div>
-      <div class="grid">
-        {% for label, slug in featured %}
+      <div class="grid-4">
+        {% for card in research_cards %}
         <article class="card">
-          <span class="chip">Sample</span>
-          <h3>{{ label }}</h3>
-          <p>Open the premium stock detail layout with AI score, chart area, quick metrics, dividend section, and peer comparison.</p>
-          <div style="margin-top:16px;"><a class="btn" href="/stocks/research/{{ slug }}">Open {{ label }}</a></div>
+          <div class="feature-icon">+</div>
+          <h3>{{ card.title }}</h3>
+          <p>{{ card.copy }}</p>
         </article>
         {% endfor %}
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <h2>Popular Stock Categories</h2>
+        <p>Start from high-intent categories when you want faster stock discovery, screen-based exploration, or sector-first research.</p>
+      </div>
+      <div class="grid-3">
+        {% for card in categories %}
+        <a class="card category-card" href="{{ card.href }}">
+          <div>
+            <h3>{{ card.title }}</h3>
+            <p>Open this category inside TraderHub research flow.</p>
+          </div>
+          <div class="feature-icon">→</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <h2>Featured Stock Reports</h2>
+        <p>Open sample premium stock pages with AI score, risk, dividend context and clean research blocks.</p>
+      </div>
+      <div class="grid-3">
+        {% for row in featured %}
+        <article class="card featured-card">
+          <span class="chip">Featured</span>
+          <h3>{{ row.name }}</h3>
+          <div class="meta">
+            <span class="meta-pill">{{ row.symbol }}</span>
+            <span class="meta-pill">{{ row.sector }}</span>
+          </div>
+          <div class="featured-stats">
+            <div class="featured-stat"><span>AI Score</span><strong>{{ row.ai_score }}/100</strong></div>
+            <div class="featured-stat"><span>Risk</span><strong>{{ row.risk }}</strong></div>
+            <div class="featured-stat"><span>Dividend Yield</span><strong>{{ row.dividend_yield }}</strong></div>
+          </div>
+          <div style="margin-top:16px;"><a class="btn" href="/stocks/research/{{ row.slug }}">Open Stock Report</a></div>
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="cta-band">
+      <div>
+        <h2 style="margin:0;font-size:32px;line-height:1.08;">Want deeper AI analysis on any stock?</h2>
+        <p style="margin:10px 0 0;color:rgba(255,255,255,.86);max-width:760px;line-height:1.8;">Move from quick search into deeper conviction with AI-assisted valuation, entry-zone thinking, dividend context and investment checklist layers.</p>
+      </div>
+      <a class="btn" href="/pricing">Unlock AI Stock Analysis</a>
+    </section>
+    <section class="section">
+      <div class="seo-copy">
+        <h2 style="margin-top:0;color:var(--ink);">Explore Indian Stocks with TraderHub.</h2>
+        <p style="margin-bottom:0;">TraderHub helps investors search Indian stocks, compare fundamentals, view dividend history, analyze valuation, check peer comparison and understand AI-powered stock scores.</p>
       </div>
     </section>
   </div>
