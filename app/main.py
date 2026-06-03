@@ -22760,29 +22760,27 @@ def build_premium_stock_detail_context(stock_slug, host_root):
 
 
 def build_premium_stocks_hub_context(host_root):
-    featured_slugs = [
-        "reliance-industries",
-        "itc",
-        "tcs",
-        "infosys",
-        "hdfc-bank",
-        "sbi",
+    featured_definitions = [
+        {"slug": "reliance-industries", "name": "Reliance Industries Ltd", "symbol": "RELIANCE", "sector": "Energy", "ai_score": 82, "risk": "Moderate", "dividend_yield": "0.36%"},
+        {"slug": "itc", "name": "ITC Ltd", "symbol": "ITC", "sector": "Consumer", "ai_score": 79, "risk": "Low to Moderate", "dividend_yield": "3.15%"},
+        {"slug": "tcs", "name": "Tata Consultancy Services", "symbol": "TCS", "sector": "IT", "ai_score": 84, "risk": "Low to Moderate", "dividend_yield": "1.35%"},
+        {"slug": "infosys", "name": "Infosys Ltd", "symbol": "INFY", "sector": "IT", "ai_score": 81, "risk": "Moderate", "dividend_yield": "2.10%"},
+        {"slug": "hdfc-bank", "name": "HDFC Bank Ltd", "symbol": "HDFCBANK", "sector": "Banking", "ai_score": 80, "risk": "Moderate", "dividend_yield": "1.20%"},
+        {"slug": "sbi", "name": "State Bank of India", "symbol": "SBIN", "sector": "Banking", "ai_score": 77, "risk": "Moderate", "dividend_yield": "1.75%"},
     ]
     featured = []
-    for slug in featured_slugs:
-        sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
-        if not sample:
-            continue
+    for config in featured_definitions:
+        sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(config["slug"]) or {})
         metrics_map = {label: value for label, value in sample.get("metrics", [])}
         featured.append(
             {
-                "name": sample.get("company_name"),
-                "slug": slug,
-                "symbol": sample.get("symbol"),
-                "sector": sample.get("sector_label") or ("Energy" if sample.get("symbol") in {"RELIANCE", "ONGC", "BPCL", "HPCL", "IOC"} else "Consumer"),
-                "ai_score": sample.get("ai_score", "Data updating"),
-                "risk": sample.get("risk", "Data updating"),
-                "dividend_yield": metrics_map.get("Dividend Yield", sample.get("dividend", {}).get("yield", "Data updating")),
+                "name": sample.get("company_name") or config["name"],
+                "slug": config["slug"],
+                "symbol": sample.get("symbol") or config["symbol"],
+                "sector": sample.get("sector_label") or config["sector"],
+                "ai_score": sample.get("ai_score", config["ai_score"]),
+                "risk": sample.get("risk", config["risk"]),
+                "dividend_yield": metrics_map.get("Dividend Yield", sample.get("dividend", {}).get("yield", config["dividend_yield"])),
             }
         )
     canonical_url = f"{host_root.rstrip('/')}/stocks"
