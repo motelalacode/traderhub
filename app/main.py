@@ -22763,10 +22763,10 @@ def build_premium_stocks_hub_context(host_root):
     featured_slugs = [
         "reliance-industries",
         "itc",
-        "ongc",
-        "indian-oil-corp",
-        "bpcl",
-        "hpcl",
+        "tcs",
+        "infosys",
+        "hdfc-bank",
+        "sbi",
     ]
     featured = []
     for slug in featured_slugs:
@@ -22823,21 +22823,23 @@ def build_premium_stocks_hub_context(host_root):
         ),
         "nav_links": build_trial_home_nav_links(),
         "popular_chips": ["Reliance", "TCS", "Infosys", "HDFC Bank", "ITC", "SBI"],
+        "trust_line": "5000+ Indian stocks • AI Score • Dividend History • Peer Comparison • Investment Checklist",
         "autocomplete_rows": [
             {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy"},
             {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT"},
             {"name": "Infosys Ltd", "symbol": "INFY", "exchange": "NSE", "sector": "IT"},
         ],
         "research_cards": [
-            {"title": "AI Score", "copy": "Read a quick TraderHub conviction layer before going deeper."},
-            {"title": "Fair Value", "copy": "Check if price looks cheap, fair or stretched."},
-            {"title": "Price Chart", "copy": "Open timeframe views and trend structure in one place."},
-            {"title": "Dividend History", "copy": "Track yield, payout consistency and ex-date context."},
-            {"title": "Financial Performance", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
-            {"title": "Peer Comparison", "copy": "Compare valuation and quality side by side."},
-            {"title": "Risk Meter", "copy": "See whether the stock suits low, moderate or higher risk."},
-            {"title": "Investment Checklist", "copy": "Get a simple investor-ready quality checklist fast."},
+            {"title": "AI Score", "icon": "AI", "copy": "Read a quick TraderHub conviction layer before going deeper."},
+            {"title": "Fair Value", "icon": "₹", "copy": "Check if price looks cheap, fair or stretched."},
+            {"title": "Price Chart", "icon": "📈", "copy": "Open timeframe views and trend structure in one place."},
+            {"title": "Dividend History", "icon": "%", "copy": "Track yield, payout consistency and ex-date context."},
+            {"title": "Financial Performance", "icon": "📊", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
+            {"title": "Peer Comparison", "icon": "⚖", "copy": "Compare valuation and quality side by side."},
+            {"title": "Risk Meter", "icon": "⚠", "copy": "See whether the stock suits low, moderate or higher risk."},
+            {"title": "Investment Checklist", "icon": "✓", "copy": "Get a simple investor-ready quality checklist fast."},
         ],
+        "trending_searches": ["Reliance", "ITC", "TCS", "HDFC Bank", "Tata Motors", "Adani Ports"],
         "categories": [
             {"title": "High Dividend Stocks", "href": "/stocks/high-dividend-paying-stocks"},
             {"title": "Undervalued Stocks", "href": "/stocks/undervalued-dividend-stocks"},
@@ -22847,6 +22849,7 @@ def build_premium_stocks_hub_context(host_root):
             {"title": "Sector Leaders", "href": "/sectors"},
         ],
         "featured": featured,
+        "disclaimer": "Disclaimer: TraderHub provides research, analytics and educational tools only. We do not provide investment advice or guaranteed returns.",
         "public_head_injection": build_public_ops_head_injection(),
     }
 
@@ -22876,6 +22879,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
     h1{margin:16px auto 10px;max-width:860px;font-size:clamp(34px,4vw,58px);line-height:1.02}.hero p{margin:0 auto;max-width:860px;color:var(--muted);line-height:1.8;font-size:16px}
     .search-shell{max-width:900px;margin:26px auto 0;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:18px 20px;border-radius:20px;border:1px solid var(--line);font:inherit;font-size:17px;box-shadow:0 12px 26px rgba(15,23,42,.04)}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
     .chip-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
+    .trust-line{margin:16px auto 0;max-width:900px;color:var(--muted);font-size:14px;font-weight:700;line-height:1.8}
     .autocomplete-shell{max-width:900px;margin:14px auto 0;padding:12px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 34px rgba(15,23,42,.05);text-align:left}
     .autocomplete-row{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px}.autocomplete-row + .autocomplete-row{border-top:1px solid var(--line)}.autocomplete-row strong{display:block;font-size:15px}.autocomplete-row span{color:var(--muted);font-size:13px}
     .section{margin-top:30px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}
@@ -22887,6 +22891,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
     .featured-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}.featured-stat{padding:12px;border-radius:18px;background:#f8fbff;border:1px solid var(--line)}.featured-stat span{display:block;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:800}.featured-stat strong{display:block;margin-top:8px;font-size:16px}
     .cta-band{margin-top:30px;padding:28px;border-radius:30px;background:linear-gradient(135deg,#0f172a 0%,#194674 62%,#0EA5E9 100%);color:#fff;display:flex;justify-content:space-between;gap:20px;align-items:center;flex-wrap:wrap;box-shadow:0 24px 56px rgba(15,23,42,.16)}
     .seo-copy{padding:24px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05);color:var(--muted);line-height:1.85}
+    .disclaimer{margin-top:18px;padding:16px 18px;border-radius:20px;background:linear-gradient(180deg,#fff8ef,#ffffff);border:1px solid #f3dec1;color:#7c4a12;font-size:13px;line-height:1.8}
     @media (max-width:980px){.grid-4,.grid-3{grid-template-columns:repeat(2,minmax(0,1fr))}.search-shell{grid-template-columns:1fr}.topnav{flex-direction:column;align-items:flex-start}.nav-links{width:100%;overflow:auto;flex-wrap:nowrap}}
     @media (max-width:760px){.page{padding:0 12px 32px}.hero{padding:28px 18px;text-align:left}.search-shell,.autocomplete-shell{max-width:none}.chip-row{justify-content:flex-start;overflow:auto;flex-wrap:nowrap;padding-bottom:4px}.grid-4,.grid-3,.featured-stats{grid-template-columns:1fr}.autocomplete-row{display:block}.autocomplete-row div:last-child{margin-top:6px}}
   </style>
@@ -22903,8 +22908,9 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       <p>Find stock price, AI score, valuation, dividend, financials, peer comparison and investment checklist in one clean research page.</p>
       <form class="search-shell" action="/stocks/search" method="get">
         <input type="text" name="q" placeholder="Search Reliance, TCS, Infosys, HDFC Bank...">
-        <button class="btn" type="submit">Open Stock Page</button>
+        <button class="btn" type="submit">Search Stock</button>
       </form>
+      <div class="trust-line">{{ trust_line }}</div>
       <div class="chip-row">
         {% for chip in popular_chips %}
         <a class="chip" href="/stocks/search?q={{ chip|urlencode }}">{{ chip }}</a>
@@ -22930,10 +22936,21 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       <div class="grid-4">
         {% for card in research_cards %}
         <article class="card">
-          <div class="feature-icon">+</div>
+          <div class="feature-icon">{{ card.icon }}</div>
           <h3>{{ card.title }}</h3>
           <p>{{ card["copy"] }}</p>
         </article>
+        {% endfor %}
+      </div>
+    </section>
+    <section class="section">
+      <div class="section-head">
+        <h2>Trending Stock Searches</h2>
+        <p>Jump into the names investors search most often before moving into deeper stock reports.</p>
+      </div>
+      <div class="chip-row" style="justify-content:flex-start;">
+        {% for chip in trending_searches %}
+        <a class="chip" href="/stocks/search?q={{ chip|urlencode }}">{{ chip }}</a>
         {% endfor %}
       </div>
     </section>
@@ -22983,13 +23000,14 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
         <h2 style="margin:0;font-size:32px;line-height:1.08;">Want deeper AI analysis on any stock?</h2>
         <p style="margin:10px 0 0;color:rgba(255,255,255,.86);max-width:760px;line-height:1.8;">Move from quick search into deeper conviction with AI-assisted valuation, entry-zone thinking, dividend context and investment checklist layers.</p>
       </div>
-      <a class="btn" href="/pricing">Unlock AI Stock Analysis</a>
+      <a class="btn" href="/pricing">Unlock Fair Value, AI Score & Entry Zone</a>
     </section>
     <section class="section">
       <div class="seo-copy">
         <h2 style="margin-top:0;color:var(--ink);">Explore Indian Stocks with TraderHub.</h2>
         <p style="margin-bottom:0;">TraderHub helps investors search Indian stocks, compare fundamentals, view dividend history, analyze valuation, check peer comparison and understand AI-powered stock scores.</p>
       </div>
+      <div class="disclaimer">{{ disclaimer }}</div>
     </section>
   </div>
 </body>
