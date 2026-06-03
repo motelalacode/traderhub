@@ -22507,6 +22507,13 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 return row.get("value"), row.get("subtext")
         return None, None
 
+    def _first_usable_value(*values):
+        for value in values:
+            text = str(value or "").strip()
+            if text and text not in {"Pending", "Source Pending", "Retry Pending", "-", "Data updating"}:
+                return value
+        return None
+
     def _parse_currency_number(value):
         cleaned = re.sub(r"[^0-9.\-]", "", str(value or ""))
         try:
@@ -22691,18 +22698,28 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         roce_value, _ = _get_metric_value(live_financial_metrics, "ROCE")
         roe_value, _ = _get_metric_value(live_financial_metrics, "ROE")
         debt_equity_value, _ = _get_metric_value(live_financial_metrics, "Debt / Equity")
+        financial_dividend_yield_value, _ = _get_metric_value(live_financial_metrics, "Dividend Yield")
         eps_value, _ = _get_metric_value(live_financial_metrics, "EPS (TTM)")
         book_value, _ = _get_metric_value(live_financial_metrics, "Book Value")
         if live_peer_rows:
             first_peer = live_peer_rows[0]
-            pe_value = first_peer.get("pe") or None
-            dividend_yield_value = first_peer.get("dividend_yield") or None
-            if roe_value in {None, "", "Source Pending", "Pending"}:
-                roe_value = first_peer.get("roe") or roe_value
-            if roce_value in {None, "", "Source Pending", "Pending"}:
-                roce_value = first_peer.get("roce") or roce_value
-            if not market_cap_value or market_cap_value == "Source Pending":
-                market_cap_value = first_peer.get("market_cap") or market_cap_value
+            pe_value = _first_usable_value(pe_value, first_peer.get("pe"))
+            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value, first_peer.get("dividend_yield"))
+            roe_value = _first_usable_value(roe_value, first_peer.get("roe"))
+            roce_value = _first_usable_value(roce_value, first_peer.get("roce"))
+            market_cap_value = _first_usable_value(market_cap_value, first_peer.get("market_cap")) or market_cap_value
+        else:
+            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value)
+
+        week_high_display = None
+        week_low_display = None
+        week_range_metric = next((row for row in live_overview_metrics if str(row.get("label") or "").strip().lower() == "52w high / low"), None)
+        if week_range_metric:
+            range_text = str(week_range_metric.get("value") or "").strip()
+            range_parts = [part.strip() for part in range_text.split("-")] if range_text else []
+            if len(range_parts) == 2:
+                week_low_display = range_parts[0]
+                week_high_display = range_parts[1]
 
         week_high = None
         week_low = None
@@ -22718,8 +22735,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             ("ROCE", _premium_placeholder(roce_value) if roce_value not in {None, "", "Source Pending", "Pending"} else sample_metric_defaults.get("ROCE", "Data updating")),
             ("Dividend Yield", _premium_placeholder(dividend_yield_value) if dividend_yield_value not in {None, "", "Source Pending", "Pending"} else sample_metric_defaults.get("Dividend Yield", "Data updating")),
             ("Debt/Equity", _premium_placeholder(debt_equity_value) if debt_equity_value not in {None, "", "Source Pending", "Pending"} else sample_metric_defaults.get("Debt/Equity", "Data updating")),
-            ("52 Week High", f"INR {week_high:,.2f}".replace(".00", "") if week_high is not None else sample_metric_defaults.get("52 Week High", "Data updating")),
-            ("52 Week Low", f"INR {week_low:,.2f}".replace(".00", "") if week_low is not None else sample_metric_defaults.get("52 Week Low", "Data updating")),
+            ("52 Week High", f"INR {week_high:,.2f}".replace(".00", "") if week_high is not None else _premium_placeholder(week_high_display) if week_high_display else sample_metric_defaults.get("52 Week High", "Data updating")),
+            ("52 Week Low", f"INR {week_low:,.2f}".replace(".00", "") if week_low is not None else _premium_placeholder(week_low_display) if week_low_display else sample_metric_defaults.get("52 Week Low", "Data updating")),
         ]
 
         if live_peer_rows:
