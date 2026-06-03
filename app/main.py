@@ -22932,7 +22932,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
         <article class="card">
           <div class="feature-icon">+</div>
           <h3>{{ card.title }}</h3>
-          <p>{{ card.copy }}</p>
+          <p>{{ card["copy"] }}</p>
         </article>
         {% endfor %}
       </div>
