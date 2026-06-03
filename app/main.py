@@ -20199,42 +20199,131 @@ def build_stock_page_context(symbol, host_root):
                     continue
     except Exception as exc:
         page_alert = str(exc)
-        overview_metrics = [
-            {"label": "Open", "value": "-", "subtext": "Live quote unavailable right now."},
-            {"label": "Day Range", "value": "-", "subtext": "Will populate when quote and intraday data are available."},
-            {"label": "Volume", "value": "-", "subtext": "Volume needs the current market data source."},
-            {"label": "Previous Day High / Low", "value": "-", "subtext": "This will be restored automatically once history loads."},
-            {"label": "52W High / Low", "value": "-", "subtext": "Long-range price context is waiting for price history."},
-            {"label": "Average Price", "value": "-", "subtext": "VWAP will appear after intraday candles load."},
-            {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
-            {"label": "Event Calendar", "value": "Source Pending", "subtext": "Results dates and corporate events are still a later-phase source."},
-        ]
-        technical_metrics = [
-            {"label": "Daily RSI", "value": "Pending", "subtext": "Waiting on daily candle data."},
-            {"label": "MA View", "value": "Pending", "subtext": "Moving-average signals need candle history."},
-            {"label": "Pivot Bias", "value": "Pending", "subtext": "Breakout context will restore with previous-day levels."},
-            {"label": "Support / Resistance", "value": "Pending", "subtext": "Levels are temporarily unavailable without history."},
-        ]
-        study_cards = [
-            {"label": "RSI (14)", "value": "Pending", "copy": "Momentum calculations will appear as soon as daily candles are available."},
-            {"label": "20 / 50 / 200 DMA", "value": "Pending", "copy": "The moving-average view is reserved for the real data path."},
-            {"label": "Intraday Structure", "value": "Pending", "copy": "Current intraday positioning is temporarily unavailable."},
-            {"label": "PDH / PDL Context", "value": "Pending", "copy": "Previous-day breakout context will return when history is accessible."},
-            {"label": "1Y Return", "value": "Pending", "copy": "One-year return needs the historical daily series."},
-            {"label": "Technical Summary", "value": "Pending", "copy": "The page still renders cleanly even if live/technical data is temporarily unavailable."},
-        ]
+        fallback_live_row = locals().get("live_row")
+        fallback_close_values = locals().get("close_values") or []
+        fallback_ma20_value = locals().get("ma20_value")
+        fallback_ma50_value = locals().get("ma50_value")
+        fallback_ma200_value = locals().get("ma200_value")
+        fallback_rsi_value = locals().get("rsi_value")
+        fallback_one_year_return_value = locals().get("one_year_return_value")
+
+        if not fallback_live_row:
+            try:
+                fallback_creds = get_active_kite_credentials()
+                fallback_instrument_map = get_nse_instrument_map()
+                fallback_instrument = fallback_instrument_map.get(symbol)
+                if fallback_creds["api_key"] and fallback_creds["access_token"] and fallback_instrument:
+                    fallback_client = build_kite_client(with_access_token=True)
+                    fallback_date = get_today_ist()
+                    fallback_daily_from = datetime.datetime.combine(fallback_date - datetime.timedelta(days=380), datetime.time(0, 0), tzinfo=APP_TZ)
+                    fallback_daily_to = datetime.datetime.combine(fallback_date, datetime.time(23, 59), tzinfo=APP_TZ)
+                    fallback_daily_candles = fallback_client.historical_data(fallback_instrument["instrument_token"], fallback_daily_from, fallback_daily_to, "day", continuous=False, oi=False)
+                    fallback_intraday_candles = []
+                    try:
+                        fallback_intraday_end = get_breakout_reference_end(fallback_date, datetime.time(15, 30))
+                        fallback_intraday_from = datetime.datetime.combine(fallback_date, datetime.time(9, 15), tzinfo=APP_TZ)
+                        fallback_intraday_to = datetime.datetime.combine(fallback_date, fallback_intraday_end, tzinfo=APP_TZ)
+                        fallback_intraday_candles = fallback_client.historical_data(fallback_instrument["instrument_token"], fallback_intraday_from, fallback_intraday_to, "5minute", continuous=False, oi=False)
+                    except Exception:
+                        fallback_intraday_candles = []
+                    fallback_quote = fetch_quote_map_safe(fallback_client, [f"NSE:{symbol}"]).get(f"NSE:{symbol}")
+                    fallback_live_row = build_row_from_available_data(symbol, security_name, fallback_quote, fallback_daily_candles, fallback_intraday_candles)
+                    fallback_close_values = [float(candle["close"]) for candle in fallback_daily_candles if candle.get("close") is not None]
+                    fallback_ma20_series = compute_simple_moving_average(fallback_close_values, 20)
+                    fallback_ma50_series = compute_simple_moving_average(fallback_close_values, 50)
+                    fallback_ma200_series = compute_simple_moving_average(fallback_close_values, 200)
+                    fallback_ma20_value = fallback_ma20_series[-1] if fallback_ma20_series else None
+                    fallback_ma50_value = fallback_ma50_series[-1] if fallback_ma50_series else None
+                    fallback_ma200_value = fallback_ma200_series[-1] if fallback_ma200_series else None
+                    fallback_rsi_value = compute_rsi(fallback_close_values, 14)
+                    if len(fallback_close_values) >= 2 and fallback_close_values[0] > 0:
+                        fallback_one_year_return_value = ((fallback_close_values[-1] - fallback_close_values[0]) / fallback_close_values[0]) * 100
+            except Exception:
+                fallback_live_row = fallback_live_row or None
+
+        if fallback_live_row:
+            fallback_range_52w = f"{fallback_live_row['week_low']} - {fallback_live_row['week_high']}"
+            fallback_range_52w_context = describe_52w_context(
+                fallback_live_row["last_price_numeric"],
+                fallback_live_row["week_high_numeric"],
+                fallback_live_row["week_low_numeric"],
+            )
+            fallback_ma_view = describe_ma_view(
+                fallback_live_row["last_price_numeric"],
+                fallback_ma20_value,
+                fallback_ma50_value,
+                fallback_ma200_value,
+            )
+            overview_metrics = [
+                {"label": "Open", "value": fallback_live_row["open_price"], "subtext": f"Gap context: {fallback_live_row['gap_text']} from previous close"},
+                {"label": "Day Range", "value": f"{fallback_live_row['day_low']} - {fallback_live_row['day_high']}", "subtext": f"Price is sitting at about {fallback_live_row['day_range_percent']}% of today's range"},
+                {"label": "Volume", "value": fallback_live_row["volume_display"], "subtext": f"Snapshot source time: {fallback_live_row['tick_time'] or 'N/A'}"},
+                {"label": "Previous Day High / Low", "value": f"{fallback_live_row['pdh']} / {fallback_live_row['pdl']}", "subtext": f"Current status: {fallback_live_row['status_label']}"},
+                {"label": "52W High / Low", "value": fallback_range_52w, "subtext": fallback_range_52w_context},
+                {"label": "Average Price", "value": fallback_live_row["vwap"], "subtext": f"VWAP view: {fallback_live_row['vwap_status']}"},
+                {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
+                {"label": "Market Mode", "value": market_mode_label, "subtext": "Recovered from available daily market history."},
+            ]
+            technical_metrics = [
+                {"label": "Daily RSI", "value": f"{fallback_rsi_value}" if fallback_rsi_value is not None else "Pending", "subtext": "Recovered from daily candle history."},
+                {"label": "MA View", "value": fallback_ma_view, "subtext": "Based on available 20DMA, 50DMA, and 200DMA history."},
+                {"label": "Pivot Bias", "value": fallback_live_row["status_label"], "subtext": "Recovered from previous-day breakout context."},
+                {"label": "Support / Resistance", "value": f"{fallback_live_row['pdl']} / {fallback_live_row['pdh']}", "subtext": "Using previous-day low/high as the first decision zone."},
+            ]
+            study_cards = [
+                {"label": "RSI (14)", "value": f"{fallback_rsi_value}" if fallback_rsi_value is not None else "Pending", "copy": "Recovered from daily closes when the full live path is interrupted."},
+                {"label": "20 / 50 / 200 DMA", "value": fallback_ma_view, "copy": f"20DMA: {format_price(fallback_ma20_value) if fallback_ma20_value else '-'} | 50DMA: {format_price(fallback_ma50_value) if fallback_ma50_value else '-'} | 200DMA: {format_price(fallback_ma200_value) if fallback_ma200_value else '-'}."},
+                {"label": "Intraday Structure", "value": fallback_live_row["vwap_status"], "copy": "Using best-available fallback row when the full quote path is interrupted."},
+                {"label": "PDH / PDL Context", "value": fallback_live_row["status_label"], "copy": "Previous-day breakout context has been recovered from available history."},
+                {"label": "1Y Return", "value": format_signed_percent(fallback_one_year_return_value) if fallback_one_year_return_value is not None else "Pending", "copy": "Uses available daily history to keep long-range price context visible."},
+                {"label": "Technical Summary", "value": fallback_ma_view if fallback_ma_view != "Pending" else fallback_live_row["status_label"], "copy": "The page is using a partial-history recovery path instead of a blank technical block."},
+            ]
+            quick_stats = [
+                {"label": "Market Mode", "value": market_mode_label},
+                {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
+                {"label": "Sector", "value": breadcrumb_sector},
+                {"label": "Industry", "value": industry_label},
+                {"label": "VWAP Position", "value": fallback_live_row["vwap_status"]},
+                {"label": "52W Context", "value": fallback_range_52w_context},
+                {"label": "Peer Set", "value": "Mapped peers available"},
+            ]
+        else:
+            overview_metrics = [
+                {"label": "Open", "value": "-", "subtext": "Live quote unavailable right now."},
+                {"label": "Day Range", "value": "-", "subtext": "Will populate when quote and intraday data are available."},
+                {"label": "Volume", "value": "-", "subtext": "Volume needs the current market data source."},
+                {"label": "Previous Day High / Low", "value": "-", "subtext": "This will be restored automatically once history loads."},
+                {"label": "52W High / Low", "value": "-", "subtext": "Long-range price context is waiting for price history."},
+                {"label": "Average Price", "value": "-", "subtext": "VWAP will appear after intraday candles load."},
+                {"label": "Business Summary", "value": company_name, "subtext": f"Mapped sector: {sector_label}"},
+                {"label": "Event Calendar", "value": "Source Pending", "subtext": "Results dates and corporate events are still a later-phase source."},
+            ]
+            technical_metrics = [
+                {"label": "Daily RSI", "value": "Pending", "subtext": "Waiting on daily candle data."},
+                {"label": "MA View", "value": "Pending", "subtext": "Moving-average signals need candle history."},
+                {"label": "Pivot Bias", "value": "Pending", "subtext": "Breakout context will restore with previous-day levels."},
+                {"label": "Support / Resistance", "value": "Pending", "subtext": "Levels are temporarily unavailable without history."},
+            ]
+            study_cards = [
+                {"label": "RSI (14)", "value": "Pending", "copy": "Momentum calculations will appear as soon as daily candles are available."},
+                {"label": "20 / 50 / 200 DMA", "value": "Pending", "copy": "The moving-average view is reserved for the real data path."},
+                {"label": "Intraday Structure", "value": "Pending", "copy": "Current intraday positioning is temporarily unavailable."},
+                {"label": "PDH / PDL Context", "value": "Pending", "copy": "Previous-day breakout context will return when history is accessible."},
+                {"label": "1Y Return", "value": "Pending", "copy": "One-year return needs the historical daily series."},
+                {"label": "Technical Summary", "value": "Pending", "copy": "The page still renders cleanly even if live/technical data is temporarily unavailable."},
+            ]
+            quick_stats = [
+                {"label": "Market Mode", "value": market_mode_label},
+                {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
+                {"label": "Sector", "value": breadcrumb_sector},
+                {"label": "Industry", "value": industry_label},
+                {"label": "VWAP Position", "value": "Pending"},
+                {"label": "52W Context", "value": "Pending"},
+                {"label": "Peer Set", "value": "Mapped peers pending"},
+            ]
         peers = [
             {"company": prettify_company_name((master.get('by_symbol', {}).get(peer_symbol) or {}).get('security') or peer_symbol, peer_symbol), "current_price": "-", "day_change": "Pending", "return_1y": "Pending", "vwap": "Pending", "range_52w": "Pending", "status": "Pending"}
             for peer_symbol in get_stock_page_peer_symbols(symbol)[:6]
-        ]
-        quick_stats = [
-            {"label": "Market Mode", "value": market_mode_label},
-            {"label": "Exchange / Series", "value": f"{stock['exchange']} / {stock['series']}"},
-            {"label": "Sector", "value": breadcrumb_sector},
-            {"label": "Industry", "value": industry_label},
-            {"label": "VWAP Position", "value": "Pending"},
-            {"label": "52W Context", "value": "Pending"},
-            {"label": "Peer Set", "value": f"{max(len(peers) - 1, 0)} mapped peers"},
         ]
 
     return {
