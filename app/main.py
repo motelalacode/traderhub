@@ -22555,6 +22555,14 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         values = _get_table_row_values(table_payload, label_candidates)
         return values[0] if values else None
 
+    def _get_latest_ratio_history_value(table_payload, label_candidates):
+        values = _get_table_row_values(table_payload, label_candidates)
+        for value in values:
+            usable = _first_usable_value(value)
+            if usable is not None:
+                return usable
+        return None
+
     def _build_bar_series_from_values(values):
         numeric_values = []
         for value in values:
@@ -22718,15 +22726,28 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         financial_dividend_yield_value, _ = _get_metric_value(live_financial_metrics, "Dividend Yield")
         eps_value, _ = _get_metric_value(live_financial_metrics, "EPS (TTM)")
         book_value, _ = _get_metric_value(live_financial_metrics, "Book Value")
+        pe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["P/E", "PE", "PE RATIO"])
+        roe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["ROE", "ROE %"])
+        roce_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["ROCE", "ROCE %"])
+        debt_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["DEBT/EQUITY", "DEBT / EQUITY", "DEBT TO EQUITY"])
+        dividend_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["DIVIDEND YIELD", "DIVIDEND YIELD %", "DIV YIELD"])
+        market_cap_metric = next((row for row in live_overview_metrics if str(row.get("label") or "").strip().lower() == "market cap"), None)
+        market_cap_overview_value = (market_cap_metric or {}).get("value")
         if live_peer_rows:
             first_peer = live_peer_rows[0]
-            pe_value = _first_usable_value(pe_value, first_peer.get("pe"))
-            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value, first_peer.get("dividend_yield"))
-            roe_value = _first_usable_value(roe_value, first_peer.get("roe"))
-            roce_value = _first_usable_value(roce_value, first_peer.get("roce"))
-            market_cap_value = _first_usable_value(market_cap_value, first_peer.get("market_cap")) or market_cap_value
+            pe_value = _first_usable_value(pe_value, pe_ratio_table_value, first_peer.get("pe"))
+            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value, dividend_ratio_table_value, first_peer.get("dividend_yield"))
+            roe_value = _first_usable_value(roe_value, roe_ratio_table_value, first_peer.get("roe"))
+            roce_value = _first_usable_value(roce_value, roce_ratio_table_value, first_peer.get("roce"))
+            debt_equity_value = _first_usable_value(debt_equity_value, debt_ratio_table_value)
+            market_cap_value = _first_usable_value(market_cap_value, market_cap_overview_value, first_peer.get("market_cap")) or market_cap_value
         else:
-            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value)
+            pe_value = _first_usable_value(pe_value, pe_ratio_table_value)
+            dividend_yield_value = _first_usable_value(dividend_yield_value, financial_dividend_yield_value, dividend_ratio_table_value)
+            roe_value = _first_usable_value(roe_value, roe_ratio_table_value)
+            roce_value = _first_usable_value(roce_value, roce_ratio_table_value)
+            debt_equity_value = _first_usable_value(debt_equity_value, debt_ratio_table_value)
+            market_cap_value = _first_usable_value(market_cap_value, market_cap_overview_value) or market_cap_value
 
         week_high_display = None
         week_low_display = None
@@ -22757,17 +22778,20 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         ]
 
         if live_peer_rows:
-            sample["peers"] = [
-                (
+            populated_peer_rows = []
+            for row in live_peer_rows[:6]:
+                candidate_row = (
                     row.get("company") or "Peer",
                     _premium_placeholder(row.get("market_cap") or "Pending"),
                     _premium_placeholder(row.get("pe") or "Pending"),
-                    _premium_placeholder(row.get("roe") or roe_value or "Pending"),
+                    _premium_placeholder(row.get("roe") or "Pending"),
                     _premium_placeholder(row.get("roce") or "Pending"),
                     _premium_placeholder(row.get("dividend_yield") or "Pending"),
                 )
-                for row in live_peer_rows[:4]
-            ]
+                if _peer_row_has_data(candidate_row):
+                    populated_peer_rows.append(candidate_row)
+            if populated_peer_rows:
+                sample["peers"] = populated_peer_rows[:4]
             sample["related"] = [
                 (
                     row.get("company") or "Peer",
