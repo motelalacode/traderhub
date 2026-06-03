@@ -11789,6 +11789,7 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
 
     screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
     pe_value = screener_snapshot.get("pe_value")
+    roe_value = parse_numeric_text((ratio_map.get("ROE") or {}).get("company_value"))
     roce_value = parse_numeric_text((ratio_map.get("ROCE") or {}).get("company_value"))
     dividend_yield_value = screener_snapshot.get("dividend_yield_pct")
     market_cap_value = screener_snapshot.get("market_cap_inr")
@@ -11801,6 +11802,7 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
         "pe": f"{pe_value:.2f}" if pe_value is not None else "-",
         "market_cap": format_crore_display(market_cap_value / 10000000.0) if market_cap_value is not None else "Source Pending",
         "dividend_yield": f"{dividend_yield_value:.2f}%" if dividend_yield_value is not None else "-",
+        "roe": f"{roe_value:.2f}%" if roe_value is not None else "-",
         "np_qtr": format_statement_cell(np_value),
         "np_qtr_change": str((np_entry or {}).get("change") or "-"),
         "sales_qtr": format_statement_cell(sales_value),
@@ -22635,7 +22637,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     row.get("company") or "Peer",
                     _premium_placeholder(row.get("market_cap") or "Pending"),
                     _premium_placeholder(row.get("pe") or "Pending"),
-                    _premium_placeholder(roe_value or "Pending"),
+                    _premium_placeholder(row.get("roe") or roe_value or "Pending"),
                     _premium_placeholder(row.get("roce") or "Pending"),
                     _premium_placeholder(row.get("dividend_yield") or "Pending"),
                 )
@@ -22895,13 +22897,23 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         roce_numeric = _parse_currency_number(roce_value) if 'roce_value' in locals() else None
         debt_equity_numeric = _parse_currency_number(debt_equity_value) if 'debt_equity_value' in locals() else None
         dividend_numeric = _parse_currency_number((sample.get("dividend") or {}).get("yield"))
+        promoter_stable = False
+        institutional_rows = ((sample.get("institutional_activity") or {}).get("rows") or [])
+        if len(institutional_rows) >= 2:
+            latest_promoter = _parse_currency_number(institutional_rows[0][3])
+            previous_promoter = _parse_currency_number(institutional_rows[1][3])
+            promoter_stable = (
+                latest_promoter is not None
+                and previous_promoter is not None
+                and abs(latest_promoter - previous_promoter) <= 0.25
+            )
         sample["checklist"] = [
             ("Profit Growing", latest_profit is not None and previous_profit is not None and latest_profit >= previous_profit),
             ("ROCE > 15%", roce_numeric is not None and roce_numeric > 15),
             ("Debt Under Control", debt_equity_numeric is not None and debt_equity_numeric <= 1),
             ("Positive Cash Flow", latest_fcf is not None and latest_fcf > 0),
             ("Dividend Paying", dividend_numeric is not None and dividend_numeric > 0),
-            ("Promoter Holding Stable", sample["shareholding_available"] and sample["shareholding"].get("promoters", 0) >= 0),
+            ("Promoter Holding Stable", promoter_stable),
         ]
     except Exception:
         pass
