@@ -22514,6 +22514,23 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 return value
         return None
 
+    def _peer_row_has_data(row):
+        if not row or len(row) < 2:
+            return False
+        for value in row[1:]:
+            text = str(value or "").strip()
+            if text and text not in {"Pending", "Source Pending", "Retry Pending", "-", "Data updating"}:
+                return True
+        return False
+
+    def _institutional_rows_have_data(rows):
+        for row in rows or []:
+            for value in row[1:5]:
+                text = str(value or "").strip()
+                if text and text not in {"Pending", "Source Pending", "Retry Pending", "-", "Data updating"}:
+                    return True
+        return False
+
     def _parse_currency_number(value):
         cleaned = re.sub(r"[^0-9.\-]", "", str(value or ""))
         try:
@@ -22759,6 +22776,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 for row in live_peer_rows[1:6]
                 if (row.get("company") or "").strip()
             ] or sample.get("related") or []
+        sample["peer_data_available"] = any(_peer_row_has_data(row) for row in sample.get("peers", []))
 
         if not is_curated_sample and live_overview_metrics:
             market_mode_metric = next((row for row in live_overview_metrics if str(row.get("label") or "").strip().lower() == "market mode"), None)
@@ -22978,12 +22996,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 }
             elif len(institutional_rows) < 4:
                 sample["institutional_activity"] = {
-                    "rows": [
-                        ("Q4 2026", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q3 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q2 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q1 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                    ],
+                    "rows": institutional_rows,
                     "insight": "Quarter-wise institutional history is still updating for this stock, so TraderHub is not inventing historical ownership data.",
                 }
             else:
@@ -23000,14 +23013,11 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 }
             else:
                 sample["institutional_activity"] = {
-                    "rows": [
-                        ("Q4 2026", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q3 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q2 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                        ("Q1 2025", "Data updating", "Data updating", "Data updating", "Data updating", "Data updating"),
-                    ],
+                    "rows": [],
                     "insight": "Institutional activity is updating for this stock. TraderHub will show quarter-wise ownership once the verified source is available.",
                 }
+
+        sample["institutional_activity"]["available"] = _institutional_rows_have_data((sample.get("institutional_activity") or {}).get("rows") or [])
 
         valuation_text = sample.get("fair_value", {}).get("status", "Fairly Valued")
         dividend_text = dividend_yield_value or "moderate dividend support"
@@ -23058,6 +23068,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         )
         for company, market_cap, pe, roe, roce, dividend_yield in sample.get("peers", [])
     ]
+    sample["peer_data_available"] = any(_peer_row_has_data(row) for row in sample.get("peers", []))
     company_name = sample["company_name"]
     canonical_url = f"{host_root.rstrip('/')}/stocks/research/{slug}"
     schema_json = json.dumps(
@@ -23773,6 +23784,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
 
     <section class="section card">
       <h2>Peer Comparison</h2>
+      {% if stock.peer_data_available %}
       <table class="peer-table">
         <thead><tr><th>Company</th><th>Market Cap</th><th>PE</th><th>ROE</th><th>ROCE</th><th>Dividend Yield</th></tr></thead>
         <tbody>
@@ -23781,6 +23793,9 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
           {% endfor %}
         </tbody>
       </table>
+      {% else %}
+      <div class="institutional-note">Peer names are mapped, but verified peer fundamentals are still updating for this stock. TraderHub will show valuation and quality comparison once the research source is available.</div>
+      {% endif %}
     </section>
 
     <section class="section card shareholding-wrap" style="--shareholding-style: {{ shareholding_style }};">
@@ -23807,6 +23822,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     <!-- Institutional Activity Start -->
     <section class="section card">
       <h2>Institutional Activity - Last 4 Quarters</h2>
+      {% if stock.institutional_activity.available %}
       <table class="peer-table">
         <thead><tr><th>Quarter</th><th>FII Holding</th><th>DII Holding</th><th>Promoter Holding</th><th>Public Holding</th><th>Signal</th></tr></thead>
         <tbody>
@@ -23815,6 +23831,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
           {% endfor %}
         </tbody>
       </table>
+      {% endif %}
       <div class="institutional-note">{{ stock.institutional_activity.insight }}</div>
     </section>
     <!-- Institutional Activity End -->
