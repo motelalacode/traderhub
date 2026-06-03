@@ -11771,6 +11771,7 @@ def build_shareholding_pattern_table(holdings_rows, limit=8):
 
 def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fundamentals_bundle):
     ratio_rows = (fundamentals_bundle or {}).get("key_ratios") or []
+    profile_data = (fundamentals_bundle or {}).get("profile") or {}
     quarterly_income_rows = (fundamentals_bundle or {}).get("quarterly_income_statement") or []
     ratio_map = {str(row.get("name") or "").strip().upper(): row for row in ratio_rows}
 
@@ -11793,6 +11794,12 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
     roce_value = parse_numeric_text((ratio_map.get("ROCE") or {}).get("company_value"))
     dividend_yield_value = screener_snapshot.get("dividend_yield_pct")
     market_cap_value = screener_snapshot.get("market_cap_inr")
+    market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
+    if market_cap_display in {"Source Pending", "Pending", "-", ""}:
+        market_cap_display = (
+            get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
+            or "Source Pending"
+        )
     np_value, np_entry = get_latest_row_value(["net_profit", "profit_after_tax", "pat"])
     sales_value, sales_entry = get_latest_row_value(["revenue", "sales"])
 
@@ -11800,7 +11807,7 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
         "company": company_name,
         "cmp": format_price(last_price_numeric) if last_price_numeric not in (None, 0) else "-",
         "pe": f"{pe_value:.2f}" if pe_value is not None else "-",
-        "market_cap": format_crore_display(market_cap_value / 10000000.0) if market_cap_value is not None else "Source Pending",
+        "market_cap": format_crore_display(market_cap_value / 10000000.0) if market_cap_value is not None else market_cap_display,
         "dividend_yield": f"{dividend_yield_value:.2f}%" if dividend_yield_value is not None else "-",
         "roe": f"{roe_value:.2f}%" if roe_value is not None else "-",
         "np_qtr": format_statement_cell(np_value),
@@ -22514,6 +22521,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 return value
         return None
 
+    def _has_usable_text(value):
+        text = str(value or "").strip()
+        return bool(text and text not in {"Pending", "Source Pending", "Retry Pending", "-", "Data updating"})
+
     def _peer_row_has_data(row):
         if not row or len(row) < 2:
             return False
@@ -22676,10 +22687,51 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "public": round(public, 2),
         }, table_payload
 
+    def _derive_shareholding_from_holdings(holdings_rows, fallback_shareholding):
+        if not holdings_rows:
+            return fallback_shareholding, None
+        mapping = {
+            "promoter holding": "promoters",
+            "fii holding": "fiis",
+            "dii holding": "diis",
+            "retail & other": "public",
+        }
+        snapshot = dict(fallback_shareholding or {})
+        period_label = ""
+        recovered = 0
+        synthetic_rows = []
+        for item in holdings_rows:
+            label = str(item.get("label") or "").strip().lower()
+            target_key = mapping.get(label)
+            if not target_key:
+                continue
+            numeric = parse_numeric_text(item.get("value"))
+            if numeric is None:
+                continue
+            snapshot[target_key] = round(numeric, 2)
+            recovered += 1
+            if not period_label:
+                period_label = str(item.get("note") or "").strip()
+        if recovered < 4:
+            return fallback_shareholding, None
+        synthetic_rows = [
+            {"label": "Promoters", "values": [f"{snapshot['promoters']:.2f}%"]},
+            {"label": "FIIs", "values": [f"{snapshot['fiis']:.2f}%"]},
+            {"label": "DIIs", "values": [f"{snapshot['diis']:.2f}%"]},
+            {"label": "Public", "values": [f"{snapshot['public']:.2f}%"]},
+        ]
+        return snapshot, {
+            "columns": [period_label or "Latest verified snapshot"],
+            "rows": synthetic_rows,
+            "empty_message": "",
+        }
+
     try:
         live_context = build_stock_page_context(sample["symbol"], host_root)
         live_stock = live_context.get("stock") or {}
         live_financial_metrics = live_context.get("financial_metrics") or []
+        live_holdings_deals = live_context.get("holdings_deals") or []
+        live_ownership_watch_rows = live_context.get("ownership_watch_rows") or []
         live_shareholding_table = live_context.get("shareholding_pattern_table") or {}
         live_peer_rows = live_context.get("peer_comparison_rows") or []
         live_overview_metrics = live_context.get("overview_metrics") or []
@@ -22690,8 +22742,13 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         live_disclosure_links = live_context.get("disclosure_links") or []
         live_research_notes = live_context.get("research_notes") or []
         live_shareholding, resolved_shareholding_table = _derive_shareholding_snapshot(live_shareholding_table, sample.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0})
+        if not resolved_shareholding_table:
+            live_shareholding, resolved_shareholding_table = _derive_shareholding_from_holdings(
+                live_holdings_deals,
+                live_shareholding,
+            )
         sample["shareholding"] = live_shareholding
-        sample["shareholding_available"] = bool(resolved_shareholding_table) or is_curated_sample
+        sample["shareholding_available"] = bool(resolved_shareholding_table) or any(_has_usable_text(item.get("value")) for item in live_holdings_deals) or is_curated_sample
 
         if live_stock.get("company_name"):
             sample["company_name"] = live_stock["company_name"]
@@ -22792,14 +22849,26 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     populated_peer_rows.append(candidate_row)
             if populated_peer_rows:
                 sample["peers"] = populated_peer_rows[:4]
-            sample["related"] = [
-                (
-                    row.get("company") or "Peer",
-                    f"/stocks/research/{slugify_stock_search_term(row.get('company') or 'peer')}",
+            related_candidates = []
+            for row in live_peer_rows[1:8]:
+                company_name = str(row.get("company") or "").strip()
+                if not company_name or not _peer_row_has_data((
+                    company_name,
+                    row.get("market_cap"),
+                    row.get("pe"),
+                    row.get("roe"),
+                    row.get("roce"),
+                    row.get("dividend_yield"),
+                )):
+                    continue
+                related_candidates.append(
+                    (
+                        company_name,
+                        f"/stocks/research/{slugify_stock_search_term(company_name)}",
+                    )
                 )
-                for row in live_peer_rows[1:6]
-                if (row.get("company") or "").strip()
-            ] or sample.get("related") or []
+            if related_candidates:
+                sample["related"] = related_candidates[:5]
         sample["peer_data_available"] = any(_peer_row_has_data(row) for row in sample.get("peers", []))
 
         if not is_curated_sample and live_overview_metrics:
@@ -23036,9 +23105,40 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                     "insight": "Institutional activity is currently using the latest available ownership snapshot and a restored quarter view because historical quarter-wise rows are not available from the active source.",
                 }
             else:
+                synthetic_rows = []
+                if live_ownership_watch_rows:
+                    latest_period_note = ""
+                    latest_row = {"Promoter": "Data updating", "FII": "Data updating", "DII": "Data updating", "Retail & Other": "Data updating"}
+                    previous_row = {"Promoter": "Data updating", "FII": "Data updating", "DII": "Data updating", "Retail & Other": "Data updating"}
+                    for item in live_ownership_watch_rows:
+                        category = str(item.get("category") or "").strip()
+                        if category not in latest_row:
+                            continue
+                        latest_row[category] = _premium_placeholder(item.get("current") or "Data updating")
+                        previous_row[category] = _premium_placeholder(item.get("previous") or "Data updating")
+                        if not latest_period_note:
+                            latest_period_note = str(item.get("note") or "").strip()
+                    if any(_has_usable_text(value) for value in latest_row.values()):
+                        synthetic_rows.append((
+                            "Latest",
+                            latest_row["FII"],
+                            latest_row["DII"],
+                            latest_row["Promoter"],
+                            previous_row["Retail & Other"] if not _has_usable_text(latest_row["Retail & Other"]) else latest_row["Retail & Other"],
+                            "Snapshot",
+                        ))
+                    if any(_has_usable_text(value) for value in previous_row.values()):
+                        synthetic_rows.append((
+                            "Previous",
+                            previous_row["FII"],
+                            previous_row["DII"],
+                            previous_row["Promoter"],
+                            previous_row["Retail & Other"],
+                            "Prior",
+                        ))
                 sample["institutional_activity"] = {
-                    "rows": [],
-                    "insight": "Institutional activity is updating for this stock. TraderHub will show quarter-wise ownership once the verified source is available.",
+                    "rows": synthetic_rows,
+                    "insight": "Institutional activity is updating for this stock. TraderHub is showing the latest verified ownership watch where available and will restore quarter-wise history once the source is available.",
                 }
 
         sample["institutional_activity"]["available"] = _institutional_rows_have_data((sample.get("institutional_activity") or {}).get("rows") or [])
@@ -23598,7 +23698,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         <div class="logo-placeholder">{{ stock.symbol[:2] }}</div>
         <div>
           <h1>{{ stock.company_name }}</h1>
-          <div class="ticker">{{ stock.symbol }} • {{ stock.exchange }}</div>
+          <div class="ticker">{{ stock.symbol }} &bull; {{ stock.exchange }}</div>
         </div>
         <div class="price-line">
           <strong>{{ stock.price }}</strong>
@@ -23778,7 +23878,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
         </div>
         {% endif %}
       </div>
-      <div class="overview-illustration">Business Mix Illustration Area<br>Retail • Energy • Digital • Telecom</div>
+      <div class="overview-illustration">Business Mix Illustration Area<br>Use this space for company segments, major business lines, or investor presentation visuals.</div>
     </section>
 
     <section class="section">
@@ -23879,7 +23979,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       <h2>Investment Checklist</h2>
       <div class="checklist-grid">
         {% for label, state in stock.checklist %}
-        <div class="check-item">{% if state %}✓{% else %}•{% endif %} {{ label }}</div>
+        <div class="check-item">{% if state %}✓{% else %}&bull;{% endif %} {{ label }}</div>
         {% endfor %}
       </div>
     </section>
