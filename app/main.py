@@ -11503,9 +11503,22 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
     pb_numeric = parse_numeric_text((ratio_map.get("P/B") or {}).get("company_value"))
     screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
     market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
+    if market_cap_display in {"Source Pending", "Pending", "-", ""}:
+        market_cap_display = (
+            get_upstox_profile_metric_display(
+                profile_data,
+                ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
+            )
+            or get_upstox_nested_metric_display(
+                profile_data,
+                ["company_market_cap_inr", "market_cap_inr", "market_cap", "market_capitalisation", "market_capitalization"],
+            )
+            or "Source Pending"
+        )
     eps_value = screener_snapshot.get("eps_value")
     pe_numeric = screener_snapshot.get("pe_value")
     shares_issued = screener_snapshot.get("shares_issued")
+    dividend_yield_pct = screener_snapshot.get("dividend_yield_pct")
 
     book_value = None
     if shareholder_equity_value not in (None, 0) and shares_issued not in (None, 0):
@@ -11514,6 +11527,11 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
         book_value = last_price_numeric / pb_numeric
 
     financial_metrics = [
+        {
+            "label": "Market Cap",
+            "value": market_cap_display,
+            "subtext": "Primary market-cap reading from the active fundamentals source.",
+        },
         {
             "label": "Sales Growth",
             "value": (revenue_entry or {}).get("change") or "Source Pending",
@@ -11552,6 +11570,11 @@ def build_upstox_financial_sections(isin, symbol, last_price_numeric):
             "label": "Operating Margin",
             "value": f"{operating_margin_value:.2f}%" if operating_margin_value is not None else "Source Pending",
             "subtext": "Computed from latest operating profit and revenue history when available.",
+        },
+        {
+            "label": "Dividend Yield",
+            "value": f"{dividend_yield_pct:.2f}%" if dividend_yield_pct is not None else "Source Pending",
+            "subtext": "Yield reading from the current fundamentals source or derived from annual dividend per share.",
         },
     ]
     if debt_equity_value:
@@ -11919,8 +11942,10 @@ def build_upstox_stock_research_tables(isin, symbol, company_name, fundamentals_
     )
     ratios_history_rows = []
     for row_name, label in [
+        ("P/E", "P/E"),
         ("ROCE", "ROCE %"),
         ("ROE", "ROE %"),
+        ("DIVIDEND YIELD", "Dividend Yield"),
         ("DEBT/EQUITY", "Debt / Equity"),
         ("CURRENT RATIO", "Current Ratio"),
         ("INTEREST COVERAGE", "Interest Coverage"),
@@ -11948,7 +11973,7 @@ def build_upstox_stock_research_tables(isin, symbol, company_name, fundamentals_
                 entry = history_map.get(period) or {}
                 raw_value = entry.get("value") if "value" in entry else entry.get("company_value")
                 numeric_value = parse_numeric_text(raw_value)
-                if item["label"].endswith("%"):
+                if item["label"].endswith("%") or item["label"] == "Dividend Yield":
                     display = f"{numeric_value:.2f}%" if numeric_value is not None else (str(raw_value).strip() or "-")
                 else:
                     display = format_statement_cell(numeric_value if numeric_value is not None else raw_value)
@@ -22774,7 +22799,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["status"] = "Market Live" if is_market_open() else "Market Closed"
         sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
 
-        market_cap_value = live_stock.get("market_cap") or "Source Pending"
+        market_cap_metric_value, _ = _get_metric_value(live_financial_metrics, "Market Cap")
+        market_cap_value = _first_usable_value(live_stock.get("market_cap"), market_cap_metric_value) or "Source Pending"
         pe_value = None
         dividend_yield_value = None
         roce_value, _ = _get_metric_value(live_financial_metrics, "ROCE")
@@ -23979,7 +24005,7 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
       <h2>Investment Checklist</h2>
       <div class="checklist-grid">
         {% for label, state in stock.checklist %}
-        <div class="check-item">{% if state %}✓{% else %}&bull;{% endif %} {{ label }}</div>
+        <div class="check-item">{% if state %}&#10003;{% else %}&bull;{% endif %} {{ label }}</div>
         {% endfor %}
       </div>
     </section>
