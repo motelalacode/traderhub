@@ -21975,6 +21975,50 @@ def slugify_stock_search_term(raw_text):
     return value or "reliance-industries"
 
 
+def build_stock_search_suggestions(query, limit=8):
+    master = load_symbol_master()
+    by_symbol = master.get("by_symbol", {}) or {}
+    cleaned_query = str(query or "").strip()
+    if not cleaned_query:
+        return []
+
+    normalized_query = normalize_lookup_value(cleaned_query)
+    rows = []
+    for symbol, payload in by_symbol.items():
+        security = str((payload or {}).get("security") or symbol).strip()
+        exchange = str((payload or {}).get("exchange") or "NSE").strip() or "NSE"
+        sector = get_symbol_sector_lookup().get(symbol, "Indian Equities")
+        searchable_name = normalize_lookup_value(security)
+        searchable_symbol = normalize_lookup_value(symbol)
+        score = None
+        if searchable_symbol == normalized_query:
+            score = 0
+        elif searchable_name == normalized_query:
+            score = 1
+        elif searchable_symbol.startswith(normalized_query):
+            score = 2
+        elif searchable_name.startswith(normalized_query):
+            score = 3
+        elif normalized_query in searchable_symbol:
+            score = 4
+        elif normalized_query in searchable_name:
+            score = 5
+        if score is None:
+            continue
+        rows.append(
+            {
+                "name": prettify_company_name(security, symbol),
+                "symbol": symbol,
+                "exchange": exchange,
+                "sector": sector.split(" / ")[0] if " / " in sector else sector,
+                "slug": slugify_stock_search_term(security),
+                "_score": score,
+            }
+        )
+    rows.sort(key=lambda item: (item["_score"], len(item["name"]), item["name"]))
+    return [{key: value for key, value in row.items() if key != "_score"} for row in rows[:limit]]
+
+
 PREMIUM_STOCK_SAMPLE_MAP = {
     "reliance-industries": {
         "company_name": "Reliance Industries Ltd",
@@ -22823,9 +22867,9 @@ def build_premium_stocks_hub_context(host_root):
         "popular_chips": ["Reliance", "TCS", "Infosys", "HDFC Bank", "ITC", "SBI"],
         "trust_line": "5000+ Indian stocks • AI Score • Dividend History • Peer Comparison • Investment Checklist",
         "autocomplete_rows": [
-            {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy"},
-            {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT"},
-            {"name": "Infosys Ltd", "symbol": "INFY", "exchange": "NSE", "sector": "IT"},
+            {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy", "slug": "reliance-industries"},
+            {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT", "slug": "tata-consultancy-services"},
+            {"name": "Infosys Ltd", "symbol": "INFY", "exchange": "NSE", "sector": "IT", "slug": "infosys"},
         ],
         "research_cards": [
             {"title": "AI Score", "icon": "AI", "copy": "Read a quick TraderHub conviction layer before going deeper."},
@@ -22879,6 +22923,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
     .chip-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
     .trust-line{margin:16px auto 0;max-width:900px;color:var(--muted);font-size:14px;font-weight:700;line-height:1.8}
     .autocomplete-shell{max-width:900px;margin:14px auto 0;padding:12px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 34px rgba(15,23,42,.05);text-align:left}
+    .autocomplete-shell.is-hidden{display:none}
     .autocomplete-row{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px}.autocomplete-row + .autocomplete-row{border-top:1px solid var(--line)}.autocomplete-row strong{display:block;font-size:15px}.autocomplete-row span{color:var(--muted);font-size:13px}
     .section{margin-top:30px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}
     .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
@@ -22904,8 +22949,8 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       <div class="eyebrow">Premium Stock Research</div>
       <h1>Search Any Indian Stock in Seconds</h1>
       <p>Find stock price, AI score, valuation, dividend, financials, peer comparison and investment checklist in one clean research page.</p>
-      <form class="search-shell" action="/stocks/search" method="get">
-        <input type="text" name="q" placeholder="Search Reliance, TCS, Infosys, HDFC Bank...">
+      <form class="search-shell" action="/stocks/search" method="get" autocomplete="off">
+        <input type="text" id="stocks-search-input" name="q" placeholder="Search Reliance, TCS, Infosys, HDFC Bank...">
         <button class="btn" type="submit">Search Stock</button>
       </form>
       <div class="trust-line">{{ trust_line }}</div>
@@ -22914,15 +22959,15 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
         <a class="chip" href="/stocks/search?q={{ chip|urlencode }}">{{ chip }}</a>
         {% endfor %}
       </div>
-      <div class="autocomplete-shell">
+      <div class="autocomplete-shell" id="stocks-autocomplete-shell">
         {% for row in autocomplete_rows %}
-        <div class="autocomplete-row">
+        <a class="autocomplete-row" href="/stocks/research/{{ row.slug }}">
           <div>
             <strong>{{ row.name }}</strong>
             <span>{{ row.symbol }} • {{ row.exchange }} • {{ row.sector }}</span>
           </div>
           <div><span>Press Enter to open stock report</span></div>
-        </div>
+        </a>
         {% endfor %}
       </div>
     </section>
@@ -23008,6 +23053,61 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       <div class="disclaimer">{{ disclaimer }}</div>
     </section>
   </div>
+  <script>
+    (function () {
+      const input = document.getElementById("stocks-search-input");
+      const shell = document.getElementById("stocks-autocomplete-shell");
+      if (!input || !shell) return;
+
+      const renderRows = (rows) => {
+        if (!Array.isArray(rows) || !rows.length) {
+          shell.classList.add("is-hidden");
+          return;
+        }
+        shell.innerHTML = rows.map((row) => {
+          const label = `${row.symbol || ""} • ${row.exchange || "NSE"} • ${row.sector || "Indian Equities"}`;
+          const href = `/stocks/research/${row.slug || ""}`;
+          return `<a class="autocomplete-row" href="${href}">
+            <div>
+              <strong>${row.name || ""}</strong>
+              <span>${label}</span>
+            </div>
+            <div><span>Open Report</span></div>
+          </a>`;
+        }).join("");
+        shell.classList.remove("is-hidden");
+      };
+
+      let timer = null;
+      input.addEventListener("input", function () {
+        const query = input.value.trim();
+        window.clearTimeout(timer);
+        if (query.length < 2) {
+          shell.classList.remove("is-hidden");
+          return;
+        }
+        timer = window.setTimeout(async function () {
+          try {
+            const response = await fetch(`/api/stocks/suggest?q=${encodeURIComponent(query)}`, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+            const payload = await response.json();
+            renderRows(payload.rows || []);
+          } catch (error) {
+            shell.classList.add("is-hidden");
+          }
+        }, 140);
+      });
+
+      input.addEventListener("blur", function () {
+        window.setTimeout(() => shell.classList.add("is-hidden"), 180);
+      });
+
+      input.addEventListener("focus", function () {
+        if (input.value.trim().length < 2) {
+          shell.classList.remove("is-hidden");
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
 """
@@ -45336,6 +45436,12 @@ def public_stocks_hub_page():
 def public_stocks_search_redirect():
     query = request.args.get("q", "")
     return redirect(f"/stocks/research/{slugify_stock_search_term(query)}")
+
+
+@app.route("/api/stocks/suggest")
+def public_stock_suggestions_api():
+    query = request.args.get("q", "")
+    return jsonify({"rows": build_stock_search_suggestions(query, limit=8)})
 
 
 @app.route("/stocks/research/<stock_slug>")
