@@ -23903,7 +23903,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["ai_summary"] = {
             "copy": f"TraderHub AI suggests that {sample['company_name']} is showing {valuation_text.lower()} characteristics with {dividend_text.lower()} and a debt profile near {debt_text}. Long-term investors may wait for stronger alignment with the accumulation zone, while short-term traders should still confirm momentum and volume behavior before acting.",
             "confidence": "82%" if live_peer_rows else "68%",
-            "time_horizon": "1ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“3 years",
+            "time_horizon": "1-3 years",
             "risk": sample.get("risk") or "Moderate",
             "best_for": "Value + Dividend investors" if dividend_yield_value not in {None, "Pending", "-"} else "Long-term quality investors",
         }
@@ -24023,7 +24023,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         {
             "copy": f"TraderHub AI suggests that {sample['company_name']} is financially stable with reasonable dividend support, but current valuation is slightly above its fair value range. Long-term investors may wait for better entry near the accumulation zone. Short-term traders should monitor price momentum and volume confirmation.",
             "confidence": "78%",
-            "time_horizon": "1ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“3 years",
+            "time_horizon": "1-3 years",
             "risk": sample.get("risk") or "Moderate",
             "best_for": "Value + Dividend investors",
         },
