@@ -1,3 +1,4 @@
+import copy
 import datetime
 import html as html_lib
 import json
@@ -23366,8 +23367,131 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         "nav_links": build_trial_home_nav_links(),
         "stock": sample,
         "shareholding_style": shareholding_style,
+        "sample_notice": "",
         "public_head_injection": build_public_ops_head_injection(),
     }
+
+
+RESEARCH_SCRAPE_SAMPLE_OVERRIDES = {
+    "hdfc-bank": {
+        "shareholding": {"promoters": 0.0, "fiis": 44.0, "diis": 29.6, "public": 26.4},
+        "dividend": {
+            "yield": "1.33%",
+            "payout": "20.90%",
+            "annual": "INR 22.00",
+            "ex_date": "27 Jun 2025",
+            "growth": "11.60%",
+        },
+        "peers": [
+            ("HDFC Bank Ltd", "INR 12.10 Lakh Cr", "14.55", "13.52%", "7.90%", "1.33%"),
+            ("ICICI Bank Ltd", "INR 10.08 Lakh Cr", "18.84", "17.45%", "8.66%", "0.77%"),
+            ("Axis Bank Ltd", "INR 4.06 Lakh Cr", "13.11", "16.11%", "7.48%", "0.09%"),
+            ("Kotak Mahindra Bank Ltd", "INR 4.10 Lakh Cr", "18.96", "15.34%", "6.92%", "0.10%"),
+        ],
+        "institutional_rows": [
+            ("Q4 2026", "44.0%", "10.8%", "0.0%", "15.6%", "Stable"),
+            ("Q3 2025", "43.4%", "10.5%", "0.0%", "16.1%", "FII Buying"),
+            ("Q2 2025", "42.9%", "10.2%", "0.0%", "16.9%", "Accumulation"),
+            ("Q1 2025", "42.2%", "9.8%", "0.0%", "17.6%", "Improving"),
+        ],
+        "institutional_insight": "Fallback preview: quarter-wise ownership trend is reconstructed from planned exchange-style extraction so the premium page can keep research intent visible when the live fundamentals bundle is thin.",
+    },
+    "eternal": {
+        "shareholding": {"promoters": 0.0, "fiis": 23.7, "diis": 12.9, "public": 63.4},
+        "dividend": {
+            "yield": "0.00%",
+            "payout": "0.00%",
+            "annual": "No dividend",
+            "ex_date": "No recent dividend",
+            "growth": "Not applicable",
+        },
+        "peers": [
+            ("ETERNAL Limited", "INR 2.37 Lakh Cr", "660.00", "1.18%", "2.83%", "0.00%"),
+            ("Swiggy Ltd", "INR 79.40 K Cr", "Data updating", "Data updating", "Data updating", "0.00%"),
+            ("Info Edge (India) Ltd", "INR 1.03 Lakh Cr", "102.14", "5.24%", "6.88%", "0.29%"),
+            ("InterGlobe Aviation Ltd", "INR 1.69 Lakh Cr", "25.60", "40.85%", "30.23%", "0.00%"),
+        ],
+        "institutional_rows": [
+            ("Q4 2026", "23.7%", "12.9%", "0.0%", "63.4%", "Stable"),
+            ("Q3 2025", "23.1%", "12.4%", "0.0%", "64.5%", "Accumulation"),
+            ("Q2 2025", "22.5%", "11.8%", "0.0%", "65.7%", "Improving"),
+            ("Q1 2025", "21.9%", "11.2%", "0.0%", "66.9%", "Watch"),
+        ],
+        "institutional_insight": "Fallback preview: this ownership view shows how TraderHub can keep institutional context visible for new-economy stocks once exchange-level tables are extracted and cached.",
+    },
+}
+
+
+def build_premium_stock_research_sample_context(stock_slug, host_root):
+    context = build_premium_stock_detail_context(stock_slug, host_root)
+    stock = copy.deepcopy(context.get("stock") or {})
+    canonical_slug = get_canonical_stock_slug(stock.get("symbol") or "") or str(stock_slug or "").strip().lower()
+    overrides = RESEARCH_SCRAPE_SAMPLE_OVERRIDES.get(canonical_slug) or {}
+
+    metrics_map = {label: value for label, value in stock.get("metrics", [])}
+    if overrides:
+        if metrics_map.get("Market Cap") == "Data updating" and overrides.get("peers"):
+            metrics_map["Market Cap"] = overrides["peers"][0][1]
+        if metrics_map.get("Dividend Yield") == "Data updating" and overrides.get("dividend"):
+            metrics_map["Dividend Yield"] = overrides["dividend"].get("yield", "Data updating")
+        if metrics_map.get("Debt/Equity") == "Data updating":
+            metrics_map["Debt/Equity"] = "Fallback preview"
+        stock["metrics"] = list(metrics_map.items())
+
+        dividend = dict(stock.get("dividend") or {})
+        for key, value in (overrides.get("dividend") or {}).items():
+            if str(dividend.get(key) or "").strip() == "Data updating":
+                dividend[key] = value
+        stock["dividend"] = dividend
+
+        peer_rows = stock.get("peers") or []
+        if not any(_peer_row_has_data(row) for row in peer_rows) or all(
+            str(item or "").strip() in {"", "Data updating"} for row in peer_rows for item in row[1:]
+        ):
+            stock["peers"] = list(overrides.get("peers") or peer_rows)
+            stock["peer_data_available"] = True
+
+        if not stock.get("shareholding_available"):
+            stock["shareholding"] = dict(overrides.get("shareholding") or stock.get("shareholding") or {})
+            stock["shareholding_available"] = True
+
+        institutional = dict(stock.get("institutional_activity") or {})
+        if not institutional.get("available") or not _institutional_rows_have_data(institutional.get("rows") or []):
+            institutional["available"] = True
+            institutional["rows"] = list(overrides.get("institutional_rows") or [])
+            institutional["insight"] = overrides.get("institutional_insight") or institutional.get("insight") or ""
+            stock["institutional_activity"] = institutional
+
+    shareholding = stock.get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 100.0}
+    shareholding_style = (
+        f"conic-gradient(#2563EB 0 {shareholding.get('promoters', 0)}%, "
+        f"#10B981 {shareholding.get('promoters', 0)}% {shareholding.get('promoters', 0) + shareholding.get('fiis', 0)}%, "
+        f"#0EA5E9 {shareholding.get('promoters', 0) + shareholding.get('fiis', 0)}% {shareholding.get('promoters', 0) + shareholding.get('fiis', 0) + shareholding.get('diis', 0)}%, "
+        f"#E2E8F0 {shareholding.get('promoters', 0) + shareholding.get('fiis', 0) + shareholding.get('diis', 0)}% 100%)"
+    )
+    sample_url = f"{host_root.rstrip('/')}/stocks/research-sample/{canonical_slug}"
+    company_name = stock.get("company_name") or str(stock_slug or "").replace("-", " ").title()
+    context.update(
+        {
+            "seo_title": f"{company_name} Research Fallback Preview | TraderHub",
+            "seo_description": f"Sample TraderHub fallback preview for {company_name}, showing how weak research sections can be enriched before live rollout.",
+            "canonical_url": sample_url,
+            "schema_json": json.dumps(
+                {
+                    "@context": "https://schema.org",
+                    "@type": "WebPage",
+                    "name": f"{company_name} Research Fallback Preview | TraderHub",
+                    "description": f"Fallback preview page for weak stock research sections on {company_name}.",
+                    "url": sample_url,
+                },
+                indent=2,
+            ),
+            "stock": stock,
+            "shareholding_style": shareholding_style,
+            "sample_notice": "Research fallback preview only: this sample route shows how weak sections like dividend, peer comparison, and institutional activity could look after NSE/BSE/IR-style extraction and caching. The live premium page is unchanged.",
+        }
+    )
+    return context
 
 
 def build_premium_stocks_hub_context(host_root):
@@ -23763,6 +23887,9 @@ PREMIUM_STOCK_DETAIL_TEMPLATE = """
     </nav>
 
     <div class="breadcrumb">Home &gt; Stocks &gt; {{ stock.company_name }}</div>
+    {% if sample_notice %}
+    <div class="institutional-note" style="margin-top:14px;">{{ sample_notice }}</div>
+    {% endif %}
 
     <section class="hero-grid">
       <article class="card hero-main">
@@ -46066,6 +46193,16 @@ def premium_stock_detail_page(stock_slug):
         if str(stock_slug or "").strip().lower() != canonical_slug:
             return redirect(f"/stocks/research/{canonical_slug}")
     return render_template_string(PREMIUM_STOCK_DETAIL_TEMPLATE, **build_premium_stock_detail_context(stock_slug, request.url_root.rstrip("/")))
+
+
+@app.route("/stocks/research-sample/<stock_slug>")
+def premium_stock_detail_sample_page(stock_slug):
+    symbol = resolve_stock_symbol_from_slug(stock_slug)
+    if symbol:
+        canonical_slug = get_canonical_stock_slug(symbol)
+        if str(stock_slug or "").strip().lower() != canonical_slug:
+            return redirect(f"/stocks/research-sample/{canonical_slug}")
+    return render_template_string(PREMIUM_STOCK_DETAIL_TEMPLATE, **build_premium_stock_research_sample_context(stock_slug, request.url_root.rstrip("/")))
 
 
 @app.route("/screeners")
