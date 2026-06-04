@@ -9026,11 +9026,11 @@ def format_price(value):
 def sanitize_market_text(value):
     text = str(value or "")
     replacements = {
+        "ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹": "INR ",
         "Ã¢â€šÂ¹": "INR ",
-        "â‚¹": "INR ",
-        "Ã¢â‚¬Â¢": " â€¢ ",
-        "Ã¢â‚¬â€œ": "-",
-        "Ã¢â‚¬â€": "-",
+        "ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢": " Ã¢â‚¬Â¢ ",
+        "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“": "-",
+        "ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â": "-",
     }
     for source, target in replacements.items():
         text = text.replace(source, target)
@@ -17025,7 +17025,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
           <h1>Arbitrage Live</h1>
           <p class="sub">
             A real-money arbitrage assistant for your own Zerodha account. The scanner keeps the same approved formula, then hands both legs
-            to Zerodhaâ€™s official basket confirmation screen so you can review and place the paired trade manually without unattended execution.
+            to ZerodhaÃ¢â‚¬â„¢s official basket confirmation screen so you can review and place the paired trade manually without unattended execution.
           </p>
           <div class="meta">
             <div class="pill">Capital: {{ capital_display }}</div>
@@ -17218,7 +17218,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
             </div>
           </div>
           <div class="desk-note">
-            This is one arbitrage action with two exchange legs. The button below opens Zerodhaâ€™s official basket review in a new tab so you can confirm both legs together.
+            This is one arbitrage action with two exchange legs. The button below opens ZerodhaÃ¢â‚¬â„¢s official basket review in a new tab so you can confirm both legs together.
           </div>
           <form id="{{ setup.form_id }}" method="post" action="https://kite.zerodha.com/connect/basket" target="_blank">
             <input type="hidden" name="api_key" value="{{ kite_api_key }}">
@@ -17296,7 +17296,7 @@ ARBITRAGE_LIVE_TEMPLATE = """
         </div>
         <div>
           <div class="notice-title">No Live Trades Logged Yet</div>
-          <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of todayâ€™s live arbitrage flow without losing the scanner context.</div>
+          <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of todayÃ¢â‚¬â„¢s live arbitrage flow without losing the scanner context.</div>
         </div>
       </div>
       {% endif %}
@@ -17724,7 +17724,7 @@ def render_arbitrage_live_partials(context):
                   </div>
                 </div>
               </div>
-              <div class="desk-note">This is one arbitrage action with two exchange legs. The button below opens Zerodhaâ€™s official basket review in a new tab so you can confirm both legs together.</div>
+              <div class="desk-note">This is one arbitrage action with two exchange legs. The button below opens ZerodhaÃ¢â‚¬â„¢s official basket review in a new tab so you can confirm both legs together.</div>
               <form id="{{ setup.form_id }}" method="post" action="https://kite.zerodha.com/connect/basket" target="_blank">
                 <input type="hidden" name="api_key" value="{{ kite_api_key }}">
                 <input type="hidden" name="data" value='{{ setup.basket_payload|e }}'>
@@ -17802,7 +17802,7 @@ def render_arbitrage_live_partials(context):
             </div>
             <div>
               <div class="notice-title">No Live Trades Logged Yet</div>
-              <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of todayâ€™s live arbitrage flow without losing the scanner context.</div>
+              <div class="notice-copy">Once you launch a paired execution from this page, it will appear here so you can keep track of todayÃ¢â‚¬â„¢s live arbitrage flow without losing the scanner context.</div>
             </div>
           </div>
         {% endif %}
@@ -19065,8 +19065,8 @@ def get_stock_hub_sample_context():
         "ltp": "1,768.40",
         "change_rupees": "+18.15",
         "change_pct": "+1.04%",
-        "market_cap": "â‚¹10.6 L Cr",
-        "range_52w": "â‚¹1,066 - â‚¹1,912",
+        "market_cap": "Ã¢â€šÂ¹10.6 L Cr",
+        "range_52w": "Ã¢â€šÂ¹1,066 - Ã¢â€šÂ¹1,912",
         "vwap": "1,754.80",
         "prev_close": "1,750.25",
     }
@@ -19133,15 +19133,15 @@ def get_stock_hub_sample_context():
             {"label": "ROE", "value": "17.6%", "subtext": "Comfortable profitability profile"},
             {"label": "ROCE", "value": "15.9%", "subtext": "Useful for capital efficiency comparison"},
             {"label": "Debt / Equity", "value": "1.62", "subtext": "Important to compare with telecom peer set"},
-            {"label": "Book Value", "value": "â‚¹233.40", "subtext": "Balance sheet anchor"},
-            {"label": "EPS (TTM)", "value": "â‚¹31.90", "subtext": "Core profitability metric"},
+            {"label": "Book Value", "value": "Ã¢â€šÂ¹233.40", "subtext": "Balance sheet anchor"},
+            {"label": "EPS (TTM)", "value": "Ã¢â€šÂ¹31.90", "subtext": "Core profitability metric"},
             {"label": "Operating Margin", "value": "24.7%", "subtext": "Operational quality snapshot"},
         ],
         "peers": [
-            {"company": "Bharti Airtel", "market_cap": "â‚¹10.6 L Cr", "pe": "55.4", "roe": "17.6%", "de_ratio": "1.62", "return_1y": "+41.8%"},
+            {"company": "Bharti Airtel", "market_cap": "Ã¢â€šÂ¹10.6 L Cr", "pe": "55.4", "roe": "17.6%", "de_ratio": "1.62", "return_1y": "+41.8%"},
             {"company": "Reliance Jio proxy", "market_cap": "N/A", "pe": "N/A", "roe": "N/A", "de_ratio": "N/A", "return_1y": "N/A"},
-            {"company": "Vodafone Idea", "market_cap": "â‚¹89.7 K Cr", "pe": "Loss", "roe": "Negative", "de_ratio": "High", "return_1y": "-22.4%"},
-            {"company": "Tata Communications", "market_cap": "â‚¹52.1 K Cr", "pe": "41.8", "roe": "18.1%", "de_ratio": "0.19", "return_1y": "+12.5%"},
+            {"company": "Vodafone Idea", "market_cap": "Ã¢â€šÂ¹89.7 K Cr", "pe": "Loss", "roe": "Negative", "de_ratio": "High", "return_1y": "-22.4%"},
+            {"company": "Tata Communications", "market_cap": "Ã¢â€šÂ¹52.1 K Cr", "pe": "41.8", "roe": "18.1%", "de_ratio": "0.19", "return_1y": "+12.5%"},
         ],
         "holdings_deals": [
             {"label": "Promoter Holding", "value": "53.1%", "note": "Stable promoter control profile"},
@@ -20281,7 +20281,7 @@ def build_stock_page_context(symbol, host_root):
                     if not peer_isin:
                         continue
                     peer_bundle = get_upstox_fundamentals_bundle(peer_isin)
-                    peer_price_numeric = parse_numeric_text(str(peer.get("current_price") or "").replace("â‚¹", "").replace(",", ""))
+                    peer_price_numeric = parse_numeric_text(str(peer.get("current_price") or "").replace("Ã¢â€šÂ¹", "").replace(",", ""))
                     peer_comparison_rows.append(
                         build_stock_peer_comparison_row(peer_match_symbol, peer_name, peer_price_numeric, peer_bundle)
                     )
@@ -20782,7 +20782,7 @@ def build_ipo_hub_context(host_root):
         "seo_description": "Track current IPOs, upcoming IPOs, listing-soon issues, timelines, and phase-1 public IPO research pages in TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "IPO Dashboard | TraderHub", "description": "Public IPO dashboard for current and upcoming issues.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "IPO â€º Public Dashboard",
+        "breadcrumb_text": "IPO Ã¢â‚¬Âº Public Dashboard",
         "breadcrumb_meta_text": f"Phase 1 IPO module | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub IPO Module",
         "hero_title": "IPO Dashboard",
@@ -20824,7 +20824,7 @@ def build_ipo_list_context(host_root, list_mode):
         "seo_description": f"Browse {list_title.lower()} with key dates, price bands, lot sizes, and public IPO page links in TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": f"{list_title} | TraderHub", "description": f"Public IPO list page for {list_title.lower()}.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": f"IPO â€º {list_title}",
+        "breadcrumb_text": f"IPO Ã¢â‚¬Âº {list_title}",
         "breadcrumb_meta_text": f"Phase 1 IPO list | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub IPO List",
         "hero_title": list_title,
@@ -20860,7 +20860,7 @@ def build_ipo_detail_context(issue, host_root):
         "seo_description": f"Track {issue['name']} with open date, close date, price band, lot size, listing timeline, strengths, risks, and public IPO research structure in TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{issue['name']} | TraderHub IPO", "description": f"Public IPO detail page for {issue['name']}.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": f"IPO â€º {issue['segment']} â€º {issue['name']}",
+        "breadcrumb_text": f"IPO Ã¢â‚¬Âº {issue['segment']} Ã¢â‚¬Âº {issue['name']}",
         "breadcrumb_meta_text": f"Phase 1 IPO page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub IPO Research",
         "hero_title": issue["name"],
@@ -21969,7 +21969,7 @@ def build_market_news_context(host_root, mode):
         "seo_description": f"Read {title_label.lower()} with curated lead stories, watch sections, and market-moving context in TraderHub.",
         "canonical_url": f"{host_root.rstrip('/')}{route_path}",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{title_label} | TraderHub", "description": f"Public market news page for {title_label.lower()}.", "url": f"{host_root.rstrip('/')}{route_path}"}, indent=2),
-        "breadcrumb_text": f"Market News â€º {title_label}",
+        "breadcrumb_text": f"Market News Ã¢â‚¬Âº {title_label}",
         "breadcrumb_meta_text": f"Phase 1 public market news | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market News",
         "hero_title": block["hero_title"],
@@ -22130,7 +22130,7 @@ def build_public_info_context(host_root, slug):
         "seo_description": page["subtitle"],
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "AboutPage" if slug == "about" else "ContactPage" if slug == "contact" else "WebPage", "name": page["title"], "description": page["subtitle"], "url": canonical_url}, indent=2),
-        "breadcrumb_text": f"TraderHub â€º {page['title']}",
+        "breadcrumb_text": f"TraderHub Ã¢â‚¬Âº {page['title']}",
         "hero_title": page["title"],
         "hero_subtitle": page["subtitle"],
         "updated_label": updated_label,
@@ -22916,6 +22916,7 @@ def build_fundamentals_snapshot_from_live_context(symbol, live_context):
         latest_table_value(quarterly_results_table, ["Sales", "Revenue"]),
     ] if is_usable_stock_value(value)), "Data updating")
     net_profit = next((value for value in [
+        metric_any(["Profit", "Net Profit", "Profit After Tax", "PAT"]),
         latest_table_value(annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"]),
         latest_table_value(quarterly_results_table, ["Net Profit", "Profit After Tax", "PAT"]),
     ] if is_usable_stock_value(value)), "Data updating")
@@ -23503,6 +23504,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         annual_dividend_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Annual Dividend", "Dividend Per Share"])
         payout_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Dividend Payout", "Payout Ratio"])
         eps_value, _ = _get_metric_value_any(live_financial_metrics, ["EPS (TTM)", "EPS"])
+        profit_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Profit", "Net Profit", "Profit After Tax", "PAT"])
         book_value, _ = _get_metric_value_any(live_financial_metrics, ["Book Value", "Book value"])
         pe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["P/E", "PE", "PE RATIO"])
         roe_ratio_table_value = _get_latest_ratio_history_value(live_ratios_table, ["ROE", "ROE %"])
@@ -23638,7 +23640,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["financial_cards"] = [
             ("Revenue", _build_bar_series_from_values(revenue_values) or values, _format_currency_table_value(revenue_values[0]) if revenue_values else "Data updating")
             if title == "Revenue"
-            else ("Net Profit", _build_bar_series_from_values(profit_values) or values, _format_currency_table_value(profit_values[0]) if profit_values else "Data updating")
+            else ("Net Profit", _build_bar_series_from_values(profit_values) or values, _premium_placeholder(profit_metric_value or (_format_currency_table_value(profit_values[0]) if profit_values else "Data updating")))
             if title == "Net Profit"
             else ("EPS", _build_bar_series_from_values(eps_table_values) or values, _premium_placeholder((eps_table_values[0] if eps_table_values else eps_value) or "Data updating"))
             if title == "EPS"
@@ -23887,7 +23889,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         sample["ai_summary"] = {
             "copy": f"TraderHub AI suggests that {sample['company_name']} is showing {valuation_text.lower()} characteristics with {dividend_text.lower()} and a debt profile near {debt_text}. Long-term investors may wait for stronger alignment with the accumulation zone, while short-term traders should still confirm momentum and volume behavior before acting.",
             "confidence": "82%" if live_peer_rows else "68%",
-            "time_horizon": "1â€“3 years",
+            "time_horizon": "1Ã¢â‚¬â€œ3 years",
             "risk": sample.get("risk") or "Moderate",
             "best_for": "Value + Dividend investors" if dividend_yield_value not in {None, "Pending", "-"} else "Long-term quality investors",
         }
@@ -24007,7 +24009,7 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         {
             "copy": f"TraderHub AI suggests that {sample['company_name']} is financially stable with reasonable dividend support, but current valuation is slightly above its fair value range. Long-term investors may wait for better entry near the accumulation zone. Short-term traders should monitor price momentum and volume confirmation.",
             "confidence": "78%",
-            "time_horizon": "1â€“3 years",
+            "time_horizon": "1Ã¢â‚¬â€œ3 years",
             "risk": sample.get("risk") or "Moderate",
             "best_for": "Value + Dividend investors",
         },
@@ -24230,7 +24232,7 @@ def build_premium_stocks_hub_context(host_root):
         ),
         "nav_links": build_trial_home_nav_links(),
         "popular_chips": ["Reliance", "TCS", "Infosys", "HDFC Bank", "ITC", "SBI"],
-        "trust_line": "5000+ Indian stocks â€¢ AI Score â€¢ Dividend History â€¢ Peer Comparison â€¢ Investment Checklist",
+        "trust_line": "5000+ Indian stocks Ã¢â‚¬Â¢ AI Score Ã¢â‚¬Â¢ Dividend History Ã¢â‚¬Â¢ Peer Comparison Ã¢â‚¬Â¢ Investment Checklist",
         "autocomplete_rows": [
             {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy", "slug": "reliance-industries"},
             {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT", "slug": "tata-consultancy-services"},
@@ -24238,13 +24240,13 @@ def build_premium_stocks_hub_context(host_root):
         ],
         "research_cards": [
             {"title": "AI Score", "icon": "AI", "copy": "Read a quick TraderHub conviction layer before going deeper."},
-            {"title": "Fair Value", "icon": "â‚¹", "copy": "Check if price looks cheap, fair or stretched."},
-            {"title": "Price Chart", "icon": "ðŸ“ˆ", "copy": "Open timeframe views and trend structure in one place."},
+            {"title": "Fair Value", "icon": "Ã¢â€šÂ¹", "copy": "Check if price looks cheap, fair or stretched."},
+            {"title": "Price Chart", "icon": "Ã°Å¸â€œË†", "copy": "Open timeframe views and trend structure in one place."},
             {"title": "Dividend History", "icon": "%", "copy": "Track yield, payout consistency and ex-date context."},
-            {"title": "Financial Performance", "icon": "ðŸ“Š", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
-            {"title": "Peer Comparison", "icon": "âš–", "copy": "Compare valuation and quality side by side."},
-            {"title": "Risk Meter", "icon": "âš ", "copy": "See whether the stock suits low, moderate or higher risk."},
-            {"title": "Investment Checklist", "icon": "âœ“", "copy": "Get a simple investor-ready quality checklist fast."},
+            {"title": "Financial Performance", "icon": "Ã°Å¸â€œÅ ", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
+            {"title": "Peer Comparison", "icon": "Ã¢Å¡â€“", "copy": "Compare valuation and quality side by side."},
+            {"title": "Risk Meter", "icon": "Ã¢Å¡Â ", "copy": "See whether the stock suits low, moderate or higher risk."},
+            {"title": "Investment Checklist", "icon": "Ã¢Å“â€œ", "copy": "Get a simple investor-ready quality checklist fast."},
         ],
         "trending_searches": ["Reliance", "ITC", "TCS", "HDFC Bank", "Tata Motors", "Adani Ports"],
         "categories": [
@@ -24329,7 +24331,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
         <a class="autocomplete-row" href="/stocks/research/{{ row.slug }}">
           <div>
             <strong>{{ row.name }}</strong>
-            <span>{{ row.symbol }} â€¢ {{ row.exchange }} â€¢ {{ row.sector }}</span>
+            <span>{{ row.symbol }} Ã¢â‚¬Â¢ {{ row.exchange }} Ã¢â‚¬Â¢ {{ row.sector }}</span>
           </div>
           <div><span>Press Enter to open stock report</span></div>
         </a>
@@ -24374,7 +24376,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
             <h3>{{ card.title }}</h3>
             <p>Open this category inside TraderHub research flow.</p>
           </div>
-          <div class="feature-icon">â†’</div>
+          <div class="feature-icon">Ã¢â€ â€™</div>
         </a>
         {% endfor %}
       </div>
@@ -24430,7 +24432,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
           return;
         }
         shell.innerHTML = rows.map((row) => {
-          const label = `${row.symbol || ""} â€¢ ${row.exchange || "NSE"} â€¢ ${row.sector || "Indian Equities"}`;
+          const label = `${row.symbol || ""} Ã¢â‚¬Â¢ ${row.exchange || "NSE"} Ã¢â‚¬Â¢ ${row.sector || "Indian Equities"}`;
           const href = `/stocks/research/${row.slug || ""}`;
           return `<a class="autocomplete-row" href="${href}">
             <div>
@@ -29134,7 +29136,7 @@ def build_alerts_hub_context(host_root):
         "seo_description": "Track pre-market, post-market, stock movers, sector watch, and earnings watch in the TraderHub market alerts dashboard.",
         "canonical_url": f"{host_root.rstrip('/')}/market/alerts",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Alerts Dashboard | TraderHub", "description": "Public market alerts dashboard for TraderHub.", "url": f"{host_root.rstrip('/')}/market/alerts"}, indent=2),
-        "breadcrumb_text": "Market News â€º Alerts",
+        "breadcrumb_text": "Market News Ã¢â‚¬Âº Alerts",
         "breadcrumb_meta_text": f"Phase 3 alert-prep layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market Alerts",
         "hero_title": "Market Alerts Dashboard",
@@ -29339,7 +29341,7 @@ def build_alert_track_context(host_root, alert_slug):
         "seo_description": config["description"],
         "canonical_url": f"{host_root.rstrip('/')}/market/alerts/{alert_slug}",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": config["description"], "url": f"{host_root.rstrip('/')}/market/alerts/{alert_slug}"}, indent=2),
-        "breadcrumb_text": f"Market News â€º Alerts â€º {config['label']}",
+        "breadcrumb_text": f"Market News Ã¢â‚¬Âº Alerts Ã¢â‚¬Âº {config['label']}",
         "breadcrumb_meta_text": f"Phase 3 alert track | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Alert Track",
         "hero_title": config["label"],
@@ -29487,7 +29489,7 @@ def build_market_archive_hub_context(host_root):
         "seo_description": "Open TraderHub market archive days, stock archives, and sector archives from one public research hub.",
         "canonical_url": f"{host_root.rstrip('/')}/market/archive",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Archive Hub | TraderHub", "description": "Public market archive hub for TraderHub.", "url": f"{host_root.rstrip('/')}/market/archive"}, indent=2),
-        "breadcrumb_text": "Market News â€º Archive",
+        "breadcrumb_text": "Market News Ã¢â‚¬Âº Archive",
         "breadcrumb_meta_text": f"Phase 3 archive layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market Archive",
         "hero_title": "Archive Hub",
@@ -29599,7 +29601,7 @@ def build_market_archive_day_context(host_root, archive_day):
         "seo_description": f"Review TraderHub's market archive for {archive_day_label} with editorial market notes, linked movers, and dated public context.",
         "canonical_url": f"{host_root.rstrip('/')}/market/archive/{archive_day.isoformat()}",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"Market Archive for {archive_day_label} | TraderHub", "description": f"Public market archive page for {archive_day_label}.", "url": f"{host_root.rstrip('/')}/market/archive/{archive_day.isoformat()}"}, indent=2),
-        "breadcrumb_text": f"Market News â€º Archive â€º {archive_day_label}",
+        "breadcrumb_text": f"Market News Ã¢â‚¬Âº Archive Ã¢â‚¬Âº {archive_day_label}",
         "breadcrumb_meta_text": f"Phase 3 archive day | Last reviewed {today.isoformat()}",
         "hero_kicker": "TraderHub Market Archive",
         "hero_title": archive_day_label,
@@ -30196,7 +30198,7 @@ def build_stock_chart_trial2_context(symbol, host_root, range_key="1d"):
         change_pct = ((quote_last_price - prev_close) / prev_close * 100) if prev_close else 0.0
         change_rupees = quote_last_price - prev_close if prev_close else 0.0
         current_price = format_price(quote_last_price)
-        current_change = f"{change_rupees:+.2f} ({change_pct:.2f}%) {'â†‘' if change_pct > 0 else 'â†“' if change_pct < 0 else ''} today".strip()
+        current_change = f"{change_rupees:+.2f} ({change_pct:.2f}%) {'Ã¢â€ â€˜' if change_pct > 0 else 'Ã¢â€ â€œ' if change_pct < 0 else ''} today".strip()
         current_change_color = "#1a8a55" if change_pct > 0 else "#e15241" if change_pct < 0 else "#63788d"
         previous_close_display = format_price(prev_close)
         previous_close_label = f"Previous close {previous_close_display}"
@@ -30362,7 +30364,7 @@ def build_stock_news_archive_context(symbol, host_root):
         "seo_description": f"Review the public news archive for {company_name} with linked stories, filings, and official event boards in TraderHub.",
         "canonical_url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/news-archive",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{company_name} News Archive | TraderHub", "description": f"Public stock news archive for {company_name}.", "url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/news-archive"}, indent=2),
-        "breadcrumb_text": f"Stocks â€º {sector_label.split(' / ')[0]} â€º {symbol} â€º News Archive",
+        "breadcrumb_text": f"Stocks Ã¢â‚¬Âº {sector_label.split(' / ')[0]} Ã¢â‚¬Âº {symbol} Ã¢â‚¬Âº News Archive",
         "breadcrumb_meta_text": f"Phase 3 stock archive | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Stock Archive",
         "hero_title": f"{symbol} News Archive",
@@ -30454,7 +30456,7 @@ def build_sector_news_archive_context(sector_key, host_root):
         "seo_description": f"Review the public sector news archive for {sector_label} with linked company stories and theme-follow-up paths in TraderHub.",
         "canonical_url": f"{host_root.rstrip('/')}/sectors/{sector_slug}/news-archive",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{sector_label} News Archive | TraderHub", "description": f"Public sector archive for {sector_label}.", "url": f"{host_root.rstrip('/')}/sectors/{sector_slug}/news-archive"}, indent=2),
-        "breadcrumb_text": f"Sectors â€º {sector_label} â€º News Archive",
+        "breadcrumb_text": f"Sectors Ã¢â‚¬Âº {sector_label} Ã¢â‚¬Âº News Archive",
         "breadcrumb_meta_text": f"Phase 3 sector archive | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Sector Archive",
         "hero_title": f"{sector_label} Archive",
@@ -30709,7 +30711,7 @@ def build_market_trends_hub_context(host_root):
         "seo_description": "Explore TraderHub market trends grouped into bullish, bearish, earnings, and sector-rotation views for faster market reading.",
         "canonical_url": f"{host_root.rstrip('/')}/market/trends",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Market Trends | TraderHub", "description": "Public grouped market trends page for TraderHub.", "url": f"{host_root.rstrip('/')}/market/trends"}, indent=2),
-        "breadcrumb_text": "Market News â€º Trends",
+        "breadcrumb_text": "Market News Ã¢â‚¬Âº Trends",
         "breadcrumb_meta_text": f"Phase 3 trend layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Market Trends",
         "hero_title": "Trend Groups",
@@ -30834,7 +30836,7 @@ def build_market_trend_group_context(host_root, trend_slug):
         "seo_description": f"Track {config['label'].lower()} in TraderHub with grouped public market context and follow-through links.",
         "canonical_url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": config["description"], "url": f"{host_root.rstrip('/')}/market/trends/{trend_slug}"}, indent=2),
-        "breadcrumb_text": f"Market News â€º Trends â€º {config['label']}",
+        "breadcrumb_text": f"Market News Ã¢â‚¬Âº Trends Ã¢â‚¬Âº {config['label']}",
         "breadcrumb_meta_text": f"Phase 3 grouped trend page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Trend Group",
         "hero_title": config["label"],
@@ -30913,7 +30915,7 @@ def build_live_movers_context(host_root):
         "seo_description": "Track live movers news with top gainers, top losers, volume focus names, and why-moving links in TraderHub.",
         "canonical_url": f"{host_root.rstrip('/')}/market/live-movers",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Live Movers News | TraderHub", "description": "Public live movers page with gainers, losers, and why-moving context.", "url": f"{host_root.rstrip('/')}/market/live-movers"}, indent=2),
-        "breadcrumb_text": "Market News Ã¢â‚¬Âº Live Movers",
+        "breadcrumb_text": "Market News ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº Live Movers",
         "breadcrumb_meta_text": f"Phase 2 live market layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Live Movers",
         "hero_title": "Live Movers News",
@@ -31032,7 +31034,7 @@ def build_sector_news_context(host_root):
         "seo_description": "Scan sector news strips with live leaders, laggards, and theme summaries across the TraderHub public market layer.",
         "canonical_url": f"{host_root.rstrip('/')}/market/sector-news",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Sector News | TraderHub", "description": "Public sector-news strips page with live leaders, laggards, and theme summaries.", "url": f"{host_root.rstrip('/')}/market/sector-news"}, indent=2),
-        "breadcrumb_text": "Market News Ã¢â‚¬Âº Sector News",
+        "breadcrumb_text": "Market News ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº Sector News",
         "breadcrumb_meta_text": f"Phase 2 sector-news layer | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Sector News",
         "hero_title": "Sector News Strips",
@@ -31105,7 +31107,7 @@ def build_why_moving_context(symbol, host_root):
         "seo_description": f"Understand why {company_name} is moving today with live price context, VWAP/PDH-PDL framing, and linked news/events in TraderHub.",
         "canonical_url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/why-moving",
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"Why {company_name} Is Moving Today | TraderHub", "description": f"Public why-moving page for {company_name}.", "url": f"{host_root.rstrip('/')}/stocks/{get_canonical_stock_slug(symbol)}/why-moving"}, indent=2),
-        "breadcrumb_text": f"Stocks Ã¢â‚¬Âº {sector_label.split(' / ')[0]} Ã¢â‚¬Âº {symbol} Why Moving",
+        "breadcrumb_text": f"Stocks ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº {sector_label.split(' / ')[0]} ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº {symbol} Why Moving",
         "breadcrumb_meta_text": f"Phase 2 why-moving page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Why Moving",
         "hero_title": f"Why {symbol} Is Moving",
@@ -31372,7 +31374,7 @@ def build_sectors_hub_context(host_root):
         "seo_description": "Browse public sector pages with key stocks, sector summaries, and market context in TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Sector Pages | TraderHub", "description": "Public sector page hub for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Sectors â€º Public Sector Hub",
+        "breadcrumb_text": "Sectors Ã¢â‚¬Âº Public Sector Hub",
         "breadcrumb_meta_text": f"Phase 1 sector module | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Sector Pages",
         "hero_title": "Sector Overview",
@@ -31421,7 +31423,7 @@ def build_sector_detail_context(sector_key, host_root):
         "seo_description": f"Track {sector_label.lower()} stocks, leaders, laggards, VWAP context, PDH/PDL status, and public sector summary in TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{sector_label} Sector Page | TraderHub", "description": f"Public sector page for {sector_label}.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": f"Sectors â€º {sector_label}",
+        "breadcrumb_text": f"Sectors Ã¢â‚¬Âº {sector_label}",
         "breadcrumb_meta_text": f"Phase 1 sector page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Sector Research",
         "hero_title": sector_label,
@@ -34114,7 +34116,7 @@ def build_kite_currency_card(client, base_symbol="USDINR"):
         "status": get_trial3_session_status("currency", timestamp_dt) if last_price is not None else "Feed pending",
         "updated_label": get_trial3_last_updated_label(timestamp_dt),
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-        "open_label": "â†—",
+        "open_label": "Ã¢â€ â€”",
     }
 
 
@@ -34134,7 +34136,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "â†—",
+            "open_label": "Ã¢â€ â€”",
         }
     instrument = search_upstox_currency_instrument(query)
     instrument_key = str(instrument.get("instrument_key") or "").strip()
@@ -34149,7 +34151,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "â†—",
+            "open_label": "Ã¢â€ â€”",
         }
     quote = get_upstox_market_quote(instrument_key)
     if not quote:
@@ -34163,7 +34165,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "â†—",
+            "open_label": "Ã¢â€ â€”",
         }
     ohlc = quote.get("ohlc") or {}
     last_price = parse_numeric_text(quote.get("last_price"))
@@ -34189,7 +34191,7 @@ def get_live_currency_overrides(query="USDINR", client=None):
         "status": get_trial3_session_status("currency", timestamp_dt) if last_price is not None else "Feed pending",
         "updated_label": get_trial3_last_updated_label(timestamp_dt),
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], "up" if (percent_change or 0) > 0 else "down" if (percent_change or 0) < 0 else "flat"),
-        "open_label": "â†—",
+        "open_label": "Ã¢â€ â€”",
     }
 
 
@@ -34207,7 +34209,7 @@ def build_trial3_commodity_card(slug, label, href, client=None):
             "status": "Feed pending",
             "updated_label": "Latest available",
             "sparkline_svg": "",
-            "open_label": "â†—",
+            "open_label": "Ã¢â€ â€”",
         }
     seeded = build_commodity_seed_row(row)
     live = build_kite_commodity_overrides(client, slug) if client else {}
@@ -34246,7 +34248,7 @@ def build_trial3_commodity_card(slug, label, href, client=None):
         "status": get_trial3_session_status("commodity", timestamp_dt) if merged.get("data_mode") == "live" else "Latest seeded snapshot",
         "updated_label": updated_label,
         "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-        "open_label": "â†—",
+        "open_label": "Ã¢â€ â€”",
     }
 
 
@@ -34288,7 +34290,7 @@ def build_website_shell_trial3_index_tape():
                 "status": get_trial3_equity_market_status(timestamp_dt) if last_price is not None else str(config.get("pending_note") or "Pending"),
                 "updated_label": get_trial3_last_updated_label(timestamp_dt),
                 "sparkline_svg": build_trial3_sparkline_svg([previous_close, open_price, high, low, last_price], tone),
-                "open_label": "â†—",
+                "open_label": "Ã¢â€ â€”",
             }
         )
     rows.append(get_live_currency_overrides("USDINR", client=client))
@@ -34352,7 +34354,7 @@ def build_derivatives_hub_context(host_root):
         "seo_description": "Explore TraderHub derivatives pages for Nifty options, Bank Nifty options, stock F&O, OI change, and futures buildup in one clean public dashboard.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Derivatives Hub | TraderHub", "description": "Public derivatives hub for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives â€º Public F&O Hub",
+        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Public F&O Hub",
         "breadcrumb_meta_text": f"Derivatives dashboard | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Derivatives",
         "hero_title": "Derivatives Dashboard",
@@ -34387,7 +34389,7 @@ def build_derivatives_hub_context(host_root):
         "focus_title": "Derivatives Pages",
         "focus_note": "Track OI change, futures buildup, and options structure across TraderHub derivatives pages. Live fields are shown where available, and missing fields are clearly marked.",
         "focus_cards": focus_cards,
-        "table_title": "Todayâ€™s Focus List",
+        "table_title": "TodayÃ¢â‚¬â„¢s Focus List",
         "table_note": "This compact table gives the derivatives hub a real market layer. It uses live stock rows and classifies them into practical buildup categories instead of guessing missing futures analytics.",
         "table_columns": [
             {"label": "Symbol", "key": "symbol", "link_key": "stock_url"},
@@ -35847,7 +35849,7 @@ def build_index_derivatives_context(index_slug, host_root):
         "seo_description": f"Track the TraderHub phase-1 {config['index_name'].lower()} options dashboard with spot context, strike framing, support/resistance zones, and broad index tone.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": f"{config['label']} | TraderHub", "description": f"Public derivatives page for {config['index_name']}.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": f"Derivatives â€º Index Derivatives â€º {config['index_name']}",
+        "breadcrumb_text": f"Derivatives Ã¢â‚¬Âº Index Derivatives Ã¢â‚¬Âº {config['index_name']}",
         "breadcrumb_meta_text": f"Phase 1 public dashboard | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Index Derivatives",
         "hero_title": config["label"],
@@ -35933,7 +35935,7 @@ def build_stock_fno_context(host_root):
         "seo_description": "Browse TraderHub stock F&O pages with real nearest-futures price, premium or discount, OI, OI change, and buildup classification where available.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "CollectionPage", "name": "Stock F&O Hub | TraderHub", "description": "Public stock F&O hub for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives â€º Stock Derivatives â€º Stock F&O Hub",
+        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Stock Derivatives Ã¢â‚¬Âº Stock F&O Hub",
         "breadcrumb_meta_text": f"Phase 1 stock derivatives | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Stock Derivatives",
         "hero_title": "Stock F&O Hub",
@@ -36037,7 +36039,7 @@ def build_stock_oi_change_context(host_root):
         "seo_description": "Track TraderHub stock OI change dashboard with real OI change, buildup labels, futures price context, and public F&O discovery in one clean page.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "OI Change Dashboard | TraderHub", "description": "Public stock OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives â€º Stock Derivatives â€º OI Change Dashboard",
+        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Stock Derivatives Ã¢â‚¬Âº OI Change Dashboard",
         "breadcrumb_meta_text": f"Phase 1 OI page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub OI Change",
         "hero_title": "OI Change Dashboard",
@@ -36437,7 +36439,7 @@ def build_index_oi_change_context(host_root):
         "seo_description": "Track TraderHub index OI change dashboard structure for Nifty and Bank Nifty with live breadth proxy, pressure maps, and public F&O discovery.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Index OI Change Dashboard | TraderHub", "description": "Public index OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives â€º Index Derivatives â€º OI Change Dashboard",
+        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Index Derivatives Ã¢â‚¬Âº OI Change Dashboard",
         "breadcrumb_meta_text": f"Phase 1 index OI page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Index OI Change",
         "hero_title": "Index OI Change Dashboard",
@@ -36491,7 +36493,7 @@ def build_index_oi_change_context(host_root):
         "public_note": "This page turns index-side OI intent into a real public route today. It is already useful for traffic and trader orientation, and it is positioned cleanly for a real OI feed later.",
         "side_box_title": "Current Rule",
         "side_box_copy": "Treat this as an index pressure map in phase 1. The route, SEO value, and layout are real now; the final OI depth arrives with the next derivatives source pass.",
-        "why_page_works": "It rounds out the public derivatives story, gives index users a clean OI entry point, and strengthens both TraderHubâ€™s search footprint and trader habit potential.",
+        "why_page_works": "It rounds out the public derivatives story, gives index users a clean OI entry point, and strengthens both TraderHubÃ¢â‚¬â„¢s search footprint and trader habit potential.",
         "market_error": " | ".join(market_errors) if market_errors else None,
     }
 
@@ -36581,7 +36583,7 @@ def build_index_oi_change_context_v2(host_root):
         "seo_description": "Track TraderHub index OI change dashboard for Nifty and Bank Nifty with live displayed-chain OI, PCR, and public F&O discovery.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Index OI Change Dashboard | TraderHub", "description": "Public index OI change dashboard for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Index Derivatives Ã¢â‚¬Âº OI Change Dashboard",
+        "breadcrumb_text": "Derivatives ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº Index Derivatives ÃƒÂ¢Ã¢â€šÂ¬Ã‚Âº OI Change Dashboard",
         "breadcrumb_meta_text": f"Phase 1 index OI page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Index OI Change",
         "hero_title": "Index OI Change Dashboard",
@@ -37050,7 +37052,7 @@ def build_expiry_strategy_context(index_slug, host_root, selected_expiry=None):
         "public_note": "This expiry page is designed to sit between the current public OI pages and the later full option chain. It already uses live chain and futures inputs where available, while keeping the trader read fast and uncluttered.",
         "side_box_title": "Current Rule",
         "side_box_copy": f"Start with {expiry_tone.lower()} tone for expiry {selected_expiry_value}, then compare max pain near {max_pain}, support at {support_zone}, and resistance at {resistance_zone} before opening deeper derivatives pages.",
-        "why_page_works": "It turns the live chain into a more actionable expiry read, creates a stronger trader habit page, and bridges todayâ€™s OI routes with the later full option chain.",
+        "why_page_works": "It turns the live chain into a more actionable expiry read, creates a stronger trader habit page, and bridges todayÃ¢â‚¬â„¢s OI routes with the later full option chain.",
         "market_error": page_error,
     }
 
@@ -37276,7 +37278,7 @@ def build_futures_buildup_context(host_root):
         "seo_description": "Track TraderHub phase-1 futures buildup categories with long buildup, short buildup, short covering, and long unwinding in a clean public format.",
         "canonical_url": canonical_url,
         "schema_json": json.dumps({"@context": "https://schema.org", "@type": "WebPage", "name": "Futures Buildup | TraderHub", "description": "Public futures buildup page for TraderHub.", "url": canonical_url}, indent=2),
-        "breadcrumb_text": "Derivatives â€º Stock Derivatives â€º Futures Buildup",
+        "breadcrumb_text": "Derivatives Ã¢â‚¬Âº Stock Derivatives Ã¢â‚¬Âº Futures Buildup",
         "breadcrumb_meta_text": f"Phase 1 buildup page | Last reviewed {today_iso}",
         "hero_kicker": "TraderHub Futures Buildup",
         "hero_title": "Futures Buildup",
@@ -38335,7 +38337,7 @@ def build_high_dividend_stock_rows(enable_live=False):
             "symbol": symbol,
             "stock_url": f"/stocks/{get_canonical_stock_slug(symbol)}" if symbol else "",
             "current_price": current_price,
-            "current_price_display": f"â‚¹{current_price:,.2f}" if current_price is not None else "Source Pending",
+            "current_price_display": f"Ã¢â€šÂ¹{current_price:,.2f}" if current_price is not None else "Source Pending",
             "dividend_yield_pct": parse_numeric_text(raw_row.get("dividend_yield_pct")) or 0.0,
             "dividend_per_share": parse_numeric_text(raw_row.get("dividend_per_share")),
             "pe_ratio": parse_numeric_text(raw_row.get("pe_ratio")),
@@ -38357,14 +38359,14 @@ def build_high_dividend_stock_rows(enable_live=False):
         score_payload = compute_dividend_attractiveness_score(row)
         row.update(score_payload)
         row["dividend_yield_display"] = f"{row['dividend_yield_pct']:.2f}%"
-        row["dividend_per_share_display"] = f"â‚¹{row['dividend_per_share']:.2f}" if row["dividend_per_share"] is not None else "Source Pending"
+        row["dividend_per_share_display"] = f"Ã¢â€šÂ¹{row['dividend_per_share']:.2f}" if row["dividend_per_share"] is not None else "Source Pending"
         row["pe_ratio_display"] = f"{row['pe_ratio']:.1f}" if row["pe_ratio"] is not None else "Source Pending"
         row["industry_pe_avg_display"] = f"{row['industry_pe_avg']:.1f}" if row["industry_pe_avg"] is not None else "Source Pending"
         row["pb_ratio_display"] = f"{row['pb_ratio']:.2f}" if row["pb_ratio"] is not None else "Source Pending"
         row["roe_display"] = f"{row['roe_pct']:.1f}%"
         row["debt_to_equity_display"] = f"{row['debt_to_equity']:.2f}" if row["debt_to_equity"] is not None else "Source Pending"
-        row["week_52_high_display"] = f"â‚¹{row['week_52_high']:,.2f}" if row["week_52_high"] is not None else "Source Pending"
-        row["week_52_low_display"] = f"â‚¹{row['week_52_low']:,.2f}" if row["week_52_low"] is not None else "Source Pending"
+        row["week_52_high_display"] = f"Ã¢â€šÂ¹{row['week_52_high']:,.2f}" if row["week_52_high"] is not None else "Source Pending"
+        row["week_52_low_display"] = f"Ã¢â€šÂ¹{row['week_52_low']:,.2f}" if row["week_52_low"] is not None else "Source Pending"
         row["below_52w_high_display"] = f"{row['below_52w_high_pct']:.1f}%" if row["below_52w_high_pct"] is not None else "Source Pending"
         row["price_near_52w_low_display"] = f"{row['price_near_52w_low_pct']:.1f}%" if row["price_near_52w_low_pct"] is not None else "Source Pending"
         prepared_rows.append(row)
@@ -38828,7 +38830,7 @@ def build_high_dividend_sample_context(host_root, canonical_path="/stocks/high-d
 
     sample_context = {
         **base,
-        "seo_title": "Indiaâ€™s Best High Dividend Stocks â€” Ranked by Yield, Quality & Valuation | TraderHub",
+        "seo_title": "IndiaÃ¢â‚¬â„¢s Best High Dividend Stocks Ã¢â‚¬â€ Ranked by Yield, Quality & Valuation | TraderHub",
         "seo_description": "Find high dividend paying stocks in India ranked by yield, quality, valuation, debt risk, and price drawdown with AI dividend scoring from TraderHub.",
         "canonical_url": canonical_url,
         "schema_json": schema_json,
@@ -38848,7 +38850,7 @@ def build_high_dividend_sample_context(host_root, canonical_path="/stocks/high-d
         "calculator_default_growth": "6",
         "related_articles": related_articles,
         "related_screeners": related_screeners,
-        "hero_heading": "Indiaâ€™s Best High Dividend Stocks â€” Ranked by Yield, Quality & Valuation",
+        "hero_heading": "IndiaÃ¢â‚¬â„¢s Best High Dividend Stocks Ã¢â‚¬â€ Ranked by Yield, Quality & Valuation",
         "hero_badges": ["Updated Daily", "AI Dividend Score", "Yield + Risk Check"],
         "compare_modes": compare_modes,
         "safety_meter": safety_meter,
@@ -39071,8 +39073,8 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
 <body>
   <div class="page">
     <div class="topline">
-      <span>Collection Page Â· India Equity Income Screen</span>
-      <span>Last data refresh: {{ last_refresh }} Â· {{ live_mode_label }}</span>
+      <span>Collection Page Ã‚Â· India Equity Income Screen</span>
+      <span>Last data refresh: {{ last_refresh }} Ã‚Â· {{ live_mode_label }}</span>
     </div>
 
     <section class="hero">
@@ -39227,7 +39229,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
         <section class="panel" style="margin-top:16px;">
           <h2>{{ page_title }}</h2>
           <div class="mini-note">Click any column heading to sort the table. Default ranking uses the Dividend Attractiveness Score.</div>
-          <div class="mini-note"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a> Â· <a href="{{ sibling_href }}">{{ sibling_label }}</a></div>
+          <div class="mini-note"><a href="{{ mode_switch_href }}">{{ mode_switch_label }}</a> Ã‚Â· <a href="{{ sibling_href }}">{{ sibling_label }}</a></div>
           <div class="table-wrap">
             {% if rows %}
             <table id="dividend-table">
@@ -39258,11 +39260,11 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
                   <td data-sort="{{ row.company_name }}">
                     <div class="company-cell">
                       <strong><a href="{{ row.stock_url }}">{{ row.company_name }}</a></strong>
-                      <span>{{ row.market_cap_bucket }} cap Â· Industry P/E {{ row.industry_pe_avg_display }}</span>
+                      <span>{{ row.market_cap_bucket }} cap Ã‚Â· Industry P/E {{ row.industry_pe_avg_display }}</span>
                     </div>
                   </td>
                   <td data-sort="{{ row.symbol }}"><a href="{{ row.stock_url }}">{{ row.symbol }}</a></td>
-                  <td data-sort="{{ row.total_score }}"><span class="chip band-{{ row.score_band }}">{{ row.total_score }} Â· {{ row.score_band }}</span></td>
+                  <td data-sort="{{ row.total_score }}"><span class="chip band-{{ row.score_band }}">{{ row.total_score }} Ã‚Â· {{ row.score_band }}</span></td>
                   <td data-sort="{{ row.current_price }}">{{ row.current_price_display }}</td>
                   <td data-sort="{{ row.dividend_yield_pct }}">{{ row.dividend_yield_display }}</td>
                   <td data-sort="{{ row.dividend_per_share or -1 }}">{{ row.dividend_per_share_display }}</td>
@@ -39319,7 +39321,7 @@ HIGH_DIVIDEND_STOCKS_TEMPLATE = """
             <span>Score {{ best_row.total_score }}/100</span>
           </div>
           <div class="mini-note">
-            Valuation {{ best_row.valuation_score }}/25 Â· Financial strength {{ best_row.financial_strength_score }}/25 Â· Price attractiveness {{ best_row.price_attractiveness_score }}/20
+            Valuation {{ best_row.valuation_score }}/25 Ã‚Â· Financial strength {{ best_row.financial_strength_score }}/25 Ã‚Â· Price attractiveness {{ best_row.price_attractiveness_score }}/20
           </div>
         </div>
         {% endif %}
@@ -39571,8 +39573,8 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
 <body>
   <div class="page">
     <div class="topline">
-      <span>Collection Page Â· India Dividend Research Sample</span>
-      <span>Last data refresh: {{ last_refresh }} Â· {{ live_mode_label }}</span>
+      <span>Collection Page Ã‚Â· India Dividend Research Sample</span>
+      <span>Last data refresh: {{ last_refresh }} Ã‚Â· {{ live_mode_label }}</span>
     </div>
 
     <section class="hero">
@@ -39688,9 +39690,9 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
         <div class="leader-card">
           <div class="leader-rank">{{ loop.index }}</div>
           <h3><a href="{{ row.stock_url }}">{{ row.company_name }}</a></h3>
-          <div class="leader-meta">{{ row.symbol }} Â· {{ row.market_cap_bucket }} cap</div>
-          <div class="leader-meta" style="margin-top:10px;"><strong style="color:var(--ink);">{{ row.dividend_yield_display }}</strong> yield Â· <strong style="color:var(--ink);">{{ row.total_score }}</strong> score</div>
-          <div class="leader-meta">P/E {{ row.pe_ratio_display }} Â· ROE {{ row.roe_display }}</div>
+          <div class="leader-meta">{{ row.symbol }} Ã‚Â· {{ row.market_cap_bucket }} cap</div>
+          <div class="leader-meta" style="margin-top:10px;"><strong style="color:var(--ink);">{{ row.dividend_yield_display }}</strong> yield Ã‚Â· <strong style="color:var(--ink);">{{ row.total_score }}</strong> score</div>
+          <div class="leader-meta">P/E {{ row.pe_ratio_display }} Ã‚Â· ROE {{ row.roe_display }}</div>
         </div>
         {% endfor %}
       </div>
@@ -39772,7 +39774,7 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
           <div class="stock-top">
             <div>
               <h3><a href="{{ row.stock_url }}">{{ row.company_name }}</a></h3>
-              <div class="stock-symbol">{{ row.symbol }} Â· {{ row.sector }}</div>
+              <div class="stock-symbol">{{ row.symbol }} Ã‚Â· {{ row.sector }}</div>
             </div>
             <div class="score-chip">{{ row.total_score }} / 100</div>
           </div>
@@ -39850,7 +39852,7 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
         <div class="card">
           <div class="filter-grid" style="grid-template-columns: repeat(3, minmax(0, 1fr));">
             <div class="field">
-              <label for="calc-investment">Investment amount (â‚¹)</label>
+              <label for="calc-investment">Investment amount (Ã¢â€šÂ¹)</label>
               <input id="calc-investment" type="number" value="{{ calculator_default_investment }}" min="1000" step="1000">
             </div>
             <div class="field">
@@ -39865,9 +39867,9 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
         </div>
         <div class="calc-output">
           <div class="label" style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);">Estimated first-year dividend</div>
-          <div class="calc-big" id="calc-dividend">â‚¹0</div>
+          <div class="calc-big" id="calc-dividend">Ã¢â€šÂ¹0</div>
           <div class="label" style="font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted);">Estimated second-year dividend with growth</div>
-          <div class="calc-big" id="calc-dividend-next" style="font-size:28px;">â‚¹0</div>
+          <div class="calc-big" id="calc-dividend-next" style="font-size:28px;">Ã¢â€šÂ¹0</div>
           <p style="margin:12px 0 0; color:var(--muted); font-size:14px; line-height:1.7;">This is a simple yield illustration, not a forecast. Actual payout depends on earnings, board decisions, and payout policy.</p>
         </div>
       </div>
@@ -39941,7 +39943,7 @@ HIGH_DIVIDEND_STOCKS_SAMPLE_TEMPLATE = """
 
       function formatInr(value) {
         const safe = Number.isFinite(value) ? value : 0;
-        return "â‚¹" + safe.toLocaleString("en-IN", { maximumFractionDigits: 0 });
+        return "Ã¢â€šÂ¹" + safe.toLocaleString("en-IN", { maximumFractionDigits: 0 });
       }
 
       function updateCalculator() {
@@ -40067,7 +40069,7 @@ DIVIDEND_STOCKS_HUB_TEMPLATE = """
     <section class="hero">
       <div class="kicker">TraderHub Dividend Ideas</div>
       <h1>Dividend Stocks Hub</h1>
-      <div class="sub">Use this hub to compare TraderHubâ€™s dividend-focused stock screens. One page leans broader and income-first, while the other starts from valuation discipline and stronger balance-sheet filters.</div>
+      <div class="sub">Use this hub to compare TraderHubÃ¢â‚¬â„¢s dividend-focused stock screens. One page leans broader and income-first, while the other starts from valuation discipline and stronger balance-sheet filters.</div>
     </section>
     <div class="grid">
       {% for item in pages %}
@@ -40765,7 +40767,7 @@ def build_website_shell_trial4_context(host_root):
         "status": "Pending",
         "updated_label": "Latest available IST",
         "sparkline_svg": "",
-        "open_label": "â†—",
+        "open_label": "Ã¢â€ â€”",
     }
     ticker_rows.insert(5, gift_row)
     live_rows = [row for row in ticker_rows if str(row.get("tone") or "flat") in {"up", "down"}]
@@ -41823,7 +41825,7 @@ WEBSITE_SHELL_TRIAL5_TEMPLATE = """
       font-size: 14px;
     }
     .price-features span::before {
-      content: "â€¢";
+      content: "Ã¢â‚¬Â¢";
       margin-right: 8px;
       color: var(--green);
     }
@@ -43046,7 +43048,7 @@ WEBSITE_SHELL_TRIAL6_TEMPLATE = """
       color: var(--ink);
     }
     .price-features span::before {
-      content: "â€¢";
+      content: "Ã¢â‚¬Â¢";
       margin-right: 8px;
       color: var(--green);
     }
@@ -43393,7 +43395,7 @@ WEBSITE_SHELL_TRIAL6_TEMPLATE = """
       <div class="final-cta">
         <div>
           <h2>Ready To Turn TraderHub Into a Real Product Homepage?</h2>
-          <p>This sample keeps the blueprintâ€™s intent clear: convert visitors, promote AI Trade Audit, push stock discovery, and make subscriptions feel like the natural next step.</p>
+          <p>This sample keeps the blueprintÃ¢â‚¬â„¢s intent clear: convert visitors, promote AI Trade Audit, push stock discovery, and make subscriptions feel like the natural next step.</p>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;">
           <a class="btn btn-primary" href="/stocks/equity-stock-page">Start Free Audit</a>
@@ -45595,7 +45597,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             <div class="eyebrow">{{ card.eyebrow }}</div>
             <strong>{{ card.title }}</strong>
             <p>{{ card["copy"] }}</p>
-            <div class="gallery-open">Open page â†—</div>
+            <div class="gallery-open">Open page Ã¢â€ â€”</div>
           </a>
           {% endfor %}
         </div>
@@ -45648,7 +45650,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
           <div class="eyebrow">TraderHub Module</div>
           <h3>{{ card.title }}</h3>
           <p>{{ card["copy"] }}</p>
-          <a class="cta-main" href="{{ card.href }}">Open {{ card.title }} â†—</a>
+          <a class="cta-main" href="{{ card.href }}">Open {{ card.title }} Ã¢â€ â€”</a>
           <div class="cta-links">
             {% for link in card.links %}
             <a href="{{ link.href }}">{{ link.label }}</a>
@@ -45697,7 +45699,7 @@ WEBSITE_SHELL_TRIAL3_TEMPLATE = """
             }
             const openNode = item.querySelector(".tape-open");
             if (openNode) {
-              openNode.textContent = row.open_label || "â†—";
+              openNode.textContent = row.open_label || "Ã¢â€ â€”";
             }
             const sparklineNode = item.querySelector(".tape-sparkline");
             if (sparklineNode) {
@@ -46164,7 +46166,7 @@ HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
       <h1>High Dividend Paying Stocks in India With Better Structure, Cleaner Signals, and Stronger Research Flow</h1>
       <p class="hero-sub">A separate redesign sample inspired by your uploaded layout. It keeps the page editorial and premium, with a sidebar filter flow, stronger trust cues, structured stock rankings, and better SEO depth before touching the original route.</p>
       <div class="hero-meta">
-        <span class="badge"><span class="dot"></span>Live sample Â· {{ last_refresh }}</span>
+        <span class="badge"><span class="dot"></span>Live sample Ã‚Â· {{ last_refresh }}</span>
         <span class="badge">{{ filtered_rows_count }} stocks ranked</span>
         <span class="badge">NSE listed</span>
       </div>
@@ -46183,7 +46185,7 @@ HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
         <div class="stat-card">
           <div class="stat-label">Best Current Rank</div>
           <div class="stat-value">{% if best_row %}{{ best_row.nse_symbol }}{% else %}Pending{% endif %}</div>
-          <div class="stat-note">{% if best_row %}{{ best_row.dividend_yield_display }} yield Â· score {{ best_row.total_score }}{% else %}Top row unavailable{% endif %}</div>
+          <div class="stat-note">{% if best_row %}{{ best_row.dividend_yield_display }} yield Ã‚Â· score {{ best_row.total_score }}{% else %}Top row unavailable{% endif %}</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Screen Mode</div>
@@ -46275,7 +46277,7 @@ HIGH_DIVIDEND_REDESIGN_TEMPLATE = """
 
         <section class="content-panel" id="results" aria-label="Stock results">
           <div class="table-header">
-            <p class="table-count"><strong>{{ filtered_rows_count }}</strong> stocks Â· Ranked by Dividend Attractiveness Score</p>
+            <p class="table-count"><strong>{{ filtered_rows_count }}</strong> stocks Ã‚Â· Ranked by Dividend Attractiveness Score</p>
             <div class="table-actions">
               <a class="quick-link" href="/stocks/high-dividend-paying-stocks">Original page</a>
               <a class="quick-link" href="/stocks/dividend-stocks">Dividend hub</a>
