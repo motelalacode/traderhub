@@ -9021,21 +9021,35 @@ def format_price(value):
     return f"{value:.2f}"
 
 
+def sanitize_market_text(value):
+    text = str(value or "")
+    replacements = {
+        "â‚¹": "INR ",
+        "₹": "INR ",
+        "â€¢": " • ",
+        "â€“": "-",
+        "â€”": "-",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return re.sub(r"\s{2,}", " ", text).strip()
+
+
 def format_crore_display(value):
     if value in (None, ""):
         return "Source Pending"
     try:
         numeric_value = float(value)
     except (TypeError, ValueError):
-        return str(value)
+        return sanitize_market_text(value)
 
     absolute_value = abs(numeric_value)
     prefix = "-" if numeric_value < 0 else ""
     if absolute_value >= 100000:
-        return f"{prefix}₹{absolute_value / 100000:.2f} L Cr"
+        return f"{prefix}INR {absolute_value / 100000:.2f} L Cr"
     if absolute_value >= 1000:
-        return f"{prefix}₹{absolute_value / 1000:.2f} K Cr"
-    return f"{prefix}₹{absolute_value:,.2f} Cr"
+        return f"{prefix}INR {absolute_value / 1000:.2f} K Cr"
+    return f"{prefix}INR {absolute_value:,.2f} Cr"
 
 
 def get_market_close_time():
@@ -11714,7 +11728,7 @@ def format_statement_cell(value, suffix=""):
     if value in (None, ""):
         return "-"
     if isinstance(value, str):
-        text = value.strip()
+        text = sanitize_market_text(value).strip()
         if text:
             return text
         return "-"
@@ -11836,9 +11850,11 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
 
     screener_snapshot = build_upstox_screener_snapshot(fundamentals_bundle, reference_price_numeric=last_price_numeric)
     pe_value = screener_snapshot.get("pe_value")
-    roe_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROE", "ROE %", "RETURN ON EQUITY"]) or {}).get("company_value"))
-    roce_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROCE", "ROCE %", "RETURN ON CAPITAL EMPLOYED"]) or {}).get("company_value"))
+    roe_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROE", "ROE %", "RETURN ON EQUITY", "RETURN ON EQUITY %"]) or {}).get("company_value"))
+    roce_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["ROCE", "ROCE %", "RETURN ON CAPITAL EMPLOYED", "RETURN ON CAPITAL EMPLOYED %"]) or {}).get("company_value"))
     dividend_yield_value = screener_snapshot.get("dividend_yield_pct")
+    if dividend_yield_value in (None, 0):
+        dividend_yield_value = parse_numeric_text((get_upstox_ratio_row(ratio_map, ["DIVIDEND YIELD", "DIVIDEND YIELD %", "DIV YIELD"]) or {}).get("company_value"))
     market_cap_value = screener_snapshot.get("market_cap_inr")
     market_cap_display = screener_snapshot.get("market_cap_display") or "Source Pending"
     if market_cap_display in {"Source Pending", "Pending", "-", ""}:
@@ -11846,6 +11862,7 @@ def build_stock_peer_comparison_row(symbol, company_name, last_price_numeric, fu
             get_upstox_profile_metric_display(profile_data, ["company_market_cap_inr", "market_cap_inr", "market_cap"])
             or "Source Pending"
         )
+    market_cap_display = sanitize_market_text(market_cap_display)
     np_value, np_entry = get_latest_row_value(["net_profit", "profit_after_tax", "pat"])
     sales_value, sales_entry = get_latest_row_value(["revenue", "sales"])
 
@@ -23270,10 +23287,10 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         return f"INR {numeric:,.2f}".replace(".00", "")
 
     def _premium_placeholder(value):
-        text = str(value or "").strip()
+        text = sanitize_market_text(value).strip()
         if text in {"Pending", "Source Pending", "Retry Pending", "-"}:
             return "Data updating"
-        return value
+        return text
 
     def _format_fiscal_quarter_label(raw_label, fallback_index=0):
         text = str(raw_label or "").strip()
