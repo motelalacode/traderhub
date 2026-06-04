@@ -62,6 +62,7 @@ from app.symbol_resolver import load_symbol_master, normalize_lookup_value, reso
 
 APP_TZ = ZoneInfo("Asia/Kolkata")
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+STOCK_SNAPSHOTS_DIR = DATA_DIR / "stock_snapshots"
 ARBITRAGE_HISTORY_PATH = DATA_DIR / "arbitrage_history.json"
 ARBITRAGE_VIRTUAL_STATE_PATH = DATA_DIR / "arbitrage_virtual_state.json"
 ARBITRAGE_LIVE_STATE_PATH = DATA_DIR / "arbitrage_live_state.json"
@@ -22472,6 +22473,166 @@ def build_bar_svg(values, color="#2563EB"):
     return f'<svg viewBox="0 0 180 100" width="100%" height="100" aria-hidden="true"><rect width="180" height="100" rx="16" fill="#f8fbff"/><line x1="8" y1="92" x2="172" y2="92" stroke="#dbe6f2"/>' + "".join(bars) + '</svg>'
 
 
+def get_stock_snapshot_path(symbol):
+    clean_symbol = re.sub(r"[^A-Z0-9_-]", "", str(symbol or "").strip().upper())
+    return STOCK_SNAPSHOTS_DIR / f"{clean_symbol}.json"
+
+
+def is_usable_stock_value(value):
+    if isinstance(value, dict):
+        return any(is_usable_stock_value(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(is_usable_stock_value(item) for item in value)
+    text = str(value or "").strip()
+    return bool(text and text not in {"Pending", "Source Pending", "Retry Pending", "-", "Data updating", "None"})
+
+
+def _premium_peer_row_has_data(row):
+    if not row or len(row) < 2:
+        return False
+    return any(is_usable_stock_value(value) for value in row[1:])
+
+
+def _premium_institutional_rows_have_data(rows):
+    for row in rows or []:
+        for value in row[1:5]:
+            if is_usable_stock_value(value):
+                return True
+    return False
+
+
+def load_stock_snapshot(symbol):
+    path = get_stock_snapshot_path(symbol)
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def save_stock_snapshot(symbol, payload):
+    path = get_stock_snapshot_path(symbol)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    return payload
+
+
+def merge_stock_snapshot(old_snapshot, new_snapshot):
+    if isinstance(old_snapshot, dict) and isinstance(new_snapshot, dict):
+        merged = dict(old_snapshot)
+        for key, value in new_snapshot.items():
+            merged[key] = merge_stock_snapshot(old_snapshot.get(key), value)
+        return merged
+    if isinstance(new_snapshot, list):
+        return list(new_snapshot) if is_usable_stock_value(new_snapshot) else list(old_snapshot or [])
+    if isinstance(new_snapshot, tuple):
+        return tuple(new_snapshot) if is_usable_stock_value(new_snapshot) else tuple(old_snapshot or ())
+    return new_snapshot if is_usable_stock_value(new_snapshot) else old_snapshot
+
+
+def build_stock_snapshot_payload(sample):
+    return {
+        "company_name": sample.get("company_name"),
+        "symbol": sample.get("symbol"),
+        "exchange": sample.get("exchange"),
+        "sector_label": sample.get("sector_label"),
+        "price": sample.get("price"),
+        "change": sample.get("change"),
+        "change_pct": sample.get("change_pct"),
+        "status": sample.get("status"),
+        "updated": sample.get("updated"),
+        "metrics": sample.get("metrics") or [],
+        "market_context_cards": sample.get("market_context_cards") or [],
+        "financial_cards": sample.get("financial_cards") or [],
+        "dividend": sample.get("dividend") or {},
+        "peers": sample.get("peers") or [],
+        "peer_data_available": bool(sample.get("peer_data_available")),
+        "shareholding": sample.get("shareholding") or {},
+        "shareholding_available": bool(sample.get("shareholding_available")),
+        "institutional_activity": sample.get("institutional_activity") or {},
+        "chart_ranges": sample.get("chart_ranges") or {},
+        "business_overview": sample.get("business_overview"),
+        "research_links": sample.get("research_links") or [],
+        "research_notes_live": sample.get("research_notes_live") or [],
+        "ai_summary": sample.get("ai_summary") or {},
+        "fair_value": sample.get("fair_value") or {},
+        "entry_zone": sample.get("entry_zone") or {},
+        "related": sample.get("related") or [],
+        "ai_score": sample.get("ai_score"),
+        "verdict": sample.get("verdict"),
+        "risk": sample.get("risk"),
+        "buy_for": sample.get("buy_for") or [],
+        "avoid_if": sample.get("avoid_if") or [],
+        "checklist": sample.get("checklist") or [],
+        "saved_at": datetime.datetime.now(APP_TZ).isoformat(),
+    }
+
+
+def apply_stock_snapshot_to_sample(sample, snapshot):
+    if not snapshot:
+        return sample
+    for key in (
+        "company_name",
+        "symbol",
+        "exchange",
+        "sector_label",
+        "price",
+        "change",
+        "change_pct",
+        "status",
+        "updated",
+        "business_overview",
+        "ai_score",
+        "verdict",
+        "risk",
+    ):
+        if not is_usable_stock_value(sample.get(key)) and is_usable_stock_value(snapshot.get(key)):
+            sample[key] = snapshot.get(key)
+
+    sample_metrics = {label: value for label, value in (sample.get("metrics") or [])}
+    snapshot_metrics = {label: value for label, value in (snapshot.get("metrics") or [])}
+    for label, value in snapshot_metrics.items():
+        if not is_usable_stock_value(sample_metrics.get(label)) and is_usable_stock_value(value):
+            sample_metrics[label] = value
+    if sample_metrics:
+        sample["metrics"] = list(sample_metrics.items())
+
+    sample_dividend = dict(sample.get("dividend") or {})
+    snapshot_dividend = dict(snapshot.get("dividend") or {})
+    for key, value in snapshot_dividend.items():
+        if not is_usable_stock_value(sample_dividend.get(key)) and is_usable_stock_value(value):
+            sample_dividend[key] = value
+    if sample_dividend:
+        sample["dividend"] = sample_dividend
+
+    if (not sample.get("market_context_cards")) or not any(
+        is_usable_stock_value((item or {}).get("value")) for item in sample.get("market_context_cards") or []
+    ):
+        if any(is_usable_stock_value((item or {}).get("value")) for item in snapshot.get("market_context_cards") or []):
+            sample["market_context_cards"] = snapshot.get("market_context_cards") or []
+
+    if (not sample.get("financial_cards")) or not any(
+        is_usable_stock_value((row or [None, None, None])[2]) for row in sample.get("financial_cards") or []
+    ):
+        if any(is_usable_stock_value((row or [None, None, None])[2]) for row in snapshot.get("financial_cards") or []):
+            sample["financial_cards"] = snapshot.get("financial_cards") or []
+
+    if not sample.get("peer_data_available") and snapshot.get("peer_data_available"):
+        sample["peers"] = snapshot.get("peers") or sample.get("peers") or []
+        sample["peer_data_available"] = True
+    if (not sample.get("shareholding_available")) and snapshot.get("shareholding_available"):
+        sample["shareholding"] = snapshot.get("shareholding") or sample.get("shareholding") or {}
+        sample["shareholding_available"] = True
+    if not ((sample.get("institutional_activity") or {}).get("available")) and ((snapshot.get("institutional_activity") or {}).get("available")):
+        sample["institutional_activity"] = snapshot.get("institutional_activity") or sample.get("institutional_activity") or {}
+
+    for key in ("chart_ranges", "research_links", "research_notes_live", "ai_summary", "fair_value", "entry_zone", "related", "buy_for", "avoid_if", "checklist"):
+        if not is_usable_stock_value(sample.get(key)) and is_usable_stock_value(snapshot.get(key)):
+            sample[key] = snapshot.get(key)
+    return sample
+
+
 def build_premium_stock_detail_context(stock_slug, host_root):
     slug = str(stock_slug or "").strip().lower()
     sample = dict(PREMIUM_STOCK_SAMPLE_MAP.get(slug) or {})
@@ -22553,6 +22714,9 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         }
     else:
         sample["shareholding_available"] = True
+    cached_snapshot = load_stock_snapshot(sample.get("symbol") or "")
+    if cached_snapshot:
+        sample = apply_stock_snapshot_to_sample(sample, cached_snapshot)
     sample_metric_defaults = {label: value for label, value in sample.get("metrics", [])}
 
     def _get_metric_value(metric_rows, label):
@@ -22825,8 +22989,9 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             sample["change"] = str(live_stock["change_rupees"])
         if live_stock.get("change_pct") and live_stock.get("change_pct") != "-":
             sample["change_pct"] = str(live_stock["change_pct"]).strip()
-        sample["status"] = "Market Live" if is_market_open() else "Market Closed"
-        sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
+        if any(_has_usable_text(live_stock.get(field)) for field in ("ltp", "change_pct", "range_52w")):
+            sample["status"] = "Market Live" if is_market_open() else "Market Closed"
+            sample["updated"] = datetime.datetime.now(APP_TZ).strftime("%d %b %Y, %I:%M %p IST")
 
         market_cap_metric_value, _ = _get_metric_value_any(live_financial_metrics, ["Market Cap", "Mkt cap", "Market capitalization"])
         market_cap_value = _first_usable_value(live_stock.get("market_cap"), market_cap_metric_value) or "Source Pending"
@@ -22945,14 +23110,16 @@ def build_premium_stock_detail_context(stock_slug, host_root):
                 f"This premium research page is using the same core stock engine for price context, studies, and peer coverage. Current market mode: {mode_value}."
                 + (f" {summary_note}" if summary_note else "")
             )
-        sample["market_context_cards"] = [
+        built_market_context_cards = [
             {
                 "label": row.get("label") or "Market Context",
                 "value": row.get("value") or "Data updating",
                 "copy": row.get("subtext") or "Live market context from the core stock engine.",
             }
             for row in live_overview_metrics[:4]
-        ] or sample.get("market_context_cards") or []
+        ]
+        if any(_has_usable_text(item.get("value")) and str(item.get("value")).strip() != "-" for item in built_market_context_cards):
+            sample["market_context_cards"] = built_market_context_cards
         sample["research_links"] = [
             {
                 "title": item.get("title") or "Research Link",
@@ -23251,6 +23418,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         ]
     except Exception:
         pass
+    if cached_snapshot:
+        sample = apply_stock_snapshot_to_sample(sample, cached_snapshot)
     sample["metrics"] = [(label, _premium_placeholder(value)) for label, value in sample.get("metrics", [])]
     sample["dividend"] = {key: _premium_placeholder(value) for key, value in (sample.get("dividend") or {}).items()}
     sample["peers"] = [
@@ -23356,9 +23525,15 @@ def build_premium_stock_detail_context(stock_slug, host_root):
             "insight": "Institutional holding trend looks mildly positive because FII and DII participation has increased over recent quarters while promoter holding remains stable.",
         },
     )
+    sample["chart_ranges"] = chart_ranges
     sample["financial_cards"] = [(title, build_bar_svg(values), value) for title, values, value in sample["financial_cards"]]
     shareholding = sample["shareholding"]
     shareholding_style = f"conic-gradient(#2563EB 0 {shareholding['promoters']}%, #10B981 {shareholding['promoters']}% {shareholding['promoters'] + shareholding['fiis']}%, #0EA5E9 {shareholding['promoters'] + shareholding['fiis']}% {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}%, #E2E8F0 {shareholding['promoters'] + shareholding['fiis'] + shareholding['diis']}% 100%)"
+    merged_snapshot = merge_stock_snapshot(cached_snapshot or {}, build_stock_snapshot_payload(sample))
+    try:
+        save_stock_snapshot(sample.get("symbol") or "", merged_snapshot)
+    except Exception:
+        pass
     return {
         "seo_title": f"{company_name} Share Price, AI Analysis & Stock Research | TraderHub",
         "seo_description": f"Review {company_name} with a premium TraderHub stock detail page covering price, AI score, valuation, dividend overview, peer comparison, and related stocks.",
@@ -23445,7 +23620,7 @@ def build_premium_stock_research_sample_context(stock_slug, host_root):
         stock["dividend"] = dividend
 
         peer_rows = stock.get("peers") or []
-        if not any(_peer_row_has_data(row) for row in peer_rows) or all(
+        if not any(_premium_peer_row_has_data(row) for row in peer_rows) or all(
             str(item or "").strip() in {"", "Data updating"} for row in peer_rows for item in row[1:]
         ):
             stock["peers"] = list(overrides.get("peers") or peer_rows)
@@ -23456,7 +23631,7 @@ def build_premium_stock_research_sample_context(stock_slug, host_root):
             stock["shareholding_available"] = True
 
         institutional = dict(stock.get("institutional_activity") or {})
-        if not institutional.get("available") or not _institutional_rows_have_data(institutional.get("rows") or []):
+        if not institutional.get("available") or not _premium_institutional_rows_have_data(institutional.get("rows") or []):
             institutional["available"] = True
             institutional["rows"] = list(overrides.get("institutional_rows") or [])
             institutional["insight"] = overrides.get("institutional_insight") or institutional.get("insight") or ""
