@@ -22501,6 +22501,41 @@ def _premium_institutional_rows_have_data(rows):
     return False
 
 
+def _count_usable_stock_values(value):
+    if isinstance(value, dict):
+        if "value" in value and ("label" in value or "copy" in value):
+            return _count_usable_stock_values(value.get("value"))
+        return sum(_count_usable_stock_values(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        if len(value) == 3 and isinstance(value[0], str) and isinstance(value[1], list):
+            return _count_usable_stock_values(value[2])
+        if len(value) >= 2 and isinstance(value[0], str):
+            return sum(_count_usable_stock_values(item) for item in value[1:])
+        return sum(_count_usable_stock_values(item) for item in value)
+    return 1 if is_usable_stock_value(value) else 0
+
+
+def _snapshot_is_richer(candidate, current):
+    return _count_usable_stock_values(candidate) > _count_usable_stock_values(current)
+
+
+def _should_prefer_snapshot_market(sample, market_snapshot):
+    if not market_snapshot:
+        return False
+    if str(market_snapshot.get("status") or "").strip().lower() != "market closed":
+        return False
+    return (
+        is_usable_stock_value(market_snapshot.get("price"))
+        and is_usable_stock_value(market_snapshot.get("change"))
+        and is_usable_stock_value(market_snapshot.get("change_pct"))
+        and (
+            not is_usable_stock_value(sample.get("price"))
+            or not is_usable_stock_value(sample.get("change"))
+            or not is_usable_stock_value(sample.get("change_pct"))
+        )
+    )
+
+
 def load_stock_snapshot(symbol):
     path = get_stock_snapshot_path(symbol)
     if not path.exists():
@@ -22599,6 +22634,10 @@ def apply_stock_snapshot_to_sample(sample, snapshot):
     for key in ("price", "change", "change_pct", "status", "updated"):
         if not is_usable_stock_value(sample.get(key)) and is_usable_stock_value(market_snapshot.get(key)):
             sample[key] = market_snapshot.get(key)
+    if _should_prefer_snapshot_market(sample, market_snapshot):
+        for key in ("price", "change", "change_pct", "status", "updated"):
+            if is_usable_stock_value(market_snapshot.get(key)):
+                sample[key] = market_snapshot.get(key)
 
     sample_metrics = {label: value for label, value in (sample.get("metrics") or [])}
     snapshot_metrics = {label: value for label, value in (snapshot.get("metrics") or [])}
@@ -22611,6 +22650,8 @@ def apply_stock_snapshot_to_sample(sample, snapshot):
     for label, value in snapshot_metrics.items():
         if not is_usable_stock_value(sample_metrics.get(label)) and is_usable_stock_value(value):
             sample_metrics[label] = value
+        elif is_usable_stock_value(value) and str(sample_metrics.get(label) or "").strip() in {"-", "Data updating", "Source Pending", "Pending"}:
+            sample_metrics[label] = value
     if sample_metrics:
         sample["metrics"] = list(sample_metrics.items())
 
@@ -22622,37 +22663,63 @@ def apply_stock_snapshot_to_sample(sample, snapshot):
     for key, value in snapshot_dividend.items():
         if not is_usable_stock_value(sample_dividend.get(key)) and is_usable_stock_value(value):
             sample_dividend[key] = value
+    if _snapshot_is_richer(snapshot_dividend, sample.get("dividend") or {}):
+        for key, value in snapshot_dividend.items():
+            if is_usable_stock_value(value):
+                sample_dividend[key] = value
     if sample_dividend:
         sample["dividend"] = sample_dividend
 
-    if (not sample.get("market_context_cards")) or not any(
-        is_usable_stock_value((item or {}).get("value")) for item in sample.get("market_context_cards") or []
-    ):
-        market_cards = market_snapshot.get("market_context_cards") or snapshot.get("market_context_cards") or []
-        if any(is_usable_stock_value((item or {}).get("value")) for item in market_cards):
+    market_cards = market_snapshot.get("market_context_cards") or snapshot.get("market_context_cards") or []
+    if any(is_usable_stock_value((item or {}).get("value")) for item in market_cards):
+        if (
+            (not sample.get("market_context_cards"))
+            or not any(is_usable_stock_value((item or {}).get("value")) for item in sample.get("market_context_cards") or [])
+            or _snapshot_is_richer(market_cards, sample.get("market_context_cards") or [])
+        ):
             sample["market_context_cards"] = market_cards
 
-    if (not sample.get("financial_cards")) or not any(
-        is_usable_stock_value((row or [None, None, None])[2]) for row in sample.get("financial_cards") or []
-    ):
-        financial_cards = snapshot.get("financial_cards") or []
-        fundamentals_cards = fundamentals_snapshot.get("financial_cards") or {}
-        if financial_cards and fundamentals_cards:
-            rebuilt_cards = []
-            for title, svg, value in financial_cards:
-                rebuilt_cards.append((title, svg, fundamentals_cards.get(title, value)))
-            financial_cards = rebuilt_cards
-        if any(is_usable_stock_value((row or [None, None, None])[2]) for row in financial_cards or []):
+    financial_cards = snapshot.get("financial_cards") or []
+    fundamentals_cards = fundamentals_snapshot.get("financial_cards") or {}
+    if financial_cards and fundamentals_cards:
+        rebuilt_cards = []
+        for title, svg, value in financial_cards:
+            rebuilt_cards.append((title, svg, fundamentals_cards.get(title, value)))
+        financial_cards = rebuilt_cards
+    if any(is_usable_stock_value((row or [None, None, None])[2]) for row in financial_cards or []):
+        if (
+            (not sample.get("financial_cards"))
+            or not any(is_usable_stock_value((row or [None, None, None])[2]) for row in sample.get("financial_cards") or [])
+            or _snapshot_is_richer(financial_cards, sample.get("financial_cards") or [])
+        ):
             sample["financial_cards"] = financial_cards
 
-    if not sample.get("peer_data_available") and (snapshot.get("peer_data_available") or peers_block.get("peer_data_available")):
-        sample["peers"] = peers_block.get("peers") or snapshot.get("peers") or sample.get("peers") or []
-        sample["peer_data_available"] = True
-    if (not sample.get("shareholding_available")) and (snapshot.get("shareholding_available") or shareholding_block.get("shareholding_available")):
-        sample["shareholding"] = shareholding_block.get("shareholding") or snapshot.get("shareholding") or sample.get("shareholding") or {}
+    snapshot_peers = peers_block.get("peers") or snapshot.get("peers") or []
+    if snapshot_peers and (
+        not sample.get("peer_data_available")
+        or _snapshot_is_richer(snapshot_peers, sample.get("peers") or [])
+    ):
+        sample["peers"] = snapshot_peers
+        sample["peer_data_available"] = bool(peers_block.get("peer_data_available") or snapshot.get("peer_data_available") or any(_premium_peer_row_has_data(row) for row in snapshot_peers))
+
+    snapshot_shareholding = shareholding_block.get("shareholding") or snapshot.get("shareholding") or {}
+    snapshot_shareholding_available = bool(snapshot.get("shareholding_available") or shareholding_block.get("shareholding_available"))
+    if snapshot_shareholding_available and (
+        (not sample.get("shareholding_available"))
+        or _snapshot_is_richer(snapshot_shareholding, sample.get("shareholding") or {})
+    ):
+        sample["shareholding"] = snapshot_shareholding
         sample["shareholding_available"] = True
-    if not ((sample.get("institutional_activity") or {}).get("available")) and ((snapshot.get("institutional_activity") or {}).get("available") or institutional_block.get("available")):
-        sample["institutional_activity"] = institutional_block or snapshot.get("institutional_activity") or sample.get("institutional_activity") or {}
+
+    current_institutional = sample.get("institutional_activity") or {}
+    if (
+        ((snapshot.get("institutional_activity") or {}).get("available") or institutional_block.get("available"))
+        and (
+            not current_institutional.get("available")
+            or _snapshot_is_richer((institutional_block or snapshot.get("institutional_activity") or {}).get("rows") or [], current_institutional.get("rows") or [])
+        )
+    ):
+        sample["institutional_activity"] = institutional_block or snapshot.get("institutional_activity") or current_institutional or {}
 
     for key in ("chart_ranges", "research_links", "research_notes_live", "ai_summary", "fair_value", "entry_zone", "related", "buy_for", "avoid_if", "checklist"):
         if not is_usable_stock_value(sample.get(key)) and is_usable_stock_value(snapshot.get(key)):
