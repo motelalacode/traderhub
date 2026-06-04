@@ -9197,6 +9197,22 @@ def get_stock_page_peer_symbols(symbol):
         if symbol in sector_symbols:
             return list(dict.fromkeys(sector_symbols))
 
+    lookup = get_symbol_sector_lookup()
+    broad_sector = str(lookup.get(symbol) or "").split(" / ")[0].strip()
+    if broad_sector:
+        same_sector = [
+            peer_symbol
+            for peer_symbol, label in lookup.items()
+            if peer_symbol != symbol and str(label or "").split(" / ")[0].strip() == broad_sector
+        ]
+        if same_sector:
+            return [symbol] + list(dict.fromkeys(same_sector[:6]))
+
+    if symbol in NIFTY_50_SYMBOLS:
+        return [symbol] + [peer_symbol for peer_symbol in NIFTY_50_SYMBOLS if peer_symbol != symbol][:6]
+    if symbol in NIFTY_NEXT_50_SYMBOLS:
+        return [symbol] + [peer_symbol for peer_symbol in NIFTY_NEXT_50_SYMBOLS if peer_symbol != symbol][:6]
+
     return [symbol]
 
 
@@ -22835,6 +22851,7 @@ def build_market_snapshot_from_live_context(symbol, live_context):
 
 def build_fundamentals_snapshot_from_live_context(symbol, live_context):
     financial_metrics = (live_context or {}).get("financial_metrics") or []
+    quarterly_results_table = (live_context or {}).get("quarterly_results_table") or {}
     ratios_table = (live_context or {}).get("ratios_table") or {}
     annual_profit_loss_table = (live_context or {}).get("annual_profit_loss_table") or {}
     balance_sheet_table = (live_context or {}).get("balance_sheet_table") or {}
@@ -22892,8 +22909,14 @@ def build_fundamentals_snapshot_from_live_context(symbol, live_context):
         first_peer.get("dividend_yield"),
     ] if is_usable_stock_value(value)), "Data updating")
 
-    revenue = latest_table_value(annual_profit_loss_table, ["Sales", "Revenue"]) or "Data updating"
-    net_profit = latest_table_value(annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"]) or "Data updating"
+    revenue = next((value for value in [
+        latest_table_value(quarterly_results_table, ["Sales", "Revenue"]),
+        latest_table_value(annual_profit_loss_table, ["Sales", "Revenue"]),
+    ] if is_usable_stock_value(value)), "Data updating")
+    net_profit = next((value for value in [
+        latest_table_value(quarterly_results_table, ["Net Profit", "Profit After Tax", "PAT"]),
+        latest_table_value(annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"]),
+    ] if is_usable_stock_value(value)), "Data updating")
     eps = next((value for value in [
         metric_any(["EPS", "EPS (TTM)"]),
         latest_table_value(ratios_table, ["EPS", "EPS (TTM)"]),
@@ -23605,8 +23628,8 @@ def build_premium_stock_detail_context(stock_slug, host_root):
         ]
         sample["research_notes_live"] = [str(note or "").strip() for note in live_research_notes if str(note or "").strip()][:3]
 
-        revenue_values = _get_table_row_values(live_annual_profit_loss_table, ["Sales", "Revenue"])
-        profit_values = _get_table_row_values(live_annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"])
+        revenue_values = _get_table_row_values(live_quarterly_results_table, ["Sales", "Revenue"]) or _get_table_row_values(live_annual_profit_loss_table, ["Sales", "Revenue"])
+        profit_values = _get_table_row_values(live_quarterly_results_table, ["Net Profit", "Profit After Tax", "PAT"]) or _get_table_row_values(live_annual_profit_loss_table, ["Net Profit", "Profit After Tax", "PAT"])
         eps_table_values = _get_table_row_values(live_ratios_table, ["EPS", "EPS (TTM)"])
         free_cash_flow_values = _get_table_row_values(live_cash_flow_table, ["Free Cash Flow", "FCF"])
         net_worth_values = _get_table_row_values(live_balance_sheet_table, ["Net Worth", "Reserves", "Reserves and Surplus", "Other Equity"])
