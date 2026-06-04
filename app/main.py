@@ -22930,12 +22930,24 @@ def build_dividend_snapshot_from_live_context(symbol, live_context):
             annual_value = f"INR {(price_numeric * yield_numeric / 100.0):.2f}".replace(".00", "")
     annual_value = annual_value if is_usable_stock_value(annual_value) else "Data updating"
     history_href = next((item.get("url") for item in disclosure_links if "corporate actions" in str(item.get("title") or "").lower()), "")
+    history_meta = next((item.get("meta") for item in disclosure_links if "corporate actions" in str(item.get("title") or "").lower()), "")
+    ex_date_value = "Data updating"
+    if is_usable_stock_value(history_meta):
+        meta_text = str(history_meta).strip()
+        date_match = re.search(r"(\d{1,2}\s+[A-Za-z]{3,9}\s+\d{4})", meta_text)
+        if date_match:
+            ex_date_value = date_match.group(1)
+    growth_value = "Data updating"
+    payout_numeric = parse_numeric_text(payout_value)
+    yield_numeric = parse_numeric_text(yield_value)
+    if payout_numeric not in (None, 0) and yield_numeric not in (None, 0):
+        growth_value = "Stable payout support"
     return {
         "yield": yield_value,
         "payout": payout_value,
         "annual": annual_value,
-        "ex_date": "Data updating",
-        "growth": "Data updating",
+        "ex_date": ex_date_value,
+        "growth": growth_value,
         "history_href": history_href or f"/stocks/{get_canonical_stock_slug(symbol)}/news-archive",
         "saved_at": datetime.datetime.now(APP_TZ).isoformat(),
     }
@@ -22944,8 +22956,10 @@ def build_dividend_snapshot_from_live_context(symbol, live_context):
 def build_shareholding_snapshot_from_live_context(symbol, live_context):
     table_payload = (live_context or {}).get("shareholding_pattern_table") or {}
     holdings_rows = (live_context or {}).get("holdings_deals") or []
+    ownership_watch_rows = (live_context or {}).get("ownership_watch_rows") or []
     snapshot = {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}
     available = False
+    as_of = ""
     if table_payload.get("rows") and table_payload.get("columns"):
         row_map = {str(row.get("label") or "").strip().lower(): row.get("values") or [] for row in table_payload.get("rows") or []}
         values = {
@@ -22954,12 +22968,13 @@ def build_shareholding_snapshot_from_live_context(symbol, live_context):
             "diis": parse_numeric_text((row_map.get("diis") or [None])[0]),
             "public": parse_numeric_text((row_map.get("public") or [None])[0]),
         }
+        as_of = str((table_payload.get("columns") or [None])[0] or "").strip()
         if all(value is not None for value in values.values()):
             snapshot = {key: round(value, 2) for key, value in values.items()}
             available = True
     if not available:
         mapping = {"promoter holding": "promoters", "fii holding": "fiis", "dii holding": "diis", "retail & other": "public"}
-        recovered = 0
+        recovered_keys = set()
         for item in holdings_rows:
             target = mapping.get(str(item.get("label") or "").strip().lower())
             if not target:
@@ -22968,17 +22983,44 @@ def build_shareholding_snapshot_from_live_context(symbol, live_context):
             if numeric is None:
                 continue
             snapshot[target] = round(numeric, 2)
-            recovered += 1
-        available = recovered >= 4
+            recovered_keys.add(target)
+            if not as_of:
+                as_of = str(item.get("note") or "").strip()
+        if len(recovered_keys) >= 3 and "public" not in recovered_keys:
+            computed_public = round(max(0.0, 100.0 - snapshot.get("promoters", 0.0) - snapshot.get("fiis", 0.0) - snapshot.get("diis", 0.0)), 2)
+            snapshot["public"] = computed_public
+            recovered_keys.add("public")
+        available = len(recovered_keys) >= 4
+    if not available and ownership_watch_rows:
+        mapping = {"promoter": "promoters", "fii": "fiis", "dii": "diis", "retail & other": "public", "public / retail": "public"}
+        recovered_keys = set()
+        for item in ownership_watch_rows:
+            target = mapping.get(str(item.get("category") or "").strip().lower())
+            if not target:
+                continue
+            numeric = parse_numeric_text(item.get("current"))
+            if numeric is None:
+                continue
+            snapshot[target] = round(numeric, 2)
+            recovered_keys.add(target)
+            if not as_of:
+                as_of = str(item.get("note") or "").strip()
+        if len(recovered_keys) >= 3 and "public" not in recovered_keys:
+            computed_public = round(max(0.0, 100.0 - snapshot.get("promoters", 0.0) - snapshot.get("fiis", 0.0) - snapshot.get("diis", 0.0)), 2)
+            snapshot["public"] = computed_public
+            recovered_keys.add("public")
+        available = len(recovered_keys) >= 4
     return {
         "shareholding": snapshot,
         "shareholding_available": available,
+        "as_of": as_of,
         "saved_at": datetime.datetime.now(APP_TZ).isoformat(),
     }
 
 
 def build_institutional_snapshot_from_live_context(symbol, live_context, shareholding_snapshot=None):
     table_payload = (live_context or {}).get("shareholding_pattern_table") or {}
+    ownership_watch_rows = (live_context or {}).get("ownership_watch_rows") or []
     rows = []
     insight = "Institutional activity is updating for this stock. TraderHub is showing the latest verified ownership watch where available and will restore quarter-wise history once the source is available."
     if table_payload.get("rows") and table_payload.get("columns"):
@@ -22994,9 +23036,31 @@ def build_institutional_snapshot_from_live_context(symbol, live_context, shareho
                 f"{parse_numeric_text(fii_value):.1f}%" if parse_numeric_text(fii_value) is not None else "Data updating",
                 f"{parse_numeric_text(dii_value):.1f}%" if parse_numeric_text(dii_value) is not None else "Data updating",
                 f"{parse_numeric_text(promoter_value):.1f}%" if parse_numeric_text(promoter_value) is not None else "Data updating",
-                f"{parse_numeric_text(public_value):.1f}%" if parse_numeric_text(public_value) is not None else "Data updating",
-                "Stable",
-            ))
+                  f"{parse_numeric_text(public_value):.1f}%" if parse_numeric_text(public_value) is not None else "Data updating",
+                  "Stable",
+              ))
+    if len(rows) < 2 and ownership_watch_rows:
+        latest_period_note = ""
+        latest_row = {"Promoter": "Data updating", "FII": "Data updating", "DII": "Data updating", "Retail & Other": "Data updating"}
+        previous_row = {"Promoter": "Data updating", "FII": "Data updating", "DII": "Data updating", "Retail & Other": "Data updating"}
+        for item in ownership_watch_rows:
+            category = str(item.get("category") or "").strip()
+            if category not in latest_row:
+                continue
+            latest_row[category] = f"{parse_numeric_text(item.get('current')):.1f}%" if parse_numeric_text(item.get("current")) is not None else "Data updating"
+            previous_row[category] = f"{parse_numeric_text(item.get('previous')):.1f}%" if parse_numeric_text(item.get("previous")) is not None else "Data updating"
+            if not latest_period_note:
+                latest_period_note = str(item.get("note") or "").strip()
+        if any(is_usable_stock_value(value) for value in latest_row.values()):
+            latest_public = latest_row.get("Retail & Other", "Data updating")
+            previous_public = previous_row.get("Retail & Other", "Data updating")
+            latest_quarter = latest_period_note.split(" vs ")[0].strip() if latest_period_note else "Latest"
+            previous_quarter = latest_period_note.split(" vs ")[-1].strip() if " vs " in latest_period_note else "Previous"
+            rows = [
+                (latest_quarter, latest_row["FII"], latest_row["DII"], latest_row["Promoter"], latest_public, "Latest"),
+                (previous_quarter, previous_row["FII"], previous_row["DII"], previous_row["Promoter"], previous_public, "Prior"),
+            ]
+            insight = "Institutional activity is using the latest verified ownership-watch rows while the full quarter-wise table is still syncing."
     current_holding = (shareholding_snapshot or {}).get("shareholding") or {"promoters": 0.0, "fiis": 0.0, "diis": 0.0, "public": 0.0}
     if len(rows) < 4 and all(value is not None for value in current_holding.values()):
         promoter_value = f"{float(current_holding.get('promoters', 0.0)):.1f}%"
