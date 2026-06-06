@@ -24246,7 +24246,7 @@ def build_premium_stocks_hub_context(host_root):
         ),
         "nav_links": build_trial_home_nav_links(),
         "popular_chips": ["Reliance", "TCS", "Infosys", "HDFC Bank", "ITC", "SBI"],
-        "trust_line": "5000+ Indian stocks ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ AI Score ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Dividend History ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Peer Comparison ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Investment Checklist",
+        "trust_line": "5000+ Indian stocks | AI Score | Dividend History | Peer Comparison | Investment Checklist",
         "autocomplete_rows": [
             {"name": "Reliance Industries Ltd", "symbol": "RELIANCE", "exchange": "NSE", "sector": "Energy", "slug": "reliance-industries"},
             {"name": "Tata Consultancy Services", "symbol": "TCS", "exchange": "NSE", "sector": "IT", "slug": "tata-consultancy-services"},
@@ -24254,13 +24254,13 @@ def build_premium_stocks_hub_context(host_root):
         ],
         "research_cards": [
             {"title": "AI Score", "icon": "AI", "copy": "Read a quick TraderHub conviction layer before going deeper."},
-            {"title": "Fair Value", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¹", "copy": "Check if price looks cheap, fair or stretched."},
-            {"title": "Price Chart", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ", "copy": "Open timeframe views and trend structure in one place."},
-            {"title": "Dividend History", "icon": "%", "copy": "Track yield, payout consistency and ex-date context."},
-            {"title": "Financial Performance", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
-            {"title": "Peer Comparison", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“", "copy": "Compare valuation and quality side by side."},
-            {"title": "Risk Meter", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ", "copy": "See whether the stock suits low, moderate or higher risk."},
-            {"title": "Investment Checklist", "icon": "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ", "copy": "Get a simple investor-ready quality checklist fast."},
+            {"title": "Fair Value", "icon": "FV", "copy": "Check if price looks cheap, fair or stretched."},
+            {"title": "Price Chart", "icon": "1Y", "copy": "Open timeframe views and trend structure in one place."},
+            {"title": "Dividend History", "icon": "DIV", "copy": "Track yield, payout consistency and ex-date context."},
+            {"title": "Financial Performance", "icon": "REV", "copy": "Review revenue, profit, EPS, net worth and cash flow."},
+            {"title": "Peer Comparison", "icon": "PEER", "copy": "Compare valuation and quality side by side."},
+            {"title": "Risk Meter", "icon": "R", "copy": "See whether the stock suits low, moderate or higher risk."},
+            {"title": "Investment Checklist", "icon": "CHK", "copy": "Get a simple investor-ready quality checklist fast."},
         ],
         "trending_searches": ["Reliance", "ITC", "TCS", "HDFC Bank", "Tata Motors", "Adani Ports"],
         "categories": [
@@ -24300,12 +24300,12 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
     .hero{margin-top:18px;padding:42px 34px;border-radius:32px;background:linear-gradient(145deg,rgba(255,255,255,.98),rgba(245,249,255,.98));border:1px solid var(--line);box-shadow:var(--shadow);text-align:center}
     .eyebrow{display:inline-flex;align-items:center;padding:8px 14px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase}
     h1{margin:16px auto 10px;max-width:860px;font-size:clamp(34px,4vw,58px);line-height:1.02}.hero p{margin:0 auto;max-width:860px;color:var(--muted);line-height:1.8;font-size:16px}
-    .search-shell{max-width:900px;margin:26px auto 0;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:18px 20px;border-radius:20px;border:1px solid var(--line);font:inherit;font-size:17px;box-shadow:0 12px 26px rgba(15,23,42,.04)}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
+    .search-shell{max-width:900px;margin:26px auto 0;display:grid;grid-template-columns:1fr auto;gap:12px}.search-shell input{padding:18px 22px;border-radius:22px;border:1px solid rgba(37,99,235,.14);font:inherit;font-size:17px;box-shadow:0 18px 38px rgba(15,23,42,.06);background:linear-gradient(180deg,#ffffff,#fbfdff);transition:border-color .18s ease, box-shadow .18s ease, transform .18s ease}.search-shell input:focus{outline:none;border-color:rgba(37,99,235,.36);box-shadow:0 22px 42px rgba(37,99,235,.12);transform:translateY(-1px)}.btn{display:inline-flex;align-items:center;justify-content:center;padding:15px 18px;border-radius:18px;background:linear-gradient(135deg,var(--blue),#0EA5E9);color:#fff;font-size:14px;font-weight:800;border:none}
     .chip-row{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:18px}.chip{display:inline-flex;align-items:center;padding:8px 12px;border-radius:999px;background:#eef4ff;color:var(--blue);font-size:12px;font-weight:800}
     .trust-line{margin:16px auto 0;max-width:900px;color:var(--muted);font-size:14px;font-weight:700;line-height:1.8}
-    .autocomplete-shell{max-width:900px;margin:14px auto 0;padding:12px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 18px 34px rgba(15,23,42,.05);text-align:left}
+    .autocomplete-shell{max-width:900px;margin:14px auto 0;padding:10px;border-radius:26px;background:rgba(255,255,255,.98);border:1px solid rgba(37,99,235,.10);box-shadow:0 28px 58px rgba(15,23,42,.10);text-align:left;backdrop-filter:blur(16px)}
     .autocomplete-shell.is-hidden{display:none}
-    .autocomplete-row{display:flex;justify-content:space-between;gap:12px;padding:12px 14px;border-radius:18px}.autocomplete-row + .autocomplete-row{border-top:1px solid var(--line)}.autocomplete-row strong{display:block;font-size:15px}.autocomplete-row span{color:var(--muted);font-size:13px}
+    .autocomplete-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:16px;padding:14px 16px;border-radius:20px;transition:background .18s ease, transform .18s ease, box-shadow .18s ease}.autocomplete-row:hover{background:linear-gradient(135deg,#f8fbff,#eef4ff);transform:translateY(-1px);box-shadow:inset 0 0 0 1px rgba(37,99,235,.08)}.autocomplete-row + .autocomplete-row{margin-top:4px}.autocomplete-main{min-width:0}.autocomplete-main strong{display:block;font-size:15px;line-height:1.35}.autocomplete-meta{display:block;margin-top:4px;color:var(--muted);font-size:12px;font-weight:700;letter-spacing:.02em}.autocomplete-action{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:14px;background:#f8fbff;border:1px solid rgba(37,99,235,.10);color:var(--blue);font-size:12px;font-weight:800;white-space:nowrap}.autocomplete-action::after{content:"->";font-size:12px}.autocomplete-mark{color:var(--blue);background:rgba(37,99,235,.12);padding:0 4px;border-radius:8px}
     .section{margin-top:30px}.section-head h2{margin:0;font-size:30px}.section-head p{margin:8px 0 0;color:var(--muted);line-height:1.8}
     .grid-4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:16px}.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:16px}
     .card{padding:22px;border-radius:24px;background:#fff;border:1px solid var(--line);box-shadow:0 16px 34px rgba(15,23,42,.05)}.card h3{margin:12px 0 8px;font-size:22px}.card p{margin:0;color:var(--muted);line-height:1.7}
@@ -24343,11 +24343,11 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       <div class="autocomplete-shell" id="stocks-autocomplete-shell">
         {% for row in autocomplete_rows %}
         <a class="autocomplete-row" href="/stocks/research/{{ row.slug }}">
-          <div>
+          <div class="autocomplete-main">
             <strong>{{ row.name }}</strong>
-            <span>{{ row.symbol }} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {{ row.exchange }} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ {{ row.sector }}</span>
+            <span class="autocomplete-meta">{{ row.symbol }} | {{ row.exchange }} | {{ row.sector }}</span>
           </div>
-          <div><span>Press Enter to open stock report</span></div>
+          <div class="autocomplete-action"><span>Open Report</span></div>
         </a>
         {% endfor %}
       </div>
@@ -24390,7 +24390,7 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
             <h3>{{ card.title }}</h3>
             <p>Open this category inside TraderHub research flow.</p>
           </div>
-          <div class="feature-icon">ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¾Ãƒâ€šÃ‚Â¢</div>
+          <div class="feature-icon">&rarr;</div>
         </a>
         {% endfor %}
       </div>
@@ -24440,20 +24440,37 @@ PREMIUM_STOCKS_HUB_TEMPLATE = """
       const shell = document.getElementById("stocks-autocomplete-shell");
       if (!input || !shell) return;
 
+      const escapeHtml = (value) => String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+      const highlightMatch = (value, query) => {
+        const safeValue = escapeHtml(value);
+        if (!query) return safeValue;
+        const specials = "|\\{}()[]^$+*?.";
+        const escapedQuery = Array.from(query).map((char) => specials.includes(char) ? ("\\" + char) : char).join("");
+        const matcher = new RegExp(`(${escapedQuery})`, "ig");
+        return safeValue.replace(matcher, '<span class="autocomplete-mark">$1</span>');
+      };
+
       const renderRows = (rows) => {
         if (!Array.isArray(rows) || !rows.length) {
           shell.classList.add("is-hidden");
           return;
         }
+        const query = input.value.trim();
         shell.innerHTML = rows.map((row) => {
-          const label = `${row.symbol || ""} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ ${row.exchange || "NSE"} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ ${row.sector || "Indian Equities"}`;
+          const label = `${row.symbol || ""} | ${row.exchange || "NSE"} | ${row.sector || "Indian Equities"}`;
           const href = `/stocks/research/${row.slug || ""}`;
           return `<a class="autocomplete-row" href="${href}">
-            <div>
-              <strong>${row.name || ""}</strong>
-              <span>${label}</span>
+            <div class="autocomplete-main">
+              <strong>${highlightMatch(row.name || "", query)}</strong>
+              <span class="autocomplete-meta">${highlightMatch(label, query)}</span>
             </div>
-            <div><span>Open Report</span></div>
+            <div class="autocomplete-action"><span>Open Report</span></div>
           </a>`;
         }).join("");
         shell.classList.remove("is-hidden");
